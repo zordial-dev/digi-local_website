@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* DigiCafe Luxury Global CSS Variables & Theme Setup */
+:root {
+  --primary-navy: #0A1428;
+  --primary-navy-rgb: 10, 20, 40;
+  --accent-gold: #C5A880;
+  --accent-gold-rgb: 197, 168, 128;
+  --accent-gold-light: #F6F3EC;
+  --accent-gold-hover: #A88F68;
+  --bg-cream: #FAF9F6;
+  --card-bg: #FFFFFF;
+  --text-dark: #1F2229;
+  --text-muted: #787F8C;
+  --border-light: rgba(197, 168, 128, 0.22);
+  --error: #C62828;
+  --success: #2E7D32;
+
+  --glass-bg: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(197, 168, 128, 0.18);
+  --glass-blur: 14px;
+
+  --font-serif: 'Cinzel', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+  --shadow-sm: 0 2px 8px rgba(10, 20, 40, 0.04);
+  --shadow-md: 0 6px 18px rgba(10, 20, 40, 0.06);
+  --shadow-lg: 0 12px 32px rgba(10, 20, 40, 0.08);
+  --shadow-gold: 0 6px 20px rgba(197, 168, 128, 0.2);
+
+  --transition-smooth: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: all 0.15s ease-out;
+}
+
+#root {
+  width: 100%;
+  max-width: 1200px;
+  min-height: 100vh;
+  background-color: var(--bg-cream);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.4);
+}
+
+@media (min-width: 1200px) {
+  #root {
+    border-left: 1px solid var(--border-light);
+    border-right: 1px solid var(--border-light);
+  }
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-cream);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--accent-gold);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-gold-hover);
+}
