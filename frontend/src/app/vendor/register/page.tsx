@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
-import { Lock, CheckCircle2, ArrowRight, ShieldCheck, Upload, Smartphone, Store, Clock, Tag } from 'lucide-react';
+'use client';
 
-export default function VendorRegisterPage({ setRoute, setActiveVendor }) {
-  // Query / Route params fallback
-  const societyId = '101';
-  const societyName = 'Greenwood Heights';
+import React, { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Lock, CheckCircle2, ArrowRight, ArrowLeft, ShieldCheck, Upload, Smartphone, Store, Clock, Plus, Tag } from 'lucide-react';
+
+function VendorRegisterContent() {
+  const searchParams = useSearchParams();
+  const rawSocietyId = searchParams.get('societyId') || '101';
+  const rawSocietyName = searchParams.get('societyName') || 'Greenwood Heights';
+
+  const [societyId] = useState(rawSocietyId);
+  const [societyName] = useState(rawSocietyName);
 
   // Stepper State (3 Steps)
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState<number>(1);
   const STATIC_OTP = '123456';
 
   // Step 1 State: Locked Society Info & Business Profile
@@ -30,7 +36,7 @@ export default function VendorRegisterPage({ setRoute, setActiveVendor }) {
   const [isRegistrationSubmitted, setIsRegistrationSubmitted] = useState(false);
 
   // Step 1 Validation
-  const handleStep1Next = (e) => {
+  const handleStep1Next = (e: React.FormEvent) => {
     e.preventDefault();
     if (!businessName.trim()) {
       setStep1Error('Please enter your Vendor Business Name before continuing.');
@@ -73,30 +79,42 @@ export default function VendorRegisterPage({ setRoute, setActiveVendor }) {
   };
 
   // Step 3 Submit Registration
-  const handleFinalSubmit = (e) => {
+  const handleFinalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsRegistrationSubmitted(true);
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#1F2229] pb-20">
+    <div className="min-h-screen bg-[#FAF9F6] text-[#1F2229] flex flex-col font-sans">
       
-      {/* Top Banner */}
-      <div className="bg-white border-b border-[#C5A880]/20 py-8 shadow-sm">
-        <div className="max-w-3xl mx-auto px-4 text-center">
-          <span className="px-3.5 py-1.5 text-xs font-extrabold bg-[#F6F3EC] text-[#0A1428] border border-[#C5A880]/30 rounded-full inline-block mb-2 uppercase tracking-wider">
-            Vendor Onboarding Portal
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#0A1428] uppercase tracking-wide">
-            Register as a Society Vendor
-          </h1>
-          <p className="text-xs text-[#787F8C] mt-1 font-medium">
-            Join the verified hyper-local resident delivery network
-          </p>
-        </div>
-      </div>
+      {/* Top Navbar */}
+      <header className="bg-white border-b border-[#C5A880]/20 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => (window.location.href = '/')}>
+            <div className="w-10 h-10 rounded-xl bg-[#0A1428] border border-[#C5A880]/40 flex items-center justify-center text-[#C5A880] font-bold text-lg">
+              DL
+            </div>
+            <div>
+              <span className="font-serif font-extrabold text-lg text-[#0A1428] tracking-wider uppercase block leading-none">
+                DigiLocal
+              </span>
+              <span className="text-[10px] text-[#C5A880] font-semibold uppercase tracking-widest">
+                Vendor Onboarding
+              </span>
+            </div>
+          </div>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 mt-8">
+          <button
+            onClick={() => (window.location.href = '/')}
+            className="text-xs font-bold text-gray-500 hover:text-gray-900 uppercase tracking-wider"
+          >
+            ← Back to Homepage
+          </button>
+        </div>
+      </header>
+
+      {/* Main Container */}
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10 flex-1 w-full">
         {isRegistrationSubmitted ? (
           /* Success Screen with Pending Admin Approval Badge */
           <div className="bg-white rounded-3xl p-8 sm:p-12 shadow-xl border border-[#C5A880]/30 text-center space-y-6 animate-in fade-in duration-300">
@@ -141,7 +159,7 @@ export default function VendorRegisterPage({ setRoute, setActiveVendor }) {
 
             <div className="pt-2 flex flex-col sm:flex-row justify-center gap-3">
               <button
-                onClick={() => setRoute({ page: 'home' })}
+                onClick={() => (window.location.href = '/')}
                 className="px-6 py-3.5 bg-[#0A1428] hover:bg-[#C5A880] text-white font-extrabold text-xs rounded-xl uppercase tracking-wider transition-colors shadow-md"
               >
                 Return to Homepage
@@ -157,10 +175,10 @@ export default function VendorRegisterPage({ setRoute, setActiveVendor }) {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <span className="px-3 py-1 bg-[#C5A880]/20 text-[#C5A880] border border-[#C5A880]/30 text-[10px] font-extrabold rounded-full uppercase tracking-wider">
-                    Vendor Onboarding Form
+                    Vendor Registration Portal
                   </span>
                   <h2 className="text-xl sm:text-2xl font-serif font-extrabold mt-1">
-                    Onboard Store for {societyName}
+                    Become a Society Vendor
                   </h2>
                 </div>
 
@@ -492,6 +510,17 @@ export default function VendorRegisterPage({ setRoute, setActiveVendor }) {
         )}
       </main>
 
+      <footer className="bg-white border-t border-gray-200 py-6 text-center text-xs text-gray-500">
+        <p>© 2026 DigiLocal Vendor Network. All rights reserved.</p>
+      </footer>
     </div>
+  );
+}
+
+export default function VendorRegisterPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-xs font-bold text-gray-500">Loading registration form...</div>}>
+      <VendorRegisterContent />
+    </Suspense>
   );
 }
