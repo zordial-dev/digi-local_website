@@ -566,13 +566,24 @@ export default function AdminDashboardPage({ setRoute }) {
               <div className="space-y-3">
                 {(Array.isArray(societies) ? societies : []).map((soc) => (
                   <div key={soc.society_id} className="p-4 rounded-xl bg-white border border-[#C5A880]/25 flex items-center justify-between shadow-sm">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-full bg-[#F6F3EC] border border-[#C5A880]/30 flex items-center justify-center text-[#C5A880]">
-                        <Building2 className="w-5 h-5" />
+                    <div className="flex items-center space-x-3.5">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#C5A880]/30 shrink-0 bg-[#F6F3EC]">
+                        <img 
+                          src={soc.image_url || soc.banner_image || 'https://static.squareyards.com/resources/images/noida/project-image/omaxe-greenwood-project-project-large-image1-2275.jpg'} 
+                          alt={soc.society_name} 
+                          className="w-full h-full object-cover" 
+                        />
                       </div>
                       <div>
-                        <h4 className="font-bold text-[#0A1428] text-sm">{soc.society_name}</h4>
-                        <div className="flex items-center space-x-1 text-xs text-[#787F8C] font-medium">
+                        <div className="flex items-center space-x-2">
+                          <h4 className="font-bold text-[#0A1428] text-sm">{soc.society_name}</h4>
+                          {soc.society_id && (
+                            <span className="px-2 py-0.5 text-[9px] font-extrabold bg-[#0A1428] text-[#C5A880] rounded-md uppercase tracking-wider">
+                              {soc.society_id}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-1 text-xs text-[#787F8C] font-medium mt-0.5">
                           <MapPin className="w-3.5 h-3.5 text-[#C5A880]" />
                           <span>{soc.location}</span>
                         </div>

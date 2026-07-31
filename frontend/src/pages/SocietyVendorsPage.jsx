@@ -42,17 +42,35 @@ export default function SocietyVendorsPage({ societyId, setRoute }) {
           </button>
 
           {society && (
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div>
-                <span className="px-3.5 py-1 text-[11px] font-bold bg-secondary text-ink rounded-full inline-block mb-3 border border-border">
-                  Residential Society Marketplace
-                </span>
-                <h1 className="text-3xl sm:text-4xl font-serif font-bold text-ink">
-                  {society.society_name}
-                </h1>
-                <div className="flex items-center space-x-1.5 text-muted-foreground text-xs mt-1.5 font-medium">
-                  <MapPin className="w-4 h-4 text-gold" />
-                  <span>{society.location}</span>
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                {(society.image_url || society.banner_image) && (
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-border shadow-sm shrink-0">
+                    <img 
+                      src={society.image_url || society.banner_image} 
+                      alt={society.society_name} 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                <div>
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="px-3.5 py-1 text-[11px] font-bold bg-secondary text-ink rounded-full inline-block border border-border">
+                      Residential Society Marketplace
+                    </span>
+                    {society.society_id && (
+                      <span className="px-3 py-1 text-[11px] font-extrabold bg-emerald-950 text-emerald-300 rounded-full inline-block border border-emerald-700/40">
+                        {society.society_id}
+                      </span>
+                    )}
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-serif font-bold text-ink">
+                    {society.society_name}
+                  </h1>
+                  <div className="flex items-center space-x-1.5 text-muted-foreground text-xs mt-1.5 font-medium">
+                    <MapPin className="w-4 h-4 text-gold" />
+                    <span>{society.location}</span>
+                  </div>
                 </div>
               </div>
 

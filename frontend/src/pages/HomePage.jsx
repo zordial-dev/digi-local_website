@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
-import { Search, MapPin, Building2, Store, PlusCircle, AlertCircle, ArrowRight, X, CheckCircle2, ArrowUpRight, Play, Sparkles, ChevronRight, ShieldCheck, Heart, Coffee, Clock, Lock, Smartphone, ShoppingBag, Cookie, Milk, Headphones, Star, Truck, MessageCircle } from 'lucide-react';
+import { Search, MapPin, Building2, Store, PlusCircle, AlertCircle, ArrowRight, X, CheckCircle2, ArrowUpRight, Play, Sparkles, ChevronRight, ShieldCheck, Heart, Coffee, Clock, Lock, Smartphone, ShoppingBag, Cookie, Milk, Headphones, Star, Truck, MessageCircle, Filter, Zap } from 'lucide-react';
+import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
 
 export default function HomePage({ setRoute }) {
   const [societies, setSocieties] = useState([]);
   const [search, setSearch] = useState('');
+  const [activeLocationFilter, setActiveLocationFilter] = useState('All');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeOrder, setActiveOrder] = useState(null);
   
   // Unlisted Society Modal State
   const [isUnlistedModalOpen, setIsUnlistedModalOpen] = useState(false);
@@ -26,6 +29,29 @@ export default function HomePage({ setRoute }) {
   useEffect(() => {
     fetchSocieties(search);
   }, [search]);
+
+  // Load active order from storage for live order tracking widget
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('digilocal_active_order');
+      if (saved) {
+        setActiveOrder(JSON.parse(saved));
+      }
+    } catch (_) {}
+  }, []);
+
+  // Keyboard shortcut listener ('/' focuses search box)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        const inputEl = document.getElementById('search-input-box');
+        if (inputEl) inputEl.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Handle Outside Click for Autocomplete Dropdown
   useEffect(() => {
@@ -118,8 +144,8 @@ export default function HomePage({ setRoute }) {
             {/* Top Row: Pill Nav & Register Button */}
             <div className="flex flex-col lg:flex-row items-center justify-between gap-4 mb-8">
               <div className="flex items-center space-x-3 flex-wrap gap-y-2">
-                <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white backdrop-blur-md border border-white/15">
-                  <Sparkles className="w-4 h-4 text-white fill-white" />
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-md border border-white/15 p-2 shadow-lg">
+                  <img src="/logo.png" alt="DigiLocal Logo" className="w-full h-full object-contain" />
                 </div>
 
                 {/* Pill Tab Navigation Bar */}
@@ -176,37 +202,10 @@ export default function HomePage({ setRoute }) {
             {/* Hero Main 2-Column Content */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center pt-2">
               
-              {/* Left Sub-card Column (5 Cols) */}
+              {/* Left Column - Hero Feature Pillars */}
               <div className="lg:col-span-5 space-y-6">
-                
-                {/* Translucent Dark Inner Card */}
-                <div className="bg-[#243A2D]/90 backdrop-blur-md border border-white/10 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl">
-                  <div className="flex items-center space-x-2">
-                    <div className="flex -space-x-2">
-                      <img className="w-8 h-8 rounded-full border-2 border-[#243A2D] object-cover" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Avatar" />
-                      <img className="w-8 h-8 rounded-full border-2 border-[#243A2D] object-cover" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80" alt="Avatar" />
-                      <img className="w-8 h-8 rounded-full border-2 border-[#243A2D] object-cover" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80" alt="Avatar" />
-                    </div>
-                    <span className="w-8 h-8 rounded-full bg-white/10 border border-white/20 text-white font-bold text-[10px] flex items-center justify-center">
-                      20K+
-                    </span>
-                  </div>
-
-                  <div>
-                    <h2 className="text-4xl sm:text-5xl font-serif font-black text-white tracking-tight">20K+</h2>
-                    <p className="text-[10px] text-white/70 font-extrabold uppercase tracking-widest mt-1">
-                      SOCIETY ORDERS DELIVERED
-                    </p>
-                  </div>
-
-                  <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-white/90 text-[11px] font-bold">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#C4A066]" />
-                    <span>Trusted by 100+ Societies</span>
-                  </div>
-                </div>
-
-                {/* 3 Bottom Features underneath inner card */}
-                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10">
+                {/* 3 Features */}
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t sm:border-t-0 border-white/10">
                   <div className="space-y-1.5">
                     <div className="w-9 h-9 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-white">
                       <ShoppingBag className="w-4 h-4 text-white" />
@@ -242,8 +241,8 @@ export default function HomePage({ setRoute }) {
                   </span>
 
                   <h1 className="text-4xl sm:text-6xl font-serif font-normal text-white leading-[1.1] tracking-tight">
-                    Local goodness, <br />
-                    <span className="font-serif italic text-[#C4A066] font-normal">delivered</span> to your doorstep.
+                    Hyperlocal. <br />
+                    <span className="font-serif italic text-[#C4A066] font-normal">Instant.</span> Doorstep.
                   </h1>
 
                   <p className="text-xs sm:text-sm text-white/80 font-normal leading-relaxed max-w-md mt-4">
@@ -488,17 +487,46 @@ export default function HomePage({ setRoute }) {
                 setSearch(e.target.value);
                 setIsDropdownOpen(true);
               }}
-              className="w-full pl-14 pr-14 py-4 rounded-[2rem] bg-transparent text-ink placeholder-muted-foreground text-xs sm:text-sm font-semibold focus:outline-none"
+              className="w-full pl-14 pr-24 py-4 rounded-[2rem] bg-transparent text-ink placeholder-muted-foreground text-xs sm:text-sm font-semibold focus:outline-none"
             />
 
-            {search && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center space-x-2">
+              {search ? (
+                <button
+                  onClick={() => setSearch('')}
+                  className="text-xs font-bold text-muted-foreground hover:text-ink bg-secondary rounded-full w-6 h-6 flex items-center justify-center transition-colors"
+                >
+                  ✕
+                </button>
+              ) : (
+                <span className="hidden sm:inline-flex items-center text-[10px] font-mono font-bold text-muted-foreground bg-secondary px-2 py-1 rounded-md border border-border">
+                  Press /
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Location Quick Filter Chips */}
+          <div className="flex items-center space-x-2 overflow-x-auto py-3 px-1 scrollbar-none text-xs font-bold">
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wider font-extrabold flex items-center gap-1 shrink-0">
+              <Filter className="w-3.5 h-3.5 text-gold" /> Filter:
+            </span>
+            {['All', 'Noida', 'Greater Noida', 'Bengaluru', 'Gurugram'].map((loc) => (
               <button
-                onClick={() => setSearch('')}
-                className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground hover:text-ink bg-secondary rounded-full w-6 h-6 flex items-center justify-center transition-colors"
+                key={loc}
+                onClick={() => {
+                  setActiveLocationFilter(loc);
+                  setSearch(loc === 'All' ? '' : loc);
+                }}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
+                  activeLocationFilter === loc || (loc === 'All' && !search)
+                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                    : 'bg-card text-muted-foreground hover:text-ink border-border'
+                }`}
               >
-                ✕
+                {loc === 'All' ? '✨ All Complexes' : `📍 ${loc}`}
               </button>
-            )}
+            ))}
           </div>
 
           {/* Dropdown Autocomplete Results */}
@@ -647,11 +675,17 @@ export default function HomePage({ setRoute }) {
                   {/* Banner Image */}
                   <div className="h-48 w-full relative overflow-hidden bg-secondary">
                     <img
-                      src={soc.banner_image || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&auto=format&fit=crop&q=80'}
+                      src={soc.image_url || soc.banner_image || 'https://static.squareyards.com/resources/images/noida/project-image/omaxe-greenwood-project-project-large-image1-2275.jpg'}
                       alt={soc.society_name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     
+                    {/* Unique Society ID Badge */}
+                    <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-emerald-950/80 backdrop-blur-md border border-emerald-500/30 text-emerald-300 text-[10px] font-extrabold flex items-center space-x-1 shadow-sm">
+                      <Building2 className="w-3 h-3 text-gold" />
+                      <span>{soc.society_id}</span>
+                    </div>
+
                     {/* Active Vendors Count Badge */}
                     <div className="absolute top-3.5 right-3.5 px-3 py-1 rounded-full bg-ink/80 backdrop-blur-md border border-white/20 text-white text-[10px] font-extrabold flex items-center space-x-1.5">
                       <Store className="w-3.5 h-3.5 text-gold" />
@@ -661,11 +695,13 @@ export default function HomePage({ setRoute }) {
 
                   {/* Society Info */}
                   <div className="p-6">
-                    <h3 className="text-xl font-serif font-extrabold text-ink uppercase tracking-wide group-hover:text-primary transition-colors">
-                      {soc.society_name}
-                    </h3>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <h3 className="text-xl font-serif font-extrabold text-ink uppercase tracking-wide group-hover:text-primary transition-colors">
+                        {soc.society_name}
+                      </h3>
+                    </div>
                     <p className="text-xs text-muted-foreground flex items-center space-x-1.5 mt-1.5 font-medium">
-                      <MapPin className="w-4 h-4 text-gold" />
+                      <MapPin className="w-4 h-4 text-gold shrink-0" />
                       <span>{soc.location}</span>
                     </p>
                   </div>
@@ -837,6 +873,12 @@ export default function HomePage({ setRoute }) {
           </div>
         </div>
       )}
+
+      {/* Live Order Tracker Floating Widget */}
+      <LiveOrderTrackerToast 
+        activeOrder={activeOrder} 
+        onClose={() => setActiveOrder(null)} 
+      />
 
     </div>
   );

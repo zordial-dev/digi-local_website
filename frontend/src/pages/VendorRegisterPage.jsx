@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, CheckCircle2, ArrowRight, ShieldCheck, Upload, Smartphone, Store, Clock, Tag, Sparkles, Building2 } from 'lucide-react';
+import { Lock, CheckCircle2, ArrowRight, ShieldCheck, Upload, Smartphone, Store, Clock, Tag, Sparkles, Building2, CreditCard } from 'lucide-react';
 import { api } from '../services/api';
+import DummyPaymentModal from '../components/DummyPaymentModal';
 
 export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVendor }) {
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   // Societies List for interactive selection
   const [societiesList, setSocietiesList] = useState([]);
   const [selectedSocietyId, setSelectedSocietyId] = useState(currentRoute?.societyId || '101');
@@ -23,10 +25,12 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
       }
     }).catch(() => {
       setSocietiesList([
-        { society_id: '101', society_name: 'Greenwood Heights', location: 'Sector 62, Noida' },
-        { society_id: '102', society_name: 'Palm Meadows Residency', location: 'Whitefield, Bengaluru' },
-        { society_id: '103', society_name: 'DLF Phase 5 Enclave', location: 'Golf Course Road, Gurugram' },
-        { society_id: '104', society_name: 'Godrej Woods Community', location: 'Sector 43, Noida' }
+        { society_id: 'SOC-101', society_name: 'Omaxe Greenwood Residency', location: 'Sector Greenwood, Omega II, Greater Noida', image_url: 'https://static.squareyards.com/resources/images/noida/project-image/omaxe-greenwood-project-project-large-image1-2275.jpg' },
+        { society_id: 'SOC-102', society_name: 'Palm Meadows Residency', location: 'Whitefield, Bengaluru', image_url: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&auto=format&fit=crop&q=80' },
+        { society_id: 'SOC-103', society_name: 'DLF Phase 5 Enclave', location: 'Golf Course Road, Gurugram', image_url: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800&auto=format&fit=crop&q=80' },
+        { society_id: 'SOC-104', society_name: 'Godrej Woods Community', location: 'Sector 43, Noida', image_url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&auto=format&fit=crop&q=80' },
+        { society_id: 'SOC-105', society_name: 'Jaypee Greens Wish Town', location: 'Sector 128, Noida', image_url: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&auto=format&fit=crop&q=80' },
+        { society_id: 'SOC-106', society_name: 'ATS Village Gated Complex', location: 'Sector 93A, Noida', image_url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&auto=format&fit=crop&q=80' }
       ]);
     });
   }, [currentRoute]);
@@ -616,7 +620,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                     </div>
                   </div>
 
-                  <div className="flex space-x-3 pt-4">
+                  <div className="flex flex-col sm:flex-row gap-3 pt-4">
                     <button
                       type="button"
                       onClick={() => setStep(2)}
@@ -624,12 +628,32 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                     >
                       Back
                     </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newErrors = {};
+                        if (!itemName || !itemName.trim()) newErrors.itemName = 'Catalog item name is required.';
+                        if (!itemPrice || Number(itemPrice) <= 0) newErrors.itemPrice = 'Valid item price is required.';
+                        if (Object.keys(newErrors).length > 0) {
+                          setFieldErrors(newErrors);
+                          return;
+                        }
+                        setFieldErrors({});
+                        setShowPaymentModal(true);
+                      }}
+                      className="flex-1 py-4 bg-primary hover:bg-gold text-primary-foreground hover:text-ink font-black text-xs rounded-full transition-all duration-300 uppercase tracking-wider flex items-center justify-center space-x-2 shadow-xl border border-primary/20 cursor-pointer"
+                    >
+                      <CreditCard className="w-4 h-4 text-gold" />
+                      <span>Pay ₹2,999 Subscription (Dummy Payment)</span>
+                    </button>
+
                     <button
                       type="submit"
-                      className="flex-1 py-4 bg-primary hover:bg-gold text-primary-foreground hover:text-ink font-black text-xs rounded-full transition-all duration-300 uppercase tracking-wider flex items-center justify-center space-x-2 shadow-xl border border-primary/20 group cursor-pointer"
+                      className="py-3.5 px-5 bg-background border-2 border-border hover:bg-secondary text-ink font-extrabold text-xs rounded-full transition-all uppercase tracking-wider flex items-center justify-center space-x-1.5 cursor-pointer"
                     >
-                      <ShieldCheck className="w-4 h-4 text-gold group-hover:text-ink transition-colors" />
-                      <span>Submit Registration</span>
+                      <ShieldCheck className="w-4 h-4 text-gold" />
+                      <span>Submit Free Trial</span>
                     </button>
                   </div>
                 </form>
@@ -639,6 +663,19 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
           </div>
         )}
       </main>
+
+      {/* Subscription Dummy Payment Gateway Modal */}
+      <DummyPaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        amount={2999}
+        title="Vendor Partner Annual Subscription"
+        description={`Registering store: ${businessName || 'Your Store'} at ${societyName}`}
+        onSuccess={(txn) => {
+          setShowPaymentModal(false);
+          setIsRegistrationSubmitted(true);
+        }}
+      />
 
     </div>
   );

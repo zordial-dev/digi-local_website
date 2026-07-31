@@ -78,13 +78,24 @@ export default function HeroSearchComponent({ societies = [], onSelectSociety, o
                   className="px-4 py-3 hover:bg-[#F6F3EC] cursor-pointer transition-colors border-b border-gray-100 last:border-none flex items-center justify-between group"
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20 flex items-center justify-center text-[#C5A880] group-hover:bg-[#C5A880] group-hover:text-white transition-colors">
-                      <Building2 className="w-5 h-5" />
+                    <div className="w-11 h-11 rounded-xl overflow-hidden border border-[#C5A880]/30 shrink-0 bg-[#FAF9F6]">
+                      <img 
+                        src={society.image_url || society.banner_image || 'https://static.squareyards.com/resources/images/noida/project-image/omaxe-greenwood-project-project-large-image1-2275.jpg'} 
+                        alt={society.society_name} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
+                      />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-[#0A1428] group-hover:text-[#C5A880] transition-colors">
-                        {society.society_name}
-                      </h4>
+                      <div className="flex items-center space-x-1.5">
+                        <h4 className="text-sm font-bold text-[#0A1428] group-hover:text-[#C5A880] transition-colors">
+                          {society.society_name}
+                        </h4>
+                        {society.society_id && (
+                          <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-[#18281F] text-[#C4A066] rounded-md uppercase">
+                            {society.society_id}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-[#787F8C] flex items-center space-x-1 mt-0.5">
                         <MapPin className="w-3 h-3 text-[#C5A880]" />
                         <span>{society.location}</span>
