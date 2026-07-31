@@ -1,85 +1,122 @@
 import React, { useState } from 'react';
 import { 
   Store, 
-  ShieldCheck, 
   User, 
   Smartphone, 
-  Lock, 
   ArrowRight, 
   CheckCircle2, 
   X, 
-  Building2, 
   Sparkles,
-  Key
+  Key,
+  ShieldCheck,
+  RotateCcw
 } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor }) {
-  const [loginType, setLoginType] = useState('vendor'); // 'vendor' | 'admin' | 'resident'
+  const [loginType, setLoginType] = useState('vendor'); // 'vendor' | 'resident'
+  const [step, setStep] = useState(1); // 1: Name & Phone entry | 2: OTP Verification
   
-  // Vendor Login State
-  const [vendorPhone, setVendorPhone] = useState('9876543210');
-  const [vendorOtp, setVendorOtp] = useState('');
-  const [vendorOtpSent, setVendorOtpSent] = useState(false);
+  // User Details State
+  const [userName, setUserName] = useState('');
+  const [userPhone, setUserPhone] = useState('9876543210');
+  const [flatAddress, setFlatAddress] = useState('');
 
-  // Admin Login State
-  const [adminKey, setAdminKey] = useState('admin123');
-
-  // Resident Login State
-  const [residentPhone, setResidentPhone] = useState('');
-  const [residentFlat, setResidentFlat] = useState('');
-
+  // Dummy OTP State
+  const [otpInput, setOtpInput] = useState('1234');
+  const [generatedOtp, setGeneratedOtp] = useState('1234');
+  const [otpError, setOtpError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [infoMsg, setInfoMsg] = useState('');
 
   if (!isOpen) return null;
 
-  // Handle Vendor Login
-  const handleVendorSubmit = async (e) => {
+  // Step 1: Send Dummy OTP
+  const handleSendOtp = (e) => {
     e.preventDefault();
-    setErrorMsg('');
+    setOtpError('');
+    
+    if (!userName.trim()) {
+      setOtpError('Please enter your Full Name.');
+      return;
+    }
+    if (!userPhone || userPhone.length < 10) {
+      setOtpError('Please enter a valid 10-digit mobile phone number.');
+      return;
+    }
+
+    // Generate random 4-digit demo OTP
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    setGeneratedOtp(code);
+    setOtpInput(code); // Pre-fill for user ease
+    setStep(2);
+    setInfoMsg(`Demo OTP code ${code} sent to +91 ${userPhone}`);
+  };
+
+  // Step 2: Verify OTP & Log In
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setOtpError('');
+
+    if (otpInput.trim() !== generatedOtp) {
+      setOtpError('Invalid OTP code. Please enter the correct 4-digit verification code.');
+      return;
+    }
+
     try {
       setLoading(true);
-      const res = await api.loginVendor({ phone: vendorPhone });
-      const vendorData = res?.vendor || { vendor_id: '201', store_name: 'Fresh Daily Supermarket' };
-      
-      const session = {
-        vendor: vendorData,
-        expiresAt: Date.now() + 86400000
-      };
-      localStorage.setItem('digilocal_vendor_session', JSON.stringify(session));
-      if (setActiveVendor) setActiveVendor(vendorData);
-      
-      onClose();
-      setRoute({ page: 'vendorDashboard', vendorId: vendorData.vendor_id });
+
+      if (loginType === 'vendor') {
+        const res = await api.loginVendor({ phone: userPhone, name: userName });
+        const vendorData = res?.vendor || { 
+          vendor_id: '201', 
+          store_name: `${userName}'s Store`,
+          vendor_name: userName,
+          phone: userPhone
+        };
+        
+        const session = {
+          vendor: vendorData,
+          userName: userName,
+          userPhone: userPhone,
+          expiresAt: Date.now() + 86400000
+        };
+        localStorage.setItem('digilocal_vendor_session', JSON.stringify(session));
+        if (setActiveVendor) setActiveVendor(vendorData);
+        
+        handleResetModal();
+        onClose();
+        setRoute({ page: 'vendorDashboard', vendorId: vendorData.vendor_id });
+      } else {
+        const residentSession = {
+          userName: userName,
+          phone: userPhone,
+          flat: flatAddress || 'Tower A-402'
+        };
+        localStorage.setItem('digilocal_resident_session', JSON.stringify(residentSession));
+        
+        handleResetModal();
+        onClose();
+        setRoute({ page: 'home' });
+      }
     } catch (err) {
-      setErrorMsg(err.message || 'Vendor login failed. Please try again.');
+      setOtpError(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Admin Login
-  const handleAdminSubmit = (e) => {
-    e.preventDefault();
-    onClose();
-    setRoute({ page: 'admin' });
+  const handleResetModal = () => {
+    setStep(1);
+    setOtpError('');
+    setInfoMsg('');
   };
 
-  // Handle Resident Login
-  const handleResidentSubmit = (e) => {
-    e.preventDefault();
-    if (residentPhone.length < 10) {
-      setErrorMsg('Please enter a valid 10-digit mobile number.');
-      return;
-    }
-    const residentSession = {
-      phone: residentPhone,
-      flat: residentFlat || 'Tower A-402'
-    };
-    localStorage.setItem('digilocal_resident_session', JSON.stringify(residentSession));
-    onClose();
-    setRoute({ page: 'home' });
+  const handleResendOtp = () => {
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    setGeneratedOtp(code);
+    setOtpInput(code);
+    setInfoMsg(`New Demo OTP code ${code} resent to +91 ${userPhone}`);
   };
 
   return (
@@ -96,11 +133,13 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
               <h3 className="text-sm font-serif font-black uppercase tracking-wider text-white">
                 DigiLocal Access Portal
               </h3>
-              <p className="text-[11px] text-emerald-200/80 font-medium">Select your login portal to proceed</p>
+              <p className="text-[11px] text-emerald-200/80 font-medium">
+                {step === 1 ? 'Enter your details & phone number' : 'Verify Mobile OTP'}
+              </p>
             </div>
           </div>
           <button 
-            onClick={onClose} 
+            onClick={() => { handleResetModal(); onClose(); }} 
             className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
@@ -108,63 +147,70 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-5">
           
-          {/* Portal Selector Tabs */}
-          <div className="grid grid-cols-3 gap-2 p-1 bg-secondary/80 rounded-2xl border border-border">
-            <button
-              type="button"
-              onClick={() => { setLoginType('vendor'); setErrorMsg(''); }}
-              className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1 ${
-                loginType === 'vendor'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-ink'
-              }`}
-            >
-              <Store className="w-4 h-4 text-gold" />
-              <span>Vendor</span>
-            </button>
+          {/* Role Selector Tabs (Only on Step 1) */}
+          {step === 1 && (
+            <div className="grid grid-cols-2 gap-2 p-1 bg-secondary/80 rounded-2xl border border-border">
+              <button
+                type="button"
+                onClick={() => { setLoginType('vendor'); setOtpError(''); }}
+                className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                  loginType === 'vendor'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-ink'
+                }`}
+              >
+                <Store className="w-4 h-4 text-gold" />
+                <span>Vendor Login</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => { setLoginType('admin'); setErrorMsg(''); }}
-              className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1 ${
-                loginType === 'admin'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-ink'
-              }`}
-            >
-              <ShieldCheck className="w-4 h-4 text-gold" />
-              <span>Admin</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => { setLoginType('resident'); setErrorMsg(''); }}
-              className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1 ${
-                loginType === 'resident'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-ink'
-              }`}
-            >
-              <User className="w-4 h-4 text-gold" />
-              <span>Resident</span>
-            </button>
-          </div>
-
-          {/* Error Banner */}
-          {errorMsg && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold">
-              {errorMsg}
+              <button
+                type="button"
+                onClick={() => { setLoginType('resident'); setOtpError(''); }}
+                className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                  loginType === 'resident'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-ink'
+                }`}
+              >
+                <User className="w-4 h-4 text-gold" />
+                <span>Resident Login</span>
+              </button>
             </div>
           )}
 
-          {/* 1. VENDOR LOGIN FORM */}
-          {loginType === 'vendor' && (
-            <form onSubmit={handleVendorSubmit} className="space-y-4">
+          {/* Error Banner */}
+          {otpError && (
+            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center space-x-2">
+              <span>⚠️</span>
+              <span>{otpError}</span>
+            </div>
+          )}
+
+          {/* STEP 1: USER DETAILS & PHONE NUMBER FORM */}
+          {step === 1 && (
+            <form onSubmit={handleSendOtp} className="space-y-4">
               <div>
                 <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
-                  Vendor Registered Phone Number *
+                  User Full Name *
+                </label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Rahul Sharma"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
+                  Mobile Phone Number *
                 </label>
                 <div className="relative">
                   <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
@@ -173,15 +219,100 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
                     required
                     maxLength={10}
                     placeholder="e.g. 9876543210"
-                    value={vendorPhone}
-                    onChange={(e) => setVendorPhone(e.target.value)}
+                    value={userPhone}
+                    onChange={(e) => setUserPhone(e.target.value)}
                     className="w-full pl-11 pr-4 py-3 rounded-2xl bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
                   />
                 </div>
               </div>
 
-              <div className="p-3 bg-secondary/50 rounded-2xl border border-border text-[11px] text-muted-foreground">
-                💡 <strong className="text-ink">Quick Demo Login:</strong> Use phone number <code className="bg-background px-1.5 py-0.5 rounded text-primary font-mono font-bold">9876543210</code> to log into sample store dashboard.
+              {loginType === 'resident' && (
+                <div>
+                  <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
+                    Flat & Tower Address (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Tower B, Flat 402"
+                    value={flatAddress}
+                    onChange={(e) => setFlatAddress(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
+                  />
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full py-4 rounded-full bg-primary hover:bg-gold text-primary-foreground hover:text-ink font-black text-xs uppercase tracking-wider shadow-xl transition-all duration-300 flex items-center justify-center space-x-2 mt-2"
+              >
+                <span>Get OTP Code</span>
+                <ArrowRight className="w-4 h-4 text-gold" />
+              </button>
+            </form>
+          )}
+
+          {/* STEP 2: DUMMY OTP VERIFICATION FORM */}
+          {step === 2 && (
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              
+              {/* Sent Notification Info */}
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs space-y-1">
+                <div className="font-extrabold flex items-center justify-between">
+                  <span>📱 Verification OTP Sent</span>
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="text-[10px] text-primary underline hover:text-ink"
+                  >
+                    Edit Phone
+                  </button>
+                </div>
+                <p className="text-[11px]">Sent to: <strong>+91 {userPhone}</strong> ({userName})</p>
+              </div>
+
+              {/* Demo OTP Banner Card */}
+              <div className="p-4 bg-[#18281F] text-white rounded-2xl border border-gold/40 flex items-center justify-between shadow-md">
+                <div>
+                  <span className="text-[10px] uppercase font-black tracking-widest text-[#C4A066]">
+                    Demo OTP Verification Code
+                  </span>
+                  <div className="text-2xl font-mono font-black text-white tracking-widest mt-0.5">
+                    {generatedOtp}
+                  </div>
+                </div>
+                <div className="px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold text-emerald-300 border border-white/15 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-gold" /> Auto-Filled
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
+                  Enter 4-Digit Security OTP *
+                </label>
+                <div className="relative">
+                  <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                  <input
+                    type="text"
+                    required
+                    maxLength={4}
+                    placeholder="Enter 4-digit code"
+                    value={otpInput}
+                    onChange={(e) => setOtpInput(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3.5 text-center text-lg font-mono font-bold rounded-2xl bg-background border-2 border-primary text-ink focus:outline-none focus:ring-4 focus:ring-primary/20 tracking-widest"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs pt-1">
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  className="text-primary hover:text-ink font-bold flex items-center gap-1 transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Resend OTP Code</span>
+                </button>
+                <span className="text-muted-foreground text-[11px]">Resend in 30s</span>
               </div>
 
               <button
@@ -189,83 +320,8 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
                 disabled={loading}
                 className="w-full py-4 rounded-full bg-primary hover:bg-gold text-primary-foreground hover:text-ink font-black text-xs uppercase tracking-wider shadow-xl transition-all duration-300 flex items-center justify-center space-x-2"
               >
-                <span>{loading ? 'Logging into Store Panel...' : 'Login to Vendor Dashboard'}</span>
-                <ArrowRight className="w-4 h-4 text-gold" />
-              </button>
-            </form>
-          )}
-
-          {/* 2. ADMIN LOGIN FORM */}
-          {loginType === 'admin' && (
-            <form onSubmit={handleAdminSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
-                  Admin Passcode Key *
-                </label>
-                <div className="relative">
-                  <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                  <input
-                    type="password"
-                    required
-                    placeholder="Enter admin passcode"
-                    value={adminKey}
-                    onChange={(e) => setAdminKey(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
-                  />
-                </div>
-              </div>
-
-              <div className="p-3 bg-secondary/50 rounded-2xl border border-border text-[11px] text-muted-foreground">
-                🛡️ <strong className="text-ink">Central Admin Control:</strong> Access society approval, platform logo settings, and vendor request moderation.
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-4 rounded-full bg-primary hover:bg-gold text-primary-foreground hover:text-ink font-black text-xs uppercase tracking-wider shadow-xl transition-all duration-300 flex items-center justify-center space-x-2"
-              >
-                <span>Enter Central Admin Panel</span>
-                <ArrowRight className="w-4 h-4 text-gold" />
-              </button>
-            </form>
-          )}
-
-          {/* 3. RESIDENT LOGIN FORM */}
-          {loginType === 'resident' && (
-            <form onSubmit={handleResidentSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
-                  Resident Mobile Number *
-                </label>
-                <input
-                  type="tel"
-                  required
-                  maxLength={10}
-                  placeholder="e.g. 9812345678"
-                  value={residentPhone}
-                  onChange={(e) => setResidentPhone(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
-                  Flat & Tower Address
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Tower B, Flat 604"
-                  value={residentFlat}
-                  onChange={(e) => setResidentFlat(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-4 rounded-full bg-primary hover:bg-gold text-primary-foreground hover:text-ink font-black text-xs uppercase tracking-wider shadow-xl transition-all duration-300 flex items-center justify-center space-x-2"
-              >
-                <span>Sign in as Resident</span>
-                <ArrowRight className="w-4 h-4 text-gold" />
+                <span>{loading ? 'Verifying OTP...' : 'Verify OTP & Complete Login'}</span>
+                <CheckCircle2 className="w-4.5 h-4.5 text-gold" />
               </button>
             </form>
           )}

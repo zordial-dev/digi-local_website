@@ -6,9 +6,10 @@ const MOCK_SOCIETIES = [
     society_id: 'SOC-101',
     society_name: 'Omaxe Greenwood Residency',
     location: 'Sector Greenwood, Omega II, Greater Noida',
+    public_id: 'GW-4K2',
+    vendor_count: 14,
     pincode: '201310',
     total_flats: 650,
-    vendor_count: 14,
     image_url: 'https://static.squareyards.com/resources/images/noida/project-image/omaxe-greenwood-project-project-large-image1-2275.jpg',
     banner_image: 'https://static.squareyards.com/resources/images/noida/project-image/omaxe-greenwood-project-project-large-image1-2275.jpg'
   },
@@ -16,9 +17,10 @@ const MOCK_SOCIETIES = [
     society_id: 'SOC-102',
     society_name: 'Palm Meadows Residency',
     location: 'Whitefield, Bengaluru',
+    public_id: 'PM-981',
+    vendor_count: 8,
     pincode: '560066',
     total_flats: 320,
-    vendor_count: 8,
     image_url: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&auto=format&fit=crop&q=80',
     banner_image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&auto=format&fit=crop&q=80'
   },
@@ -26,9 +28,10 @@ const MOCK_SOCIETIES = [
     society_id: 'SOC-103',
     society_name: 'DLF Phase 5 Enclave',
     location: 'Golf Course Road, Gurugram',
+    public_id: 'DLF-55',
+    vendor_count: 15,
     pincode: '122002',
     total_flats: 600,
-    vendor_count: 15,
     image_url: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800&auto=format&fit=crop&q=80',
     banner_image: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800&auto=format&fit=crop&q=80'
   },
@@ -36,9 +39,10 @@ const MOCK_SOCIETIES = [
     society_id: 'SOC-104',
     society_name: 'Godrej Woods Community',
     location: 'Sector 43, Noida',
+    public_id: 'GW-904',
+    vendor_count: 6,
     pincode: '201303',
     total_flats: 280,
-    vendor_count: 6,
     image_url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&auto=format&fit=crop&q=80',
     banner_image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&auto=format&fit=crop&q=80'
   },
@@ -46,9 +50,10 @@ const MOCK_SOCIETIES = [
     society_id: 'SOC-105',
     society_name: 'Jaypee Greens Wish Town',
     location: 'Sector 128, Noida',
+    public_id: 'JPG-12',
+    vendor_count: 18,
     pincode: '201304',
     total_flats: 850,
-    vendor_count: 18,
     image_url: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&auto=format&fit=crop&q=80',
     banner_image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&auto=format&fit=crop&q=80'
   },
@@ -56,9 +61,10 @@ const MOCK_SOCIETIES = [
     society_id: 'SOC-106',
     society_name: 'ATS Village Gated Complex',
     location: 'Sector 93A, Noida',
+    public_id: 'ATS-93',
+    vendor_count: 11,
     pincode: '201304',
     total_flats: 520,
-    vendor_count: 11,
     image_url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&auto=format&fit=crop&q=80',
     banner_image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&auto=format&fit=crop&q=80'
   }
@@ -66,155 +72,322 @@ const MOCK_SOCIETIES = [
 
 const MOCK_VENDORS = [
   {
-    vendor_id: '201',
-    store_name: 'Fresh Daily Supermarket & Dairy',
-    vendor_name: 'Rajesh Kumar',
+    vendor_id: 1,
+    society_id: 1,
+    store_name: 'FreshMart Grocery & Organic',
+    vendor_name: 'Rajesh Sharma',
+    email: 'freshmart@gmail.com',
     category: 'Grocery & Daily Essentials',
     status: 'ACTIVE',
     rating: '4.9',
     delivery_time: '10-15 mins',
+    phone_number: '9876543210',
     phone: '9876543210',
-    logo: 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80',
-    banner: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80'
+    logo: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
+    banner: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
+    opening_timing: '08:00 AM',
+    closing_timing: '10:00 PM',
+    delivery_charge: 0.00,
+    min_order_value: 0.00,
+    gst_number: '07AAACR12341Z5'
   },
   {
-    vendor_id: '202',
+    vendor_id: 2,
+    society_id: 1,
     store_name: 'Green Leaf Organics & Fruits',
     vendor_name: 'Suresh Patel',
+    email: 'greenleaf@gmail.com',
     category: 'Fresh Fruits & Vegetables',
     status: 'ACTIVE',
     rating: '4.8',
     delivery_time: '15 mins',
+    phone_number: '9876543211',
     phone: '9876543211',
     logo: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=200&auto=format&fit=crop&q=80',
     banner: 'https://images.unsplash.com/photo-1616401784845-180882ba9ba8?w=800&auto=format&fit=crop&q=80'
   },
   {
-    vendor_id: '203',
+    vendor_id: 3,
+    society_id: 2,
     store_name: 'Royal Bakery & Confectionery',
     vendor_name: 'Anita Sharma',
+    email: 'royalbakery@gmail.com',
     category: 'Bakery & Confectionery',
     status: 'ACTIVE',
     rating: '4.7',
     delivery_time: '20 mins',
+    phone_number: '9876543212',
     phone: '9876543212',
     logo: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&auto=format&fit=crop&q=80',
     banner: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&auto=format&fit=crop&q=80'
-  },
-  {
-    vendor_id: '204',
-    store_name: 'Sparkle Express Laundry',
-    vendor_name: 'Amit Verma',
-    category: 'Laundry & Dry Cleaning',
-    status: 'ACTIVE',
-    rating: '4.9',
-    delivery_time: 'Same day pickup',
-    phone: '9876543213',
-    logo: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?w=200&auto=format&fit=crop&q=80',
-    banner: 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800&auto=format&fit=crop&q=80'
   }
 ];
 
 export const api = {
-  // Societies
+  // -------------------------------------------------------------
+  // 1. Vendor Authentication APIs
+  // -------------------------------------------------------------
+
+  // 1.1 Vendor Registration
+  registerVendor: async (vendorData) => {
+    try {
+      const res = await fetch(`${API_BASE}/vendors/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vendorData)
+      });
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Registration failed');
+        return data;
+      }
+    } catch (err) {
+      if (err.message && err.message.includes('already exists')) throw err;
+      console.warn('Backend unavailable, using simulated vendor registration response:', err);
+    }
+    const newId = Math.floor(Math.random() * 1000 + 10);
+    return {
+      message: 'Vendor registration & payment submitted successfully!',
+      vendor_id: newId,
+      vendor: {
+        vendor_id: newId,
+        society_id: Number(vendorData.society_id) || 1,
+        vendor_name: vendorData.vendor_name || 'New Vendor',
+        store_name: vendorData.store_name || 'New Store',
+        email: vendorData.email || 'vendor@example.com',
+        status: 'PENDING'
+      },
+      status: 'PENDING',
+      token: `mock_token_${Date.now()}`,
+      accessToken: `mock_access_token_${Date.now()}`,
+      refreshToken: `mock_refresh_token_${Date.now()}`
+    };
+  },
+
+  // 1.2 Vendor Login
+  loginVendor: async (credentials) => {
+    try {
+      const res = await fetch(`${API_BASE}/vendors/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials)
+      });
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Login failed');
+        return data;
+      }
+    } catch (err) {
+      if (err.message && (err.message.includes('Invalid') || err.message.includes('Denied') || err.message.includes('locked'))) throw err;
+      console.warn('Backend unavailable, using simulated login response:', err);
+    }
+    return {
+      message: 'Login successful',
+      vendor: MOCK_VENDORS[0],
+      token: `mock_jwt_token_${Date.now()}`,
+      accessToken: `mock_access_token_${Date.now()}`,
+      refreshToken: `mock_refresh_token_${Date.now()}`
+    };
+  },
+
+  // 1.3 Refresh Access Token
+  refreshVendorToken: async (refreshToken) => {
+    try {
+      const res = await fetch(`${API_BASE}/vendors/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken })
+      });
+      if (res.ok) return await res.json();
+    } catch (_) {}
+    return {
+      message: 'Access token refreshed successfully',
+      accessToken: `mock_refreshed_access_${Date.now()}`,
+      token: `mock_refreshed_token_${Date.now()}`
+    };
+  },
+
+  // 1.4 Vendor Logout
+  logoutVendor: async (refreshToken, token) => {
+    try {
+      const res = await fetch(`${API_BASE}/vendors/logout`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`
+        },
+        body: JSON.stringify({ refreshToken })
+      });
+      if (res.ok) return await res.json();
+    } catch (_) {}
+    return { message: 'Logout successful, tokens revoked' };
+  },
+
+  // 1.5 Request Password Reset OTP
+  forgotPassword: async (email) => {
+    try {
+      const res = await fetch(`${API_BASE}/vendors/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      if (res.ok) return await res.json();
+    } catch (_) {}
+    return {
+      message: 'OTP sent successfully to registered email address',
+      simulationOtp: '849201'
+    };
+  },
+
+  // 1.6 Verify Password Reset OTP
+  verifyOtp: async (email, otp) => {
+    try {
+      const res = await fetch(`${API_BASE}/vendors/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Invalid OTP');
+      return data;
+    } catch (err) {
+      if (err.message && err.message.includes('Invalid OTP')) throw err;
+    }
+    return { message: 'OTP verified successfully. You may now reset your password.' };
+  },
+
+  // 1.7 Reset Password
+  resetPassword: async (email, otp, newPassword) => {
+    try {
+      const res = await fetch(`${API_BASE}/vendors/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp, newPassword })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reset password');
+      return data;
+    } catch (err) {
+      if (err.message) throw err;
+    }
+    return { message: 'Password reset successfully! You can now log in with your new password.' };
+  },
+
+
+  // -------------------------------------------------------------
+  // 2. Storefront & Public Directory APIs
+  // -------------------------------------------------------------
+
+  // 2.1 List All Societies
   getSocieties: async (search = '') => {
     try {
       const res = await fetch(`${API_BASE}/societies${search ? `?search=${encodeURIComponent(search)}` : ''}`);
-      if (!res.ok) throw new Error('Failed to fetch societies');
-      return await res.json();
+      if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          return await res.json();
+        }
+      }
     } catch (err) {
-      // Return filtered mock data on network error
-      if (!search) return MOCK_SOCIETIES;
-      const term = search.toLowerCase();
-      return MOCK_SOCIETIES.filter(s => 
-        s.society_name.toLowerCase().includes(term) ||
-        s.location.toLowerCase().includes(term) ||
-        s.pincode.includes(term)
-      );
+      console.warn('Backend fetch failed for getSocieties, using mock societies data:', err);
     }
+    if (!search) return MOCK_SOCIETIES;
+    const term = search.toLowerCase();
+    return MOCK_SOCIETIES.filter(s => 
+      s.society_name.toLowerCase().includes(term) || 
+      s.location.toLowerCase().includes(term) ||
+      (s.pincode && s.pincode.includes(term)) ||
+      (s.society_id && String(s.society_id).toLowerCase().includes(term))
+    );
   },
 
+  // 2.2 Get Single Society Details
   getSociety: async (societyId) => {
     try {
       const res = await fetch(`${API_BASE}/societies/${societyId}`);
-      if (!res.ok) throw new Error('Failed to fetch society');
-      return await res.json();
+      if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          return await res.json();
+        }
+      }
     } catch (err) {
-      const sId = String(societyId);
-      return MOCK_SOCIETIES.find(s => 
-        String(s.society_id) === sId ||
-        String(s.society_id).toLowerCase() === sId.toLowerCase() ||
-        String(s.society_id).replace('SOC-', '') === sId ||
-        sId.replace('SOC-', '') === String(s.society_id)
-      ) || MOCK_SOCIETIES[0];
+      console.warn(`Backend fetch failed for getSociety (${societyId}), fallback to mock:`, err);
     }
+    const sId = String(societyId);
+    return MOCK_SOCIETIES.find(s => 
+      String(s.society_id) === sId || 
+      s.society_id === 'SOC-' + sId ||
+      String(s.society_id).replace('SOC-', '') === sId
+    ) || MOCK_SOCIETIES[0];
   },
 
-  createSociety: async (data) => {
-    try {
-      const res = await fetch(`${API_BASE}/societies`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      if (!res.ok) throw new Error('Failed to create society');
-      return await res.json();
-    } catch (err) {
-      const newId = `SOC-${Math.floor(100 + Math.random() * 900)}`;
-      const created = {
-        society_id: newId,
-        society_name: data.society_name || 'New Residential Complex',
-        location: data.location || 'Noida, NCR',
-        pincode: data.pincode || '201301',
-        total_flats: data.total_flats || 400,
-        vendor_count: 0,
-        image_url: data.image_url || data.banner_image || 'https://static.squareyards.com/resources/images/noida/project-image/omaxe-greenwood-project-project-large-image1-2275.jpg',
-        banner_image: data.image_url || data.banner_image || 'https://static.squareyards.com/resources/images/noida/project-image/omaxe-greenwood-project-project-large-image1-2275.jpg'
-      };
-      MOCK_SOCIETIES.unshift(created);
-      return created;
-    }
-  },
-
-  // Vendors Storefront
+  // 2.3 List Active Vendors in Society
   getSocietyVendors: async (societyId, search = '') => {
     try {
       const res = await fetch(`${API_BASE}/societies/${societyId}/vendors${search ? `?search=${encodeURIComponent(search)}` : ''}`);
-      if (!res.ok) throw new Error('Failed to fetch society vendors');
-      return await res.json();
+      if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          return await res.json();
+        }
+      }
     } catch (err) {
-      if (!search) return MOCK_VENDORS;
-      const term = search.toLowerCase();
-      return MOCK_VENDORS.filter(v => 
-        v.store_name.toLowerCase().includes(term) || 
-        v.category.toLowerCase().includes(term)
-      );
+      console.warn('Backend fetch failed for getSocietyVendors, fallback to mock:', err);
     }
+    if (!search) return MOCK_VENDORS;
+    const term = search.toLowerCase();
+    return MOCK_VENDORS.filter(v => 
+      v.store_name.toLowerCase().includes(term) || 
+      v.category.toLowerCase().includes(term)
+    );
   },
 
+  // 2.4 Get Vendor Storefront & Menu Items
   getVendorStorefront: async (vendorId) => {
     try {
       const res = await fetch(`${API_BASE}/vendors/${vendorId}`);
-      if (!res.ok) throw new Error('Failed to fetch vendor storefront');
-      return await res.json();
+      if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          return await res.json();
+        }
+      }
     } catch (err) {
-      const vendor = MOCK_VENDORS.find(v => v.vendor_id === String(vendorId)) || MOCK_VENDORS[0];
-      return {
-        vendor,
-        categories: ['Milk & Dairy', 'Daily Essentials', 'Snacks & Bakery', 'Fresh Produce'],
-        items: [
-          { item_id: '1', item_name: 'Farm Fresh Toned Milk (1L)', price: '65', unit: 'per item', category: 'Milk & Dairy', stock: '50', is_available: true, image_url: 'https://images.unsplash.com/photo-1528498033373-3c6c08e93d79?w=300&auto=format&fit=crop&q=80' },
-          { item_id: '2', item_name: 'Organic Whole Wheat Bread (400g)', price: '45', unit: 'per item', category: 'Snacks & Bakery', stock: '30', is_available: true, image_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&auto=format&fit=crop&q=80' },
-          { item_id: '3', item_name: 'Pure Desi Cow Ghee (500ml)', price: '420', unit: 'per item', category: 'Milk & Dairy', stock: '20', is_available: true, image_url: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300&auto=format&fit=crop&q=80' },
-          { item_id: '4', item_name: 'Fresh Red Tomatoes (1kg)', price: '40', unit: 'per kg', category: 'Daily Essentials', stock: '40', is_available: true, image_url: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=300&auto=format&fit=crop&q=80' },
-          { item_id: '5', item_name: 'Fresh Cottage Cheese Paneer (200g)', price: '90', unit: 'per item', category: 'Milk & Dairy', stock: '25', is_available: true, image_url: 'https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=300&auto=format&fit=crop&q=80' },
-          { item_id: '6', item_name: 'Farm Eggs Pack (12 Pcs)', price: '95', unit: 'per item', category: 'Daily Essentials', stock: '35', is_available: true, image_url: 'https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?w=300&auto=format&fit=crop&q=80' }
-        ]
-      };
+      console.warn('Backend fetch failed for getVendorStorefront, fallback to mock:', err);
     }
+    const vendor = MOCK_VENDORS.find(v => String(v.vendor_id) === String(vendorId)) || MOCK_VENDORS[0];
+    return {
+      vendor,
+      categories: ['Milk & Dairy', 'Daily Essentials', 'Snacks & Bakery', 'Fresh Produce'],
+      items: [
+        { item_id: 1, item_name: 'Farm Fresh Organic Milk (1L)', price: 68.00, unit: '1L', category: 'Dairy', stock: 50, is_available: 1, image_url: 'https://images.unsplash.com/photo-1528498033373-3c6c08e93d79?w=300&auto=format&fit=crop&q=80' },
+        { item_id: 2, item_name: 'Organic Whole Wheat Bread (400g)', price: 45.00, unit: '400g', category: 'Snacks & Bakery', stock: 30, is_available: 1, image_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&auto=format&fit=crop&q=80' },
+        { item_id: 3, item_name: 'Pure Desi Cow Ghee (500ml)', price: 420.00, unit: '500ml', category: 'Dairy', stock: 20, is_available: 1, image_url: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300&auto=format&fit=crop&q=80' },
+        { item_id: 4, item_name: 'Fresh Red Tomatoes (1kg)', price: 40.00, unit: '1kg', category: 'Daily Essentials', stock: 40, is_available: 1, image_url: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=300&auto=format&fit=crop&q=80' },
+        { item_id: 5, item_name: 'Fresh Cottage Cheese Paneer (200g)', price: 90.00, unit: '200g', category: 'Dairy', stock: 25, is_available: 1, image_url: 'https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=300&auto=format&fit=crop&q=80' },
+        { item_id: 6, item_name: 'Farm Eggs Pack (12 Pcs)', price: 95.00, unit: '12 Pcs', category: 'Daily Essentials', stock: 35, is_available: 1, image_url: 'https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?w=300&auto=format&fit=crop&q=80' }
+      ]
+    };
   },
 
-  // Orders
+  // 2.5 QR Code Shop Link
+  getShopQrRedirect: async (vendorId) => {
+    try {
+      const res = await fetch(`/shop/${vendorId}`);
+      if (res.redirected) return res.url;
+    } catch (_) {}
+    return `/1/${vendorId}`;
+  },
+
+
+  // -------------------------------------------------------------
+  // 3. Customer Orders APIs
+  // -------------------------------------------------------------
+
+  // 3.1 Place Customer Order
   placeOrder: async (orderData) => {
     try {
       const res = await fetch(`${API_BASE}/orders`, {
@@ -229,17 +402,20 @@ export const api = {
         return data;
       }
     } catch (err) {
+      if (err.message && err.message.includes('stock')) throw err;
       console.warn('Backend API unavailable, using offline order confirmation:', err);
     }
-    const orderId = `ORD-${Date.now().toString().slice(-6)}`;
+    const orderId = Math.floor(Math.random() * 900000 + 100000);
+    const totalCalc = (orderData.items || []).reduce((acc, curr) => acc + ((Number(curr.unit_price) || 65) * (curr.quantity || 1)), 0);
     return {
+      message: 'Order placed successfully',
       order_id: orderId,
-      status: 'RECEIVED',
-      created_at: new Date().toISOString(),
-      message: 'Order recorded successfully'
+      total_amount: totalCalc || 308.00,
+      status: 'PLACED'
     };
   },
 
+  // 3.2 Check Order Status & Details
   getOrderStatus: async (orderId) => {
     try {
       const res = await fetch(`${API_BASE}/orders/${orderId}`);
@@ -249,12 +425,29 @@ export const api = {
       }
     } catch (_) {}
     return {
-      order_id: orderId,
-      status: 'PREPARING',
-      delivery_time: '15-20 mins'
+      order: {
+        order_id: Number(orderId) || 1,
+        vendor_id: 1,
+        customer_id: 1,
+        status: 'PLACED',
+        total_amount: 308.00,
+        store_name: 'FreshMart Grocery & Organic',
+        customer_name: 'Rahul Verma'
+      },
+      items: [
+        {
+          order_id: Number(orderId) || 1,
+          item_id: 1,
+          quantity: 1,
+          unit_price: 68.00,
+          item_total: 68.00,
+          item_name: 'Farm Fresh Organic Milk (1L)'
+        }
+      ]
     };
   },
 
+  // 3.3 Update Order Status
   updateOrderStatus: async (orderId, status) => {
     try {
       const res = await fetch(`${API_BASE}/orders/${orderId}/status`, {
@@ -269,81 +462,50 @@ export const api = {
         return data;
       }
     } catch (_) {}
-    return { order_id: orderId, status };
+    return { message: 'Order status updated', status };
   },
 
-  // Vendor Registration & Login
-  registerVendor: async (vendorData) => {
+
+  // -------------------------------------------------------------
+  // 4. Vendor Dashboard & Catalog APIs
+  // -------------------------------------------------------------
+
+  // 4.1 Get Vendor Dashboard Data
+  getVendorPanel: async (vendorId, token) => {
     try {
-      const res = await fetch(`${API_BASE}/vendors/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(vendorData)
+      const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Registration failed');
-        return data;
-      }
-    } catch (_) {}
-    return {
-      vendor_id: `20${Math.floor(Math.random() * 90 + 10)}`,
-      status: 'PENDING_APPROVAL',
-      message: 'Registration submitted successfully'
-    };
-  },
-
-  loginVendor: async (credentials) => {
-    try {
-      const res = await fetch(`${API_BASE}/vendors/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials)
-      });
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Login failed');
-        return data;
-      }
-    } catch (_) {}
-    return {
-      vendor: MOCK_VENDORS[0],
-      expiresAt: Date.now() + 86400000
-    };
-  },
-
-  // Vendor Panel
-  getVendorPanel: async (vendorId) => {
-    try {
-      const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}`);
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         return await res.json();
       }
     } catch (_) {}
-    const vendor = MOCK_VENDORS.find(v => v.vendor_id === String(vendorId)) || MOCK_VENDORS[0];
+    const vendor = MOCK_VENDORS.find(v => String(v.vendor_id) === String(vendorId)) || MOCK_VENDORS[0];
     return {
       vendor,
       items: [
-        { item_id: '1', item_name: 'Farm Fresh Toned Milk (1L)', price: '65', unit: 'per item', category: 'Milk & Dairy', stock: '50', is_available: true, image_url: 'https://images.unsplash.com/photo-1528498033373-3c6c08e93d79?w=300&auto=format&fit=crop&q=80' },
-        { item_id: '2', item_name: 'Organic Whole Wheat Bread (400g)', price: '45', unit: 'per item', category: 'Snacks & Bakery', stock: '30', is_available: true, image_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&auto=format&fit=crop&q=80' },
-        { item_id: '3', item_name: 'Pure Desi Cow Ghee (500ml)', price: '420', unit: 'per item', category: 'Milk & Dairy', stock: '20', is_available: true, image_url: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300&auto=format&fit=crop&q=80' }
+        { item_id: 1, item_name: 'Farm Fresh Organic Milk (1L)', price: 68.00, unit: '1L', category: 'Dairy', stock: 50, is_available: 1, image_url: 'https://images.unsplash.com/photo-1528498033373-3c6c08e93d79?w=300&auto=format&fit=crop&q=80' },
+        { item_id: 2, item_name: 'Organic Whole Wheat Bread (400g)', price: 45.00, unit: '400g', category: 'Snacks & Bakery', stock: 30, is_available: 1, image_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&auto=format&fit=crop&q=80' },
+        { item_id: 3, item_name: 'Pure Desi Cow Ghee (500ml)', price: 420.00, unit: '500ml', category: 'Dairy', stock: 20, is_available: 1, image_url: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300&auto=format&fit=crop&q=80' }
       ],
       orders: [],
-      subscription: { status: 'ACTIVE', plan_type: 'Annual', expires_at: '2027-12-31' },
+      subscription: { status: 'ACTIVE', end_date: '2027-07-31' },
       payments: [
-        { payment_id: 'PAY_101', amount: '2999.00', payment_method: 'UPI', created_at: new Date().toLocaleDateString() }
+        { payment_id: 1, amount: 2999.00, status: 'SUCCESS', created_at: new Date().toLocaleDateString() }
       ]
     };
   },
 
-  addVendorItem: async (vendorId, itemData) => {
+  // 4.2 Add Menu Item
+  addVendorItem: async (vendorId, itemData, token) => {
     try {
       const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}/items`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
         body: JSON.stringify(itemData)
       });
       const contentType = res.headers.get('content-type');
@@ -353,14 +515,18 @@ export const api = {
         return data;
       }
     } catch (_) {}
-    return { item_id: `ITM_${Date.now()}`, ...itemData, is_available: true };
+    return { message: 'Item added successfully', item_id: Math.floor(Math.random() * 1000 + 10) };
   },
 
-  updateVendorItem: async (vendorId, itemId, itemData) => {
+  // 4.3 Edit Item or Toggle Availability
+  updateVendorItem: async (vendorId, itemId, itemData, token) => {
     try {
       const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}/items/${itemId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
         body: JSON.stringify(itemData)
       });
       const contentType = res.headers.get('content-type');
@@ -370,27 +536,33 @@ export const api = {
         return data;
       }
     } catch (_) {}
-    return { item_id: itemId, ...itemData };
+    return { message: 'Availability status updated successfully' };
   },
 
-  deleteVendorItem: async (vendorId, itemId) => {
+  // 4.4 Delete Menu Item
+  deleteVendorItem: async (vendorId, itemId, token) => {
     try {
       const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}/items/${itemId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         return await res.json();
       }
     } catch (_) {}
-    return { success: true };
+    return { message: 'Item deleted successfully' };
   },
 
-  updateVendorSettings: async (vendorId, settingsData) => {
+  // 4.5 Update Store Settings
+  updateVendorSettings: async (vendorId, settingsData, token) => {
     try {
       const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}/settings`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
         body: JSON.stringify(settingsData)
       });
       const contentType = res.headers.get('content-type');
@@ -400,21 +572,58 @@ export const api = {
         return data;
       }
     } catch (_) {}
-    return { success: true, ...settingsData };
+    return { 
+      message: 'Store settings updated successfully',
+      logo: settingsData.logo || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80'
+    };
   },
 
-  // Admin
-  getAdminVendors: async (search = '') => {
+  // 4.6 Renew Vendor Subscription
+  renewSubscription: async (vendorId, paymentData, token) => {
     try {
-      const res = await fetch(`${API_BASE}/admin/vendors${search ? `?search=${encodeURIComponent(search)}` : ''}`);
+      const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}/renew`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify(paymentData)
+      });
+      if (res.ok) return await res.json();
+    } catch (_) {}
+    const today = new Date();
+    const nextYear = new Date(today);
+    nextYear.setFullYear(today.getFullYear() + 1);
+    return {
+      message: 'Subscription renewed successfully for 1 year!',
+      start_date: today.toISOString().split('T')[0],
+      end_date: nextYear.toISOString().split('T')[0]
+    };
+  },
+
+
+  // -------------------------------------------------------------
+  // 5. Admin Portal APIs
+  // -------------------------------------------------------------
+
+  // 5.1 Get All Vendors (Admin)
+  getAdminVendors: async (search = '', token) => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/vendors${search ? `?search=${encodeURIComponent(search)}` : ''}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         return await res.json();
       }
     } catch (_) {}
-    return MOCK_VENDORS;
+    return MOCK_VENDORS.map(v => ({
+      ...v,
+      payments: [{ payment_id: 1, amount: 2999.00, status: 'SUCCESS' }]
+    }));
   },
 
+  // 5.2 Get Pending Vendor Requests
   getAdminRequests: async () => {
     try {
       const res = await fetch(`${API_BASE}/admin/requests`);
@@ -426,6 +635,7 @@ export const api = {
     return [];
   },
 
+  // 5.3 Approve Vendor Request
   approveVendorRequest: async (vendorId) => {
     try {
       const res = await fetch(`${API_BASE}/admin/requests/${vendorId}/approve`, {
@@ -436,9 +646,18 @@ export const api = {
         return await res.json();
       }
     } catch (_) {}
-    return { success: true, vendorId, status: 'APPROVED' };
+    const today = new Date();
+    const nextYear = new Date(today);
+    nextYear.setFullYear(today.getFullYear() + 1);
+    return {
+      message: 'Vendor request approved successfully! Vendor is now active with 1-Year Subscription.',
+      vendor_id: String(vendorId),
+      start_date: today.toISOString().split('T')[0],
+      end_date: nextYear.toISOString().split('T')[0]
+    };
   },
 
+  // 5.4 Reject Vendor Request
   rejectVendorRequest: async (vendorId) => {
     try {
       const res = await fetch(`${API_BASE}/admin/requests/${vendorId}/reject`, {
@@ -449,10 +668,13 @@ export const api = {
         return await res.json();
       }
     } catch (_) {}
-    return { success: true, vendorId, status: 'REJECTED' };
+    return {
+      message: 'Vendor request rejected',
+      vendor_id: String(vendorId)
+    };
   },
 
-  // Platform Branding Config
+  // 5.5 Get Platform Config
   getPlatformConfig: async () => {
     try {
       const res = await fetch(`${API_BASE}/admin/config`);
@@ -461,9 +683,13 @@ export const api = {
         return await res.json();
       }
     } catch (_) {}
-    return { platform_logo: '/logo.png', platform_name: 'DigiLocal' };
+    return {
+      platform_logo: 'https://imgh.in/host/ucila6',
+      platform_name: 'DigiLocal'
+    };
   },
 
+  // 5.6 Update Platform Config
   updatePlatformConfig: async (configData) => {
     try {
       let res = await fetch(`${API_BASE}/admin/config`, {
@@ -471,7 +697,6 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(configData)
       });
-
       if (res.status === 404) {
         res = await fetch(`${API_BASE}/admin/config`, {
           method: 'POST',
@@ -479,7 +704,6 @@ export const api = {
           body: JSON.stringify(configData)
         });
       }
-
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
@@ -487,6 +711,73 @@ export const api = {
         return data;
       }
     } catch (_) {}
-    return { message: 'Config updated locally' };
+    return {
+      message: 'Platform configuration updated successfully',
+      platform_logo: configData.platform_logo || 'https://imgh.in/host/new_logo.png',
+      platform_name: configData.platform_name || 'DigiLocal Marketplace'
+    };
+  },
+
+
+  // -------------------------------------------------------------
+  // 6. Health & Observability APIs
+  // -------------------------------------------------------------
+
+  // 6.1 Full Health Check Report
+  getHealth: async () => {
+    try {
+      const res = await fetch('/health');
+      if (res.ok) return await res.json();
+    } catch (_) {}
+    return {
+      status: 'UP',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      uptimeSeconds: 3200,
+      environment: 'development',
+      database: { status: 'UP', engine: 'sqlite' },
+      memory: { heapUsedMb: 42, rssMb: 85 }
+    };
+  },
+
+  // 6.2 Liveness Probe
+  getLiveness: async () => {
+    try {
+      const res = await fetch('/health/live');
+      if (res.ok) return await res.json();
+    } catch (_) {}
+    return {
+      status: 'ALIVE',
+      timestamp: new Date().toISOString(),
+      uptimeSeconds: 3200
+    };
+  },
+
+  // 6.3 Readiness Probe
+  getReadiness: async () => {
+    try {
+      const res = await fetch('/health/ready');
+      if (res.ok) return await res.json();
+    } catch (_) {}
+    return {
+      status: 'READY',
+      timestamp: new Date().toISOString(),
+      database: 'CONNECTED'
+    };
+  },
+
+  // 6.4 Version Metadata
+  getVersion: async () => {
+    try {
+      const res = await fetch('/version');
+      if (res.ok) return await res.json();
+    } catch (_) {}
+    return {
+      name: 'digilocal-backend',
+      version: '1.0.0',
+      description: 'Backend API for DigiLocal Vendor Ordering and Subscription Platform',
+      environment: 'development',
+      nodeVersion: 'v20.11.0'
+    };
   }
 };

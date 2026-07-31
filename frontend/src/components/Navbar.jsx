@@ -1,11 +1,25 @@
-import React, { useState } from 'react';
-import { Store, ArrowLeft, LogOut, ArrowUpRight, Building2, ShoppingBag, User, LogIn } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Store, ArrowLeft, LogOut, ArrowUpRight, Building2, ShoppingBag, User, LogIn, MapPin, ChevronDown } from 'lucide-react';
 import LoginModal from './LoginModal';
+import DeliveryLocationModal from './DeliveryLocationModal';
 
 export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorLogout }) {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+
   const isHomePage = currentRoute.page === 'home';
   const isDashboardOrAdmin = currentRoute.page === 'vendorDashboard' || currentRoute.page === 'admin';
+
+  // Load saved delivery location from storage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('digilocal_delivery_location');
+      if (saved) {
+        setSelectedLocation(JSON.parse(saved));
+      }
+    } catch (_) {}
+  }, []);
 
   const handleGoBack = () => {
     if (window.history.length > 1) {
@@ -100,21 +114,37 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
           </nav>
 
           {/* Top Right Action Buttons */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2.5">
+            
+            {/* 1. Enter Your Delivery Location Pill */}
             <button
-              onClick={() => setIsLoginModalOpen(true)}
-              className="px-4 py-2.5 rounded-full text-xs font-black bg-primary text-primary-foreground hover:bg-gold hover:text-ink transition-all duration-200 shadow-md flex items-center space-x-1.5 tracking-tight"
+              onClick={() => setIsLocationModalOpen(true)}
+              className="hidden lg:flex items-center space-x-2 px-4 py-2.5 rounded-full text-xs font-semibold bg-[#E4ECE4] hover:bg-[#D6E3D6] text-[#18281F] border border-[#18281F]/10 transition-all shadow-sm group max-w-[240px] truncate"
+              title={selectedLocation?.label || "Enter your delivery location"}
             >
-              <LogIn className="w-3.5 h-3.5 text-gold" />
-              <span>Login</span>
+              <MapPin className="w-3.5 h-3.5 text-[#18281F] fill-[#18281F]/20 shrink-0" />
+              <span className="truncate">
+                {selectedLocation?.label || "Enter your delivery location"}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#18281F]/70 group-hover:translate-y-0.5 transition-transform shrink-0" />
             </button>
 
+            {/* 2. Sign In Pill */}
+            <button
+              onClick={() => setIsLoginModalOpen(true)}
+              className="px-5 py-2.5 rounded-full text-xs font-bold bg-[#18281F] text-white hover:bg-[#243A2D] transition-all shadow-md flex items-center space-x-1.5 tracking-tight"
+            >
+              <LogIn className="w-3.5 h-3.5 text-[#C4A066]" />
+              <span>Sign in</span>
+            </button>
+
+            {/* 3. Vendor Portal Pill */}
             {isHomePage && (
               <button
                 onClick={handleVendorButtonClick}
-                className="hidden sm:flex px-5 py-2.5 rounded-full text-xs font-bold bg-white text-foreground hover:bg-secondary transition-all duration-200 border border-border shadow-sm items-center space-x-1.5 tracking-tight group"
+                className="hidden sm:flex px-5 py-2.5 rounded-full text-xs font-bold bg-white text-ink hover:bg-secondary transition-all duration-200 border border-slate-300 shadow-sm items-center space-x-1.5 tracking-tight group"
               >
-                <Store className="w-3.5 h-3.5 text-foreground" />
+                <Store className="w-3.5 h-3.5 text-ink" />
                 <span>Vendor Portal</span>
                 <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform text-muted-foreground" />
               </button>
@@ -133,6 +163,15 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
 
         </div>
       </header>
+
+      {/* Delivery Location Selector Modal */}
+      <DeliveryLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        selectedLocation={selectedLocation}
+        onSelectLocation={setSelectedLocation}
+        setRoute={setRoute}
+      />
 
       {/* Login Portal Modal */}
       <LoginModal 

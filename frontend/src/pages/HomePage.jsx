@@ -367,62 +367,63 @@ export default function HomePage({ setRoute }) {
             </div>
           </div>
 
-          {/* Card 3: Vertical Category Rows Stack */}
-          <div className="lg:col-span-4 bg-card border border-border rounded-[2.5rem] p-6 sm:p-7 shadow-sm flex flex-col justify-between">
-            <div className="space-y-3.5">
-              
-              {/* Row 1: Grocery & Staples */}
-              <div 
-                onClick={() => setSearch('grocery')}
-                className="p-3.5 rounded-2xl bg-secondary/40 hover:bg-secondary border border-border/50 transition-all cursor-pointer flex items-center justify-between group"
-              >
-                <div className="flex items-center space-x-3.5">
-                  <div className="w-11 h-11 rounded-full bg-[#E8F2EA] text-[#1E3A29] border border-[#D2E4D5] flex items-center justify-center shadow-xs">
-                    <ShoppingBag className="w-5 h-5 text-[#1E3A29]" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-serif font-bold text-ink">Grocery & Staples</h4>
-                    <p className="text-[10px] text-muted-foreground font-normal">Fresh essentials from neighbourhood stores.</p>
-                  </div>
+          {/* Card 3: Registered Housing Societies */}
+          <div className="lg:col-span-4 bg-card border border-border rounded-[2.5rem] p-6 sm:p-7 shadow-sm flex flex-col justify-between relative overflow-hidden group min-h-[220px]">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 rounded-2xl bg-secondary border border-border flex items-center justify-center text-foreground">
+                  <Building2 className="w-6 h-6 text-foreground" />
                 </div>
-                <ArrowRight className="w-4 h-4 text-foreground group-hover:translate-x-1 transition-transform" />
+                <span className="px-3 py-1 text-[10px] font-black bg-[#18281F] text-white rounded-full uppercase tracking-wider shadow-xs">
+                  6+ SOCIETIES
+                </span>
               </div>
 
-              {/* Row 2: Bakery & Cafes */}
-              <div 
-                onClick={() => setSearch('bakery')}
-                className="p-3.5 rounded-2xl bg-secondary/40 hover:bg-secondary border border-border/50 transition-all cursor-pointer flex items-center justify-between group"
-              >
-                <div className="flex items-center space-x-3.5">
-                  <div className="w-11 h-11 rounded-full bg-[#F9EFE2] text-[#8C6B38] border border-[#EEDFCD] flex items-center justify-center shadow-xs">
-                    <Cookie className="w-5 h-5 text-[#8C6B38]" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-serif font-bold text-ink">Bakery & Cafes</h4>
-                    <p className="text-[10px] text-muted-foreground font-normal">Freshly baked & brewed, just for your society.</p>
-                  </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-foreground group-hover:translate-x-1 transition-transform" />
-              </div>
+              <span className="text-[10px] font-bold text-[#C4A066] tracking-widest uppercase block mb-0.5">
+                Gated Communities
+              </span>
 
-              {/* Row 3: Dairy & Beverages */}
-              <div 
-                onClick={() => setSearch('dairy')}
-                className="p-3.5 rounded-2xl bg-secondary/40 hover:bg-secondary border border-border/50 transition-all cursor-pointer flex items-center justify-between group"
-              >
-                <div className="flex items-center space-x-3.5">
-                  <div className="w-11 h-11 rounded-full bg-[#EBF3F9] text-[#2C5282] border border-[#D5E4F1] flex items-center justify-center shadow-xs">
-                    <Milk className="w-5 h-5 text-[#2C5282]" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-serif font-bold text-ink">Dairy & Beverages</h4>
-                    <p className="text-[10px] text-muted-foreground font-normal">Pure, safe & trusted essentials every day.</p>
-                  </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-foreground group-hover:translate-x-1 transition-transform" />
-              </div>
+              <h2 className="text-xl font-serif font-black text-ink uppercase tracking-tight mb-3">
+                REGISTERED HOUSING SOCIETIES
+              </h2>
 
+              {/* Society Thumbnails Row */}
+              <div className="grid grid-cols-4 gap-2 pt-1">
+                {societies.slice(0, 4).map((soc) => (
+                  <div
+                    key={soc.society_id}
+                    onClick={() => setRoute({ page: 'societyVendors', societyId: soc.society_id })}
+                    className="group/soc cursor-pointer"
+                  >
+                    <div className="h-16 rounded-xl overflow-hidden bg-secondary border border-border relative mb-1">
+                      <img
+                        src={soc.image_url || soc.banner_image}
+                        alt={soc.society_name}
+                        className="w-full h-full object-cover group-hover/soc:scale-110 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                      <span className="absolute bottom-1 left-1 px-1 py-0.5 text-[8px] font-extrabold bg-[#18281F]/80 text-[#C4A066] rounded">
+                        {soc.society_id}
+                      </span>
+                    </div>
+                    <p className="text-[9px] font-bold text-ink truncate leading-tight">
+                      {soc.society_name.split(' ')[0]}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
+
+            <button
+              onClick={() => {
+                const el = document.getElementById('societies-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="inline-flex items-center space-x-1.5 text-xs font-bold text-ink hover:text-[#C4A066] transition-colors pt-3"
+            >
+              <span>View All Societies</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
 
         </div>

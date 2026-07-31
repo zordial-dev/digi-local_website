@@ -4,6 +4,7 @@ import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Pho
 import NotificationModal from '../components/NotificationModal';
 import DummyPaymentModal from '../components/DummyPaymentModal';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
+import LoginModal from '../components/LoginModal';
 
 export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) {
   const [vendorData, setVendorData] = useState(null);
@@ -29,10 +30,37 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
   // Modals & Tracking
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [lastPlacedOrder, setLastPlacedOrder] = useState(null);
   const [activeOrder, setActiveOrder] = useState(null);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info' });
+
+  // Auth Guard Helper: Check if user is logged in
+  const checkResidentAuth = () => {
+    try {
+      const resSession = localStorage.getItem('digilocal_resident_session');
+      const venSession = localStorage.getItem('digilocal_vendor_session');
+      if (resSession || venSession) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  };
+
+  const handleCheckoutOnline = () => {
+    if (!checkResidentAuth()) {
+      setModalConfig({
+        isOpen: true,
+        title: '🔒 Login Required to Place Order',
+        message: 'You cannot place an order without signing in or registering your mobile number. Please log in to proceed.',
+        type: 'warning'
+      });
+      setIsLoginModalOpen(true);
+      return;
+    }
+    setShowPaymentModal(true);
+  };
 
   useEffect(() => {
     loadStorefront();
@@ -51,11 +79,9 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
       const data = await api.getVendorStorefront(vendorId);
       setVendorData(data.vendor);
       setItems(data.items || []);
-
-      const cats = ['All', ...new Set((data.items || []).map(i => i.category || 'General'))];
-      setCategories(cats);
+      setCategories(['All', ...(data.categories || [])]);
     } catch (err) {
-      console.error('Failed to load storefront:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -114,7 +140,7 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
     setCart((prev) => prev.map(i => i.item_id === itemId ? { ...i, specialInstructions: text } : i));
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = cart.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const filteredItems = items.filter(item => {
@@ -126,6 +152,17 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
 
   // WHATSAPP ORDERING TRIGGER
   const handlePlaceOrderWhatsApp = async () => {
+    if (!checkResidentAuth()) {
+      setModalConfig({
+        isOpen: true,
+        title: '🔒 Login Required to Place Order',
+        message: 'You cannot place an order without signing in or registering your mobile number. Please log in to proceed.',
+        type: 'warning'
+      });
+      setIsLoginModalOpen(true);
+      return;
+    }
+
     if (!flatNumber) {
       handleOpenChangeLocation();
       return;
@@ -603,7 +640,7 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
             {/* Footer Order & Payment Buttons */}
             <div className="p-6 bg-secondary/50 border-t border-border space-y-2.5">
               <button
-                onClick={() => setShowPaymentModal(true)}
+                onClick={handleCheckoutOnline}
                 disabled={placingOrder}
                 className="w-full py-3.5 rounded-full bg-primary hover:bg-gold text-primary-foreground hover:text-ink font-black text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer border border-primary/20"
               >
@@ -723,6 +760,13 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
         type={modalConfig.type}
         onConfirm={() => setModalConfig({ ...modalConfig, isOpen: false })}
         onCancel={() => setModalConfig({ ...modalConfig, isOpen: false })}
+      />
+
+      {/* Login Portal Modal */}
+      <LoginModal 
+        isOpen={isLoginModalOpen} 
+        onClose={() => setIsLoginModalOpen(false)} 
+        setRoute={setRoute}
       />
 
       {/* Live Order Tracker Widget */}
