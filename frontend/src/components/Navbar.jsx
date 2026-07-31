@@ -93,10 +93,10 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
             Our Story
           </button>
           <button 
-            onClick={() => setRoute({ page: 'vendorRegister' })}
+            onClick={() => setRoute({ page: 'info', tab: 'help-support' })}
             className="hover:text-foreground transition-colors py-1"
           >
-            Register Store
+            How It Works
           </button>
         </nav>
 
@@ -107,8 +107,9 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
               onClick={handleVendorButtonClick}
               className="px-5 py-2.5 rounded-full text-xs font-bold bg-white text-foreground hover:bg-secondary transition-all duration-200 border border-border shadow-sm flex items-center space-x-1.5 tracking-tight group"
             >
-              <span>Find a Store / Login</span>
-              <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+              <Store className="w-3.5 h-3.5 text-foreground" />
+              <span>Vendor Portal</span>
+              <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform text-muted-foreground" />
             </button>
           )}
 

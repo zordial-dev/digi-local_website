@@ -167,13 +167,10 @@ export default function HomePage({ setRoute }) {
                 </div>
               </div>
 
-              <button
-                onClick={() => setRoute({ page: 'vendorRegister' })}
-                className="px-5 py-2.5 rounded-full bg-[#C4A066] hover:bg-white text-[#18281F] font-extrabold text-xs transition-all shadow-md flex items-center space-x-2 tracking-tight uppercase"
-              >
-                <Store className="w-4 h-4" />
-                <span>Register Store ↗</span>
-              </button>
+              <div className="px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs text-white/90 font-medium flex items-center space-x-2 shrink-0">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="font-bold text-emerald-300">Direct WhatsApp Ordering</span>
+              </div>
             </div>
 
             {/* Hero Main 2-Column Content */}
