@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
 import SocietyVendorsPage from './pages/SocietyVendorsPage';
 import VendorStorefrontPage from './pages/VendorStorefrontPage';
 import VendorRegisterPage from './pages/VendorRegisterPage';
 import VendorDashboardPage from './pages/VendorDashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import InfoPages from './pages/InfoPages';
 import { ShieldCheck } from 'lucide-react';
 
 function getRouteFromPath(path = window.location.pathname) {
@@ -20,6 +22,27 @@ function getRouteFromPath(path = window.location.pathname) {
   }
   if (cleanPath === '/registervendor' || cleanPath === '/registervender') {
     return { page: 'vendorRegister' };
+  }
+  if (cleanPath === '/privacy-policy') {
+    return { page: 'info', tab: 'privacy-policy' };
+  }
+  if (cleanPath === '/child-security') {
+    return { page: 'info', tab: 'child-security' };
+  }
+  if (cleanPath === '/terms-and-conditions' || cleanPath === '/terms') {
+    return { page: 'info', tab: 'terms-and-conditions' };
+  }
+  if (cleanPath === '/help-support' || cleanPath === '/help') {
+    return { page: 'info', tab: 'help-support' };
+  }
+  if (cleanPath === '/safety-standards') {
+    return { page: 'info', tab: 'safety-standards' };
+  }
+  if (cleanPath === '/contact-support' || cleanPath === '/contact') {
+    return { page: 'info', tab: 'contact-support' };
+  }
+  if (cleanPath === '/faqs' || cleanPath === '/faq') {
+    return { page: 'info', tab: 'faqs' };
   }
   if (parts[0] === 'vendorpanel' && parts[1]) {
     return { page: 'vendorDashboard', vendorId: parts[1] };
@@ -47,6 +70,8 @@ function getPathFromRoute(route) {
       return `/vendorPanel/${route.vendorId}`;
     case 'admin':
       return '/admin';
+    case 'info':
+      return `/${route.tab || 'privacy-policy'}`;
     default:
       return '/';
   }
@@ -72,7 +97,7 @@ export default function App() {
   // Scroll to top on every page navigation
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
-  }, [route.page, route.vendorId, route.societyId]);
+  }, [route.page, route.vendorId, route.societyId, route.tab]);
 
   // Handle browser Back / Forward buttons
   useEffect(() => {
@@ -94,7 +119,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#1F2229] flex flex-col font-sans">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
       <Navbar 
         currentRoute={route} 
         setRoute={setRoute} 
@@ -116,7 +141,7 @@ export default function App() {
         )}
 
         {route.page === 'vendorRegister' && (
-          <VendorRegisterPage setRoute={setRoute} setActiveVendor={setActiveVendor} />
+          <VendorRegisterPage currentRoute={route} setRoute={setRoute} setActiveVendor={setActiveVendor} />
         )}
 
         {route.page === 'vendorDashboard' && (
@@ -126,22 +151,15 @@ export default function App() {
         {route.page === 'admin' && (
           <AdminDashboardPage setRoute={setRoute} />
         )}
+
+        {route.page === 'info' && (
+          <InfoPages tab={route.tab} setRoute={setRoute} />
+        )}
       </main>
 
-      <footer className="bg-white border-t border-[#C5A880]/20 py-6 text-xs text-[#787F8C]">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© {new Date().getFullYear()} DigiLocal Network. Hyperlocal Residential Vendor & WhatsApp Ordering Platform.</p>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setRoute({ page: 'admin' })}
-              className="text-[#787F8C] hover:text-[#0A1428] font-bold flex items-center gap-1.5 transition-colors uppercase tracking-wider text-[11px]"
-            >
-              <ShieldCheck className="w-4 h-4 text-[#C5A880]" />
-              <span>Admin Portal Access</span>
-            </button>
-          </div>
-        </div>
-      </footer>
+      <Footer setRoute={setRoute} />
     </div>
   );
 }
+
+

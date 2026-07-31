@@ -1,55 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* DigiCafe Luxury Global CSS Variables & Theme Setup */
+/* Color Scheme Tokens from Reference Image */
 :root {
-  --primary-navy: #0A1428;
-  --primary-navy-rgb: 10, 20, 40;
-  --accent-gold: #C5A880;
-  --accent-gold-rgb: 197, 168, 128;
-  --accent-gold-light: #F6F3EC;
-  --accent-gold-hover: #A88F68;
-  --bg-cream: #FAF9F6;
-  --card-bg: #FFFFFF;
-  --text-dark: #1F2229;
-  --text-muted: #787F8C;
-  --border-light: rgba(197, 168, 128, 0.22);
-  --error: #C62828;
-  --success: #2E7D32;
+  --background: #F7F4EE;         /* Warm light cream */
+  --foreground: #18281F;         /* Deep forest dark espresso text */
+  --card: #FFFFFF;               /* Pure white cards */
+  --muted-foreground: #6B7C70;   /* Muted sage taupe */
+  --border: #E4DCC9;             /* Soft warm sand border */
+  --secondary: #EFE8D8;          /* Light warm sand surface */
+  --ink: #18281F;                /* Deep forest text */
+  --ink-foreground: #F7F4EE;     /* Cream text */
+  --gold: #C4A066;               /* Warm tan gold accent */
+  --accent: #C4A066;             /* Warm tan gold accent */
+  --primary: #18281F;            /* Deep dark forest green hero background */
+  --primary-card: #243A2D;       /* Inner dark forest bento card */
+  --primary-foreground: #F7F4EE; /* Cream text */
 
-  --glass-bg: rgba(255, 255, 255, 0.92);
-  --glass-border: rgba(197, 168, 128, 0.18);
-  --glass-blur: 14px;
-
-  --font-serif: 'Cinzel', Georgia, serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
 
-  --shadow-sm: 0 2px 8px rgba(10, 20, 40, 0.04);
-  --shadow-md: 0 6px 18px rgba(10, 20, 40, 0.06);
-  --shadow-lg: 0 12px 32px rgba(10, 20, 40, 0.08);
-  --shadow-gold: 0 6px 20px rgba(197, 168, 128, 0.2);
+* {
+  border-color: var(--border);
+}
 
-  --transition-smooth: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  --transition-fast: all 0.15s ease-out;
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
   width: 100%;
-  max-width: 1200px;
   min-height: 100vh;
-  background-color: var(--bg-cream);
-  position: relative;
+  background-color: var(--background);
+  color: var(--foreground);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 0 50px rgba(0, 0, 0, 0.4);
-}
-
-@media (min-width: 1200px) {
-  #root {
-    border-left: 1px solid var(--border-light);
-    border-right: 1px solid var(--border-light);
-  }
 }
 
 .font-serif {
@@ -58,16 +51,29 @@
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-cream);
+  background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--accent-gold);
-  border-radius: 4px;
+  background: var(--border);
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-gold-hover);
+  background: var(--muted-foreground);
 }
+
+/* Custom bento glass & rounded utilities */
+.bento-card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 1.75rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bento-card:hover {
+  box-shadow: 0 12px 30px -10px rgba(28, 68, 53, 0.08);
+}
+

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Store, UserCheck, ArrowLeft, LogOut } from 'lucide-react';
+import { Store, ArrowLeft, LogOut, ArrowUpRight, Sparkles, Building2, ShoppingBag } from 'lucide-react';
 
 export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorLogout }) {
   const isHomePage = currentRoute.page === 'home';
@@ -34,64 +34,99 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#C5A880]/20 shadow-sm px-4 sm:px-8 py-3.5 flex items-center justify-between">
-      
-      <div className="flex items-center space-x-3">
-        {/* Back Button (Shown on all pages EXCEPT Home page) */}
-        {!isHomePage && (
-          <button
-            onClick={handleGoBack}
-            className="px-3 py-1.5 rounded-lg bg-[#FAF9F6] hover:bg-[#F6F3EC] text-[#0A1428] border border-[#C5A880]/30 text-xs font-bold flex items-center space-x-1.5 transition-colors uppercase tracking-wider shadow-sm"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#C5A880]" />
-            <span>Back</span>
-          </button>
-        )}
-
+    <header className="sticky top-0 z-40 bg-background/90 backdrop-blur-md border-b border-border/40 px-4 sm:px-8 py-3.5">
+      <div className="max-w-7xl mx-auto flex items-center justify-between">
+        
         {/* Brand & Logo */}
-        <div 
-          onClick={() => setRoute({ page: 'home' })}
-          className="flex items-center space-x-3 cursor-pointer group"
-        >
-          <img
-            src="/logo.png"
-            alt="DigiLocal Logo"
-            className="w-10 h-10 object-contain rounded-xl shadow-sm group-hover:scale-105 transition-transform"
-          />
-          <div className="flex flex-col">
-            <h1 className="text-base font-serif font-extrabold tracking-wider text-[#0A1428] uppercase leading-tight">
-              Digi<span className="text-[#C5A880]">Local</span>
-            </h1>
-            <span className="text-[9px] font-bold text-[#C5A880] tracking-widest uppercase">
-              Hyperlocal Society Platform
-            </span>
+        <div className="flex items-center space-x-3">
+          {!isHomePage && (
+            <button
+              onClick={handleGoBack}
+              className="px-3 py-1.5 rounded-full bg-secondary hover:bg-border text-foreground text-xs font-bold flex items-center space-x-1.5 transition-all border border-border"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
+            </button>
+          )}
+
+          <div 
+            onClick={() => setRoute({ page: 'home' })}
+            className="flex items-center space-x-2 cursor-pointer group"
+          >
+            {/* Sparkle Logo Icon */}
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-foreground group-hover:scale-105 transition-transform">
+              <Sparkles className="w-5 h-5 text-foreground fill-foreground" />
+            </div>
+
+            <div className="flex items-center">
+              <h1 className="text-xl font-serif font-black tracking-wider uppercase text-foreground">
+                DIGILOCAL
+              </h1>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Top Right Action Header Bar */}
-      <div className="flex items-center space-x-3">
-        {isHomePage && (
-          <button
-            onClick={handleVendorButtonClick}
-            className="px-4 py-2 rounded-lg text-xs font-bold bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] shadow-md transition-all flex items-center space-x-1.5 tracking-wider uppercase"
+        {/* Center Navigation Items */}
+        <nav className="hidden md:flex items-center space-x-8 text-xs font-bold tracking-wide text-foreground/80">
+          <button 
+            onClick={() => setRoute({ page: 'home' })}
+            className={`hover:text-foreground transition-colors py-1 ${isHomePage ? 'font-black text-foreground border-b-2 border-foreground' : ''}`}
           >
-            <Store className="w-4 h-4 text-[#C5A880]" />
-            <span>Login / Register as Vendor</span>
+            Societies
           </button>
-        )}
-
-        {isDashboardOrAdmin && (
-          <button
-            onClick={handleHeaderLogout}
-            className="px-4 py-2 rounded-lg text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 shadow-sm transition-all flex items-center space-x-1.5 tracking-wider uppercase"
+          <button 
+            onClick={() => {
+              const el = document.getElementById('societies-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="hover:text-foreground transition-colors py-1"
           >
-            <LogOut className="w-4 h-4 text-rose-600" />
-            <span>Logout</span>
+            Vendors
           </button>
-        )}
-      </div>
+          <button 
+            onClick={() => {
+              const el = document.getElementById('societies-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="hover:text-foreground transition-colors py-1"
+          >
+            Our Story
+          </button>
+          <button 
+            onClick={() => setRoute({ page: 'info', tab: 'help-support' })}
+            className="hover:text-foreground transition-colors py-1"
+          >
+            How It Works
+          </button>
+        </nav>
 
+        {/* Top Right Action Button */}
+        <div className="flex items-center space-x-2">
+          {isHomePage && (
+            <button
+              onClick={handleVendorButtonClick}
+              className="px-5 py-2.5 rounded-full text-xs font-bold bg-white text-foreground hover:bg-secondary transition-all duration-200 border border-border shadow-sm flex items-center space-x-1.5 tracking-tight group"
+            >
+              <Store className="w-3.5 h-3.5 text-foreground" />
+              <span>Vendor Portal</span>
+              <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform text-muted-foreground" />
+            </button>
+          )}
+
+          {isDashboardOrAdmin && (
+            <button
+              onClick={handleHeaderLogout}
+              className="px-4 py-2 rounded-full text-xs font-extrabold bg-rose-500/10 border border-rose-500/30 text-rose-700 hover:bg-rose-500 hover:text-white transition-all flex items-center space-x-1.5"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Logout</span>
+            </button>
+          )}
+        </div>
+
+      </div>
     </header>
   );
 }
+
+

@@ -224,7 +224,7 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
 
   if (!panelData || !panelData.vendor) {
     return (
-      <div className="min-h-screen bg-[#FAF9F6] p-12 text-center text-rose-700 font-bold">
+      <div className="min-h-screen bg-background p-12 text-center text-rose-700 font-bold">
         Vendor profile not found.
       </div>
     );
@@ -233,50 +233,50 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
   const { vendor, items, orders, subscription, payments } = panelData;
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#1F2229] pb-20">
+    <div className="min-h-screen bg-background text-foreground pb-20 px-3 sm:px-6">
       
       {/* Top Banner */}
-      <div className="bg-white border-b border-[#C5A880]/20 py-8 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto pt-4 pb-6">
+        <div className="bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center space-x-5">
               <img
                 src={vendor.logo || 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80'}
                 alt={vendor.store_name}
-                className="w-20 h-20 rounded-2xl object-cover border-2 border-[#C5A880]/30 bg-[#FAF9F6] shadow-sm"
+                className="w-20 h-20 rounded-2xl object-cover border-2 border-border bg-secondary shadow-sm"
               />
               <div>
                 <div className="flex items-center space-x-2 mb-1 flex-wrap gap-1">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                  <span className={`px-3 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${
                     vendor.status === 'ACTIVE'
-                      ? 'bg-[#E8F5E9] text-[#2E7D32] border border-[#2E7D32]/30'
-                      : 'bg-[#FFF8E1] text-[#B78103] border border-[#B78103]/30'
+                      ? 'bg-primary/10 text-primary border-primary/20'
+                      : 'bg-gold/10 text-ink border-gold/30'
                   }`}>
                     Status: {vendor.status === 'ACTIVE' ? 'ACTIVE (STORE LIVE)' : 'PENDING ADMIN APPROVAL'}
                   </span>
-                  <span className="text-xs text-[#787F8C] font-medium">• {vendor.society_name}</span>
+                  <span className="text-xs text-muted-foreground font-medium">• {vendor.society_name}</span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#0A1428] uppercase tracking-wide">{vendor.store_name}</h1>
-                <p className="text-xs text-[#787F8C] mt-1 font-medium">Vendor: {vendor.vendor_name} ({vendor.email})</p>
+                <h1 className="text-2xl sm:text-3xl font-serif font-black text-ink uppercase tracking-wide">{vendor.store_name}</h1>
+                <p className="text-xs text-muted-foreground mt-1 font-medium">Vendor: {vendor.vendor_name} ({vendor.email})</p>
               </div>
             </div>
 
             <button
               onClick={loadPanelData}
-              className="px-4 py-2.5 rounded-xl bg-[#FAF9F6] hover:bg-[#F6F3EC] text-[#0A1428] text-xs font-bold flex items-center space-x-2 border border-[#C5A880]/30 shadow-sm uppercase tracking-wider self-start md:self-auto"
+              className="px-5 py-2.5 rounded-full bg-secondary hover:bg-border text-ink text-xs font-bold flex items-center space-x-2 border border-border shadow-sm uppercase tracking-wider self-start md:self-auto"
             >
-              <RefreshCw className="w-4 h-4 text-[#C5A880]" />
+              <RefreshCw className="w-4 h-4 text-gold" />
               <span>Refresh Panel</span>
             </button>
           </div>
 
           {/* Pending Admin Approval Banner */}
           {vendor.status === 'PENDING' && (
-            <div className="mt-6 p-4 rounded-xl bg-[#FFF8E1] border border-[#B78103]/30 text-[#0A1428] text-xs flex items-start space-x-3 shadow-sm font-medium">
-              <ShieldCheck className="w-5 h-5 text-[#B78103] flex-shrink-0 mt-0.5" />
+            <div className="mt-6 p-4 rounded-2xl bg-secondary border border-border text-ink text-xs flex items-start space-x-3 shadow-sm font-medium">
+              <ShieldCheck className="w-5 h-5 text-gold flex-shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-bold text-[#B78103] text-sm mb-0.5">Store Setup Active (Hidden From Residents Until Approved)</h4>
-                <p>
+                <h4 className="font-bold text-ink text-sm mb-0.5">Store Setup Active (Hidden From Residents Until Approved)</h4>
+                <p className="text-muted-foreground">
                   Your payment is confirmed! You can add products, set prices, and configure store settings now. Your store will automatically become visible to community residents in <strong>{vendor.society_name}</strong> once DigiLocal Admin approves your subscription request.
                 </p>
               </div>
@@ -284,7 +284,7 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
           )}
 
           {/* Navigation Tabs */}
-          <div className="flex items-center space-x-2 mt-8 border-b border-[#C5A880]/20 overflow-x-auto">
+          <div className="flex items-center space-x-2 mt-8 border-b border-border overflow-x-auto">
             {[
               { id: 'orders', label: `Orders (${orders.length})`, icon: ShoppingBag },
               { id: 'items', label: `Items (${items.length})`, icon: Package },
@@ -296,13 +296,13 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-5 py-3 rounded-t-xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider ${
+                  className={`px-5 py-3 rounded-t-2xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider ${
                     activeTab === tab.id
-                      ? 'bg-[#F6F3EC] text-[#0A1428] border-[#0A1428] font-extrabold'
-                      : 'text-[#787F8C] hover:text-[#0A1428] border-transparent'
+                      ? 'bg-secondary text-ink border-primary font-black'
+                      : 'text-muted-foreground hover:text-ink border-transparent'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-gold' : ''}`} />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -310,6 +310,7 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
           </div>
         </div>
       </div>
+
 
       {/* Main Tab Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
