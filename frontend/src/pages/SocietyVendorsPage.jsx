@@ -28,30 +28,30 @@ export default function SocietyVendorsPage({ societyId, setRoute }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#1F2229] pb-20">
+    <div className="min-h-screen bg-background text-foreground pb-20 px-3 sm:px-6">
       
       {/* Header Banner */}
-      <div className="bg-white border-b border-[#C5A880]/20 py-8 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto pt-4 pb-6">
+        <div className="bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 shadow-sm">
           <button
             onClick={() => setRoute({ page: 'home' })}
-            className="inline-flex items-center space-x-2 text-xs font-bold text-[#787F8C] hover:text-[#C5A880] mb-4 transition-colors uppercase tracking-wider"
+            className="inline-flex items-center space-x-2 text-xs font-bold text-muted-foreground hover:text-primary mb-4 transition-colors"
           >
-            <ArrowLeft className="w-4 h-4 text-[#C5A880]" />
+            <ArrowLeft className="w-4 h-4 text-gold" />
             <span>Back to Societies</span>
           </button>
 
           {society && (
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
-                <span className="px-3 py-1 text-[11px] font-extrabold bg-[#F6F3EC] text-[#0A1428] border border-[#C5A880]/30 rounded-full inline-block mb-2 uppercase tracking-wider">
+                <span className="px-3.5 py-1 text-[11px] font-bold bg-secondary text-ink rounded-full inline-block mb-3 border border-border">
                   Residential Society Marketplace
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#0A1428] uppercase tracking-wide">
+                <h1 className="text-3xl sm:text-4xl font-serif font-bold text-ink">
                   {society.society_name}
                 </h1>
-                <div className="flex items-center space-x-1.5 text-[#787F8C] text-xs mt-1 font-medium">
-                  <MapPin className="w-3.5 h-3.5 text-[#C5A880]" />
+                <div className="flex items-center space-x-1.5 text-muted-foreground text-xs mt-1.5 font-medium">
+                  <MapPin className="w-4 h-4 text-gold" />
                   <span>{society.location}</span>
                 </div>
               </div>
@@ -59,13 +59,13 @@ export default function SocietyVendorsPage({ societyId, setRoute }) {
               {/* Vendor Search Input */}
               <div className="w-full md:w-80">
                 <div className="relative">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C5A880]" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
                   <input
                     type="text"
                     placeholder="Search vendor or store..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/40 text-[#0A1428] text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                    className="w-full pl-11 pr-4 py-3 rounded-full bg-background border border-border text-ink text-xs font-semibold focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -74,25 +74,25 @@ export default function SocietyVendorsPage({ societyId, setRoute }) {
         </div>
       </div>
 
-      {/* Vendors Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+      {/* Vendors Bento Grid */}
+      <div className="max-w-7xl mx-auto mt-4">
         
         {loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-64 rounded-2xl bg-white border border-[#C5A880]/20 animate-pulse" />
+              <div key={i} className="h-64 rounded-[2rem] bg-card border border-border animate-pulse" />
             ))}
           </div>
         )}
 
         {!loading && vendors.length === 0 && (
-          <div className="text-center py-16 bg-white border border-[#C5A880]/20 rounded-2xl p-8 max-w-lg mx-auto shadow-sm">
-            <Store className="w-12 h-12 text-[#787F8C] mx-auto mb-3" />
-            <h3 className="text-base font-bold text-[#0A1428] mb-1">No Active Vendors Found</h3>
-            <p className="text-[#787F8C] text-xs mb-6 font-medium">There are currently no active approved vendors registered in this society matching your search.</p>
+          <div className="text-center py-16 bg-card border border-border rounded-[2.5rem] p-8 max-w-lg mx-auto shadow-sm">
+            <Store className="w-12 h-12 text-gold mx-auto mb-3" />
+            <h3 className="text-base font-bold text-ink mb-1">No Active Vendors Found</h3>
+            <p className="text-muted-foreground text-xs mb-6 font-medium">There are currently no active approved vendors registered in this society matching your search.</p>
             <button
               onClick={() => setRoute({ page: 'vendorRegister' })}
-              className="px-5 py-2.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white font-bold text-xs shadow-md tracking-wider uppercase"
+              className="px-6 py-3 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-md tracking-wider uppercase"
             >
               Register your Store Here
             </button>
@@ -105,20 +105,20 @@ export default function SocietyVendorsPage({ societyId, setRoute }) {
               <div
                 key={vendor.vendor_id}
                 onClick={() => setRoute({ page: 'vendorStorefront', societyId, vendorId: vendor.vendor_id })}
-                className="group rounded-2xl bg-white border border-[#C5A880]/25 hover:border-[#C5A880] transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer overflow-hidden flex flex-col justify-between"
+                className="group rounded-[2rem] bg-card border border-border hover:border-primary/40 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer overflow-hidden flex flex-col justify-between bento-card"
               >
                 <div className="p-6">
                   <div className="flex items-start space-x-4 mb-4">
                     <img
                       src={vendor.logo || 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80'}
                       alt={vendor.store_name}
-                      className="w-16 h-16 rounded-xl object-cover border border-[#C5A880]/30 bg-[#FAF9F6] shadow-sm group-hover:scale-105 transition-transform flex-shrink-0"
+                      className="w-16 h-16 rounded-2xl object-cover border border-border bg-secondary shadow-sm group-hover:scale-105 transition-transform flex-shrink-0"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1 flex-wrap gap-1">
-                        <div className="flex items-center space-x-1 text-[#2E7D32] text-[11px] font-bold">
-                          <ShieldCheck className="w-3.5 h-3.5" />
-                          <span>Verified DigiLocal Vendor</span>
+                        <div className="flex items-center space-x-1 text-primary text-[11px] font-bold">
+                          <ShieldCheck className="w-3.5 h-3.5 text-gold" />
+                          <span>Verified Vendor</span>
                         </div>
                         {/* Live Open / Closed Badge */}
                         {(() => {
@@ -126,46 +126,46 @@ export default function SocietyVendorsPage({ societyId, setRoute }) {
                           return (
                             <span
                               title={isOpen ? `Open until ${closesAt}` : `Opens at ${opensAt}${nextOpenIn ? ` (in ${nextOpenIn})` : ''}`}
-                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
+                              className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
                                 isOpen
-                                  ? 'bg-[#E8F5E9] text-[#2E7D32] border-[#2E7D32]/25'
-                                  : 'bg-rose-50 text-rose-600 border-rose-200'
+                                  ? 'bg-primary/10 text-primary border-primary/20'
+                                  : 'bg-rose-500/10 text-rose-700 border-rose-500/20'
                               }`}
                             >
-                              <span className={`w-1.5 h-1.5 rounded-full ${isOpen ? 'bg-[#2E7D32]' : 'bg-rose-500'}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full ${isOpen ? 'bg-primary' : 'bg-rose-500'}`} />
                               {isOpen ? 'Open' : 'Closed'}
                             </span>
                           );
                         })()}
                       </div>
-                      <h3 className="text-lg font-bold text-[#0A1428] group-hover:text-[#C5A880] transition-colors truncate">
+                      <h3 className="text-lg font-serif font-black text-ink group-hover:text-primary transition-colors truncate">
                         {vendor.store_name}
                       </h3>
-                      <p className="text-xs text-[#787F8C] font-medium">By {vendor.vendor_name}</p>
+                      <p className="text-xs text-muted-foreground font-medium">By {vendor.vendor_name}</p>
                     </div>
                   </div>
 
-                  <p className="text-[#787F8C] text-xs line-clamp-2 mb-4 leading-relaxed font-medium">
+                  <p className="text-muted-foreground text-xs line-clamp-2 mb-4 leading-relaxed font-medium">
                     {vendor.description || 'Quality goods & daily essentials delivered within society via WhatsApp.'}
                   </p>
 
-                  {/* PROMINENT GSTIN, CONTACT & TIMINGS */}
-                  <div className="space-y-2 text-xs text-[#787F8C] pt-3 border-t border-[#C5A880]/15 font-medium">
+                  {/* GSTIN, CONTACT & TIMINGS */}
+                  <div className="space-y-2 text-xs text-muted-foreground pt-3 border-t border-border/60 font-medium">
                     <div className="flex items-center justify-between">
                       <span className="flex items-center space-x-1.5">
-                        <Phone className="w-3.5 h-3.5 text-[#C5A880]" />
+                        <Phone className="w-3.5 h-3.5 text-gold" />
                         <span>{vendor.phone_number || 'Available via WhatsApp'}</span>
                       </span>
                       <span className="flex items-center space-x-1.5">
-                        <Clock className="w-3.5 h-3.5 text-[#C5A880]" />
+                        <Clock className="w-3.5 h-3.5 text-gold" />
                         <span>{vendor.opening_timing || '08:00 AM'} – {vendor.closing_timing || '10:00 PM'}</span>
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#F6F3EC] border border-[#C5A880]/30 text-[#0A1428] font-bold text-[11px]">
-                      <FileText className="w-3.5 h-3.5 text-[#C5A880] flex-shrink-0" />
+                    <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-secondary border border-border text-ink font-bold text-[11px]">
+                      <FileText className="w-3.5 h-3.5 text-gold flex-shrink-0" />
                       <span>GSTIN:</span>
-                      <span className="font-mono text-[#0A1428] tracking-wide">{vendor.gst_number || '07AAACR12341Z5'}</span>
+                      <span className="font-mono text-ink tracking-wide">{vendor.gst_number || '07AAACR12341Z5'}</span>
                     </div>
                   </div>
                 </div>
@@ -173,21 +173,21 @@ export default function SocietyVendorsPage({ societyId, setRoute }) {
                 {(() => {
                   const { isOpen, opensAt, nextOpenIn } = getStoreStatus(vendor.opening_timing, vendor.closing_timing);
                   return (
-                    <div className={`p-3.5 border-t flex items-center justify-between text-xs font-bold ${
+                    <div className={`p-4 border-t flex items-center justify-between text-xs font-bold ${
                       isOpen
-                        ? 'bg-[#F6F3EC] border-[#C5A880]/20 text-[#0A1428] group-hover:text-[#C5A880]'
-                        : 'bg-rose-50 border-rose-100 text-rose-600 cursor-not-allowed'
+                        ? 'bg-secondary/60 border-border text-ink group-hover:text-primary'
+                        : 'bg-rose-500/10 border-rose-500/20 text-rose-700 cursor-not-allowed'
                     }`}>
                       <span className="flex items-center gap-2">
                         {isOpen
-                          ? <ShoppingCart className="w-4 h-4 text-[#C5A880]" />
-                          : <Clock className="w-4 h-4 text-rose-400" />
+                          ? <ShoppingCart className="w-4 h-4 text-gold" />
+                          : <Clock className="w-4 h-4 text-rose-500" />
                         }
                         <span className="uppercase tracking-wider text-[11px]">
                           {isOpen ? 'Browse Catalog & Order' : `Closed • Opens at ${opensAt}${nextOpenIn ? ` (in ${nextOpenIn})` : ''}`}
                         </span>
                       </span>
-                      {isOpen && <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform text-[#C5A880]" />}
+                      {isOpen && <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform text-gold" />}
                     </div>
                   );
                 })()}
@@ -200,3 +200,4 @@ export default function SocietyVendorsPage({ societyId, setRoute }) {
     </div>
   );
 }
+

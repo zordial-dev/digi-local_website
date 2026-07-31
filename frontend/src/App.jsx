@@ -94,7 +94,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#1F2229] flex flex-col font-sans">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
       <Navbar 
         currentRoute={route} 
         setRoute={setRoute} 
@@ -116,7 +116,7 @@ export default function App() {
         )}
 
         {route.page === 'vendorRegister' && (
-          <VendorRegisterPage setRoute={setRoute} setActiveVendor={setActiveVendor} />
+          <VendorRegisterPage currentRoute={route} setRoute={setRoute} setActiveVendor={setActiveVendor} />
         )}
 
         {route.page === 'vendorDashboard' && (
@@ -128,15 +128,15 @@ export default function App() {
         )}
       </main>
 
-      <footer className="bg-white border-t border-[#C5A880]/20 py-6 text-xs text-[#787F8C]">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <footer className="bg-card border-t border-border py-8 text-xs text-muted-foreground mt-12">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© {new Date().getFullYear()} DigiLocal Network. Hyperlocal Residential Vendor & WhatsApp Ordering Platform.</p>
           <div className="flex items-center space-x-4">
             <button
               onClick={() => setRoute({ page: 'admin' })}
-              className="text-[#787F8C] hover:text-[#0A1428] font-bold flex items-center gap-1.5 transition-colors uppercase tracking-wider text-[11px]"
+              className="text-muted-foreground hover:text-ink font-bold flex items-center gap-1.5 transition-colors uppercase tracking-wider text-[11px] bg-secondary px-3.5 py-1.5 rounded-full border border-border"
             >
-              <ShieldCheck className="w-4 h-4 text-[#C5A880]" />
+              <ShieldCheck className="w-4 h-4 text-gold" />
               <span>Admin Portal Access</span>
             </button>
           </div>
@@ -145,3 +145,4 @@ export default function App() {
     </div>
   );
 }
+

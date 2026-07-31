@@ -208,31 +208,31 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#1F2229] pb-28">
+    <div className="min-h-screen bg-background text-foreground pb-28 px-3 sm:px-6">
       
       {/* Store Header Banner */}
-      <div className="bg-white border-b border-[#C5A880]/20 py-6 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto pt-4 pb-6">
+        <div className="bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 shadow-sm">
           
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <button
               onClick={() => setRoute({ page: 'societyVendors', societyId })}
-              className="inline-flex items-center space-x-2 text-xs font-bold text-[#787F8C] hover:text-[#C5A880] transition-colors uppercase tracking-wider"
+              className="inline-flex items-center space-x-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors"
             >
-              <ArrowLeft className="w-4 h-4 text-[#C5A880]" />
+              <ArrowLeft className="w-4 h-4 text-gold" />
               <span>Back to Society Vendors</span>
             </button>
 
             {/* Flat Delivery Badge (Per Cafe Visit) */}
             {flatNumber ? (
-              <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-[#F6F3EC] border border-[#C5A880]/30 shadow-sm self-start sm:self-auto">
-                <Home className="w-3.5 h-3.5 text-[#C5A880]" />
-                <span className="text-xs font-bold text-[#0A1428]">
-                  Delivering to: <strong className="text-[#C5A880]">Flat {flatNumber} ({buildingNumber || 'Tower A'})</strong>
+              <div className="flex items-center space-x-2 px-4 py-2 rounded-full bg-secondary border border-border shadow-sm self-start sm:self-auto">
+                <Home className="w-4 h-4 text-gold" />
+                <span className="text-xs font-bold text-ink">
+                  Delivering to: <strong className="text-primary font-bold">Flat {flatNumber} ({buildingNumber || 'Tower A'})</strong>
                 </span>
                 <button
                   onClick={handleOpenChangeLocation}
-                  className="text-[11px] font-extrabold text-[#0A1428] underline hover:text-[#C5A880] ml-1 uppercase"
+                  className="text-[11px] font-bold text-ink underline hover:text-primary ml-2"
                 >
                   Change
                 </button>
@@ -240,43 +240,43 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
             ) : (
               <button
                 onClick={handleOpenChangeLocation}
-                className="px-3.5 py-1.5 rounded-xl bg-[#0A1428] text-white text-xs font-bold shadow-sm flex items-center space-x-1.5 uppercase tracking-wider"
+                className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-sm flex items-center space-x-2 uppercase tracking-wider"
               >
-                <Home className="w-3.5 h-3.5 text-[#C5A880]" />
+                <Home className="w-4 h-4 text-gold" />
                 <span>Enter Flat & Tower Number</span>
               </button>
             )}
           </div>
 
           {loading ? (
-            <div className="h-28 rounded-2xl bg-slate-100 animate-pulse" />
+            <div className="h-28 rounded-2xl bg-secondary/40 animate-pulse" />
           ) : vendorData && (
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="flex items-start space-x-5">
                 <img
                   src={vendorData.logo || 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80'}
                   alt={vendorData.store_name}
-                  className="w-20 h-20 rounded-2xl object-cover border-2 border-[#C5A880]/30 bg-[#FAF9F6] shadow-sm"
+                  className="w-20 h-20 rounded-2xl object-cover border-2 border-border bg-secondary shadow-sm"
                 />
                 <div>
-                  <div className="flex items-center space-x-2 text-xs font-bold text-[#2E7D32] mb-1">
-                    <ShieldCheck className="w-4 h-4" />
+                  <div className="flex items-center space-x-1.5 text-xs font-bold text-primary mb-1">
+                    <ShieldCheck className="w-4 h-4 text-gold" />
                     <span>Verified Store • {vendorData.society_name}</span>
                   </div>
-                  <h1 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#0A1428] uppercase tracking-wide">
+                  <h1 className="text-3xl font-serif font-black text-ink uppercase tracking-wide">
                     {vendorData.store_name}
                   </h1>
-                  <p className="text-xs sm:text-sm text-[#787F8C] mt-1 max-w-xl font-medium">
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-xl font-medium">
                     {vendorData.description}
                   </p>
                   
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-[#787F8C] mt-3 font-medium">
-                    <span className="flex items-center space-x-1">
-                      <Phone className="w-3.5 h-3.5 text-[#C5A880]" />
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-3 font-medium">
+                    <span className="flex items-center space-x-1.5">
+                      <Phone className="w-3.5 h-3.5 text-gold" />
                       <span>{vendorData.phone_number}</span>
                     </span>
-                    <span className="px-3 py-1 rounded-lg bg-[#F6F3EC] border border-[#C5A880]/30 text-[#0A1428] font-bold flex items-center space-x-1.5 shadow-sm text-[11px]">
-                      <FileText className="w-3.5 h-3.5 text-[#C5A880]" />
+                    <span className="px-3 py-1 rounded-full bg-secondary border border-border text-ink font-bold flex items-center space-x-1.5 shadow-sm text-[11px]">
+                      <FileText className="w-3.5 h-3.5 text-gold" />
                       <span>GSTIN:</span>
                       <span className="font-mono">{vendorData.gst_number || '07AAACR12341Z5'}</span>
                     </span>
@@ -287,9 +287,9 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
               {cartItemCount > 0 && (
                 <button
                   onClick={() => setShowCartDrawer(true)}
-                  className="px-6 py-3.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold shadow-md flex items-center justify-center space-x-3 transition-all tracking-wider uppercase text-xs"
+                  className="px-6 py-3.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold shadow-md flex items-center justify-center space-x-3 transition-all tracking-wider uppercase text-xs"
                 >
-                  <ShoppingBag className="w-4 h-4" />
+                  <ShoppingBag className="w-4 h-4 text-gold" />
                   <span>View Cart ({cartItemCount}) • ₹{subtotal.toFixed(2)}</span>
                 </button>
               )}
@@ -299,19 +299,19 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
       </div>
 
       {/* Catalog Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+      <div className="max-w-7xl mx-auto mt-4">
         
         {/* Category Navigation Pills */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-card border border-border p-4 rounded-[2rem] shadow-sm">
+          <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all uppercase tracking-wider ${
+                className={`px-5 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all uppercase tracking-wider ${
                   selectedCategory === cat
-                    ? 'bg-[#0A1428] text-white shadow-sm'
-                    : 'bg-white text-[#787F8C] hover:text-[#0A1428] border border-[#C5A880]/20'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-secondary text-muted-foreground hover:text-ink border border-border'
                 }`}
               >
                 {cat}
@@ -321,13 +321,13 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
 
           <div className="w-full md:w-72">
             <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C5A880]" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
               <input
                 type="text"
                 placeholder="Search menu items..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                className="w-full pl-11 pr-4 py-2.5 rounded-full bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
               />
             </div>
           </div>
@@ -335,10 +335,10 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
 
         {/* Item Cards Grid */}
         {filteredItems.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-2xl border border-[#C5A880]/20 p-8 shadow-sm">
-            <ShoppingBag className="w-12 h-12 text-[#787F8C] mx-auto mb-3" />
-            <h3 className="text-base font-bold text-[#0A1428] mb-1">No items found</h3>
-            <p className="text-[#787F8C] text-xs font-medium">Try selecting a different category or search term.</p>
+          <div className="text-center py-16 bg-card rounded-[2.5rem] border border-border p-8 shadow-sm">
+            <ShoppingBag className="w-12 h-12 text-gold mx-auto mb-3" />
+            <h3 className="text-base font-bold text-ink mb-1">No items found</h3>
+            <p className="text-muted-foreground text-xs font-medium">Try selecting a different category or search term.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -349,76 +349,76 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
               return (
                 <div
                   key={item.item_id}
-                  className={`rounded-2xl bg-white border border-[#C5A880]/25 overflow-hidden flex flex-col justify-between transition-all duration-200 shadow-sm ${
-                    !isAvailable ? 'opacity-70 bg-[#FAF9F6]' : 'hover:border-[#C5A880] hover:shadow-md'
+                  className={`rounded-[2rem] bg-card border border-border overflow-hidden flex flex-col justify-between transition-all duration-200 shadow-sm bento-card ${
+                    !isAvailable ? 'opacity-70 bg-secondary/50' : 'hover:border-primary/40 hover:shadow-md'
                   }`}
                 >
-                  <div className="p-4 sm:p-5">
-                    <div className="relative mb-3.5 rounded-xl overflow-hidden bg-[#FAF9F6] h-40">
+                  <div className="p-5">
+                    <div className="relative mb-4 rounded-2xl overflow-hidden bg-secondary h-44">
                       <img
                         src={item.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&auto=format&fit=crop&q=80'}
                         alt={item.item_name}
                         className="w-full h-full object-cover"
                       />
                       
-                      <div className="absolute top-2.5 left-2.5">
+                      <div className="absolute top-3 left-3">
                         {isAvailable ? (
-                          <span className="px-2.5 py-1 text-[10px] font-extrabold bg-[#2E7D32] text-white rounded-full shadow-sm">
+                          <span className="px-3 py-1 text-[10px] font-extrabold bg-primary text-primary-foreground rounded-full shadow-sm">
                             In Stock ({item.unit})
                           </span>
                         ) : (
-                          <span className="px-2.5 py-1 text-[10px] font-extrabold bg-[#C62828] text-white rounded-full shadow-sm flex items-center gap-1">
+                          <span className="px-3 py-1 text-[10px] font-extrabold bg-rose-600 text-white rounded-full shadow-sm flex items-center gap-1">
                             <AlertTriangle className="w-3 h-3" />
                             Unavailable
                           </span>
                         )}
                       </div>
 
-                      <div className="absolute top-2.5 right-2.5">
-                        <span className="px-2.5 py-1 text-[10px] font-bold bg-white/90 text-[#0A1428] border border-[#C5A880]/30 rounded-full shadow-sm">
+                      <div className="absolute top-3 right-3">
+                        <span className="px-3 py-1 text-[10px] font-bold bg-card/90 text-ink border border-border rounded-full shadow-sm">
                           {item.category || 'General'}
                         </span>
                       </div>
                     </div>
 
-                    <h3 className="text-base font-bold text-[#0A1428] mb-1">{item.item_name}</h3>
-                    <p className="text-[#787F8C] text-xs line-clamp-2 mb-3 leading-relaxed font-medium">
+                    <h3 className="text-lg font-serif font-extrabold text-ink mb-1">{item.item_name}</h3>
+                    <p className="text-muted-foreground text-xs line-clamp-2 mb-3 leading-relaxed font-medium">
                       {item.description || 'Fresh quality item.'}
                     </p>
                   </div>
 
-                  <div className="p-3.5 bg-[#FAF9F6] border-t border-[#C5A880]/15 flex items-center justify-between">
+                  <div className="p-4 bg-secondary/50 border-t border-border flex items-center justify-between">
                     <div>
-                      <span className="text-base font-extrabold text-[#C5A880]">₹{parseFloat(item.price).toFixed(2)}</span>
-                      <span className="text-[11px] text-[#787F8C] ml-1 font-medium">/ {item.unit}</span>
+                      <span className="text-lg font-extrabold text-primary">₹{parseFloat(item.price).toFixed(2)}</span>
+                      <span className="text-[11px] text-muted-foreground ml-1 font-medium">/ {item.unit}</span>
                     </div>
 
                     {!isAvailable ? (
-                      <span className="text-[11px] font-bold text-[#C62828] px-3 py-1 rounded-lg bg-rose-50 border border-rose-200">
+                      <span className="text-[11px] font-bold text-rose-700 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20">
                         Out of Stock
                       </span>
                     ) : inCart ? (
-                      <div className="flex items-center space-x-2 bg-white border border-[#C5A880]/30 rounded-lg p-1">
+                      <div className="flex items-center space-x-2 bg-card border border-border rounded-full p-1 shadow-sm">
                         <button
                           onClick={() => updateQuantity(item.item_id, -1)}
-                          className="w-6 h-6 rounded bg-[#FAF9F6] hover:bg-slate-100 text-[#0A1428] flex items-center justify-center font-bold"
+                          className="w-7 h-7 rounded-full bg-secondary hover:bg-border text-ink flex items-center justify-center font-bold"
                         >
-                          <Minus className="w-3 h-3 text-[#0A1428]" />
+                          <Minus className="w-3.5 h-3.5 text-ink" />
                         </button>
-                        <span className="text-xs font-extrabold text-[#0A1428] px-1">{inCart.quantity}</span>
+                        <span className="text-xs font-extrabold text-ink px-2">{inCart.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.item_id, 1)}
-                          className="w-6 h-6 rounded bg-[#0A1428] hover:bg-[#C5A880] text-white flex items-center justify-center font-bold"
+                          className="w-7 h-7 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center font-bold"
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     ) : (
                       <button
                         onClick={() => addToCart(item)}
-                        className="px-4 py-1.5 rounded-lg bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-sm flex items-center space-x-1 transition-all uppercase tracking-wider text-[11px]"
+                        className="px-5 py-2 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-sm flex items-center space-x-1.5 transition-all uppercase tracking-wider text-[11px]"
                       >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Plus className="w-3.5 h-3.5 text-gold" />
                         <span>Add</span>
                       </button>
                     )}
@@ -433,20 +433,20 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
       {/* Floating Bottom Cart Bar */}
       {cartItemCount > 0 && !showCartDrawer && (
         <div className="fixed bottom-6 inset-x-4 max-w-lg mx-auto z-40">
-          <div className="bg-[#0A1428] text-white p-4 rounded-2xl border border-[#C5A880]/40 shadow-2xl flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-9 h-9 rounded-full bg-[#C5A880] text-[#0A1428] flex items-center justify-center font-extrabold text-xs">
+          <div className="bg-primary text-primary-foreground p-4 rounded-[2rem] border border-primary/40 shadow-2xl flex items-center justify-between">
+            <div className="flex items-center space-x-3.5">
+              <div className="w-10 h-10 rounded-full bg-gold text-ink flex items-center justify-center font-extrabold text-xs">
                 {cartItemCount}
               </div>
               <div>
-                <p className="text-[10px] text-[#C5A880] font-bold uppercase tracking-wider">Total Bill</p>
-                <p className="text-base font-extrabold text-white">₹{subtotal.toFixed(2)}</p>
+                <p className="text-[10px] text-gold font-extrabold uppercase tracking-wider">Total Bill</p>
+                <p className="text-lg font-extrabold text-primary-foreground">₹{subtotal.toFixed(2)}</p>
               </div>
             </div>
 
             <button
               onClick={() => setShowCartDrawer(true)}
-              className="px-4 py-2.5 rounded-xl bg-[#C5A880] hover:bg-[#A88F68] text-[#0A1428] font-extrabold text-xs shadow-md flex items-center space-x-1.5 uppercase tracking-wider"
+              className="px-5 py-3 rounded-full bg-gold hover:bg-gold/90 text-ink font-extrabold text-xs shadow-md flex items-center space-x-2 uppercase tracking-wider"
             >
               <span>Review & Order via WhatsApp</span>
               <ShoppingBag className="w-4 h-4" />
@@ -455,55 +455,55 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
         </div>
       )}
 
-      {/* LOCATION ENTRY MODAL (Always re-asks on entering cafe) */}
+      {/* LOCATION ENTRY MODAL */}
       {showLocationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A1428]/60 backdrop-blur-md">
-          <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl text-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-md">
+          <div className="bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 max-w-md w-full shadow-2xl text-center">
             
-            <div className="w-14 h-14 rounded-full bg-[#F6F3EC] border border-[#C5A880]/40 flex items-center justify-center mx-auto mb-4">
-              <Home className="w-7 h-7 text-[#C5A880]" />
+            <div className="w-14 h-14 rounded-full bg-secondary border border-border flex items-center justify-center mx-auto mb-4">
+              <Home className="w-7 h-7 text-gold" />
             </div>
 
-            <h2 className="text-xl font-serif font-extrabold text-[#0A1428] uppercase tracking-wide mb-1">
+            <h2 className="text-2xl font-serif font-extrabold text-ink uppercase tracking-wide mb-1">
               Enter Room / Flat Number
             </h2>
-            <p className="text-xs text-[#787F8C] leading-relaxed mb-6 font-medium">
-              Welcome to <strong className="text-[#0A1428]">{vendorData?.store_name || 'this Store'}</strong>! Please enter your room/flat number to order from this store.
+            <p className="text-xs text-muted-foreground leading-relaxed mb-6 font-medium">
+              Welcome to <strong className="text-ink">{vendorData?.store_name || 'this Store'}</strong>! Please enter your room/flat number to order from this store.
             </p>
 
             {locationError && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold mb-4">
+              <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 text-xs font-semibold mb-4">
                 {locationError}
               </div>
             )}
 
             <form onSubmit={handleLocationSubmit} className="space-y-4 text-left">
               <div>
-                <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1.5">Flat / Room Number *</label>
+                <label className="block text-xs font-bold text-ink uppercase mb-1.5">Flat / Room Number *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. 402, 101, 503"
                   value={tempFlatInput}
                   onChange={(e) => setTempFlatInput(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/40 text-[#0A1428] text-sm font-bold focus:outline-none focus:border-[#C5A880]"
+                  className="w-full px-4 py-3 rounded-2xl bg-background border border-border text-ink text-sm font-bold focus:outline-none focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1.5">Tower / Building (Optional)</label>
+                <label className="block text-xs font-bold text-ink uppercase mb-1.5">Tower / Building (Optional)</label>
                 <input
                   type="text"
                   placeholder="e.g. Tower B, Block A"
                   value={tempBuildingInput}
                   onChange={(e) => setTempBuildingInput(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/40 text-[#0A1428] text-sm font-bold focus:outline-none focus:border-[#C5A880]"
+                  className="w-full px-4 py-3 rounded-2xl bg-background border border-border text-ink text-sm font-bold focus:outline-none focus:border-primary"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider transition-all mt-2"
+                className="w-full py-3.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-md uppercase tracking-wider transition-all mt-2"
               >
                 Confirm Location & Order
               </button>
@@ -515,95 +515,95 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
 
       {/* Slide-out Shopping Cart Drawer */}
       {showCartDrawer && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-[#0A1428]/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-[#FAF9F6] border-l border-[#C5A880]/30 h-full flex flex-col justify-between shadow-2xl">
+        <div className="fixed inset-0 z-50 flex justify-end bg-ink/50 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-card border-l border-border h-full flex flex-col justify-between shadow-2xl">
             {/* Header */}
-            <div className="p-5 bg-white border-b border-[#C5A880]/20 flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <ShoppingBag className="w-5 h-5 text-[#C5A880]" />
-                <h3 className="text-base font-serif font-extrabold text-[#0A1428] uppercase tracking-wider">Your Order Cart</h3>
+            <div className="p-6 bg-secondary/50 border-b border-border flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <ShoppingBag className="w-5 h-5 text-gold" />
+                <h3 className="text-base font-serif font-extrabold text-ink uppercase tracking-wider">Your Order Cart</h3>
               </div>
-              <button onClick={() => setShowCartDrawer(false)} className="w-8 h-8 rounded-full bg-[#FAF9F6] text-[#787F8C] hover:text-[#0A1428] flex items-center justify-center">
+              <button onClick={() => setShowCartDrawer(false)} className="w-8 h-8 rounded-full bg-card text-muted-foreground hover:text-ink flex items-center justify-center border border-border">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Cart Items List */}
-            <div className="p-5 flex-1 overflow-y-auto space-y-3">
+            <div className="p-6 flex-1 overflow-y-auto space-y-4">
               {cart.map((item) => (
-                <div key={item.item_id} className="p-3.5 rounded-xl bg-white border border-[#C5A880]/25 space-y-2 shadow-sm">
+                <div key={item.item_id} className="p-4 rounded-2xl bg-background border border-border space-y-3 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-bold text-[#0A1428] text-xs">{item.item_name}</h4>
-                      <p className="text-[11px] text-[#C5A880] font-extrabold">₹{parseFloat(item.price).toFixed(2)} × {item.quantity} = ₹{(item.price * item.quantity).toFixed(2)}</p>
+                      <h4 className="font-bold text-ink text-xs">{item.item_name}</h4>
+                      <p className="text-[11px] text-primary font-extrabold">₹{parseFloat(item.price).toFixed(2)} × {item.quantity} = ₹{(item.price * item.quantity).toFixed(2)}</p>
                     </div>
-                    <div className="flex items-center space-x-1 bg-[#FAF9F6] border border-[#C5A880]/20 rounded-lg p-1">
-                      <button onClick={() => updateQuantity(item.item_id, -1)} className="w-5 h-5 text-[#0A1428] font-bold flex items-center justify-center">-</button>
-                      <span className="text-xs font-bold text-[#0A1428] px-1">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.item_id, 1)} className="w-5 h-5 text-[#C5A880] font-bold flex items-center justify-center">+</button>
+                    <div className="flex items-center space-x-1 bg-card border border-border rounded-full p-1">
+                      <button onClick={() => updateQuantity(item.item_id, -1)} className="w-6 h-6 rounded-full bg-secondary text-ink font-bold flex items-center justify-center">-</button>
+                      <span className="text-xs font-bold text-ink px-1.5">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.item_id, 1)} className="w-6 h-6 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center">+</button>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 bg-[#FAF9F6] px-2.5 py-1.5 rounded-lg border border-[#C5A880]/15">
-                    <MessageSquare className="w-3.5 h-3.5 text-[#C5A880]" />
+                  <div className="flex items-center space-x-2 bg-secondary px-3 py-2 rounded-xl border border-border/60">
+                    <MessageSquare className="w-3.5 h-3.5 text-gold" />
                     <input
                       type="text"
                       placeholder="Special instruction (e.g. deliver fresh, pack separately)"
                       value={item.specialInstructions || ''}
                       onChange={(e) => updateInstructions(item.item_id, e.target.value)}
-                      className="w-full text-[11px] bg-transparent text-[#0A1428] placeholder-[#787F8C] focus:outline-none"
+                      className="w-full text-[11px] bg-transparent text-ink placeholder-muted-foreground focus:outline-none"
                     />
                   </div>
                 </div>
               ))}
 
               {/* Delivery Location Summary in Cart */}
-              <div className="p-4 bg-white border border-[#C5A880]/25 rounded-xl space-y-2 shadow-sm">
-                <div className="flex justify-between items-center border-b border-[#C5A880]/15 pb-2">
-                  <h4 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider">Delivery Location</h4>
+              <div className="p-4 bg-background border border-border rounded-2xl space-y-2 shadow-sm">
+                <div className="flex justify-between items-center border-b border-border/60 pb-2">
+                  <h4 className="text-xs font-serif font-bold text-ink uppercase tracking-wider">Delivery Location</h4>
                   <button
                     onClick={() => { setShowCartDrawer(false); handleOpenChangeLocation(); }}
-                    className="text-[11px] font-bold text-[#C5A880] hover:underline"
+                    className="text-[11px] font-bold text-primary hover:underline"
                   >
                     Change Location
                   </button>
                 </div>
-                <p className="text-xs font-bold text-[#0A1428]">Flat {flatNumber} ({buildingNumber || 'Tower A'})</p>
-                <p className="text-[11px] text-[#787F8C]">{vendorData?.society_name}</p>
+                <p className="text-xs font-bold text-ink">Flat {flatNumber} ({buildingNumber || 'Tower A'})</p>
+                <p className="text-[11px] text-muted-foreground">{vendorData?.society_name}</p>
               </div>
 
               {/* Order Remarks */}
-              <div className="p-4 bg-white border border-[#C5A880]/25 rounded-xl space-y-1.5 shadow-sm">
-                <label className="block text-[10px] font-bold text-[#0A1428] uppercase">Order Remarks (Optional)</label>
+              <div className="p-4 bg-background border border-border rounded-2xl space-y-1.5 shadow-sm">
+                <label className="block text-[10px] font-bold text-ink uppercase">Order Remarks (Optional)</label>
                 <textarea
                   rows={2}
                   placeholder="e.g., Deliver after 5 PM, leave with security if unavailable..."
                   value={orderRemark}
                   onChange={(e) => setOrderRemark(e.target.value)}
-                  className="w-full p-2.5 rounded-lg bg-[#FAF9F6] border border-[#C5A880]/30 text-xs text-[#0A1428] focus:outline-none resize-none"
+                  className="w-full p-3 rounded-xl bg-card border border-border text-xs text-ink focus:outline-none resize-none"
                 />
               </div>
 
               {/* Bill Breakdown */}
-              <div className="p-4 bg-white border border-[#C5A880]/25 rounded-xl space-y-1.5 text-xs text-[#787F8C] font-medium shadow-sm">
-                <h4 className="text-[11px] font-serif font-bold text-[#0A1428] uppercase border-b border-[#C5A880]/15 pb-1.5 mb-2">Bill Summary</h4>
+              <div className="p-4 bg-background border border-border rounded-2xl space-y-2 text-xs text-muted-foreground font-medium shadow-sm">
+                <h4 className="text-[11px] font-serif font-bold text-ink uppercase border-b border-border/60 pb-2 mb-2">Bill Summary</h4>
                 <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span>Society Delivery</span><span className="text-[#2E7D32] font-bold">FREE</span></div>
-                <div className="flex justify-between text-sm font-extrabold text-[#0A1428] pt-2 border-t border-dashed border-[#C5A880]/30">
+                <div className="flex justify-between"><span>Society Delivery</span><span className="text-primary font-bold">FREE</span></div>
+                <div className="flex justify-between text-sm font-extrabold text-ink pt-2 border-t border-dashed border-border">
                   <span>Total Amount</span>
-                  <span className="text-[#C5A880]">₹{subtotal.toFixed(2)}</span>
+                  <span className="text-primary">₹{subtotal.toFixed(2)}</span>
                 </div>
               </div>
             </div>
 
             {/* Footer Place Order Button */}
-            <div className="p-5 bg-white border-t border-[#C5A880]/20">
+            <div className="p-6 bg-secondary/50 border-t border-border">
               <button
                 onClick={handlePlaceOrderWhatsApp}
                 disabled={placingOrder}
-                className="w-full py-3.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all"
+                className="w-full py-3.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all"
               >
-                <Send className="w-4 h-4 text-[#C5A880]" />
+                <Send className="w-4 h-4 text-gold" />
                 <span>{placingOrder ? 'Preparing WhatsApp Order...' : 'Place Order via WhatsApp'}</span>
               </button>
             </div>
@@ -611,29 +611,29 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
         </div>
       )}
 
-      {/* DigiCafe Order Confirmation Modal */}
+      {/* Order Confirmation Modal */}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A1428]/60 backdrop-blur-sm">
-          <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center flex flex-col items-center">
-            <div className="w-12 h-12 rounded-full bg-[#F6F3EC] border border-[#C5A880]/40 flex items-center justify-center mb-3">
-              <HelpCircle className="w-6 h-6 text-[#C5A880]" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-[2.5rem] p-6 max-w-sm w-full shadow-2xl text-center flex flex-col items-center">
+            <div className="w-12 h-12 rounded-full bg-secondary border border-border flex items-center justify-center mb-3">
+              <HelpCircle className="w-6 h-6 text-gold" />
             </div>
 
-            <h3 className="text-base font-serif font-extrabold text-[#0A1428] mb-1">Order Sent via WhatsApp?</h3>
-            <p className="text-xs text-[#787F8C] mb-6 leading-relaxed font-medium">
+            <h3 className="text-base font-serif font-extrabold text-ink mb-1">Order Sent via WhatsApp?</h3>
+            <p className="text-xs text-muted-foreground mb-6 leading-relaxed font-medium">
               Did you successfully send the generated order message in the WhatsApp chat to vendor staff?
             </p>
 
             <div className="w-full space-y-2">
               <button
                 onClick={handleConfirmOrderSentYes}
-                className="w-full py-3 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs uppercase tracking-wider shadow-sm transition-colors"
+                className="w-full py-3 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs uppercase tracking-wider shadow-sm transition-colors"
               >
                 Yes, Order Sent on WhatsApp
               </button>
               <button
                 onClick={handleConfirmOrderSentNo}
-                className="w-full py-2.5 rounded-xl bg-transparent border border-[#C5A880]/40 text-[#787F8C] hover:text-[#0A1428] font-bold text-xs uppercase tracking-wider transition-colors"
+                className="w-full py-2.5 rounded-full bg-transparent border border-border text-muted-foreground hover:text-ink font-bold text-xs uppercase tracking-wider transition-colors"
               >
                 No, Modify Order
               </button>
@@ -655,3 +655,4 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
     </div>
   );
 }
+
