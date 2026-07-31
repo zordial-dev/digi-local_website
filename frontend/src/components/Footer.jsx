@@ -36,9 +36,11 @@ export default function Footer({ setRoute }) {
               onClick={() => setRoute({ page: 'home' })}
               className="cursor-pointer flex items-center space-x-3 group w-fit"
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#C4A066] to-[#9E7D47] flex items-center justify-center text-[#18281F] font-black text-xl shadow-lg shadow-black/20 group-hover:scale-105 transition-transform">
-                D
-              </div>
+              <img 
+                src="/logo.png" 
+                alt="DigiLocal Logo" 
+                className="w-14 h-14 sm:w-16 sm:h-16 object-contain rounded-2xl shadow-lg shadow-black/20 group-hover:scale-105 transition-transform bg-white/10 p-1.5 border border-emerald-700/40" 
+              />
               <span className="font-serif text-2xl font-bold tracking-tight text-white group-hover:text-[#C4A066] transition-colors">
                 DigiLocal <span className="text-[#C4A066] font-sans text-xs uppercase tracking-widest block font-bold">Network</span>
               </span>

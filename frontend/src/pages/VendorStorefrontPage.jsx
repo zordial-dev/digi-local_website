@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3 } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
+import DummyPaymentModal from '../components/DummyPaymentModal';
+import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
+import LoginModal from '../components/LoginModal';
 
 export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) {
   const [vendorData, setVendorData] = useState(null);
@@ -26,9 +29,38 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
   
   // Modals & Tracking
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [lastPlacedOrder, setLastPlacedOrder] = useState(null);
+  const [activeOrder, setActiveOrder] = useState(null);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info' });
+
+  // Auth Guard Helper: Check if user is logged in
+  const checkResidentAuth = () => {
+    try {
+      const resSession = localStorage.getItem('digilocal_resident_session');
+      const venSession = localStorage.getItem('digilocal_vendor_session');
+      if (resSession || venSession) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  };
+
+  const handleCheckoutOnline = () => {
+    if (!checkResidentAuth()) {
+      setModalConfig({
+        isOpen: true,
+        title: '🔒 Login Required to Place Order',
+        message: 'You cannot place an order without signing in or registering your mobile number. Please log in to proceed.',
+        type: 'warning'
+      });
+      setIsLoginModalOpen(true);
+      return;
+    }
+    setShowPaymentModal(true);
+  };
 
   useEffect(() => {
     loadStorefront();
@@ -47,11 +79,9 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
       const data = await api.getVendorStorefront(vendorId);
       setVendorData(data.vendor);
       setItems(data.items || []);
-
-      const cats = ['All', ...new Set((data.items || []).map(i => i.category || 'General'))];
-      setCategories(cats);
+      setCategories(['All', ...(data.categories || [])]);
     } catch (err) {
-      console.error('Failed to load storefront:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -80,7 +110,7 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
   };
 
   const addToCart = (item) => {
-    if (!item.is_available) return;
+    if (item.is_available === false) return;
     if (!flatNumber) {
       handleOpenChangeLocation();
       return;
@@ -110,7 +140,7 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
     setCart((prev) => prev.map(i => i.item_id === itemId ? { ...i, specialInstructions: text } : i));
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = cart.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const filteredItems = items.filter(item => {
@@ -122,6 +152,17 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
 
   // WHATSAPP ORDERING TRIGGER
   const handlePlaceOrderWhatsApp = async () => {
+    if (!checkResidentAuth()) {
+      setModalConfig({
+        isOpen: true,
+        title: '🔒 Login Required to Place Order',
+        message: 'You cannot place an order without signing in or registering your mobile number. Please log in to proceed.',
+        type: 'warning'
+      });
+      setIsLoginModalOpen(true);
+      return;
+    }
+
     if (!flatNumber) {
       handleOpenChangeLocation();
       return;
@@ -344,7 +385,7 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredItems.map((item) => {
               const inCart = cart.find(c => c.item_id === item.item_id);
-              const isAvailable = Boolean(item.is_available);
+              const isAvailable = item.is_available !== undefined ? Boolean(item.is_available) : true;
 
               return (
                 <div
@@ -596,20 +637,89 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
               </div>
             </div>
 
-            {/* Footer Place Order Button */}
-            <div className="p-6 bg-secondary/50 border-t border-border">
+            {/* Footer Order & Payment Buttons */}
+            <div className="p-6 bg-secondary/50 border-t border-border space-y-2.5">
+              <button
+                onClick={handleCheckoutOnline}
+                disabled={placingOrder}
+                className="w-full py-3.5 rounded-full bg-primary hover:bg-gold text-primary-foreground hover:text-ink font-black text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer border border-primary/20"
+              >
+                <CreditCard className="w-4 h-4 text-gold" />
+                <span>Pay ₹{subtotal.toFixed(2)} Online (Dummy Sandbox)</span>
+              </button>
+
               <button
                 onClick={handlePlaceOrderWhatsApp}
                 disabled={placingOrder}
-                className="w-full py-3.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all"
+                className="w-full py-3 rounded-full bg-background hover:bg-secondary text-ink border border-border font-bold text-xs shadow-sm uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer"
               >
-                <Send className="w-4 h-4 text-gold" />
-                <span>{placingOrder ? 'Preparing WhatsApp Order...' : 'Place Order via WhatsApp'}</span>
+                <Send className="w-3.5 h-3.5 text-gold" />
+                <span>{placingOrder ? 'Preparing Order...' : 'Place Order via WhatsApp'}</span>
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Dummy Payment Modal */}
+      <DummyPaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        amount={subtotal}
+        title="DigiLocal Dummy Payment"
+        description={`Order from ${vendorData?.store_name || 'Local Store'} (${vendorData?.society_name || 'Society'})`}
+        onSuccess={async (txn) => {
+          setShowPaymentModal(false);
+          setShowCartDrawer(false);
+          try {
+            setPlacingOrder(true);
+            const payload = {
+              vendor_id: vendorId,
+              buyer_name: `Flat ${flatNumber} Resident`,
+              buyer_phone: '9876543210',
+              flat_number: flatNumber,
+              building_number: buildingNumber,
+              order_remark: orderRemark,
+              payment_method: txn.paymentMethod,
+              transaction_id: txn.transactionId,
+              items: cart.map(c => ({
+                item_id: c.item_id,
+                quantity: c.quantity,
+                specialInstructions: c.specialInstructions || ''
+              }))
+            };
+
+            const res = await api.placeOrder(payload);
+            const activeOrderData = {
+              order_id: res?.order_id || `ORD-${Date.now().toString().slice(-6)}`,
+              total_amount: subtotal,
+              delivery_address: `Flat ${flatNumber} (${buildingNumber || 'Tower A'}), ${vendorData?.society_name || 'Society'}`,
+              items: cart,
+              timestamp: new Date().toISOString()
+            };
+            try { localStorage.setItem('digilocal_active_order', JSON.stringify(activeOrderData)); } catch (_) {}
+            setActiveOrder(activeOrderData);
+
+            setCart([]);
+            setOrderRemark('');
+            setModalConfig({
+              isOpen: true,
+              title: 'Order Paid & Confirmed!',
+              message: `Your payment of ₹${subtotal.toFixed(2)} (${txn.paymentMethod}) was processed successfully in test mode. Transaction Ref: ${txn.transactionId}. Your order is now live!`,
+              type: 'success'
+            });
+          } catch (err) {
+            setModalConfig({
+              isOpen: true,
+              title: 'Order Placement Error',
+              message: err.message || 'Payment processed, but order logging failed.',
+              type: 'error'
+            });
+          } finally {
+            setPlacingOrder(false);
+          }
+        }}
+      />
 
       {/* Order Confirmation Modal */}
       {showConfirmModal && (
@@ -650,6 +760,19 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
         type={modalConfig.type}
         onConfirm={() => setModalConfig({ ...modalConfig, isOpen: false })}
         onCancel={() => setModalConfig({ ...modalConfig, isOpen: false })}
+      />
+
+      {/* Login Portal Modal */}
+      <LoginModal 
+        isOpen={isLoginModalOpen} 
+        onClose={() => setIsLoginModalOpen(false)} 
+        setRoute={setRoute}
+      />
+
+      {/* Live Order Tracker Widget */}
+      <LiveOrderTrackerToast
+        activeOrder={activeOrder}
+        onClose={() => setActiveOrder(null)}
       />
 
     </div>
