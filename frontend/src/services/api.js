@@ -1,4 +1,4 @@
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://172.25.12.106:5001/api';
 
 // Fallback Mock Data for standalone / offline resilience
 const MOCK_SOCIETIES = [

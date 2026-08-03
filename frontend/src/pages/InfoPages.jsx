@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { 
-  ShieldCheck, 
-  Lock, 
-  FileText, 
-  HelpCircle, 
-  ShieldAlert, 
-  Headphones, 
-  MessageSquare, 
-  Search, 
-  ChevronDown, 
+import {
+  ShieldCheck,
+  Lock,
+  FileText,
+  HelpCircle,
+  ShieldAlert,
+  Headphones,
+  MessageSquare,
+  Search,
+  ChevronDown,
   ChevronRight,
   Send,
   CheckCircle2,
@@ -20,14 +20,16 @@ import {
   Mail,
   Clock,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Code,
+  ExternalLink
 } from 'lucide-react';
 
 export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
   const [activeTab, setActiveTab] = useState(tab || 'privacy-policy');
   const [searchQuery, setSearchQuery] = useState('');
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
-  
+
   // Contact form state
   const [contactForm, setContactForm] = useState({
     name: '',
@@ -45,6 +47,8 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
   }, [tab]);
 
   const navTabs = [
+    { id: 'about-us', title: 'Our Story & Vision', icon: HeartHandshake, category: 'About DigiLocal' },
+    { id: 'how-it-works', title: 'How It Works', icon: Sparkles, category: 'About DigiLocal' },
     { id: 'privacy-policy', title: 'Privacy Policy', icon: Lock, category: 'Legal & Policy' },
     { id: 'child-security', title: 'Child Security Policy', icon: ShieldCheck, category: 'Legal & Policy' },
     { id: 'terms-and-conditions', title: 'Terms & Conditions', icon: FileText, category: 'Legal & Policy' },
@@ -59,6 +63,31 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
     setRoute({ page: 'info', tab: id });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const getBannerHeader = () => {
+    switch (activeTab) {
+      case 'about-us':
+        return {
+          badge: 'Our Story & Mission',
+          title: 'Connecting Neighborhoods, Empowering Local Commerce',
+          subtitle: 'DigiLocal was built to bring authentic local bakes, fresh produce, florists, and craftspeople directly to gated residential societies.'
+        };
+      case 'how-it-works':
+        return {
+          badge: 'How DigiLocal Works',
+          title: 'Simple 10–15 Min Hyperlocal Delivery',
+          subtitle: 'Discover how DigiLocal connects residents directly with verified vendors serving your residential society.'
+        };
+      default:
+        return {
+          badge: 'Trust & Compliance Hub',
+          title: 'Legal, Safety & Support Center',
+          subtitle: 'We are committed to building a secure, transparent, and trusted hyperlocal network for residential societies, local vendors, and families.'
+        };
+    }
+  };
+
+  const headerInfo = getBannerHeader();
 
   const handleContactSubmit = (e) => {
     e.preventDefault();
@@ -120,8 +149,8 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
     }
   ];
 
-  const filteredFaqs = faqsList.filter(item => 
-    item.q.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredFaqs = faqsList.filter(item =>
+    item.q.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.a.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.cat.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -129,26 +158,26 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
   return (
     <div className="min-h-screen bg-[#F7F4EE] text-[#18281F] py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        
+
         {/* Top Header Banner */}
         <div className="bg-gradient-to-r from-[#18281F] via-[#243A2D] to-[#18281F] text-[#F7F4EE] rounded-3xl p-8 md:p-12 mb-10 shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-[#C4A066]/10 rounded-full blur-3xl pointer-events-none"></div>
           <div className="relative z-10 max-w-3xl">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C4A066]/20 border border-[#C4A066]/40 text-[#C4A066] text-xs font-semibold uppercase tracking-wider mb-4">
-              <ShieldCheck className="w-3.5 h-3.5" /> Trust & Compliance Hub
+              <Sparkles className="w-3.5 h-3.5" /> {headerInfo.badge}
             </span>
             <h1 className="text-3xl md:text-5xl font-serif font-bold text-white mb-4">
-              Legal, Safety & Support Center
+              {headerInfo.title}
             </h1>
             <p className="text-emerald-100/80 text-sm md:text-base leading-relaxed">
-              We are committed to building a secure, transparent, and trusted hyperlocal network for residential societies, local vendors, and families.
+              {headerInfo.subtitle}
             </p>
           </div>
         </div>
 
         {/* Layout Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          
+
           {/* Sidebar Navigation */}
           <div className="lg:col-span-1 space-y-2">
             <div className="bg-white rounded-2xl p-4 border border-[#E4DCC9] shadow-sm sticky top-24">
@@ -163,11 +192,10 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                     <button
                       key={item.id}
                       onClick={() => handleTabChange(item.id)}
-                      className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-medium transition-all ${
-                        isActive
+                      className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-medium transition-all ${isActive
                           ? 'bg-[#18281F] text-[#F7F4EE] shadow-md font-semibold'
                           : 'text-[#18281F] hover:bg-[#EFE8D8] hover:text-[#18281F]'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center space-x-2.5 min-w-0">
                         <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#C4A066]' : 'text-[#6B7C70]'}`} />
@@ -196,6 +224,143 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
           <div className="lg:col-span-3">
             <div className="bg-white rounded-3xl p-6 sm:p-10 border border-[#E4DCC9] shadow-sm min-h-[600px]">
               
+              {/* TAB: OUR STORY & VISION */}
+              {activeTab === 'about-us' && (
+                <div className="space-y-8 animate-fadeIn">
+                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E4DCC9]">
+                    <div className="w-12 h-12 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
+                      <HeartHandshake className="w-6 h-6 text-[#C4A066]" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-serif font-bold text-[#18281F]">Our Story — Empowering Hyperlocal Neighborhoods</h2>
+                      <p className="text-xs text-[#6B7C70]">Building thriving communities, one doorstep at a time.</p>
+                    </div>
+                  </div>
+
+                  {/* Origin & Mission Banner */}
+                  <div className="bg-[#18281F] text-[#F7F4EE] p-6 sm:p-8 rounded-3xl space-y-4 relative overflow-hidden shadow-md">
+                    <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-[#C4A066]/15 rounded-full blur-2xl"></div>
+                    <span className="text-xs font-bold text-[#C4A066] uppercase tracking-widest block">The Genesis</span>
+                    <h3 className="text-xl sm:text-2xl font-serif font-bold text-white">Why We Created DigiLocal</h3>
+                    <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed max-w-2xl">
+                      Every gated housing society is home to incredible talent — passionate home bakers, organic micro-growers, expert craftspeople, and florists. Yet residents often ended up ordering mass-produced goods from distant warehouses. DigiLocal bridges this gap by creating an instant, direct hyperlocal marketplace inside your residential community.
+                    </p>
+                  </div>
+
+                  {/* 4 Pillars Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
+                      <div className="w-9 h-9 rounded-xl bg-[#18281F] flex items-center justify-center text-[#C4A066] mb-1">
+                        <Building className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-serif font-bold text-base text-[#18281F]">Hyperlocal First</h4>
+                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        Vendors are located directly within or right beside your registered residential society.
+                      </p>
+                    </div>
+
+                    <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
+                      <div className="w-9 h-9 rounded-xl bg-[#18281F] flex items-center justify-center text-[#C4A066] mb-1">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-serif font-bold text-base text-[#18281F]">10–15 Min Delivery</h4>
+                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        Lightning-fast fulfillment from neighborhood vendors without long transport delays.
+                      </p>
+                    </div>
+
+                    <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
+                      <div className="w-9 h-9 rounded-xl bg-[#18281F] flex items-center justify-center text-[#C4A066] mb-1">
+                        <UserCheck className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-serif font-bold text-base text-[#18281F]">Society Verified</h4>
+                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        Every listed vendor undergoes identity verification and society compliance checks.
+                      </p>
+                    </div>
+
+                    <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
+                      <div className="w-9 h-9 rounded-xl bg-[#18281F] flex items-center justify-center text-[#C4A066] mb-1">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-serif font-bold text-base text-[#18281F]">Zero Markup & Fair Trade</h4>
+                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        Direct WhatsApp commerce with zero platform commissions, supporting local families.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Impact Stats Row */}
+                  <div className="p-6 rounded-3xl bg-[#EFE8D8] border border-[#E4DCC9] grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                    <div>
+                      <span className="text-2xl sm:text-3xl font-serif font-black text-[#18281F] block">100+</span>
+                      <span className="text-[11px] font-bold text-[#6B7C70] uppercase">Societies</span>
+                    </div>
+                    <div>
+                      <span className="text-2xl sm:text-3xl font-serif font-black text-[#18281F] block">500+</span>
+                      <span className="text-[11px] font-bold text-[#6B7C70] uppercase">Vendors</span>
+                    </div>
+                    <div>
+                      <span className="text-2xl sm:text-3xl font-serif font-black text-[#18281F] block">15k+</span>
+                      <span className="text-[11px] font-bold text-[#6B7C70] uppercase">Orders</span>
+                    </div>
+                    <div>
+                      <span className="text-2xl sm:text-3xl font-serif font-black text-[#18281F] block">12 Mins</span>
+                      <span className="text-[11px] font-bold text-[#6B7C70] uppercase">Avg Delivery</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: HOW IT WORKS */}
+              {activeTab === 'how-it-works' && (
+                <div className="space-y-8 animate-fadeIn">
+                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E4DCC9]">
+                    <div className="w-12 h-12 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
+                      <Sparkles className="w-6 h-6 text-[#C4A066]" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-serif font-bold text-[#18281F]">How DigiLocal Works</h2>
+                      <p className="text-xs text-[#6B7C70]">4 simple steps to enjoy fresh local goodness.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="p-6 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-3 relative overflow-hidden">
+                      <span className="w-8 h-8 rounded-full bg-[#18281F] text-[#C4A066] font-bold text-sm flex items-center justify-center">1</span>
+                      <h4 className="font-serif font-bold text-base text-[#18281F]">Select Society</h4>
+                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        Choose your registered residential society to see nearby verified vendors.
+                      </p>
+                    </div>
+
+                    <div className="p-6 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-3 relative overflow-hidden">
+                      <span className="w-8 h-8 rounded-full bg-[#18281F] text-[#C4A066] font-bold text-sm flex items-center justify-center">2</span>
+                      <h4 className="font-serif font-bold text-base text-[#18281F]">Browse Stores</h4>
+                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        Explore fresh bakes, organic produce, flowers, and services in your block.
+                      </p>
+                    </div>
+
+                    <div className="p-6 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-3 relative overflow-hidden">
+                      <span className="w-8 h-8 rounded-full bg-[#18281F] text-[#C4A066] font-bold text-sm flex items-center justify-center">3</span>
+                      <h4 className="font-serif font-bold text-base text-[#18281F]">Instant Order</h4>
+                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        Click to generate your cart order directly in WhatsApp with zero extra fees.
+                      </p>
+                    </div>
+
+                    <div className="p-6 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-3 relative overflow-hidden">
+                      <span className="w-8 h-8 rounded-full bg-[#18281F] text-[#C4A066] font-bold text-sm flex items-center justify-center">4</span>
+                      <h4 className="font-serif font-bold text-base text-[#18281F]">Fast Delivery</h4>
+                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        Your neighborhood vendor or society runner delivers to your doorstep in 10-15 mins.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* TAB 1: PRIVACY POLICY */}
               {activeTab === 'privacy-policy' && (
                 <div className="space-y-6 animate-fadeIn">
@@ -467,7 +632,7 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    
+
                     {/* Form */}
                     <div className="lg:col-span-2 space-y-4">
                       {contactSubmitted ? (
@@ -644,7 +809,7 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                       filteredFaqs.map((faq, idx) => {
                         const isOpen = openFaqIndex === idx;
                         return (
-                          <div 
+                          <div
                             key={idx}
                             className="border border-[#E4DCC9] rounded-2xl overflow-hidden transition-all bg-[#F7F4EE]/50 hover:bg-[#F7F4EE]"
                           >
@@ -683,3 +848,4 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
     </div>
   );
 }
+
