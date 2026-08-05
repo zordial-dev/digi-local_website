@@ -3,7 +3,7 @@ import url from 'url';
 
 const PORT = 5001;
 
-// In-Memory Database Store
+// In-Memory Database Store (Initialized Empty for Users & Orders)
 const societies = [
   {
     society_id: "SOC-101",
@@ -71,7 +71,23 @@ const vendors = [
     closing_timing: "10:00 PM",
     delivery_charge: 0.00,
     min_order_value: 0.00,
-    society_name: "Greenwood Residency"
+    society_name: "Omaxe Greenwood Residency"
+  },
+  {
+    vendor_id: 2,
+    society_id: 1,
+    vendor_name: "Suresh Patel",
+    store_name: "Green Leaf Organics & Fruits",
+    email: "greenleaf@gmail.com",
+    phone_number: "9876543211",
+    phone: "9876543211",
+    logo: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800&auto=format&fit=crop&q=80",
+    status: "ACTIVE",
+    opening_timing: "07:30 AM",
+    closing_timing: "09:30 PM",
+    delivery_charge: 0.00,
+    min_order_value: 0.00,
+    society_name: "Omaxe Greenwood Residency"
   }
 ];
 
@@ -84,7 +100,8 @@ const items = [
     stock: 50,
     category: "Dairy",
     unit: "1L",
-    is_available: 1
+    is_available: 1,
+    image_url: "https://images.unsplash.com/photo-1528498033373-3c6c08e93d79?w=300&auto=format&fit=crop&q=80"
   },
   {
     item_id: 2,
@@ -94,12 +111,27 @@ const items = [
     stock: 30,
     category: "Snacks & Bakery",
     unit: "400g",
-    is_available: 1
+    is_available: 1,
+    image_url: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&auto=format&fit=crop&q=80"
+  },
+  {
+    item_id: 3,
+    vendor_id: 1,
+    item_name: "Pure Desi Cow Ghee (500ml)",
+    price: 420.00,
+    stock: 20,
+    category: "Dairy",
+    unit: "500ml",
+    is_available: 1,
+    image_url: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300&auto=format&fit=crop&q=80"
   }
 ];
 
+// REAL USERS & REAL ORDERS DATA STORES (No static dummy records)
+const users = [];
 const orders = [];
 const pendingRequests = [];
+
 let platformConfig = {
   platform_logo: "https://imgh.in/host/ucila6",
   platform_name: "DigiLocal"
@@ -131,6 +163,21 @@ function sendJSON(res, statusCode, data) {
   res.end(JSON.stringify(data));
 }
 
+// Helper: Format string into clean capitalized Name
+function cleanNameFromEmail(inputStr) {
+  if (!inputStr) return "Resident User";
+  if (inputStr.includes('@')) {
+    const part = inputStr.split('@')[0];
+    const words = part.replace(/[^a-zA-Z]/g, ' ').trim().split(/\s+/).filter(Boolean);
+    if (words.length > 0) {
+      return words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    }
+  }
+  const clean = inputStr.replace(/[^a-zA-Z\s]/g, '').trim();
+  if (!clean || clean.length < 2) return "Resident User";
+  return clean.replace(/\b\w/g, c => c.toUpperCase());
+}
+
 const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
@@ -153,45 +200,94 @@ const server = http.createServer(async (req, res) => {
       timestamp: new Date().toISOString(),
       version: "1.0.0",
       uptimeSeconds: Math.floor(process.uptime()),
-      environment: "development",
-      database: { status: "UP", engine: "sqlite" },
-      memory: { heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024), rssMb: Math.round(process.memoryUsage().rss / 1024 / 1024) }
+      environment: "development"
     });
   }
 
-  if (method === 'GET' && pathname === '/health/live') {
+  // 0. USER / RESIDENT AUTHENTICATION & PROFILE APIs
+  if (method === 'POST' && pathname === '/api/users/login') {
+    const body = await getRequestBody(req);
+    const email = body.email ? body.email.trim().toLowerCase() : '';
+    const phone = body.phone ? body.phone.trim() : '';
+    let user = users.find(u => (email && u.email.toLowerCase() === email) || (phone && u.phone === phone));
+
+    if (!user) {
+      const userDisplayName = body.name ? body.name.trim() : (phone ? `User ${phone.slice(-4)}` : cleanNameFromEmail(email));
+      user = {
+        user_id: `usr_${Date.now()}`,
+        name: userDisplayName,
+        email: email ? email.trim().toLowerCase() : '',
+        phone: phone || '',
+        society_name: body.society_name || '',
+        society_id: body.society_id || '',
+        flat: body.flat || '',
+        joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
+      };
+      users.push(user);
+    }
+
     return sendJSON(res, 200, {
-      status: "ALIVE",
-      timestamp: new Date().toISOString(),
-      uptimeSeconds: Math.floor(process.uptime())
+      message: "User login successful",
+      user,
+      token: `user_jwt_token_${Date.now()}`
     });
   }
 
-  if (method === 'GET' && pathname === '/health/ready') {
-    return sendJSON(res, 200, {
-      status: "READY",
-      timestamp: new Date().toISOString(),
-      database: "CONNECTED"
+  if (method === 'POST' && pathname === '/api/users/register') {
+    const body = await getRequestBody(req);
+    const email = body.email ? body.email.trim().toLowerCase() : '';
+    const phone = body.phone ? body.phone.trim() : '';
+    const userDisplayName = body.name ? body.name.trim() : (phone ? `User ${phone.slice(-4)}` : cleanNameFromEmail(email));
+
+    const newUser = {
+      user_id: `usr_${Date.now()}`,
+      name: userDisplayName,
+      email: email ? email.trim().toLowerCase() : '',
+      phone: phone || '',
+      society_name: body.society_name || '',
+      society_id: body.society_id || '',
+      flat: body.flat || '',
+      joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
+    };
+
+    users.push(newUser);
+    return sendJSON(res, 201, {
+      message: "User registration successful",
+      user: newUser,
+      token: `user_jwt_token_${Date.now()}`
     });
   }
 
-  if (method === 'GET' && pathname === '/version') {
-    return sendJSON(res, 200, {
-      name: "digilocal-backend",
-      version: "1.0.0",
-      description: "Backend API for DigiLocal Vendor Ordering and Subscription Platform",
-      environment: "development",
-      nodeVersion: process.version
-    });
+  if (method === 'PUT' && pathname.startsWith('/api/users/')) {
+    const body = await getRequestBody(req);
+    const userId = pathname.split('/')[3];
+    let user = users.find(u => u.user_id === userId || u.email === body.email);
+    if (user) {
+      if (body.name) user.name = cleanNameFromEmail(body.name);
+      if (body.email) user.email = body.email;
+      if (body.phone) user.phone = body.phone;
+      if (body.society_name) user.society_name = body.society_name;
+      if (body.flat) user.flat = body.flat;
+      if (body.avatar) user.avatar = body.avatar;
+    }
+    return sendJSON(res, 200, { message: "User profile updated successfully", user });
+  }
+
+  if (method === 'GET' && pathname.includes('/api/users/') && pathname.endsWith('/orders')) {
+    const userId = pathname.split('/')[3];
+    const userOrders = orders.filter(o => String(o.user_id) === String(userId));
+    return sendJSON(res, 200, userOrders);
   }
 
   // 1. VENDOR AUTHENTICATION APIs
   if (method === 'POST' && pathname === '/api/vendors/register') {
     const body = await getRequestBody(req);
-    if (!body.email || !body.store_name) {
+    if (!body.email || (!body.store_name && !body.shop_business_name)) {
       return sendJSON(res, 400, { error: "Missing required fields" });
     }
-    const existing = vendors.find(v => v.email === body.email);
+    const existing = vendors.find(v => v.email && body.email && v.email.toLowerCase() === body.email.toLowerCase());
     if (existing) {
       return sendJSON(res, 400, { error: "An account with this email address already exists" });
     }
@@ -199,63 +295,58 @@ const server = http.createServer(async (req, res) => {
     const newVendor = {
       vendor_id: newId,
       society_id: body.society_id || 1,
-      vendor_name: body.vendor_name || "Vendor",
-      store_name: body.store_name,
-      email: body.email,
-      phone_number: body.phone_number || "9876543210",
+      society_name: body.society_name || "",
+      vendor_name: body.vendor_name || body.owner_name || "Vendor Owner",
+      store_name: body.store_name || body.shop_business_name || "Store",
+      shop_number: body.shop_number || "",
+      shop_address: body.shop_address || "",
+      city: body.city || "",
+      pincode: body.pincode || "",
+      business_category: body.business_category || "General",
+      email: body.email.toLowerCase(),
+      phone_number: body.phone_number || body.mobile_number || "",
       gst_number: body.gst_number || "",
-      status: "PENDING"
+      shop_images: body.shop_images || [],
+      status: "ACTIVE"
     };
     vendors.push(newVendor);
     return sendJSON(res, 201, {
-      message: "Vendor registration & payment submitted successfully!",
+      message: "Vendor registration submitted successfully!",
       vendor_id: newId,
       vendor: newVendor,
-      status: "PENDING",
-      token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-      accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-      refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      status: "ACTIVE",
+      token: `jwt_vendor_${Date.now()}`
     });
   }
 
   if (method === 'POST' && pathname === '/api/vendors/login') {
     const body = await getRequestBody(req);
-    const vendor = vendors.find(v => v.email === body.email || v.phone_number === body.phone_number || v.phone === body.phone);
-    if (!vendor) {
-      return sendJSON(res, 401, { error: "Invalid email or password" });
-    }
-    if (vendor.status === 'REJECTED') {
-      return sendJSON(res, 403, {
-        error: "Access Denied: Your vendor application was rejected by DigiLocal Admin.",
-        status: "REJECTED"
-      });
+    let vendor = vendors.find(v => v.email && body.email && v.email.toLowerCase() === body.email.toLowerCase());
+    if (!vendor && body.email) {
+      const newId = vendors.length + 1;
+      const cleanName = cleanNameFromEmail(body.email);
+      vendor = {
+        vendor_id: newId,
+        society_id: 1,
+        vendor_name: cleanName,
+        store_name: `${cleanName}'s Store`,
+        email: body.email.toLowerCase(),
+        phone_number: body.phone || "9876543210",
+        phone: body.phone || "9876543210",
+        status: "ACTIVE",
+        society_name: "Omaxe Greenwood Residency"
+      };
+      vendors.push(vendor);
     }
     return sendJSON(res, 200, {
       message: "Login successful",
       vendor,
-      token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-      accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-      refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-    });
-  }
-
-  if (method === 'POST' && pathname === '/api/vendors/refresh') {
-    return sendJSON(res, 200, {
-      message: "Access token refreshed successfully",
-      accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
       token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
     });
   }
 
-  if (method === 'POST' && pathname === '/api/vendors/logout') {
-    return sendJSON(res, 200, { message: "Logout successful, tokens revoked" });
-  }
-
   if (method === 'POST' && pathname === '/api/vendors/forgot-password') {
-    return sendJSON(res, 200, {
-      message: "OTP sent successfully to registered email address",
-      simulationOtp: "849201"
-    });
+    return sendJSON(res, 200, { message: "OTP sent successfully", simulationOtp: "849201" });
   }
 
   if (method === 'POST' && pathname === '/api/vendors/verify-otp') {
@@ -263,14 +354,32 @@ const server = http.createServer(async (req, res) => {
     if (body.otp && body.otp !== "849201") {
       return sendJSON(res, 400, { error: "Invalid OTP" });
     }
-    return sendJSON(res, 200, { message: "OTP verified successfully. You may now reset your password." });
+    return sendJSON(res, 200, { message: "OTP verified successfully." });
   }
 
   if (method === 'POST' && pathname === '/api/vendors/reset-password') {
-    return sendJSON(res, 200, { message: "Password reset successfully! You can now log in with your new password." });
+    return sendJSON(res, 200, { message: "Password reset successfully!" });
   }
 
   // 2. STOREFRONT & PUBLIC DIRECTORY APIs
+  if (method === 'POST' && pathname === '/api/societies') {
+    const body = await getRequestBody(req);
+    if (!body.society_name) {
+      return sendJSON(res, 400, { error: "Society name is required" });
+    }
+    const numericId = societies.length + 101;
+    const newSociety = {
+      society_id: numericId,
+      society_name: body.society_name,
+      location: body.location || body.fullAddress || body.address || "Gated Community",
+      public_id: `GW-${Math.floor(100 + Math.random() * 900)}`,
+      pincode: body.pincode || "201310",
+      vendor_count: 0
+    };
+    societies.unshift(newSociety);
+    return sendJSON(res, 201, { message: "Society created successfully", society_id: numericId, society: newSociety });
+  }
+
   if (method === 'GET' && pathname === '/api/societies') {
     const q = parsedUrl.query.search ? parsedUrl.query.search.toLowerCase() : '';
     const filtered = q ? societies.filter(s => s.society_name.toLowerCase().includes(q) || s.location.toLowerCase().includes(q)) : societies;
@@ -298,89 +407,59 @@ const server = http.createServer(async (req, res) => {
     const vendorId = Number(pathname.split('/')[3]);
     const vendor = vendors.find(v => v.vendor_id === vendorId) || vendors[0];
     const vendorItems = items.filter(i => i.vendor_id === vendorId || vendorId === 1);
-    return sendJSON(res, 200, {
-      vendor,
-      items: vendorItems
-    });
-  }
-
-  if (method === 'GET' && pathname.startsWith('/shop/')) {
-    const vendorId = pathname.split('/')[2];
-    res.writeHead(302, { Location: `/1/${vendorId}` });
-    return res.end();
+    return sendJSON(res, 200, { vendor, items: vendorItems });
   }
 
   // 3. CUSTOMER ORDERS APIs
   if (method === 'POST' && pathname === '/api/orders') {
     const body = await getRequestBody(req);
-    const orderId = orders.length + 1;
+    const orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
     const reqItems = body.items || [];
-    
-    // Check Stock
-    for (let rItem of reqItems) {
-      const targetItem = items.find(i => i.item_id === Number(rItem.item_id));
-      if (targetItem && targetItem.stock < rItem.quantity) {
-        return sendJSON(res, 400, {
-          error: `Insufficient stock for '${targetItem.item_name}'. Available: ${targetItem.stock}, Requested: ${rItem.quantity}`
-        });
-      }
-    }
 
     let totalAmount = 0;
     for (let rItem of reqItems) {
       const targetItem = items.find(i => i.item_id === Number(rItem.item_id));
       const price = targetItem ? targetItem.price : (rItem.unit_price || 68.00);
       totalAmount += price * (rItem.quantity || 1);
-      if (targetItem) targetItem.stock -= (rItem.quantity || 1);
     }
 
     const newOrder = {
       order_id: orderId,
       vendor_id: body.vendor_id || 1,
-      customer_id: 1,
-      customer_name: body.customer_name || body.buyer_name || "Rahul Verma",
-      phone_number: body.phone_number || body.buyer_phone || "9898989898",
-      address: body.address || `Flat ${body.flat_number || '402'}, Tower B`,
+      user_id: body.user_id || body.customer_id || "usr_guest",
+      customer_name: body.customer_name || body.buyer_name || "Resident User",
+      phone_number: body.phone_number || "9876543210",
+      delivery_address: body.address || `Flat A-402, Greenwood Residency`,
       status: "PLACED",
+      payment_status: "PAID",
+      payment_method: body.payment_method || "UPI",
+      date: new Date().toISOString(),
       total_amount: totalAmount || 308.00,
-      store_name: "FreshMart Grocery & Organic",
-      items: reqItems.map(i => ({ ...i, unit_price: i.unit_price || 68.00, item_total: (i.unit_price || 68.00) * i.quantity }))
+      store_name: body.store_name || "FreshMart Grocery & Organic",
+      store_logo: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
+      items: reqItems.map(i => ({
+        item_id: i.item_id,
+        item_name: i.item_name || "Grocery Item",
+        quantity: i.quantity || 1,
+        unit_price: i.unit_price || 68.00
+      }))
     };
-    orders.push(newOrder);
+    orders.unshift(newOrder);
 
     return sendJSON(res, 201, {
       message: "Order placed successfully",
       order_id: orderId,
       total_amount: newOrder.total_amount,
-      status: "PLACED"
+      status: "PLACED",
+      order: newOrder
     });
   }
 
   if (method === 'GET' && pathname.startsWith('/api/orders/')) {
-    const orderId = Number(pathname.split('/')[3]);
-    const order = orders.find(o => o.order_id === orderId) || {
-      order_id: orderId,
-      vendor_id: 1,
-      customer_id: 1,
-      status: "PLACED",
-      total_amount: 308.00,
-      store_name: "FreshMart Grocery & Organic",
-      customer_name: "Rahul Verma"
-    };
-    return sendJSON(res, 200, {
-      order,
-      items: order.items || [
-        { order_id: orderId, item_id: 1, quantity: 1, unit_price: 68.00, item_total: 68.00, item_name: "Farm Fresh Organic Milk (1L)" }
-      ]
-    });
-  }
-
-  if (method === 'PUT' && pathname.includes('/api/orders/') && pathname.endsWith('/status')) {
-    const body = await getRequestBody(req);
-    return sendJSON(res, 200, {
-      message: "Order status updated",
-      status: body.status || "ACCEPTED"
-    });
+    const orderId = pathname.split('/')[3];
+    const order = orders.find(o => String(o.order_id) === String(orderId));
+    if (!order) return sendJSON(res, 404, { error: "Order not found" });
+    return sendJSON(res, 200, { order, items: order.items });
   }
 
   // 4. VENDOR DASHBOARD & CATALOG APIs
@@ -392,109 +471,19 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, 200, {
       vendor,
       items: vendorItems,
-      orders: orders.filter(o => o.vendor_id === vendorId || vendorId === 1),
+      orders: orders.filter(o => o.vendor_id === vendorId),
       subscription: { status: "ACTIVE", end_date: "2027-07-31" },
       payments: [{ payment_id: 1, amount: 2999.00, status: "SUCCESS" }]
     });
   }
 
-  if (method === 'POST' && pathname.includes('/api/vendorPanel/') && pathname.endsWith('/items')) {
-    const body = await getRequestBody(req);
-    const newItemId = items.length + 1;
-    const newItem = {
-      item_id: newItemId,
-      vendor_id: Number(pathname.split('/')[3]) || 1,
-      item_name: body.item_name || "New Item",
-      price: Number(body.price) || 50,
-      stock: Number(body.stock) || 10,
-      category: body.category || "General",
-      unit: body.unit || "per item",
-      is_available: body.is_available !== undefined ? body.is_available : 1,
-      image_url: body.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&auto=format&fit=crop&q=80"
-    };
-    items.push(newItem);
-    return sendJSON(res, 201, {
-      message: "Item added successfully",
-      item_id: newItemId
-    });
-  }
-
-  if (method === 'PUT' && pathname.includes('/api/vendorPanel/') && pathname.includes('/items/')) {
-    const body = await getRequestBody(req);
-    const itemId = Number(pathname.split('/')[5]);
-    const item = items.find(i => i.item_id === itemId);
-    if (item) Object.assign(item, body);
-    return sendJSON(res, 200, { message: "Availability status updated successfully" });
-  }
-
-  if (method === 'DELETE' && pathname.includes('/api/vendorPanel/') && pathname.includes('/items/')) {
-    const itemId = Number(pathname.split('/')[5]);
-    const idx = items.findIndex(i => i.item_id === itemId);
-    if (idx !== -1) items.splice(idx, 1);
-    return sendJSON(res, 200, { message: "Item deleted successfully" });
-  }
-
-  if (method === 'PUT' && pathname.includes('/api/vendorPanel/') && pathname.endsWith('/settings')) {
-    const body = await getRequestBody(req);
-    const vendorId = Number(pathname.split('/')[3]);
-    const vendor = vendors.find(v => v.vendor_id === vendorId);
-    if (vendor) Object.assign(vendor, body);
-    return sendJSON(res, 200, {
-      message: "Store settings updated successfully",
-      logo: body.logo || (vendor ? vendor.logo : "")
-    });
-  }
-
-  if (method === 'POST' && pathname.includes('/api/vendorPanel/') && pathname.endsWith('/renew')) {
-    return sendJSON(res, 200, {
-      message: "Subscription renewed successfully for 1 year!",
-      start_date: "2026-07-31",
-      end_date: "2027-07-31"
-    });
-  }
-
-  // 5. ADMIN PORTAL APIs
+  // Admin APIs
   if (method === 'GET' && pathname === '/api/admin/vendors') {
-    return sendJSON(res, 200, vendors.map(v => ({
-      ...v,
-      payments: [{ payment_id: 1, amount: 2999.00, status: "SUCCESS" }]
-    })));
-  }
-
-  if (method === 'GET' && pathname === '/api/admin/requests') {
-    return sendJSON(res, 200, pendingRequests);
-  }
-
-  if (method === 'POST' && pathname.includes('/api/admin/requests/') && pathname.endsWith('/approve')) {
-    const vId = pathname.split('/')[4];
-    return sendJSON(res, 200, {
-      message: "Vendor request approved successfully! Vendor is now active with 1-Year Subscription.",
-      vendor_id: vId,
-      start_date: "2026-07-31",
-      end_date: "2027-07-31"
-    });
-  }
-
-  if (method === 'POST' && pathname.includes('/api/admin/requests/') && pathname.endsWith('/reject')) {
-    const vId = pathname.split('/')[4];
-    return sendJSON(res, 200, {
-      message: "Vendor request rejected",
-      vendor_id: vId
-    });
+    return sendJSON(res, 200, vendors.map(v => ({ ...v, payments: [{ payment_id: 1, amount: 2999.00, status: "SUCCESS" }] })));
   }
 
   if (method === 'GET' && pathname === '/api/admin/config') {
     return sendJSON(res, 200, platformConfig);
-  }
-
-  if ((method === 'PUT' || method === 'POST') && pathname === '/api/admin/config') {
-    const body = await getRequestBody(req);
-    platformConfig = { ...platformConfig, ...body };
-    return sendJSON(res, 200, {
-      message: "Platform configuration updated successfully",
-      platform_logo: platformConfig.platform_logo,
-      platform_name: platformConfig.platform_name
-    });
   }
 
   // Default 404

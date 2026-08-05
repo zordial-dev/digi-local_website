@@ -5,6 +5,7 @@ import NotificationModal from '../components/NotificationModal';
 import DummyPaymentModal from '../components/DummyPaymentModal';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
 import LoginModal from '../components/LoginModal';
+import { ProductCardSkeleton } from '../components/Skeletons';
 
 export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) {
   const [vendorData, setVendorData] = useState(null);
@@ -91,7 +92,6 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
     e.preventDefault();
     setLocationError('');
     const cleanFlat = tempFlatInput.trim();
-    const cleanBuilding = tempBuildingInput.trim() || 'Tower A';
 
     if (!cleanFlat) {
       setLocationError('Please enter your flat / room number for this store.');
@@ -99,13 +99,11 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
     }
 
     setFlatNumber(cleanFlat);
-    setBuildingNumber(cleanBuilding);
     setShowLocationModal(false);
   };
 
   const handleOpenChangeLocation = () => {
     setTempFlatInput(flatNumber);
-    setTempBuildingInput(buildingNumber);
     setShowLocationModal(true);
   };
 
@@ -179,10 +177,10 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
       const societyName = vendorData?.society_name || 'Society';
       const gstNumber = vendorData?.gst_number || '07AAACR12341Z5';
 
-      let msg = `🛎️ *New Order from Flat ${flatNumber} (${buildingNumber})* - ${storeName}\n`;
+      let msg = `🛎️ *New Order from Flat ${flatNumber}* - ${storeName}\n`;
       msg += `--------------------------------------\n`;
       msg += `📍 *Society:* ${societyName}\n`;
-      msg += `🏢 *Flat/Tower:* Flat ${flatNumber}, ${buildingNumber}\n`;
+      msg += `🏢 *Flat/Room:* Flat ${flatNumber}\n`;
       msg += `⏰ *Time:* ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}\n`;
       msg += `--------------------------------------\n\n`;
       msg += `📋 *Items Ordered:*\n`;
@@ -208,7 +206,7 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
         vendor_id: vendorId,
         customer_name: `Flat ${flatNumber}`,
         phone_number: targetPhone,
-        address: `Flat ${flatNumber}, ${buildingNumber}, ${societyName}`,
+        address: `Flat ${flatNumber}, ${societyName}`,
         items: cart.map(i => ({
           item_id: i.item_id,
           quantity: i.quantity,
@@ -375,7 +373,13 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
         </div>
 
         {/* Item Cards Grid */}
-        {filteredItems.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : filteredItems.length === 0 ? (
           <div className="text-center py-16 bg-card rounded-[2.5rem] border border-border p-8 shadow-sm">
             <ShoppingBag className="w-12 h-12 text-gold mx-auto mb-3" />
             <h3 className="text-base font-bold text-ink mb-1">No items found</h3>
@@ -531,20 +535,9 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-ink uppercase mb-1.5">Tower / Building (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Tower B, Block A"
-                  value={tempBuildingInput}
-                  onChange={(e) => setTempBuildingInput(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl bg-background border border-border text-ink text-sm font-bold focus:outline-none focus:border-primary"
-                />
-              </div>
-
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-md uppercase tracking-wider transition-all mt-2"
+                className="w-full py-3.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-md uppercase tracking-wider transition-all mt-2 cursor-pointer"
               >
                 Confirm Location & Order
               </button>
@@ -692,12 +685,30 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
             const res = await api.placeOrder(payload);
             const activeOrderData = {
               order_id: res?.order_id || `ORD-${Date.now().toString().slice(-6)}`,
+              vendor_id: vendorData?.vendor_id || vendorId || 1,
+              store_name: vendorData?.store_name || 'Local Vendor Store',
+              store_logo: vendorData?.logo || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80',
+              society_name: vendorData?.society_name || 'Gated Housing Society',
+              date: new Date().toISOString(),
+              status: 'OUT FOR DELIVERY',
+              payment_status: 'PAID',
+              payment_method: txn.paymentMethod || 'UPI',
               total_amount: subtotal,
               delivery_address: `Flat ${flatNumber} (${buildingNumber || 'Tower A'}), ${vendorData?.society_name || 'Society'}`,
-              items: cart,
+              items: cart.map(c => ({
+                item_name: c.item_name,
+                quantity: c.quantity,
+                unit_price: c.price
+              })),
               timestamp: new Date().toISOString()
             };
-            try { localStorage.setItem('digilocal_active_order', JSON.stringify(activeOrderData)); } catch (_) {}
+            try { 
+              localStorage.setItem('digilocal_active_order', JSON.stringify(activeOrderData)); 
+              const userOrdersStr = localStorage.getItem('digilocal_user_orders');
+              const userOrdersList = userOrdersStr ? JSON.parse(userOrdersStr) : [];
+              userOrdersList.unshift(activeOrderData);
+              localStorage.setItem('digilocal_user_orders', JSON.stringify(userOrdersList));
+            } catch (_) {}
             setActiveOrder(activeOrderData);
 
             setCart([]);

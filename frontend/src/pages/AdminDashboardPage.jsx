@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { ShieldCheck, Search, Check, Store, Calendar, CreditCard, ChevronDown, ChevronUp, User, MapPin, Clock, RefreshCw, Building2, Plus, X, Image, LogOut } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
+import { VendorCardSkeleton, TableRowSkeleton } from '../components/Skeletons';
 
 export default function AdminDashboardPage({ setRoute }) {
   const [activeTab, setActiveTab] = useState('requests');
@@ -299,8 +300,8 @@ export default function AdminDashboardPage({ setRoute }) {
 
             {loading ? (
               <div className="space-y-4">
-                {[1, 2].map((i) => (
-                  <div key={i} className="h-36 rounded-2xl bg-white border border-[#C5A880]/20 animate-pulse" />
+                {[1, 2, 3].map((i) => (
+                  <VendorCardSkeleton key={i} />
                 ))}
               </div>
             ) : (!Array.isArray(requests) || requests.length === 0) ? (

@@ -9,20 +9,26 @@ import {
   Sparkles,
   Key,
   ShieldCheck,
-  RotateCcw
+  RotateCcw,
+  Mail,
+  Lock
 } from 'lucide-react';
 import { api } from '../services/api';
 
-export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor }) {
-  const [loginType, setLoginType] = useState('vendor'); // 'vendor' | 'resident'
-  const [step, setStep] = useState(1); // 1: Name & Phone entry | 2: OTP Verification
+export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor, setActiveUser }) {
+  const [loginType, setLoginType] = useState('resident'); // 'resident' (default) | 'vendor'
+  const [step, setStep] = useState(1); // For resident OTP login
   
-  // User Details State
+  // Vendor Login State (Email & Password)
+  const [vendorEmail, setVendorEmail] = useState('');
+  const [vendorPassword, setVendorPassword] = useState('');
+
+  // Resident Details State
   const [userName, setUserName] = useState('');
   const [userPhone, setUserPhone] = useState('9876543210');
   const [flatAddress, setFlatAddress] = useState('');
 
-  // Dummy OTP State
+  // OTP State for Resident
   const [otpInput, setOtpInput] = useState('1234');
   const [generatedOtp, setGeneratedOtp] = useState('1234');
   const [otpError, setOtpError] = useState('');
@@ -31,7 +37,55 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
 
   if (!isOpen) return null;
 
-  // Step 1: Send Dummy OTP
+  // 1. Vendor Email & Password Login Handler
+  const handleVendorEmailLogin = async (e) => {
+    e.preventDefault();
+    setOtpError('');
+
+    if (!vendorEmail.trim()) {
+      setOtpError('Please enter your registered vendor email address.');
+      return;
+    }
+    if (!vendorPassword || vendorPassword.length < 4) {
+      setOtpError('Please enter your account password.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await api.loginVendor({ 
+        email: vendorEmail.trim(), 
+        password: vendorPassword 
+      });
+
+      const vendorObj = res.vendor || {
+        vendor_id: 1,
+        vendor_name: vendorEmail.split('@')[0],
+        store_name: `${vendorEmail.split('@')[0]}'s Store`,
+        email: vendorEmail.trim(),
+        status: 'ACTIVE'
+      };
+
+      const session = {
+        vendor: vendorObj,
+        token: res.token || res.accessToken || `mock_jwt_${Date.now()}`,
+        expiresAt: Date.now() + 86400000
+      };
+
+      localStorage.setItem('digilocal_vendor_session', JSON.stringify(session));
+      if (setActiveVendor) setActiveVendor(vendorObj);
+
+      handleResetModal();
+      onClose();
+      setRoute({ page: 'vendorDashboard', vendorId: vendorObj.vendor_id });
+    } catch (err) {
+      setOtpError(err.message || 'Invalid email address or password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2. Step 1: Send Resident OTP
   const handleSendOtp = (e) => {
     e.preventDefault();
     setOtpError('');
@@ -45,15 +99,14 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
       return;
     }
 
-    // Generate random 4-digit demo OTP
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     setGeneratedOtp(code);
-    setOtpInput(code); // Pre-fill for user ease
+    setOtpInput(code);
     setStep(2);
     setInfoMsg(`Demo OTP code ${code} sent to +91 ${userPhone}`);
   };
 
-  // Step 2: Verify OTP & Log In
+  // Step 2: Verify Resident OTP & Log In -> Navigates to User Profile Page!
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setOtpError('');
@@ -65,40 +118,31 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
 
     try {
       setLoading(true);
+      const residentSession = {
+        user_id: `usr_${Date.now()}`,
+        name: userName.trim(),
+        email: `${userName.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
+        phone: userPhone,
+        flat: flatAddress || 'Tower A-402',
+        society_name: 'Omaxe Greenwood Residency',
+        society_id: 'SOC-101',
+        joined_date: 'August 2026',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
+      };
+      
+      const session = {
+        user: residentSession,
+        token: `user_token_${Date.now()}`,
+        expiresAt: Date.now() + 86400000
+      };
 
-      if (loginType === 'vendor') {
-        const res = await api.loginVendor({ phone: userPhone, name: userName });
-        const vendorData = res?.vendor || { 
-          vendor_id: '201', 
-          store_name: `${userName}'s Store`,
-          vendor_name: userName,
-          phone: userPhone
-        };
-        
-        const session = {
-          vendor: vendorData,
-          userName: userName,
-          userPhone: userPhone,
-          expiresAt: Date.now() + 86400000
-        };
-        localStorage.setItem('digilocal_vendor_session', JSON.stringify(session));
-        if (setActiveVendor) setActiveVendor(vendorData);
-        
-        handleResetModal();
-        onClose();
-        setRoute({ page: 'vendorDashboard', vendorId: vendorData.vendor_id });
-      } else {
-        const residentSession = {
-          userName: userName,
-          phone: userPhone,
-          flat: flatAddress || 'Tower A-402'
-        };
-        localStorage.setItem('digilocal_resident_session', JSON.stringify(residentSession));
-        
-        handleResetModal();
-        onClose();
-        setRoute({ page: 'home' });
-      }
+      localStorage.setItem('digilocal_user_session', JSON.stringify(session));
+      localStorage.setItem('digilocal_resident_session', JSON.stringify(residentSession));
+      if (setActiveUser) setActiveUser(residentSession);
+
+      handleResetModal();
+      onClose();
+      setRoute({ page: 'profile' });
     } catch (err) {
       setOtpError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -134,7 +178,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
                 DigiLocal Access Portal
               </h3>
               <p className="text-[11px] text-emerald-200/80 font-medium">
-                {step === 1 ? 'Enter your details & phone number' : 'Verify Mobile OTP'}
+                {loginType === 'vendor' ? 'Vendor Email & Password Authentication' : step === 1 ? 'Enter your details & phone number' : 'Verify Mobile OTP'}
               </p>
             </div>
           </div>
@@ -149,22 +193,9 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
         {/* Modal Body */}
         <div className="p-6 space-y-5">
           
-          {/* Role Selector Tabs (Only on Step 1) */}
+          {/* Role Selector Tabs */}
           {step === 1 && (
             <div className="grid grid-cols-2 gap-2 p-1 bg-secondary/80 rounded-2xl border border-border">
-              <button
-                type="button"
-                onClick={() => { setLoginType('vendor'); setOtpError(''); }}
-                className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1 ${
-                  loginType === 'vendor'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-ink'
-                }`}
-              >
-                <Store className="w-4 h-4 text-gold" />
-                <span>Vendor Login</span>
-              </button>
-
               <button
                 type="button"
                 onClick={() => { setLoginType('resident'); setOtpError(''); }}
@@ -177,6 +208,19 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
                 <User className="w-4 h-4 text-gold" />
                 <span>Resident Login</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => { setLoginType('vendor'); setOtpError(''); }}
+                className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                  loginType === 'vendor'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-ink'
+                }`}
+              >
+                <Store className="w-4 h-4 text-gold" />
+                <span>Vendor Login</span>
+              </button>
             </div>
           )}
 
@@ -188,8 +232,56 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
             </div>
           )}
 
-          {/* STEP 1: USER DETAILS & PHONE NUMBER FORM */}
-          {step === 1 && (
+          {/* VENDOR LOGIN FORM (EMAIL & PASSWORD) */}
+          {loginType === 'vendor' && (
+            <form onSubmit={handleVendorEmailLogin} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
+                  Vendor Email Address *
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. freshmart@gmail.com"
+                    value={vendorEmail}
+                    onChange={(e) => setVendorEmail(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
+                  Password *
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={vendorPassword}
+                    onChange={(e) => setVendorPassword(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 rounded-full bg-primary hover:bg-gold text-primary-foreground hover:text-ink font-black text-xs uppercase tracking-wider shadow-xl transition-all duration-300 flex items-center justify-center space-x-2 mt-2"
+              >
+                <span>{loading ? 'Logging in...' : 'Log In to Vendor Portal'}</span>
+                <ArrowRight className="w-4 h-4 text-gold" />
+              </button>
+            </form>
+          )}
+
+          {/* RESIDENT LOGIN STEP 1: NAME & PHONE FORM */}
+          {loginType === 'resident' && step === 1 && (
             <form onSubmit={handleSendOtp} className="space-y-4">
               <div>
                 <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
@@ -226,20 +318,18 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
                 </div>
               </div>
 
-              {loginType === 'resident' && (
-                <div>
-                  <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
-                    Flat & Tower Address (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Tower B, Flat 402"
-                    value={flatAddress}
-                    onChange={(e) => setFlatAddress(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
+                  Flat & Tower Address (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Tower B, Flat 402"
+                  value={flatAddress}
+                  onChange={(e) => setFlatAddress(e.target.value)}
+                  className="w-full px-4 py-3 rounded-2xl bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
+                />
+              </div>
 
               <button
                 type="submit"
@@ -320,7 +410,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor 
                 disabled={loading}
                 className="w-full py-4 rounded-full bg-primary hover:bg-gold text-primary-foreground hover:text-ink font-black text-xs uppercase tracking-wider shadow-xl transition-all duration-300 flex items-center justify-center space-x-2"
               >
-                <span>{loading ? 'Verifying OTP...' : 'Verify OTP & Complete Login'}</span>
+                <span>{loading ? 'Verifying OTP...' : 'Verify OTP & Open Profile'}</span>
                 <CheckCircle2 className="w-4.5 h-4.5 text-gold" />
               </button>
             </form>

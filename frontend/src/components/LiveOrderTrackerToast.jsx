@@ -4,26 +4,53 @@ import { ShoppingBag, CheckCircle2, Clock, Truck, ChevronRight, X, Sparkles } fr
 export default function LiveOrderTrackerToast({ activeOrder, onClose, onTrackClick }) {
   const [progressStep, setProgressStep] = useState(1);
 
+  // Auth check: Only display Live Order Tracker if user or vendor is currently logged in
+  const isLoggedIn = () => {
+    try {
+      const u = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session') || localStorage.getItem('digilocal_vendor_session');
+      return !!u;
+    } catch (_) {
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (!activeOrder) return;
     
-    // Simulate order progress over time for interactive demo
-    const timer1 = setTimeout(() => setProgressStep(2), 4000);
-    const timer2 = setTimeout(() => setProgressStep(3), 10000);
+    // Simulate order status progression: Placed (1) -> Packed (2) -> Delivered (3)
+    const timer1 = setTimeout(() => setProgressStep(2), 3500);
+    const timer2 = setTimeout(() => setProgressStep(3), 8000);
+
+    // Auto-vanish & clear active order after order delivery is complete
+    const timer3 = setTimeout(() => {
+      try {
+        localStorage.removeItem('digilocal_active_order');
+      } catch (_) {}
+      if (onClose) onClose();
+    }, 13000);
 
     return () => {
       clearTimeout(timer1);
       clearTimeout(timer2);
+      clearTimeout(timer3);
     };
-  }, [activeOrder]);
+  }, [activeOrder, onClose]);
 
-  if (!activeOrder) return null;
+  const handleManualClose = () => {
+    try {
+      localStorage.removeItem('digilocal_active_order');
+    } catch (_) {}
+    if (onClose) onClose();
+  };
+
+  // IF USER IS LOGGED OUT OR NO ACTIVE ORDER EXISTS, DO NOT RENDER!
+  if (!activeOrder || !isLoggedIn()) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 max-w-md w-full animate-in slide-in-from-bottom-5 duration-300">
+    <div className="fixed bottom-6 right-6 z-50 max-w-md w-full animate-in slide-in-from-bottom-5 duration-300 font-sans">
       <div className="bg-[#18281F] text-[#F7F4EE] rounded-3xl p-5 shadow-2xl border border-[#C5A880]/40 relative overflow-hidden backdrop-blur-xl">
         
-        {/* Top Glow & Close */}
+        {/* Top Glow & Close Button */}
         <div className="flex items-center justify-between border-b border-emerald-800/50 pb-3 mb-3">
           <div className="flex items-center space-x-2.5">
             <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
@@ -33,8 +60,9 @@ export default function LiveOrderTrackerToast({ activeOrder, onClose, onTrackCli
             </span>
           </div>
           <button 
-            onClick={onClose} 
-            className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            onClick={handleManualClose} 
+            className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+            title="Dismiss Order Tracker"
           >
             <X className="w-4 h-4" />
           </button>
@@ -48,8 +76,12 @@ export default function LiveOrderTrackerToast({ activeOrder, onClose, onTrackCli
               {activeOrder.items?.length || 1} items • ₹{parseFloat(activeOrder.total_amount || 65).toFixed(2)}
             </p>
           </div>
-          <span className="px-3 py-1 text-[10px] font-black bg-[#C4A066] text-[#18281F] rounded-full uppercase tracking-wider shadow-sm">
-            {progressStep === 1 ? 'Confirmed' : progressStep === 2 ? 'Preparing' : 'Out for Delivery'}
+          <span className={`px-3 py-1 text-[10px] font-black rounded-full uppercase tracking-wider shadow-sm ${
+            progressStep === 3 
+              ? 'bg-emerald-400 text-[#18281F]' 
+              : 'bg-[#C4A066] text-[#18281F]'
+          }`}>
+            {progressStep === 1 ? 'Placed' : progressStep === 2 ? 'Packed' : 'Out For Delivery'}
           </span>
         </div>
 
@@ -64,7 +96,7 @@ export default function LiveOrderTrackerToast({ activeOrder, onClose, onTrackCli
           <div className="flex justify-between text-[10px] font-extrabold text-emerald-200/90 pt-1">
             <span className={progressStep >= 1 ? 'text-[#C4A066]' : ''}>1. Placed</span>
             <span className={progressStep >= 2 ? 'text-[#C4A066]' : ''}>2. Packed</span>
-            <span className={progressStep >= 3 ? 'text-emerald-400' : ''}>3. Doorstep Arrival</span>
+            <span className={progressStep >= 3 ? 'text-emerald-400 font-black' : ''}>3. Doorstep Arrival</span>
           </div>
         </div>
 
@@ -76,7 +108,7 @@ export default function LiveOrderTrackerToast({ activeOrder, onClose, onTrackCli
           {onTrackClick && (
             <button
               onClick={onTrackClick}
-              className="text-[11px] font-extrabold text-[#C4A066] hover:text-white flex items-center gap-0.5 transition-colors"
+              className="text-[11px] font-extrabold text-[#C4A066] hover:text-white flex items-center gap-0.5 transition-colors cursor-pointer"
             >
               <span>View Receipt</span>
               <ChevronRight className="w-3.5 h-3.5" />

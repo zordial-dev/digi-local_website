@@ -1,16 +1,93 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
-import { Search, MapPin, Building2, Store, PlusCircle, AlertCircle, ArrowRight, X, CheckCircle2, ArrowUpRight, Play, Sparkles, ChevronRight, ShieldCheck, Heart, Coffee, Clock, Lock, Smartphone, ShoppingBag, Cookie, Milk, Headphones, Star, Truck, MessageCircle, Filter, Zap } from 'lucide-react';
+import { Search, MapPin, Building2, Store, PlusCircle, AlertCircle, ArrowRight, X, CheckCircle2, ArrowUpRight, Play, Sparkles, ChevronRight, ShieldCheck, Heart, Coffee, Clock, Lock, Smartphone, ShoppingBag, Cookie, Milk, Headphones, Star, Truck, MessageCircle, Filter, Zap, LogOut } from 'lucide-react';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
+import { SocietyCardSkeleton } from '../components/Skeletons';
+import MaskedHeading from '../components/MaskedHeading';
+import TextType from '../components/TextType';
+import AccordionGallery from '../components/AccordionGallery';
 
-export default function HomePage({ setRoute }) {
+export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
   const [societies, setSocieties] = useState([]);
   const [search, setSearch] = useState('');
   const [activeLocationFilter, setActiveLocationFilter] = useState('All');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLoginPromptOpen, setIsLoginPromptOpen] = useState(false);
+  const [isResidentNoticeModalOpen, setIsResidentNoticeModalOpen] = useState(false);
+  const [activeResidentUser, setActiveResidentUser] = useState(null);
+
+  useEffect(() => {
+    if (currentRoute?.openSocietyModal) {
+      checkVendorAuthBeforeSocietyCreate();
+    }
+  }, [currentRoute]);
+
+  const checkVendorAuthBeforeSocietyCreate = (prefillName = '') => {
+    try {
+      const savedVendor = localStorage.getItem('digilocal_vendor_session');
+      if (savedVendor) {
+        const parsed = JSON.parse(savedVendor);
+        if (parsed && parsed.vendor && parsed.expiresAt > Date.now()) {
+          if (prefillName) setUnlistedForm((prev) => ({ ...prev, societyName: prefillName }));
+          setIsUnlistedModalOpen(true);
+          return;
+        }
+      }
+
+      const savedUser = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
+      if (savedUser) {
+        const parsedUser = JSON.parse(savedUser);
+        const userObj = parsedUser.user || parsedUser;
+        if (userObj && (userObj.user_id || userObj.name || userObj.email)) {
+          setActiveResidentUser(userObj);
+          setIsResidentNoticeModalOpen(true);
+          return;
+        }
+      }
+    } catch (_) { }
+    setIsLoginPromptOpen(true);
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeOrder, setActiveOrder] = useState(null);
+
+  // Hero Carousel Images State (Rotates every 3.5 seconds)
+  const heroImages = [
+    {
+      url: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1000&auto=format&fit=crop&q=80",
+      alt: "Fresh organic green vegetables & salads",
+      tag: "Fresh Produce"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1000&auto=format&fit=crop&q=80",
+      alt: "Artisan fresh baked sourdough bread & pastries",
+      tag: "Artisan Bakes"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=1000&auto=format&fit=crop&q=80",
+      alt: "Fresh neighborhood snacks & bakes",
+      tag: "Food Junction"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1000&auto=format&fit=crop&q=80",
+      alt: "Fresh organic farm fruits & berries",
+      tag: "Farm Fresh"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1000&auto=format&fit=crop&q=80",
+      alt: "Specialty coffee & neighborhood bakery",
+      tag: "Gourmet Coffee"
+    }
+  ];
+
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % heroImages.length);
+    }, 3500);
+    return () => clearInterval(timer);
+  }, [heroImages.length]);
 
   // Unlisted Society Modal State
   const [isUnlistedModalOpen, setIsUnlistedModalOpen] = useState(false);
@@ -92,24 +169,36 @@ export default function HomePage({ setRoute }) {
 
     try {
       setUnlistedError('');
-      if (api.requestSociety) {
-        await api.requestSociety({
-          society_name: unlistedForm.societyName,
-          address: unlistedForm.fullAddress,
-          pincode: unlistedForm.pincode,
-          total_flats: unlistedForm.totalFlats,
-          rwa_contact_phone: unlistedForm.rwaPhone,
-        });
-      }
+      let token = '';
+      try {
+        const session = localStorage.getItem('digilocal_vendor_session');
+        if (session) {
+          const parsed = JSON.parse(session);
+          token = parsed.token || parsed.accessToken || parsed.vendor?.token || '';
+        }
+      } catch (_) { }
+
+      await api.createSociety({
+        society_name: unlistedForm.societyName,
+        location: unlistedForm.fullAddress,
+        pincode: unlistedForm.pincode,
+        total_flats: unlistedForm.totalFlats,
+        rwa_phone: unlistedForm.rwaPhone
+      }, token);
+
       setUnlistedFormSubmitted(true);
+      fetchSocieties(search);
     } catch (err) {
+      console.warn('Society request note:', err);
       setUnlistedFormSubmitted(true);
+      fetchSocieties(search);
     }
   };
 
   const resetUnlistedModal = () => {
     setIsUnlistedModalOpen(false);
     setUnlistedFormSubmitted(false);
+    fetchSocieties(search);
     setUnlistedForm({
       societyName: '',
       fullAddress: '',
@@ -124,10 +213,10 @@ export default function HomePage({ setRoute }) {
     <div className="w-full bg-[#EDEDE4] text-foreground pb-12 px-1.5 sm:px-3 lg:px-4 font-sans -mt-px">
 
       {/* Outer Dark Green Bento Container wrapping Hero section */}
-      <div className="max-w-[1440px] mx-auto bg-[#34533C] text-white rounded-b-[2.2rem] sm:rounded-b-[2.5rem] px-2 sm:px-2.5 pb-2 sm:pb-2.5 mb-10 shadow-md">
-        
-        {/* Main Off-White Hero Section Container matching screenshot */}
-        <div className="bg-[#EDEDE4] text-[#1E3623] rounded-tr-[2rem] sm:rounded-tr-[2.5rem] rounded-b-[2rem] sm:rounded-b-[2.3rem] pt-6 sm:pt-8 pb-8 sm:pb-10 px-6 sm:px-10 lg:px-12 relative overflow-hidden">
+      <div className="max-w-[1440px] mx-auto bg-[#34533C] text-white rounded-b-[2.5rem] sm:rounded-b-[2.8rem] lg:rounded-b-[3rem] px-3 sm:px-4 lg:px-5 pb-3 sm:pb-4 mb-10 shadow-md">
+
+        {/* Main Off-White Hero Section Container (Merged with Logo Tab) */}
+        <div className="bg-[#EDEDE4] text-[#1E3623] rounded-tl-none rounded-tr-[2rem] sm:rounded-tr-[2.4rem] lg:rounded-tr-[2.6rem] rounded-b-[2rem] sm:rounded-b-[2.4rem] lg:rounded-b-[2.6rem] pt-6 sm:pt-8 pb-8 sm:pb-10 px-6 sm:px-10 lg:px-12 relative overflow-hidden shadow-xs">
 
 
           {/* Main 2-Column Hero Grid shifted slightly inner */}
@@ -142,12 +231,26 @@ export default function HomePage({ setRoute }) {
                 <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
               </div>
 
-              {/* Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-bold text-[#1E3623] leading-[1.15] tracking-tight">
-                Local goodness,<br />
-                <span className="italic font-normal text-[#2E4A35]">delivered</span> to your<br />
-                doorstep.
-              </h1>
+              {/* Headline with MaskedHeading Reveal Effect */}
+              <div className="my-2">
+                <MaskedHeading
+                  text="Your Society. Your Vendors. Delivered."
+                  tag="h1"
+                  mediaType="image"
+                  src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1200&auto=format&fit=crop&q=80"
+                  fillScale={1.3}
+                  parallax={28}
+                  drift={14}
+                  reveal="wipe"
+                  trigger="view"
+                  align="left"
+                  weight={700}
+                  tracking={-0.03}
+                  lineHeight={1.1}
+                  textScale={0.085}
+                  className="font-serif text-[#1E3623]"
+                />
+              </div>
 
               {/* Sub-headline Description */}
               <p className="text-xs sm:text-sm text-[#4A5D4E] font-normal leading-relaxed max-w-md">
@@ -170,7 +273,7 @@ export default function HomePage({ setRoute }) {
                 </button>
 
                 <button
-                  onClick={() => setRoute({ page: 'info', tab: 'help-support' })}
+                  onClick={() => setRoute({ page: 'info', tab: 'how-it-works' })}
                   className="text-[#1E3623] hover:text-black text-xs sm:text-sm font-bold flex items-center space-x-1.5 transition-colors px-2 py-2"
                 >
                   <span>How It Works</span>
@@ -195,13 +298,48 @@ export default function HomePage({ setRoute }) {
 
             </div>
 
-            {/* Right Column - Fresh Produce Crate Feature Photo */}
+            {/* Right Column - Accordion Gallery of 5 Hyperlocal Photos */}
             <div className="lg:col-span-6 relative">
-              <div className="rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden shadow-lg border border-[#1E3623]/10 bg-amber-50">
-                <img
-                  src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1000&auto=format&fit=crop&q=80"
-                  alt="Fresh organic green vegetables in wooden crate"
-                  className="w-full h-[340px] sm:h-[420px] object-cover object-center transform hover:scale-105 transition-transform duration-700"
+              <div className="rounded-[2.2rem] sm:rounded-[2.5rem] overflow-hidden shadow-xl border border-[#1E3623]/10 bg-[#18281F]">
+                <AccordionGallery
+                  items={[
+                    {
+                      image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1000&auto=format&fit=crop&q=80",
+                      label: "Fresh Produce",
+                      alt: "Fresh organic green vegetables & salads"
+                    },
+                    {
+                      image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1000&auto=format&fit=crop&q=80",
+                      label: "Artisan Bakes",
+                      alt: "Artisan fresh baked sourdough bread & pastries"
+                    },
+                    {
+                      image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=1000&auto=format&fit=crop&q=80",
+                      label: "Food Junction",
+                      alt: "Fresh neighborhood snacks & bakes"
+                    },
+                    {
+                      image: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1000&auto=format&fit=crop&q=80",
+                      label: "Farm Fresh",
+                      alt: "Fresh organic farm fruits & berries"
+                    },
+                    {
+                      image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1000&auto=format&fit=crop&q=80",
+                      label: "Gourmet Coffee",
+                      alt: "Specialty coffee & neighborhood bakery"
+                    }
+                  ]}
+                  defaultIndex={1}
+                  expandRatio={0.48}
+                  height={410}
+                  gap={8}
+                  radius={20}
+                  accentColor="#E6C35C"
+                  overlayColor="#18281F"
+                  textColor="#ffffff"
+                  trigger="hover"
+                  grayscale={false}
+                  showLabels={true}
                 />
               </div>
             </div>
@@ -277,11 +415,8 @@ export default function HomePage({ setRoute }) {
             </p>
 
             <button
-              onClick={() => {
-                const el = document.getElementById('societies-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="inline-flex items-center space-x-1.5 text-xs font-bold text-ink hover:text-[#C4A066] transition-colors"
+              onClick={() => setRoute({ page: 'info', tab: 'how-it-works' })}
+              className="inline-flex items-center space-x-1.5 text-xs font-bold text-ink hover:text-[#C4A066] transition-colors cursor-pointer"
             >
               <span>How It Works</span>
               <ArrowUpRight className="w-4 h-4" />
@@ -449,8 +584,8 @@ export default function HomePage({ setRoute }) {
                 setSearch(loc === 'All' ? '' : loc);
               }}
               className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border flex items-center space-x-1.5 ${activeLocationFilter === loc || (loc === 'All' && !search)
-                  ? 'bg-[#14261C] text-white border-[#14261C] shadow-sm'
-                  : 'bg-card text-muted-foreground hover:text-ink border-border'
+                ? 'bg-[#14261C] text-white border-[#14261C] shadow-sm'
+                : 'bg-card text-muted-foreground hover:text-ink border-border'
                 }`}
             >
               {loc === 'All' ? (
@@ -518,8 +653,7 @@ export default function HomePage({ setRoute }) {
                 <button
                   onClick={() => {
                     setIsDropdownOpen(false);
-                    setUnlistedForm((prev) => ({ ...prev, societyName: search }));
-                    setIsUnlistedModalOpen(true);
+                    checkVendorAuthBeforeSocietyCreate(search);
                   }}
                   className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-full transition-colors uppercase tracking-wider shadow-sm"
                 >
@@ -548,10 +682,7 @@ export default function HomePage({ setRoute }) {
           </div>
 
           <button
-            onClick={() => {
-              setUnlistedForm((prev) => ({ ...prev, societyName: search }));
-              setIsUnlistedModalOpen(true);
-            }}
+            onClick={() => checkVendorAuthBeforeSocietyCreate(search)}
             className="px-5 py-2.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs transition-all uppercase tracking-wider flex items-center space-x-2 shadow-sm self-start sm:self-auto"
           >
             <PlusCircle className="w-4 h-4 text-gold" />
@@ -559,11 +690,11 @@ export default function HomePage({ setRoute }) {
           </button>
         </div>
 
-        {/* Loading */}
+        {/* Skeleton Loading */}
         {loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-64 rounded-[2rem] bg-card border border-border animate-pulse shadow-sm" />
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <SocietyCardSkeleton key={i} />
             ))}
           </div>
         )}
@@ -590,10 +721,7 @@ export default function HomePage({ setRoute }) {
             </p>
 
             <button
-              onClick={() => {
-                setUnlistedForm((prev) => ({ ...prev, societyName: search }));
-                setIsUnlistedModalOpen(true);
-              }}
+              onClick={() => checkVendorAuthBeforeSocietyCreate(search)}
               className="px-6 py-3.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold text-xs uppercase tracking-widest transition-colors shadow-md flex items-center justify-center space-x-2 mx-auto"
             >
               <PlusCircle className="w-4 h-4 text-gold" />
@@ -657,7 +785,7 @@ export default function HomePage({ setRoute }) {
                   </button>
 
                   <button
-                    onClick={() => setRoute({ page: 'vendorRegister', societyId: soc.society_id, societyName: soc.society_name })}
+                    onClick={() => setRoute({ page: 'vendorRegister', societyId: soc.society_id, societyName: soc.society_name, allowNewStore: true })}
                     className="w-full py-2.5 px-3 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 shadow-sm"
                   >
                     <Store className="w-3.5 h-3.5 text-gold" />
@@ -671,7 +799,106 @@ export default function HomePage({ setRoute }) {
 
       </div>
 
-      {/* UNLISTED SOCIETY MODAL */}
+      {/* VENDOR LOGIN REQUIRED PROMPT MODAL */}
+      {isLoginPromptOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-card border border-border rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative space-y-5 text-center">
+            <button
+              onClick={() => setIsLoginPromptOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-ink transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-600">
+              <Building2 className="w-8 h-8" />
+            </div>
+
+            <div>
+              <span className="px-3 py-1 bg-amber-500/10 text-amber-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-amber-500/20">
+                Vendor Access Required
+              </span>
+              <h3 className="text-xl font-serif font-black text-ink mt-2">Log In to Add Society</h3>
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed font-medium">
+                To create or request a residential housing society on DigiLocal, you must be logged in as an authorized vendor.
+              </p>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => {
+                  setIsLoginPromptOpen(false);
+                  if (onOpenLogin) onOpenLogin();
+                }}
+                className="flex-1 py-3 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2"
+              >
+                <LogOut className="w-4 h-4 rotate-180" />
+                <span>Log In Now</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsLoginPromptOpen(false);
+                  setRoute({ page: 'vendorRegister' });
+                }}
+                className="flex-1 py-3 px-4 rounded-full bg-secondary hover:bg-border text-ink font-bold text-xs uppercase tracking-wider transition-all"
+              >
+                Register Store
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RESIDENT USER PRIVILEGE NOTICE MODAL */}
+      {isResidentNoticeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-card border border-border rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative space-y-5 text-center">
+            <button
+              onClick={() => setIsResidentNoticeModalOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-ink transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-16 h-16 rounded-3xl bg-[#18281F]/10 border border-[#18281F]/20 flex items-center justify-center mx-auto text-[#18281F]">
+              <Building2 className="w-8 h-8 text-emerald-800" />
+            </div>
+
+            <div>
+              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-800 text-[10px] font-black uppercase tracking-wider rounded-full border border-emerald-500/20">
+                Resident User Account
+              </span>
+              <h3 className="text-xl font-serif font-black text-ink mt-2">Explore Society Vendors</h3>
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed font-medium">
+                You are currently logged in as a <strong>Resident User</strong>. As a resident, you can explore societies, browse catalogs, and order from local vendors. Society onboarding and store registrations are reserved for Vendor accounts.
+              </p>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => {
+                  setIsResidentNoticeModalOpen(false);
+                  const targetSocId = activeResidentUser?.society_id || activeResidentUser?.societyId || 1;
+                  setRoute({ page: 'societyVendors', societyId: targetSocId });
+                }}
+                className="flex-1 py-3 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                <Store className="w-4 h-4 text-[#E6C35C]" />
+                <span>Explore Vendors</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsResidentNoticeModalOpen(false);
+                  setRoute({ page: 'vendorRegister' });
+                }}
+                className="flex-1 py-3 px-4 rounded-full bg-secondary hover:bg-border text-ink font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Vendor Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isUnlistedModalOpen && (
         <div className="fixed inset-0 bg-ink/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-card rounded-[2.5rem] max-w-lg w-full shadow-2xl border border-border overflow-hidden relative">

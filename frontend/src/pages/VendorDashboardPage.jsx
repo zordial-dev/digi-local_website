@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
-import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink } from 'lucide-react';
+import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2 } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import { QRCodeSVG } from 'qrcode.react';
+import { DashboardSkeleton } from '../components/Skeletons';
 
 export default function VendorDashboardPage({ vendorId, setRoute }) {
   const [activeTab, setActiveTab] = useState('orders');
@@ -214,18 +215,111 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#FAF9F6] p-12 text-center">
-        <div className="w-10 h-10 rounded-full border-4 border-[#C5A880] border-t-transparent animate-spin mx-auto mb-4" />
-        <p className="text-[#787F8C] text-xs font-medium">Loading Vendor Dashboard...</p>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (!panelData || !panelData.vendor) {
+    let savedVendorName = 'Vendor';
+    try {
+      const saved = localStorage.getItem('digilocal_vendor_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.vendor?.vendor_name || parsed?.userName) {
+          savedVendorName = parsed?.vendor?.vendor_name || parsed?.userName;
+        }
+      }
+    } catch (_) {}
+
     return (
-      <div className="min-h-screen bg-background p-12 text-center text-rose-700 font-bold">
-        Vendor profile not found.
+      <div className="min-h-screen bg-background text-foreground pb-20 px-4 py-8">
+        <div className="max-w-4xl mx-auto space-y-8">
+          {/* Welcome Banner */}
+          <div className="bg-card border border-border rounded-[2.5rem] p-8 shadow-sm text-center space-y-4">
+            <div className="w-20 h-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary">
+              <Store className="w-10 h-10 text-[#C4A066]" />
+            </div>
+            <div>
+              <span className="px-3.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-secondary text-ink border border-border">
+                Logged In Vendor Portal
+              </span>
+              <h1 className="text-3xl font-serif font-black text-ink mt-2">
+                Welcome, {savedVendorName}!
+              </h1>
+              <p className="text-xs text-muted-foreground mt-1 max-w-lg mx-auto leading-relaxed">
+                Your vendor account is active. Choose an action below to manage your store catalog, add your residential housing society, or register a new storefront.
+              </p>
+            </div>
+          </div>
+
+          {/* Action Hub Options Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Option 1: Add Residential Society */}
+            <div 
+              onClick={() => setRoute({ page: 'home', openSocietyModal: true })}
+              className="bg-card border border-border hover:border-primary/40 rounded-[2rem] p-6 shadow-sm hover:shadow-md cursor-pointer transition-all duration-300 group space-y-4 flex flex-col justify-between"
+            >
+              <div className="space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-serif font-extrabold text-ink group-hover:text-primary transition-colors">
+                  Add Residential Society
+                </h3>
+                <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                  Request onboarding for your gated community or housing society to enable resident ordering.
+                </p>
+              </div>
+              <div className="pt-2 text-xs font-bold text-primary flex items-center space-x-1">
+                <span>Onboard Society Now</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </div>
+
+            {/* Option 2: Register Storefront */}
+            <div 
+              onClick={() => setRoute({ page: 'vendorRegister', allowNewStore: true })}
+              className="bg-card border border-border hover:border-primary/40 rounded-[2rem] p-6 shadow-sm hover:shadow-md cursor-pointer transition-all duration-300 group space-y-4 flex flex-col justify-between"
+            >
+              <div className="space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+                  <Plus className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-serif font-extrabold text-ink group-hover:text-primary transition-colors">
+                  Register Storefront
+                </h3>
+                <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                  Set up your store profile, select category, upload logo, and configure business timings.
+                </p>
+              </div>
+              <div className="pt-2 text-xs font-bold text-emerald-600 flex items-center space-x-1">
+                <span>Setup New Store</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </div>
+
+            {/* Option 3: Explore Homepage Directory */}
+            <div 
+              onClick={() => setRoute({ page: 'home' })}
+              className="bg-card border border-border hover:border-primary/40 rounded-[2rem] p-6 shadow-sm hover:shadow-md cursor-pointer transition-all duration-300 group space-y-4 flex flex-col justify-between"
+            >
+              <div className="space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                  <Store className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-serif font-extrabold text-ink group-hover:text-primary transition-colors">
+                  Browse Societies
+                </h3>
+                <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                  Explore active residential societies, listed vendors, and resident marketplace directory.
+                </p>
+              </div>
+              <div className="pt-2 text-xs font-bold text-blue-600 flex items-center space-x-1">
+                <span>Go to Homepage</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -239,13 +333,23 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
       <div className="max-w-7xl mx-auto pt-4 pb-6">
         <div className="bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center space-x-5">
-              <img
-                src={vendor.logo || 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80'}
-                alt={vendor.store_name}
-                className="w-20 h-20 rounded-2xl object-cover border-2 border-border bg-secondary shadow-sm"
-              />
-              <div>
+            <div className="flex items-center space-x-5 min-w-0 flex-1">
+              <div className="w-20 h-20 rounded-2xl border-2 border-border bg-secondary flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm relative">
+                <img
+                  src={vendor.logo || 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80'}
+                  alt=""
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                  }}
+                  className="w-full h-full object-cover"
+                />
+                <div className="hidden absolute inset-0 bg-[#18281F] text-[#C4A066] items-center justify-center">
+                  <Store className="w-8 h-8" />
+                </div>
+              </div>
+
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center space-x-2 mb-1 flex-wrap gap-1">
                   <span className={`px-3 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${
                     vendor.status === 'ACTIVE'
@@ -256,8 +360,12 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                   </span>
                   <span className="text-xs text-muted-foreground font-medium">• {vendor.society_name}</span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-serif font-black text-ink uppercase tracking-wide">{vendor.store_name}</h1>
-                <p className="text-xs text-muted-foreground mt-1 font-medium">Vendor: {vendor.vendor_name} ({vendor.email})</p>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif font-black text-ink uppercase tracking-normal leading-tight break-words">
+                  {vendor.store_name}
+                </h1>
+                <p className="text-xs text-muted-foreground mt-1 font-medium truncate">
+                  Vendor: {vendor.vendor_name} ({vendor.email})
+                </p>
               </div>
             </div>
 

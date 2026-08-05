@@ -8,6 +8,10 @@ import VendorRegisterPage from './pages/VendorRegisterPage';
 import VendorDashboardPage from './pages/VendorDashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import InfoPages from './pages/InfoPages';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import UserProfilePage from './pages/UserProfilePage';
+import LoginModal from './components/LoginModal';
 import { ShieldCheck } from 'lucide-react';
 
 function getRouteFromPath(path = window.location.pathname) {
@@ -16,6 +20,15 @@ function getRouteFromPath(path = window.location.pathname) {
 
   if (cleanPath === '' || cleanPath === '/') {
     return { page: 'home' };
+  }
+  if (cleanPath === '/login') {
+    return { page: 'login' };
+  }
+  if (cleanPath === '/register' || cleanPath === '/signup') {
+    return { page: 'register' };
+  }
+  if (cleanPath === '/profile' || cleanPath === '/user-profile' || cleanPath === '/account' || cleanPath === '/my-profile') {
+    return { page: 'profile' };
   }
   if (cleanPath === '/admin') {
     return { page: 'admin' };
@@ -60,6 +73,12 @@ function getPathFromRoute(route) {
   switch (route.page) {
     case 'home':
       return '/';
+    case 'login':
+      return '/login';
+    case 'register':
+      return '/register';
+    case 'profile':
+      return '/profile';
     case 'societyVendors':
       return `/${route.societyId}`;
     case 'vendorStorefront':
@@ -80,6 +99,37 @@ function getPathFromRoute(route) {
 export default function App() {
   const [route, setRouteState] = useState(() => getRouteFromPath());
   const [activeVendor, setActiveVendor] = useState(null);
+  const [activeUser, setActiveUser] = useState(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
+  // Restore Active User & Vendor sessions on mount
+  useEffect(() => {
+    try {
+      const savedVendor = localStorage.getItem('digilocal_vendor_session');
+      if (savedVendor) {
+        const parsed = JSON.parse(savedVendor);
+        if (parsed && parsed.vendor && parsed.expiresAt > Date.now()) {
+          setActiveVendor(parsed.vendor);
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const savedUser = localStorage.getItem('digilocal_user_session');
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
+        if (parsed && (parsed.user || parsed.name) && parsed.expiresAt > Date.now()) {
+          setActiveUser(parsed.user || parsed);
+        }
+      } else {
+        const savedRes = localStorage.getItem('digilocal_resident_session');
+        if (savedRes) {
+          const parsedRes = JSON.parse(savedRes);
+          if (parsedRes) setActiveUser(parsedRes.user || parsedRes);
+        }
+      }
+    } catch (_) {}
+  }, []);
 
   // Sync route state with URL pathname & browser history
   const setRoute = (newRoute, replace = false) => {
@@ -114,22 +164,54 @@ export default function App() {
   }, []);
 
   const handleVendorLogout = () => {
+    localStorage.removeItem('digilocal_vendor_session');
+    localStorage.removeItem('digilocal_active_order');
     setActiveVendor(null);
+    setRoute({ page: 'home' });
+  };
+
+  const handleUserLogout = () => {
+    localStorage.removeItem('digilocal_user_session');
+    localStorage.removeItem('digilocal_resident_session');
+    localStorage.removeItem('digilocal_active_order');
+    setActiveUser(null);
     setRoute({ page: 'home' });
   };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
-      <Navbar 
-        currentRoute={route} 
-        setRoute={setRoute} 
-        activeVendor={activeVendor}
-        onVendorLogout={handleVendorLogout}
-      />
+      {route.page !== 'login' && route.page !== 'vendorRegister' && route.page !== 'register' && (
+        <Navbar 
+          currentRoute={route} 
+          setRoute={setRoute} 
+          activeVendor={activeVendor}
+          onVendorLogout={handleVendorLogout}
+          activeUser={activeUser}
+          onUserLogout={handleUserLogout}
+          onOpenLogin={() => setRoute({ page: 'login' })}
+        />
+      )}
 
       <main className="flex-1">
         {route.page === 'home' && (
-          <HomePage setRoute={setRoute} />
+          <HomePage currentRoute={route} setRoute={setRoute} onOpenLogin={() => setRoute({ page: 'login' })} />
+        )}
+
+        {route.page === 'login' && (
+          <LoginPage currentRoute={route} setRoute={setRoute} setActiveVendor={setActiveVendor} setActiveUser={setActiveUser} />
+        )}
+
+        {route.page === 'register' && (
+          <RegisterPage setRoute={setRoute} setActiveUser={setActiveUser} />
+        )}
+
+        {route.page === 'profile' && (
+          <UserProfilePage 
+            activeUser={activeUser} 
+            setActiveUser={setActiveUser} 
+            setRoute={setRoute} 
+            onLogout={handleUserLogout} 
+          />
         )}
 
         {route.page === 'societyVendors' && (
@@ -157,9 +239,15 @@ export default function App() {
         )}
       </main>
 
-      <Footer setRoute={setRoute} />
+      {route.page !== 'login' && route.page !== 'vendorRegister' && route.page !== 'register' && <Footer setRoute={setRoute} />}
+
+      <LoginModal 
+        isOpen={isLoginModalOpen} 
+        onClose={() => setIsLoginModalOpen(false)} 
+        setRoute={setRoute} 
+        setActiveVendor={setActiveVendor}
+        setActiveUser={setActiveUser}
+      />
     </div>
   );
 }
-
-

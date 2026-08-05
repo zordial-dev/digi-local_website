@@ -1,4 +1,36 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://172.25.12.106:5001/api';
+let rawBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || '/api';
+rawBase = rawBase.trim();
+if (!rawBase.startsWith('http://') && !rawBase.startsWith('https://') && !rawBase.startsWith('/')) {
+  rawBase = `http://${rawBase}`;
+}
+const API_BASE = rawBase;
+
+// Helper for fetching with a 2.5-second timeout to prevent hung network requests
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 2500) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return res;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
+};
+
+const getStoredToken = () => {
+  try {
+    const session = localStorage.getItem('digilocal_vendor_session');
+    if (session) {
+      const parsed = JSON.parse(session);
+      return parsed.token || parsed.accessToken || parsed.vendor?.token || '';
+    }
+    const adminToken = localStorage.getItem('digilocal_admin_token');
+    if (adminToken) return adminToken;
+  } catch (_) {}
+  return '';
+};
 
 // Fallback Mock Data for standalone / offline resilience
 const MOCK_SOCIETIES = [
@@ -125,6 +157,77 @@ const MOCK_VENDORS = [
 
 export const api = {
   // -------------------------------------------------------------
+  // 0. User / Resident Authentication & Profile APIs
+  // -------------------------------------------------------------
+  loginUser: async (credentials) => {
+    try {
+      const res = await fetch(`${API_BASE}/users/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials)
+      });
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Login failed');
+        return data;
+      }
+    } catch (err) {
+      console.warn('Backend fetch failed for loginUser:', err);
+    }
+    const email = credentials.email || 'rahul.sharma@gmail.com';
+    const rawName = email.split('@')[0].replace(/[^a-zA-Z]/g, ' ').trim();
+    const cleanName = rawName ? rawName.replace(/\b\w/g, c => c.toUpperCase()) : 'Rahul Sharma';
+    return {
+      message: 'User login successful',
+      user: {
+        user_id: `usr_${Date.now()}`,
+        name: cleanName,
+        email: email,
+        phone: credentials.phone || '9876543210',
+        society_name: 'Omaxe Greenwood Residency',
+        society_id: 'SOC-101',
+        flat: 'Tower A-402',
+        joined_date: 'August 2026',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
+      },
+      token: `user_jwt_token_${Date.now()}`
+    };
+  },
+
+  registerUser: async (userData) => {
+    try {
+      const res = await fetch(`${API_BASE}/users/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      if (res.ok) return await res.json();
+    } catch (_) {}
+    return { message: 'Registration successful', user: userData };
+  },
+
+  updateUserProfile: async (userId, userData) => {
+    try {
+      const res = await fetch(`${API_BASE}/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      if (res.ok) return await res.json();
+    } catch (_) {}
+    return { message: 'User profile updated', user: userData };
+  },
+
+  getUserOrders: async (userId) => {
+    try {
+      const res = await fetch(`${API_BASE}/users/${userId}/orders`);
+      if (res.ok) return await res.json();
+    } catch (_) {}
+    return [];
+  },
+
+  // -------------------------------------------------------------
   // 1. Vendor Authentication APIs
   // -------------------------------------------------------------
 
@@ -183,9 +286,19 @@ export const api = {
       if (err.message && (err.message.includes('Invalid') || err.message.includes('Denied') || err.message.includes('locked'))) throw err;
       console.warn('Backend unavailable, using simulated login response:', err);
     }
+    const name = credentials.name || (credentials.email ? credentials.email.split('@')[0] : 'Vendor');
     return {
       message: 'Login successful',
-      vendor: MOCK_VENDORS[0],
+      vendor: {
+        vendor_id: `v_${Date.now()}`,
+        society_id: 1,
+        vendor_name: name,
+        store_name: `${name}'s Store`,
+        email: credentials.email || `${name.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
+        phone: credentials.phone || '9876543210',
+        status: 'ACTIVE',
+        society_name: 'Registered Housing Society'
+      },
       token: `mock_jwt_token_${Date.now()}`,
       accessToken: `mock_access_token_${Date.now()}`,
       refreshToken: `mock_refresh_token_${Date.now()}`
@@ -283,7 +396,7 @@ export const api = {
   // 2.1 List All Societies
   getSocieties: async (search = '') => {
     try {
-      const res = await fetch(`${API_BASE}/societies${search ? `?search=${encodeURIComponent(search)}` : ''}`);
+      const res = await fetchWithTimeout(`${API_BASE}/societies${search ? `?search=${encodeURIComponent(search)}` : ''}`);
       if (res.ok) {
         const contentType = res.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -306,7 +419,7 @@ export const api = {
   // 2.2 Get Single Society Details
   getSociety: async (societyId) => {
     try {
-      const res = await fetch(`${API_BASE}/societies/${societyId}`);
+      const res = await fetchWithTimeout(`${API_BASE}/societies/${societyId}`);
       if (res.ok) {
         const contentType = res.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -324,7 +437,65 @@ export const api = {
     ) || MOCK_SOCIETIES[0];
   },
 
-  // 2.3 List Active Vendors in Society
+  // 2.3 Add New Society (POST /api/societies)
+  createSociety: async (societyData, token = '') => {
+    const jwtToken = token || getStoredToken();
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/societies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+        },
+        body: JSON.stringify({
+          society_name: societyData.society_name || societyData.societyName,
+          location: societyData.location || societyData.fullAddress || societyData.address || 'Gated Community'
+        })
+      });
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to create society');
+        return data;
+      }
+    } catch (err) {
+      if (err.message) throw err;
+      console.warn('Backend unavailable, using simulated society creation response:', err);
+    }
+    return {
+      message: 'Society created successfully',
+      society_id: Math.floor(Math.random() * 1000 + 10)
+    };
+  },
+
+  // 2.4 Request Unlisted Society (POST /api/societies)
+  requestSociety: async (requestData, token = '') => {
+    const jwtToken = token || getStoredToken();
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/societies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+        },
+        body: JSON.stringify({
+          society_name: requestData.society_name || requestData.societyName,
+          location: requestData.address || requestData.location || 'Gated Community'
+        })
+      });
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to request society');
+        return data;
+      }
+    } catch (err) {
+      console.warn('Backend unavailable for requestSociety:', err);
+    }
+    return { message: 'Unlisted society onboard request submitted successfully' };
+  },
+
+  // 2.5 List Active Vendors in Society
   getSocietyVendors: async (societyId, search = '') => {
     try {
       const res = await fetch(`${API_BASE}/societies/${societyId}/vendors${search ? `?search=${encodeURIComponent(search)}` : ''}`);
