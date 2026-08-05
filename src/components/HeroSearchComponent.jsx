@@ -34,7 +34,7 @@ export default function HeroSearchComponent({ societies = [], onSelectSociety, o
 
   return (
     <div className="w-full max-w-2xl mx-auto relative" ref={dropdownRef}>
-      <div className="relative shadow-lg rounded-2xl bg-white border border-[#C5A880]/30 focus-within:border-[#C5A880] focus-within:ring-4 focus-within:ring-[#C5A880]/15 transition-all">
+      <div className="relative shadow-sm rounded-2xl bg-white border border-[#C5A880]/30 focus-within:border-[#C5A880] focus-within:ring-4 focus-within:ring-[#C5A880]/15 transition-all">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#C5A880]" />
         
         <input

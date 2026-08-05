@@ -54,6 +54,19 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   // Societies Dropdown Data
   const [societiesList, setSocietiesList] = useState([]);
   const [showSocietyDropdown, setShowSocietyDropdown] = useState(false);
+  const [showSelectedDetails, setShowSelectedDetails] = useState(true);
+  const [activeSocietyDetails, setActiveSocietyDetails] = useState(null);
+
+  // Custom Society Modal States
+  const [showCustomSocietyModal, setShowCustomSocietyModal] = useState(false);
+  const [customSocietyName, setCustomSocietyName] = useState('');
+  const [customSocietyAddress, setCustomSocietyAddress] = useState('');
+  const [customSecretaryName, setCustomSecretaryName] = useState('');
+  const [customSecretaryPhone, setCustomSecretaryPhone] = useState('');
+  const [customSocietyLoading, setCustomSocietyLoading] = useState(false);
+  const [customSocietyError, setCustomSocietyError] = useState('');
+
+  const isSocietySelected = Boolean(selectedSocietyId || (societySearch && societySearch.trim().length > 0));
 
   // UI States
   const [loading, setLoading] = useState(false);
@@ -65,6 +78,18 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   const cardRef = useRef(null);
   const leftPanelRef = useRef(null);
   const rightPanelRef = useRef(null);
+  const societyDropdownRef = useRef(null);
+
+  // Click Outside Listener for Society Dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (societyDropdownRef.current && !societyDropdownRef.current.contains(event.target)) {
+        setShowSocietyDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // GSAP Smooth Entrance Animation
   useEffect(() => {
@@ -174,6 +199,10 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     e.preventDefault();
     setError('');
 
+    if (!selectedSocietyId && !societySearch.trim()) {
+      setError('Please search & select your Housing Society first to proceed.');
+      return;
+    }
     if (!ownerName.trim()) {
       setError('Please enter Vendor Owner Name.');
       return;
@@ -184,10 +213,6 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     }
     if (!emailAddress.trim() || !emailAddress.includes('@')) {
       setError('Please enter a valid Email Address.');
-      return;
-    }
-    if (!shopNumber.trim()) {
-      setError('Please enter Shop Number / Unit ID.');
       return;
     }
     if (!shopBusinessName.trim()) {
@@ -203,12 +228,12 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     e.preventDefault();
     setError('');
 
-    if (!shopAddress.trim()) {
-      setError('Please enter Shop Address.');
+    if (!shopNumber.trim()) {
+      setError('Please enter Shop Number / Unit ID.');
       return;
     }
-    if (!societySearch.trim()) {
-      setError('Please select or enter your Housing Society.');
+    if (!shopAddress.trim()) {
+      setError('Please enter Shop Address.');
       return;
     }
     if (!pincode.trim()) {
@@ -221,6 +246,68 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     }
 
     setCurrentStep(3);
+  };
+
+  // Handle Adding Custom Society
+  const handleAddCustomSociety = async (e) => {
+    e.preventDefault();
+    setCustomSocietyError('');
+
+    if (!customSocietyName.trim()) {
+      setCustomSocietyError('Please enter Society Name.');
+      return;
+    }
+    if (!customSocietyAddress.trim()) {
+      setCustomSocietyError('Please enter Society Address / Location.');
+      return;
+    }
+    if (!customSecretaryName.trim()) {
+      setCustomSocietyError('Please enter Secretary Name.');
+      return;
+    }
+    if (!customSecretaryPhone.trim() || customSecretaryPhone.length < 10) {
+      setCustomSocietyError('Please enter a valid 10-digit Secretary Contact Number.');
+      return;
+    }
+
+    try {
+      setCustomSocietyLoading(true);
+      const newSocPayload = {
+        society_name: customSocietyName.trim(),
+        address: customSocietyAddress.trim(),
+        secretary_name: customSecretaryName.trim(),
+        secretary_phone: customSecretaryPhone.trim(),
+        location: customSocietyAddress.trim()
+      };
+
+      const res = await api.createSociety(newSocPayload);
+      const createdId = res.society_id || res.id || Math.floor(Math.random() * 1000 + 50);
+
+      const createdSoc = {
+        society_id: createdId,
+        society_name: customSocietyName.trim(),
+        location: customSocietyAddress.trim(),
+        secretary_name: customSecretaryName.trim(),
+        secretary_phone: customSecretaryPhone.trim()
+      };
+
+      setSocietiesList((prev) => [createdSoc, ...prev]);
+      setSelectedSocietyId(createdId);
+      setSocietySearch(customSocietyName.trim());
+      setActiveSocietyDetails(createdSoc);
+      setShowSelectedDetails(true);
+      setShowCustomSocietyModal(false);
+      setShowSocietyDropdown(false);
+      
+      setCustomSocietyName('');
+      setCustomSocietyAddress('');
+      setCustomSecretaryName('');
+      setCustomSecretaryPhone('');
+    } catch (err) {
+      setCustomSocietyError(err.message || 'Failed to register custom society.');
+    } finally {
+      setCustomSocietyLoading(false);
+    }
   };
 
   // Image Upload Handler Simulation
@@ -341,7 +428,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
             {/* 2. Logo & Name */}
             <div
               onClick={() => handleNavigateWithAnimation('home')}
-              className="flex items-center space-x-2 cursor-pointer group bg-white/80 hover:bg-white px-3.5 py-1.5 rounded-full border border-emerald-900/10 shadow-xs transition-all"
+              className="flex items-center space-x-2 cursor-pointer group transition-all"
             >
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#18281F]/10 border border-[#18281F]/15 flex items-center justify-center p-1 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
                 <img src="/logo.png" alt="DigiLocal" className="w-full h-full object-contain scale-[1.8] mix-blend-multiply" />
@@ -477,65 +564,286 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
           {/* STEP 1 FORM: BUSINESS INFO */}
           {currentStep === 1 && (
-            <form onSubmit={handleNextStep1} className="space-y-3 animate-in fade-in">
-              <div>
-                <label className="block text-xs font-bold text-[#1E3623] mb-1">
-                  Owner Name
-                </label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Lovely Sethiya"
-                    value={ownerName}
-                    onChange={(e) => setOwnerName(e.target.value)}
-                    className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
-                  />
+            <form onSubmit={handleNextStep1} className="space-y-3.5 animate-in fade-in">
+              
+              {/* MANDATORY HOUSING SOCIETY SELECTION */}
+              <div className="bg-[#FAF9F6] border border-[#1E3623]/20 rounded-2xl p-3.5 space-y-2 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-extrabold text-[#1E3623] flex items-center gap-1.5 uppercase tracking-wider">
+                    <Building2 className="w-4 h-4 text-[#18281F]" />
+                    <span>Select Housing Society *</span>
+                  </label>
+                  {isSocietySelected ? (
+                    <span className="px-2.5 py-0.5 bg-emerald-500/15 text-emerald-800 text-[10px] font-extrabold rounded-full flex items-center gap-1 border border-emerald-500/20">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Selected
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-amber-500/15 text-amber-800 text-[10px] font-extrabold rounded-full flex items-center gap-1 border border-amber-500/20">
+                      <Lock className="w-3 h-3 text-amber-600" /> Required First
+                    </span>
+                  )}
                 </div>
+
+                {/* Society Autocomplete Search Box */}
+                <div className="relative" ref={societyDropdownRef}>
+                  <div className="relative">
+                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Type society name (e.g. Greenwood, Anupam)..."
+                      value={societySearch}
+                      onFocus={() => setShowSocietyDropdown(true)}
+                      onChange={(e) => {
+                        setSocietySearch(e.target.value);
+                        setSelectedSocietyId('');
+                        setShowSocietyDropdown(true);
+                      }}
+                      className="w-full pl-11 pr-10 py-2.5 rounded-2xl bg-white border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                    />
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  </div>
+
+                  {/* Autocomplete Dropdown */}
+                  {showSocietyDropdown && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-border/80 rounded-2xl shadow-xl z-40 max-h-48 overflow-y-auto p-1.5 space-y-1 animate-in fade-in">
+                      {filteredSocieties.map((soc) => (
+                        <div
+                          key={soc.society_id}
+                          onClick={() => {
+                            setSelectedSocietyId(soc.society_id);
+                            setSocietySearch(soc.society_name);
+                            setActiveSocietyDetails(soc);
+                            setShowSelectedDetails(true);
+                            setShowSocietyDropdown(false);
+                          }}
+                          className={`px-3 py-2.5 text-xs font-semibold rounded-xl cursor-pointer transition-colors flex items-center justify-between ${
+                            selectedSocietyId === soc.society_id ? 'bg-[#18281F] text-white' : 'text-[#18281F] hover:bg-[#E3EFE6]'
+                          }`}
+                        >
+                          <span>{soc.society_name}</span>
+                          <span className={`text-[10px] ${selectedSocietyId === soc.society_id ? 'text-emerald-200' : 'text-muted-foreground'}`}>
+                            {soc.location || soc.city || 'Gated Community'}
+                          </span>
+                        </div>
+                      ))}
+                      {filteredSocieties.length === 0 && (
+                        <div className="px-3 py-2 text-xs text-muted-foreground italic">
+                          No society found matching "{societySearch}"
+                        </div>
+                      )}
+                      <div 
+                        onClick={() => {
+                          setShowSocietyDropdown(false);
+                          setShowCustomSocietyModal(true);
+                        }}
+                        className="px-3 py-2.5 text-xs font-bold text-[#18281F] bg-[#E3EFE6] hover:bg-[#18281F] hover:text-white rounded-xl cursor-pointer transition-all flex items-center justify-center space-x-1.5 mt-1 border border-[#1E3623]/15"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-[#E6C35C]" />
+                        <span>+ Register Unlisted Society</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 1. When NO society is selected: Show Can't find society button */}
+                {!isSocietySelected ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomSocietyModal(true)}
+                    className="w-full py-2 px-3 rounded-xl bg-white hover:bg-[#18281F] hover:text-white text-[#18281F] border border-[#1E3623]/20 text-[11px] font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer mt-1"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Can't find your society? Register Unlisted Society</span>
+                  </button>
+                ) : (
+                  /* 2. When society IS selected/added: Hide register button and show filled form details dropdown */
+                  <div className="mt-2 p-3 bg-emerald-50/70 border border-emerald-300/60 rounded-xl space-y-2 text-xs animate-in fade-in duration-200">
+                    <div 
+                      onClick={() => setShowSelectedDetails(!showSelectedDetails)}
+                      className="flex items-center justify-between cursor-pointer font-bold text-[#1E3623]"
+                    >
+                      <span className="flex items-center gap-1.5 text-emerald-950 font-extrabold">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Selected Society Details</span>
+                      </span>
+                      <span className="text-[11px] text-emerald-800 font-bold flex items-center gap-1 hover:underline">
+                        {showSelectedDetails ? 'Hide details' : 'View filled details'}
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showSelectedDetails ? 'rotate-180' : ''}`} />
+                      </span>
+                    </div>
+
+                    {showSelectedDetails && (
+                      <div className="pt-2 border-t border-emerald-200/80 space-y-1.5 text-[11px] text-[#1E3623]/90">
+                        <div className="flex items-start justify-between">
+                          <span className="text-muted-foreground font-medium">Society Name:</span>
+                          <span className="font-bold text-right">{activeSocietyDetails?.society_name || societySearch}</span>
+                        </div>
+                        <div className="flex items-start justify-between">
+                          <span className="text-muted-foreground font-medium">Address / Location:</span>
+                          <span className="font-semibold text-right max-w-[220px]">{activeSocietyDetails?.location || activeSocietyDetails?.address || 'Residential Gated Community'}</span>
+                        </div>
+                        {activeSocietyDetails?.secretary_name && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground font-medium">Secretary Name:</span>
+                            <span className="font-semibold">{activeSocietyDetails.secretary_name}</span>
+                          </div>
+                        )}
+                        {activeSocietyDetails?.secretary_phone && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground font-medium">Secretary Contact:</span>
+                            <span className="font-semibold">{activeSocietyDetails.secretary_phone}</span>
+                          </div>
+                        )}
+                        <div className="pt-1.5 flex justify-end border-t border-emerald-200/50">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedSocietyId('');
+                              setSocietySearch('');
+                              setActiveSocietyDetails(null);
+                              setShowSocietyDropdown(true);
+                            }}
+                            className="text-[11px] font-bold text-rose-600 hover:text-rose-800 hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>Change Society</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#1E3623] mb-1">
-                  Mobile Number
-                </label>
-                <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="tel"
-                    required
-                    placeholder="e.g. 9509512187"
-                    value={mobileNumber}
-                    onChange={(e) => setMobileNumber(e.target.value)}
-                    className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
-                  />
+              {/* VENDOR DETAILS SECTION */}
+              <div className="relative pt-1">
+                {/* Floating Lock Badge Overlay */}
+                {!isSocietySelected && (
+                  <div className="absolute inset-0 z-20 flex items-center justify-center p-2 rounded-2xl bg-white/40 backdrop-blur-[2px]">
+                    <div className="px-4 py-2 bg-[#18281F] text-white text-xs font-extrabold rounded-full shadow-xl flex items-center gap-2 border border-white/20">
+                      <Lock className="w-3.5 h-3.5 text-[#E6C35C]" />
+                      <span>Select society above to unlock form</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className={`space-y-3 transition-all duration-300 ${!isSocietySelected ? 'opacity-40 filter blur-[1.5px] pointer-events-none select-none' : ''}`}>
+                  
+                  {/* Owner Name */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                      Owner Name *
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Lovely Sethiya"
+                        value={ownerName}
+                        onChange={(e) => setOwnerName(e.target.value)}
+                        className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2-Column Grid for Mobile & Email */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                        Mobile Number *
+                      </label>
+                      <div className="relative">
+                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <input
+                          type="tel"
+                          required
+                          placeholder="e.g. 9509512187"
+                          value={mobileNumber}
+                          onChange={(e) => setMobileNumber(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                        Email Address *
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <input
+                          type="email"
+                          required
+                          placeholder="e.g. lovelysethia753@gmail.com"
+                          value={emailAddress}
+                          onChange={(e) => setEmailAddress(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2-Column Grid for Shop Name & Category */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                        Shop / Business Name *
+                      </label>
+                      <div className="relative">
+                        <Store className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. ResinReverie"
+                          value={shopBusinessName}
+                          onChange={(e) => setShopBusinessName(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink transition-all shadow-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                        Business Category *
+                      </label>
+                      <div className="relative">
+                        <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <select
+                          value={businessCategory}
+                          onChange={(e) => setBusinessCategory(e.target.value)}
+                          className="w-full pl-9 pr-8 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink transition-all appearance-none cursor-pointer"
+                        >
+                          {categoryOptions.map((cat, idx) => (
+                            <option key={idx} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-3.5 rounded-full bg-[#18281F] hover:bg-black text-white font-extrabold text-xs uppercase tracking-widest shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2 mt-3 cursor-pointer border border-[#1E3623]/30"
+                  >
+                    <span>Next: Shop Details</span>
+                    <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
+                  </button>
                 </div>
               </div>
+            </form>
+          )}
 
-              <div>
-                <label className="block text-xs font-bold text-[#1E3623] mb-1">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="e.g. lovelysethia753@gmail.com"
-                    value={emailAddress}
-                    onChange={(e) => setEmailAddress(e.target.value)}
-                    className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
-                  />
-                </div>
-              </div>
-
+          {/* STEP 2 FORM: SHOP DETAILS */}
+          {currentStep === 2 && (
+            <form onSubmit={handleNextStep2} className="space-y-3 animate-in fade-in">
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-xs font-bold text-[#1E3623] mb-1">
                     Shop Number *
                   </label>
                   <div className="relative">
-                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                     <input
                       type="text"
                       required
@@ -549,68 +857,19 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
                 <div>
                   <label className="block text-xs font-bold text-[#1E3623] mb-1">
-                    Shop / Business Name
+                    Shop Address *
                   </label>
                   <div className="relative">
-                    <Store className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                     <input
                       type="text"
                       required
-                      placeholder="e.g. ResinReverie"
-                      value={shopBusinessName}
-                      onChange={(e) => setShopBusinessName(e.target.value)}
+                      placeholder="e.g. Gate 2, Commercial Complex"
+                      value={shopAddress}
+                      onChange={(e) => setShopAddress(e.target.value)}
                       className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink transition-all shadow-xs"
                     />
                   </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#1E3623] mb-1">
-                  Business Category
-                </label>
-                <div className="relative">
-                  <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <select
-                    value={businessCategory}
-                    onChange={(e) => setBusinessCategory(e.target.value)}
-                    className="w-full pl-11 pr-10 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all appearance-none cursor-pointer"
-                  >
-                    {categoryOptions.map((cat, idx) => (
-                      <option key={idx} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 mt-2 cursor-pointer"
-              >
-                <span>Next</span>
-                <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
-              </button>
-            </form>
-          )}
-
-          {/* STEP 2 FORM: SHOP DETAILS */}
-          {currentStep === 2 && (
-            <form onSubmit={handleNextStep2} className="space-y-3 animate-in fade-in">
-              <div>
-                <label className="block text-xs font-bold text-[#1E3623] mb-1">
-                  Shop Address
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Anupam Apartment"
-                    value={shopAddress}
-                    onChange={(e) => setShopAddress(e.target.value)}
-                    className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
-                  />
                 </div>
               </div>
 
@@ -874,6 +1133,127 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
         </div>
       </div>
+
+      {/* CUSTOM SOCIETY REGISTRATION MODAL */}
+      {showCustomSocietyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-border/80 p-6 max-w-md w-full shadow-2xl relative space-y-4 text-left">
+            <button
+              type="button"
+              onClick={() => setShowCustomSocietyModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-ink transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#E3EFE6] border border-[#18281F]/20 flex items-center justify-center text-[#18281F]">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-serif font-bold text-[#1E3623]">Add New Society</h3>
+                <p className="text-[11px] text-muted-foreground font-medium">Enter society details & secretary contacts for onboarding</p>
+              </div>
+            </div>
+
+            {customSocietyError && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{customSocietyError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAddCustomSociety} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                  Society Name *
+                </label>
+                <div className="relative">
+                  <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Greenwood Residency"
+                    value={customSocietyName}
+                    onChange={(e) => setCustomSocietyName(e.target.value)}
+                    className="w-full pl-10 pr-3 py-2 rounded-xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                  Society Address / Location *
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Plot 12, Sector 4, Greater Noida"
+                    value={customSocietyAddress}
+                    onChange={(e) => setCustomSocietyAddress(e.target.value)}
+                    className="w-full pl-10 pr-3 py-2 rounded-xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                    Secretary Name *
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Mr. R.K. Sharma"
+                      value={customSecretaryName}
+                      onChange={(e) => setCustomSecretaryName(e.target.value)}
+                      className="w-full pl-9 pr-2.5 py-2 rounded-xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                    Secretary Contact *
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <input
+                      type="tel"
+                      required
+                      placeholder="e.g. 9876543210"
+                      value={customSecretaryPhone}
+                      onChange={(e) => setCustomSecretaryPhone(e.target.value)}
+                      className="w-full pl-9 pr-2.5 py-2 rounded-xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCustomSocietyModal(false)}
+                  className="px-4 py-2 rounded-full bg-secondary hover:bg-border text-ink text-xs font-bold transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={customSocietyLoading}
+                  className="px-5 py-2 rounded-full bg-[#18281F] hover:bg-black text-white text-xs font-bold shadow-md transition-all flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <span>{customSocietyLoading ? 'Adding...' : 'Add & Select Society'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -85,3 +85,18 @@ body {
   box-shadow: 0 12px 30px -10px rgba(28, 68, 53, 0.08);
 }
 
+/* Rotating Stamp Animation */
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 18s linear infinite;
+  transform-origin: center center;
+}
+

@@ -175,19 +175,62 @@ export const api = {
     } catch (err) {
       console.warn('Backend fetch failed for loginUser:', err);
     }
-    const email = credentials.email || 'rahul.sharma@gmail.com';
-    const rawName = email.split('@')[0].replace(/[^a-zA-Z]/g, ' ').trim();
-    const cleanName = rawName ? rawName.replace(/\b\w/g, c => c.toUpperCase()) : 'Rahul Sharma';
+
+    const inputPhone = String(credentials.phone || '').trim();
+    const inputEmail = String(credentials.email || '').trim().toLowerCase();
+
+    // 1. Search in registered users pool in localStorage
+    try {
+      const registeredStr = localStorage.getItem('digilocal_registered_users');
+      if (registeredStr) {
+        const registeredList = JSON.parse(registeredStr);
+        if (Array.isArray(registeredList)) {
+          const match = registeredList.find(u => 
+            (inputPhone && String(u.phone).trim() === inputPhone) ||
+            (inputEmail && String(u.email).trim().toLowerCase() === inputEmail)
+          );
+          if (match) {
+            return {
+              message: 'User login successful',
+              user: match,
+              token: `user_jwt_token_${Date.now()}`
+            };
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Search in existing resident session if available
+    try {
+      const activeStr = localStorage.getItem('digilocal_resident_session') || localStorage.getItem('digilocal_user_session');
+      if (activeStr) {
+        const activeObj = JSON.parse(activeStr);
+        const u = activeObj.user || activeObj;
+        if (u && ((inputPhone && String(u.phone).trim() === inputPhone) || (inputEmail && String(u.email).trim().toLowerCase() === inputEmail))) {
+          return {
+            message: 'User login successful',
+            user: u,
+            token: `user_jwt_token_${Date.now()}`
+          };
+        }
+      }
+    } catch (_) {}
+
+    // 3. Fallback: Clean display name matching phone number suffix
+    const phoneSuffix = inputPhone.length >= 4 ? inputPhone.slice(-4) : 'User';
+    const defaultName = `Resident ${phoneSuffix}`;
+    const defaultEmail = inputEmail || `${inputPhone || 'user'}@digilocal.com`;
+
     return {
       message: 'User login successful',
       user: {
         user_id: `usr_${Date.now()}`,
-        name: cleanName,
-        email: email,
-        phone: credentials.phone || '9876543210',
-        society_name: 'Omaxe Greenwood Residency',
-        society_id: 'SOC-101',
-        flat: 'Tower A-402',
+        name: defaultName,
+        email: defaultEmail,
+        phone: inputPhone || '9876543210',
+        society_name: 'Anupam Residency',
+        society_id: 1,
+        flat: 'Flat 302',
         joined_date: 'August 2026',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
       },
@@ -204,6 +247,15 @@ export const api = {
       });
       if (res.ok) return await res.json();
     } catch (_) {}
+
+    try {
+      const registeredStr = localStorage.getItem('digilocal_registered_users');
+      let registeredList = registeredStr ? JSON.parse(registeredStr) : [];
+      if (!Array.isArray(registeredList)) registeredList = [];
+      registeredList = [userData, ...registeredList.filter(u => String(u.phone) !== String(userData.phone))];
+      localStorage.setItem('digilocal_registered_users', JSON.stringify(registeredList));
+    } catch (_) {}
+
     return { message: 'Registration successful', user: userData };
   },
 
@@ -216,6 +268,16 @@ export const api = {
       });
       if (res.ok) return await res.json();
     } catch (_) {}
+
+    try {
+      const registeredStr = localStorage.getItem('digilocal_registered_users');
+      let registeredList = registeredStr ? JSON.parse(registeredStr) : [];
+      if (Array.isArray(registeredList)) {
+        const updated = registeredList.map(u => (String(u.user_id) === String(userId) || String(u.phone) === String(userData.phone)) ? { ...u, ...userData } : u);
+        localStorage.setItem('digilocal_registered_users', JSON.stringify(updated));
+      }
+    } catch (_) {}
+
     return { message: 'User profile updated', user: userData };
   },
 
@@ -336,6 +398,29 @@ export const api = {
       if (res.ok) return await res.json();
     } catch (_) {}
     return { message: 'Logout successful, tokens revoked' };
+  },
+
+  // 1.4b Delete Vendor Shop Account
+  deleteVendor: async (vendorId) => {
+    try {
+      await fetch(`${API_BASE}/vendors/${vendorId}`, {
+        method: 'DELETE'
+      });
+    } catch (_) {}
+
+    try {
+      const regStr = localStorage.getItem('digilocal_registered_vendors');
+      if (regStr) {
+        const list = JSON.parse(regStr);
+        if (Array.isArray(list)) {
+          const updated = list.filter(v => String(v.vendor_id) !== String(vendorId) && String(v.id) !== String(vendorId));
+          localStorage.setItem('digilocal_registered_vendors', JSON.stringify(updated));
+        }
+      }
+    } catch (_) {}
+
+    localStorage.removeItem('digilocal_vendor_session');
+    return { message: 'Vendor store deleted successfully' };
   },
 
   // 1.5 Request Password Reset OTP
@@ -495,24 +580,53 @@ export const api = {
     return { message: 'Unlisted society onboard request submitted successfully' };
   },
 
-  // 2.5 List Active Vendors in Society
+  // 2.5 List Active Vendors in Society (or All Vendors across societies)
   getSocietyVendors: async (societyId, search = '') => {
     try {
-      const res = await fetch(`${API_BASE}/societies/${societyId}/vendors${search ? `?search=${encodeURIComponent(search)}` : ''}`);
-      if (res.ok) {
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          return await res.json();
+      if (societyId && societyId !== 'all') {
+        const res = await fetch(`${API_BASE}/societies/${societyId}/vendors${search ? `?search=${encodeURIComponent(search)}` : ''}`);
+        if (res.ok) {
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            return await res.json();
+          }
+        }
+      } else {
+        const res = await fetch(`${API_BASE}/vendors${search ? `?search=${encodeURIComponent(search)}` : ''}`);
+        if (res.ok) {
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            return await res.json();
+          }
         }
       }
     } catch (err) {
       console.warn('Backend fetch failed for getSocietyVendors, fallback to mock:', err);
     }
-    if (!search) return MOCK_VENDORS;
+
+    let allVendors = [...MOCK_VENDORS];
+    try {
+      const customVendorSession = localStorage.getItem('digilocal_vendor_session');
+      if (customVendorSession) {
+        const parsed = JSON.parse(customVendorSession);
+        if (parsed && parsed.vendor) {
+          const exists = allVendors.some(v => String(v.vendor_id) === String(parsed.vendor.vendor_id));
+          if (!exists) allVendors.unshift(parsed.vendor);
+        }
+      }
+    } catch (_) {}
+
+    if (societyId && societyId !== 'all') {
+      allVendors = allVendors.filter(v => String(v.society_id) === String(societyId) || String(v.societyId) === String(societyId));
+    }
+
+    if (!search) return allVendors;
     const term = search.toLowerCase();
-    return MOCK_VENDORS.filter(v => 
-      v.store_name.toLowerCase().includes(term) || 
-      v.category.toLowerCase().includes(term)
+    return allVendors.filter(v => 
+      v.store_name?.toLowerCase().includes(term) || 
+      v.vendor_name?.toLowerCase().includes(term) || 
+      v.category?.toLowerCase().includes(term) ||
+      v.society_name?.toLowerCase().includes(term)
     );
   },
 

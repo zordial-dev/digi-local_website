@@ -202,7 +202,7 @@ export default function App() {
         )}
 
         {route.page === 'register' && (
-          <RegisterPage setRoute={setRoute} setActiveUser={setActiveUser} />
+          <RegisterPage currentRoute={route} setRoute={setRoute} setActiveUser={setActiveUser} />
         )}
 
         {route.page === 'profile' && (

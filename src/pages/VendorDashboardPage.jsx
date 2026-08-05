@@ -214,6 +214,39 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
     });
   };
 
+  // Delete Vendor Store State & Handler
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [deletingStore, setDeletingStore] = useState(false);
+
+  const handleDeleteVendorStore = async () => {
+    try {
+      setDeletingStore(true);
+      await api.deleteVendor(vendorId || panelData?.vendor?.vendor_id || 1);
+      setShowDeleteConfirmModal(false);
+      
+      setModalConfig({
+        isOpen: true,
+        title: 'Shop Account Deleted',
+        message: 'Your vendor shop store has been permanently deleted from DigiLocal.',
+        type: 'info',
+        confirmText: 'Return to Home Page',
+        onConfirm: () => {
+          setModalConfig({ isOpen: false });
+          setRoute({ page: 'home' });
+        }
+      });
+    } catch (err) {
+      setModalConfig({
+        isOpen: true,
+        title: 'Deletion Error',
+        message: 'Failed to delete store. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setDeletingStore(false);
+    }
+  };
+
   if (loading) {
     return <DashboardSkeleton />;
   }
@@ -369,13 +402,25 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
               </div>
             </div>
 
-            <button
-              onClick={loadPanelData}
-              className="px-5 py-2.5 rounded-full bg-secondary hover:bg-border text-ink text-xs font-bold flex items-center space-x-2 border border-border shadow-sm uppercase tracking-wider self-start md:self-auto"
-            >
-              <RefreshCw className="w-4 h-4 text-gold" />
-              <span>Refresh Panel</span>
-            </button>
+            <div className="flex items-center space-x-2.5 self-start md:self-auto">
+              <button
+                onClick={loadPanelData}
+                className="px-4 py-2.5 rounded-full bg-secondary hover:bg-border text-ink text-xs font-bold flex items-center space-x-2 border border-border shadow-sm uppercase tracking-wider"
+              >
+                <RefreshCw className="w-4 h-4 text-gold" />
+                <span>Refresh Panel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirmModal(true)}
+                className="px-4 py-2.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center space-x-1.5 border border-rose-200 shadow-sm uppercase tracking-wider transition-colors cursor-pointer"
+                title="Delete Shop Account"
+              >
+                <Trash2 className="w-4 h-4 text-rose-600" />
+                <span>Delete Store</span>
+              </button>
+            </div>
           </div>
 
           {/* Pending Admin Approval Banner */}
@@ -765,6 +810,25 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                 </div>
               </div>
 
+              {/* SECTION 5: DANGER ZONE - DELETE STORE ACCOUNT */}
+              <div className="p-5 rounded-xl bg-rose-50/80 border border-rose-200 space-y-3">
+                <div className="flex items-center space-x-2 text-rose-700">
+                  <Trash2 className="w-4 h-4 shrink-0 text-rose-600" />
+                  <h3 className="text-xs font-serif font-bold uppercase tracking-wider">5. Danger Zone - Delete Shop Account</h3>
+                </div>
+                <p className="text-xs text-rose-700/80 leading-relaxed font-medium">
+                  Permanently delete your vendor shop storefront from DigiLocal. All listed catalog items, store configuration, and order history will be removed.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirmModal(true)}
+                  className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center space-x-2 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4 text-white" />
+                  <span>Delete My Shop Store</span>
+                </button>
+              </div>
+
               <button
                 type="submit"
                 disabled={savingSettings}
@@ -1077,6 +1141,47 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
             >
               Continue to Vendor Panel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Store Confirmation Modal */}
+      {showDeleteConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white border border-rose-200 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 text-center relative">
+            <div className="w-16 h-16 rounded-full bg-rose-100 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto shadow-sm">
+              <Trash2 className="w-8 h-8" />
+            </div>
+
+            <div>
+              <span className="px-3 py-1 bg-rose-100 text-rose-800 text-[10px] font-black uppercase tracking-wider rounded-full border border-rose-200">
+                Permanent Action
+              </span>
+              <h3 className="text-xl font-serif font-bold text-ink mt-2">
+                Delete Store Permanently?
+              </h3>
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed font-medium">
+                Are you sure you want to permanently delete <strong>{panelData?.vendor?.store_name || 'your store'}</strong>? All catalog items, store details, and active order history will be removed. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirmModal(false)}
+                className="flex-1 py-3 px-4 rounded-full bg-secondary text-ink font-bold text-xs uppercase tracking-wider hover:bg-border transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingStore}
+                onClick={handleDeleteVendorStore}
+                className="flex-1 py-3 px-4 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center space-x-2"
+              >
+                <span>{deletingStore ? 'Deleting Store...' : 'Yes, Delete Store'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

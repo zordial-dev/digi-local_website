@@ -148,6 +148,63 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
     return matchesCat && matchesSearch;
   });
 
+  // Save Order Helper for User Profile Order History
+  const saveOrderToUserProfile = (orderId, totalAmount, itemsList, isWhatsApp = false, txnDetails = null) => {
+    let currentUser = null;
+    try {
+      const uStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
+      if (uStr) {
+        const parsed = JSON.parse(uStr);
+        currentUser = parsed.user || parsed;
+      }
+    } catch (_) {}
+
+    const storeNameStr = vendorData?.store_name || storeName || 'Community Store';
+    const societyNameStr = vendorData?.society_name || societyName || 'Gated Housing Society';
+
+    const orderRecord = {
+      order_id: orderId || `ORD-${Date.now().toString().slice(-6)}`,
+      user_id: currentUser?.user_id || currentUser?.id || `usr_${currentUser?.phone || 'guest'}`,
+      phone: currentUser?.phone || '',
+      user_phone: currentUser?.phone || '',
+      customer_name: currentUser?.name || `Flat ${flatNumber}`,
+      vendor_id: vendorData?.vendor_id || vendorId || 1,
+      store_name: storeNameStr,
+      store_logo: vendorData?.logo || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80',
+      society_name: societyNameStr,
+      date: new Date().toISOString(),
+      status: 'IN_PROGRESS',
+      status_label: isWhatsApp ? 'WhatsApp Order Placed' : 'Order Paid & Out for Delivery',
+      payment_status: isWhatsApp ? 'PENDING_COD' : 'PAID',
+      payment_method: txnDetails?.paymentMethod || (isWhatsApp ? 'COD / WhatsApp' : 'UPI'),
+      total_amount: totalAmount,
+      delivery_address: `Flat ${flatNumber} (${buildingNumber || 'Block A'}), ${societyNameStr}`,
+      items: itemsList.map(c => ({
+        item_id: c.item_id || c.id,
+        item_name: c.item_name || c.name,
+        name: c.item_name || c.name,
+        quantity: c.quantity,
+        unit_price: c.price,
+        price: c.price
+      })),
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      localStorage.setItem('digilocal_active_order', JSON.stringify(orderRecord));
+      const userOrdersStr = localStorage.getItem('digilocal_user_orders');
+      let userOrdersList = userOrdersStr ? JSON.parse(userOrdersStr) : [];
+      if (!Array.isArray(userOrdersList)) userOrdersList = [];
+      userOrdersList = [orderRecord, ...userOrdersList.filter(o => o && String(o.order_id) !== String(orderRecord.order_id))];
+      localStorage.setItem('digilocal_user_orders', JSON.stringify(userOrdersList));
+    } catch (err) {
+      console.warn('Failed to save order to localStorage:', err);
+    }
+
+    setActiveOrder(orderRecord);
+    return orderRecord;
+  };
+
   // WHATSAPP ORDERING TRIGGER
   const handlePlaceOrderWhatsApp = async () => {
     if (!checkResidentAuth()) {
@@ -215,7 +272,8 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
       };
 
       const backendRes = await api.placeOrder(backendPayload);
-      setLastPlacedOrder({ order_id: backendRes.order_id, total: subtotal });
+      const savedOrder = saveOrderToUserProfile(backendRes?.order_id, subtotal, cart, true);
+      setLastPlacedOrder({ order_id: savedOrder.order_id, total: subtotal });
 
       const encodedMsg = encodeURIComponent(msg);
       const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodedMsg}`;
@@ -683,33 +741,7 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
             };
 
             const res = await api.placeOrder(payload);
-            const activeOrderData = {
-              order_id: res?.order_id || `ORD-${Date.now().toString().slice(-6)}`,
-              vendor_id: vendorData?.vendor_id || vendorId || 1,
-              store_name: vendorData?.store_name || 'Local Vendor Store',
-              store_logo: vendorData?.logo || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80',
-              society_name: vendorData?.society_name || 'Gated Housing Society',
-              date: new Date().toISOString(),
-              status: 'OUT FOR DELIVERY',
-              payment_status: 'PAID',
-              payment_method: txn.paymentMethod || 'UPI',
-              total_amount: subtotal,
-              delivery_address: `Flat ${flatNumber} (${buildingNumber || 'Tower A'}), ${vendorData?.society_name || 'Society'}`,
-              items: cart.map(c => ({
-                item_name: c.item_name,
-                quantity: c.quantity,
-                unit_price: c.price
-              })),
-              timestamp: new Date().toISOString()
-            };
-            try { 
-              localStorage.setItem('digilocal_active_order', JSON.stringify(activeOrderData)); 
-              const userOrdersStr = localStorage.getItem('digilocal_user_orders');
-              const userOrdersList = userOrdersStr ? JSON.parse(userOrdersStr) : [];
-              userOrdersList.unshift(activeOrderData);
-              localStorage.setItem('digilocal_user_orders', JSON.stringify(userOrdersList));
-            } catch (_) {}
-            setActiveOrder(activeOrderData);
+            saveOrderToUserProfile(res?.order_id, subtotal, cart, false, txn);
 
             setCart([]);
             setOrderRemark('');

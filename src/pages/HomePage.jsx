@@ -15,12 +15,44 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
   const [isLoginPromptOpen, setIsLoginPromptOpen] = useState(false);
   const [isResidentNoticeModalOpen, setIsResidentNoticeModalOpen] = useState(false);
   const [activeResidentUser, setActiveResidentUser] = useState(null);
+  const [selectedTargetSociety, setSelectedTargetSociety] = useState(null);
 
   useEffect(() => {
     if (currentRoute?.openSocietyModal) {
       checkVendorAuthBeforeSocietyCreate();
     }
   }, [currentRoute]);
+
+  const handleSocietySelect = (soc) => {
+    const sId = soc.society_id || soc.id;
+    const sName = soc.society_name || soc.name || 'Selected Society';
+
+    sessionStorage.setItem('digilocal_pending_society_id', String(sId));
+    sessionStorage.setItem('digilocal_pending_society_name', sName);
+    setSelectedTargetSociety(soc);
+
+    const savedUser = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
+    const savedVendor = localStorage.getItem('digilocal_vendor_session');
+    let isLoggedIn = false;
+    try {
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
+        const u = parsed.user || parsed;
+        if (u && (u.user_id || u.email || u.name)) isLoggedIn = true;
+      }
+      if (savedVendor) {
+        const parsedV = JSON.parse(savedVendor);
+        const v = parsedV.vendor || parsedV;
+        if (v && (v.vendor_id || v.email || v.vendor_name || v.store_name)) isLoggedIn = true;
+      }
+    } catch (_) {}
+
+    if (isLoggedIn) {
+      setRoute({ page: 'societyVendors', societyId: sId });
+    } else {
+      setIsLoginPromptOpen(true);
+    }
+  };
 
   const checkVendorAuthBeforeSocietyCreate = (prefillName = '') => {
     try {
@@ -252,13 +284,31 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                 />
               </div>
 
-              {/* Sub-headline Description */}
-              <p className="text-xs sm:text-sm text-[#4A5D4E] font-normal leading-relaxed max-w-md">
-                DigiLocal is a curated marketplace of vendors chosen from within your registered society — bakers, growers, florists and craftspeople, all a few doors away.
-              </p>
+              {/* Sub-headline Description & Rotating Stamp Row (Elevated & Positioned Right) */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+                <p className="text-xs sm:text-sm text-[#4A5D4E] font-normal leading-relaxed max-w-sm sm:max-w-md">
+                  DigiLocal is a curated marketplace of vendors chosen from within your registered society — bakers, growers, florists and craftspeople, all a few doors away.
+                </p>
 
-              {/* Action Buttons & Trusted Stamp Row */}
-              <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-2">
+                {/* Stamp Graphic: TRUSTED BY HOUSING SOCIETIES (Positioned Right & Nudged Down Slightly) */}
+                <div className="flex items-center justify-center relative w-28 h-28 sm:w-32 sm:h-32 lg:w-36 lg:h-36 text-[#1E3623] select-none shrink-0 sm:ml-auto mt-1 sm:mt-2">
+                  <svg className="w-full h-full animate-spin-slow origin-center" viewBox="0 0 100 100">
+                    <path id="stampCircle" d="M 50, 50 m -37, 0 a 37,37 0 1,1 74,0 a 37,37 0 1,1 -74,0" fill="none" />
+                    <text className="text-[6.2px] font-extrabold tracking-[0.16em] fill-[#1E3623] uppercase">
+                      <textPath href="#stampCircle">
+                        • TRUSTED BY HOUSING SOCIETIES • DIGILOCAL MARKETPLACE 
+                      </textPath>
+                    </text>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center font-black text-[#1E3623] text-center">
+                    <span className="text-lg sm:text-xl font-black tracking-tight leading-none">100+</span>
+                    <span className="text-[8px] font-extrabold uppercase tracking-widest text-[#2E4A35] mt-0.5">Societies</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons Row */}
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-1">
                 <button
                   onClick={() => {
                     const el = document.getElementById('societies-section');
@@ -279,21 +329,6 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                   <span>How It Works</span>
                   <Play className="w-3 h-3 text-[#1E3623] fill-[#1E3623] shrink-0" />
                 </button>
-
-                {/* Stamp Graphic: TRUSTED BY 100+ SOCIETIES */}
-                <div className="ml-auto hidden sm:flex items-center justify-center relative w-24 h-24 text-[#1E3623]/80 select-none">
-                  <svg className="w-full h-full animate-spin-slow" viewBox="0 0 100 100">
-                    <path id="stampCircle" d="M 50, 50 m -36, 0 a 36,36 0 1,1 72,0 a 36,36 0 1,1 -72,0" fill="none" />
-                    <text className="text-[8.5px] font-bold tracking-[0.22em] fill-current uppercase">
-                      <textPath href="#stampCircle">
-                        • TRUSTED BY • 100+ • SOCIETIES
-                      </textPath>
-                    </text>
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center font-bold text-xs text-[#1E3623]">
-                    <span>100+</span>
-                  </div>
-                </div>
               </div>
 
             </div>
@@ -539,7 +574,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
 
       {/* SEARCH SOCIETY AUTOCOMPLETE BAR SECTION */}
       <div className="mt-8 max-w-3xl mx-auto relative" ref={searchRef}>
-        <div className="relative shadow-xl rounded-[2rem] bg-card border-2 border-border focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-all">
+        <div className="relative shadow-sm rounded-[2rem] bg-card border-2 border-border focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-all">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-primary" />
 
           <input
@@ -616,7 +651,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                   <div
                     key={soc.society_id}
                     onClick={() => {
-                      setRoute({ page: 'societyVendors', societyId: soc.society_id });
+                      handleSocietySelect(soc);
                       setIsDropdownOpen(false);
                     }}
                     className="px-5 py-3.5 hover:bg-secondary cursor-pointer transition-colors border-b border-border/40 last:border-none flex items-center justify-between group"
@@ -777,8 +812,8 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                 {/* 2 CTA Buttons */}
                 <div className="p-6 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <button
-                    onClick={() => setRoute({ page: 'societyVendors', societyId: soc.society_id })}
-                    className="w-full py-2.5 px-3 rounded-full bg-secondary text-ink hover:bg-border font-bold text-xs transition-colors flex items-center justify-center space-x-1.5"
+                    onClick={() => handleSocietySelect(soc)}
+                    className="w-full py-2.5 px-3 rounded-full bg-secondary text-ink hover:bg-border font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
                   >
                     <span>Show Vendors</span>
                     <ArrowRight className="w-3.5 h-3.5 text-gold" />
@@ -786,7 +821,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
 
                   <button
                     onClick={() => setRoute({ page: 'vendorRegister', societyId: soc.society_id, societyName: soc.society_name, allowNewStore: true })}
-                    className="w-full py-2.5 px-3 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 shadow-sm"
+                    className="w-full py-2.5 px-3 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
                   >
                     <Store className="w-3.5 h-3.5 text-gold" />
                     <span>Become Vendor</span>
@@ -799,13 +834,13 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
 
       </div>
 
-      {/* VENDOR LOGIN REQUIRED PROMPT MODAL */}
+      {/* VENDOR & USER LOGIN REQUIRED PROMPT MODAL */}
       {isLoginPromptOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
           <div className="bg-card border border-border rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative space-y-5 text-center">
             <button
               onClick={() => setIsLoginPromptOpen(false)}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-ink transition-colors"
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-ink transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -816,11 +851,15 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
 
             <div>
               <span className="px-3 py-1 bg-amber-500/10 text-amber-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-amber-500/20">
-                Vendor Access Required
+                Login Required
               </span>
-              <h3 className="text-xl font-serif font-black text-ink mt-2">Log In to Add Society</h3>
+              <h3 className="text-xl font-serif font-black text-ink mt-2">
+                {selectedTargetSociety ? `Explore ${selectedTargetSociety.society_name}` : 'Log In to Access Society Portal'}
+              </h3>
               <p className="text-xs text-muted-foreground mt-2 leading-relaxed font-medium">
-                To create or request a residential housing society on DigiLocal, you must be logged in as an authorized vendor.
+                {selectedTargetSociety
+                  ? `Please log in to your account to view approved local stores, products, and daily essentials for ${selectedTargetSociety.society_name}.`
+                  : 'Please log in to your account to access residential society portals and vendor stores.'}
               </p>
             </div>
 
@@ -828,9 +867,10 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
               <button
                 onClick={() => {
                   setIsLoginPromptOpen(false);
-                  if (onOpenLogin) onOpenLogin();
+                  const targetId = selectedTargetSociety?.society_id || sessionStorage.getItem('digilocal_pending_society_id');
+                  setRoute({ page: 'login', tab: 'user', redirectSocietyId: targetId });
                 }}
-                className="flex-1 py-3 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2"
+                className="flex-1 py-3 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
               >
                 <LogOut className="w-4 h-4 rotate-180" />
                 <span>Log In Now</span>
@@ -838,11 +878,12 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
               <button
                 onClick={() => {
                   setIsLoginPromptOpen(false);
-                  setRoute({ page: 'vendorRegister' });
+                  const targetId = selectedTargetSociety?.society_id || sessionStorage.getItem('digilocal_pending_society_id');
+                  setRoute({ page: 'register', redirectSocietyId: targetId });
                 }}
-                className="flex-1 py-3 px-4 rounded-full bg-secondary hover:bg-border text-ink font-bold text-xs uppercase tracking-wider transition-all"
+                className="flex-1 py-3 px-4 rounded-full bg-secondary hover:bg-border text-ink font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
               >
-                Register Store
+                Register
               </button>
             </div>
           </div>
@@ -889,7 +930,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
               <button
                 onClick={() => {
                   setIsResidentNoticeModalOpen(false);
-                  setRoute({ page: 'vendorRegister' });
+                  setRoute({ page: 'login', tab: 'vendor' });
                 }}
                 className="flex-1 py-3 px-4 rounded-full bg-secondary hover:bg-border text-ink font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
               >

@@ -3,7 +3,7 @@ import { User, Phone, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, Al
 import { gsap } from 'gsap';
 import { api } from '../services/api';
 
-export default function RegisterPage({ setRoute, setActiveUser }) {
+export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) {
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -141,14 +141,32 @@ export default function RegisterPage({ setRoute, setActiveUser }) {
         expiresAt: Date.now() + 86400000
       };
 
+      const pendingSocietyId = currentRoute?.redirectSocietyId || sessionStorage.getItem('digilocal_pending_society_id');
+      const pendingSocietyName = sessionStorage.getItem('digilocal_pending_society_name');
+
+      if (pendingSocietyId) {
+        userObj.society_id = pendingSocietyId;
+        if (pendingSocietyName) userObj.society_name = pendingSocietyName;
+        session.user = userObj;
+      }
+
       localStorage.setItem('digilocal_user_session', JSON.stringify(session));
       localStorage.setItem('digilocal_resident_session', JSON.stringify(userObj));
       if (setActiveUser) setActiveUser(userObj);
 
-      setSuccessMsg('Account created successfully! Opening your User Profile...');
-      setTimeout(() => {
-        setRoute({ page: 'profile' });
-      }, 600);
+      if (pendingSocietyId) {
+        sessionStorage.removeItem('digilocal_pending_society_id');
+        sessionStorage.removeItem('digilocal_pending_society_name');
+        setSuccessMsg(`Account created successfully! Redirecting to ${pendingSocietyName || 'your selected society'}...`);
+        setTimeout(() => {
+          setRoute({ page: 'societyVendors', societyId: pendingSocietyId });
+        }, 500);
+      } else {
+        setSuccessMsg('Account created successfully! Opening your User Profile...');
+        setTimeout(() => {
+          setRoute({ page: 'profile' });
+        }, 600);
+      }
     } catch (err) {
       setError(err.message || 'Account creation failed. Please try again.');
     } finally {
@@ -168,40 +186,40 @@ export default function RegisterPage({ setRoute, setActiveUser }) {
         {/* LEFT COLUMN: User Registration Form (50% equal width, md:col-span-6 md:order-1) */}
         <div 
           ref={leftPanelRef}
-          className="md:order-1 md:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-between space-y-4 relative bg-white fill-mode-both overflow-y-auto"
+          className="md:order-1 md:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-center space-y-5 relative bg-white fill-mode-both overflow-y-auto"
         >
           
           {/* Header */}
           <div>
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1E3623]">
+            <h1 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#1E3623]">
               Create Account
             </h1>
-            <p className="text-xs text-muted-foreground mt-1 font-medium leading-relaxed">
+            <p className="text-xs text-muted-foreground mt-1.5 font-medium leading-relaxed">
               Fill in your details below to register your DigiLocal account.
             </p>
           </div>
 
           {/* Notifications */}
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center space-x-2">
+            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-xs">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center space-x-2">
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-xs">
               <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
               <span>{successMsg}</span>
             </div>
           )}
 
           {/* Register Form */}
-          <form onSubmit={handleRegisterSubmit} className="space-y-3">
+          <form onSubmit={handleRegisterSubmit} className="space-y-4 font-sans">
             
             {/* Name */}
             <div>
-              <label className="block text-xs font-bold text-[#1E3623] mb-1">
+              <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
                 Name *
               </label>
               <div className="relative">
@@ -209,17 +227,17 @@ export default function RegisterPage({ setRoute, setActiveUser }) {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Rahul Sharma"
+                  placeholder="e.g. Aarush Sethiya"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                  className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
                 />
               </div>
             </div>
 
             {/* Phone Number */}
             <div>
-              <label className="block text-xs font-bold text-[#1E3623] mb-1">
+              <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
                 Phone Number *
               </label>
               <div className="relative">
@@ -230,14 +248,14 @@ export default function RegisterPage({ setRoute, setActiveUser }) {
                   placeholder="e.g. 9876543210"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                  className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-xs font-bold text-[#1E3623] mb-1">
+              <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
                 Password *
               </label>
               <div className="relative">
@@ -248,12 +266,12 @@ export default function RegisterPage({ setRoute, setActiveUser }) {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-11 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                  className="w-full pl-11 pr-11 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -262,7 +280,7 @@ export default function RegisterPage({ setRoute, setActiveUser }) {
 
             {/* Re-enter Password */}
             <div>
-              <label className="block text-xs font-bold text-[#1E3623] mb-1">
+              <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
                 Re-enter Password *
               </label>
               <div className="relative">
@@ -273,12 +291,12 @@ export default function RegisterPage({ setRoute, setActiveUser }) {
                   placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-11 pr-11 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                  className="w-full pl-11 pr-11 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
                 >
                   {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -289,7 +307,7 @@ export default function RegisterPage({ setRoute, setActiveUser }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 mt-3 cursor-pointer"
+              className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 mt-4 cursor-pointer"
             >
               <span>{loading ? 'Creating Account...' : 'Create My Account'}</span>
               <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
@@ -302,7 +320,7 @@ export default function RegisterPage({ setRoute, setActiveUser }) {
             <button
               type="button"
               onClick={() => handleNavigateWithAnimation('login')}
-              className="font-bold text-[#1E3623] hover:underline cursor-pointer"
+              className="font-bold text-emerald-800 hover:text-emerald-950 underline cursor-pointer transition-colors"
             >
               Log In Here
             </button>
@@ -328,7 +346,7 @@ export default function RegisterPage({ setRoute, setActiveUser }) {
             {/* 2. Logo & Name */}
             <div
               onClick={() => handleNavigateWithAnimation('home')}
-              className="flex items-center space-x-2 cursor-pointer group bg-white/80 hover:bg-white px-3.5 py-1.5 rounded-full border border-emerald-900/10 shadow-xs transition-all"
+              className="flex items-center space-x-2 cursor-pointer group transition-all"
             >
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#18281F]/10 border border-[#18281F]/15 flex items-center justify-center p-1 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
                 <img src="/logo.png" alt="DigiLocal" className="w-full h-full object-contain scale-[1.8] mix-blend-multiply" />

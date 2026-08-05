@@ -135,16 +135,22 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         } catch (_) {}
       }
 
-      // 2. Load orders saved in localStorage digilocal_user_orders strictly matched to user
+      // 2. Load orders saved in localStorage digilocal_user_orders
       try {
         const userOrdersStr = localStorage.getItem('digilocal_user_orders');
         if (userOrdersStr) {
           const parsedOrders = JSON.parse(userOrdersStr);
-          if (Array.isArray(parsedOrders) && userData) {
-            const userSpecific = parsedOrders.filter(o => 
-              (userData.user_id && String(o.user_id) === String(userData.user_id)) ||
-              (userData.phone && (String(o.phone) === String(userData.phone) || String(o.user_phone) === String(userData.phone)))
-            );
+          if (Array.isArray(parsedOrders)) {
+            const userSpecific = parsedOrders.filter(o => {
+              if (!o) return false;
+              if (!userData) return true;
+              const matchesId = userData.user_id && String(o.user_id) === String(userData.user_id);
+              const matchesPhone = userData.phone && (
+                String(o.phone || '').trim() === String(userData.phone).trim() ||
+                String(o.user_phone || '').trim() === String(userData.phone).trim()
+              );
+              return matchesId || matchesPhone || (!o.user_id && !o.phone && !o.user_phone);
+            });
             const map = new Map();
             [...realOrdersList, ...userSpecific].forEach(o => {
               if (o && o.order_id) map.set(String(o.order_id), o);
@@ -154,19 +160,25 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         }
       } catch (_) {}
 
-      // 3. Include active order ONLY if it belongs to THIS user
+      // 3. Include active order if present
       try {
         const activeOrderStr = localStorage.getItem('digilocal_active_order');
-        if (activeOrderStr && userData) {
+        if (activeOrderStr) {
           const activeOrderObj = JSON.parse(activeOrderStr);
-          const matchesUser = activeOrderObj && (
-            (userData.user_id && String(activeOrderObj.user_id) === String(userData.user_id)) ||
-            (userData.phone && (String(activeOrderObj.phone) === String(userData.phone) || String(activeOrderObj.user_phone) === String(userData.phone)))
-          );
-          if (matchesUser && activeOrderObj.order_id && activeOrderObj.order_id !== 'ORD-984210') {
-            const exists = realOrdersList.some(o => String(o.order_id) === String(activeOrderObj.order_id));
-            if (!exists) {
-              realOrdersList.unshift(activeOrderObj);
+          if (activeOrderObj && activeOrderObj.order_id && activeOrderObj.order_id !== 'ORD-984210') {
+            const matchesUser = !userData || (
+              (userData.user_id && String(activeOrderObj.user_id) === String(userData.user_id)) ||
+              (userData.phone && (
+                String(activeOrderObj.phone || '').trim() === String(userData.phone).trim() ||
+                String(activeOrderObj.user_phone || '').trim() === String(userData.phone).trim()
+              )) ||
+              (!activeOrderObj.user_id && !activeOrderObj.phone)
+            );
+            if (matchesUser) {
+              const exists = realOrdersList.some(o => String(o.order_id) === String(activeOrderObj.order_id));
+              if (!exists) {
+                realOrdersList.unshift(activeOrderObj);
+              }
             }
           }
         }
