@@ -32,6 +32,37 @@ const getStoredToken = () => {
   return '';
 };
 
+// Smart Link Extractor & Multi-Alias Image URL Normalizer (Item 6 of Backend Changelog)
+export function getNormalizedImageUrl(itemOrUrl, fallback = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&auto=format&fit=crop&q=80') {
+  let url = '';
+  if (typeof itemOrUrl === 'string') {
+    url = itemOrUrl;
+  } else if (itemOrUrl && typeof itemOrUrl === 'object') {
+    url = itemOrUrl.image_url || itemOrUrl.imageUrl || itemOrUrl.image || itemOrUrl.item_image || itemOrUrl.itemImage || itemOrUrl.photo || itemOrUrl.photo_url || '';
+  }
+
+  if (!url) return fallback;
+
+  // Convert Google Search redirect links
+  if (url.includes('google.com/url?')) {
+    try {
+      const parsed = new URL(url);
+      const targetUrl = parsed.searchParams.get('url') || parsed.searchParams.get('q');
+      if (targetUrl) url = targetUrl;
+    } catch (_) {}
+  }
+
+  // Convert Google Drive share links
+  if (url.includes('drive.google.com/file/d/')) {
+    const match = url.match(/\/file\/d\/([^\/]+)/);
+    if (match && match[1]) {
+      return `https://lh3.googleusercontent.com/d/${match[1]}`;
+    }
+  }
+
+  return url;
+}
+
 // Fallback Mock Data for standalone / offline resilience
 const MOCK_SOCIETIES = [
   {
@@ -160,11 +191,14 @@ export const api = {
   // 0. User / Resident Authentication & Profile APIs
   // -------------------------------------------------------------
   loginUser: async (credentials) => {
+    const inputPhone = String(credentials.phone || credentials.mobile || credentials.identifier || '').trim();
+    const inputPassword = credentials.password;
+
     try {
       const res = await fetch(`${API_BASE}/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials)
+        body: JSON.stringify({ phone: inputPhone, mobile: inputPhone, identifier: inputPhone, password: inputPassword })
       });
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -173,10 +207,10 @@ export const api = {
         return data;
       }
     } catch (err) {
+      if (err.message && !err.message.includes('fetch')) throw err;
       console.warn('Backend fetch failed for loginUser:', err);
     }
 
-    const inputPhone = String(credentials.phone || '').trim();
     const inputEmail = String(credentials.email || '').trim().toLowerCase();
 
     // 1. Search in registered users pool in localStorage
@@ -534,7 +568,9 @@ export const api = {
         },
         body: JSON.stringify({
           society_name: societyData.society_name || societyData.societyName,
-          location: societyData.location || societyData.fullAddress || societyData.address || 'Gated Community'
+          location: societyData.location || societyData.fullAddress || societyData.address || 'Gated Community',
+          secretary_name: societyData.secretary_name || societyData.secretaryName || 'Society Secretary',
+          secretary_mobile: societyData.secretary_mobile || societyData.secretary_phone || societyData.secretaryPhone || '9876543210'
         })
       });
       const contentType = res.headers.get('content-type');
@@ -565,7 +601,9 @@ export const api = {
         },
         body: JSON.stringify({
           society_name: requestData.society_name || requestData.societyName,
-          location: requestData.address || requestData.location || 'Gated Community'
+          location: requestData.address || requestData.location || 'Gated Community',
+          secretary_name: requestData.secretary_name || requestData.applicantName || 'Applicant Secretary',
+          secretary_mobile: requestData.secretary_mobile || requestData.mobile || requestData.phone || '9876543210'
         })
       });
       const contentType = res.headers.get('content-type');
@@ -633,11 +671,28 @@ export const api = {
   // 2.4 Get Vendor Storefront & Menu Items
   getVendorStorefront: async (vendorId) => {
     try {
-      const res = await fetch(`${API_BASE}/vendors/${vendorId}`);
+      let res = await fetch(`${API_BASE}/vendors/${vendorId}`);
+      if (!res.ok && res.status === 404) {
+        res = await fetch(`${API_BASE}/vendorPanel/${vendorId}`);
+      }
+
       if (res.ok) {
         const contentType = res.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
-          return await res.json();
+          const data = await res.json();
+          const vendorObj = data.vendor || data;
+          const itemsList = Array.isArray(data.items) ? data.items : (Array.isArray(vendorObj.items) ? vendorObj.items : []);
+          const categoriesSet = new Set(itemsList.map(i => i.category).filter(Boolean));
+
+          return {
+            vendor: vendorObj,
+            categories: data.categories || (categoriesSet.size > 0 ? Array.from(categoriesSet) : ['General']),
+            items: itemsList.map(item => ({
+              ...item,
+              item_id: item.item_id || item.id,
+              is_available: item.is_available ?? (item.in_stock !== false ? 1 : 0)
+            }))
+          };
         }
       }
     } catch (err) {
@@ -756,16 +811,41 @@ export const api = {
   // -------------------------------------------------------------
 
   // 4.1 Get Vendor Dashboard Data
-  getVendorPanel: async (vendorId, token) => {
+  getVendorPanel: async (vendorId, token = '') => {
+    const jwtToken = token || getStoredToken();
     try {
-      const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      let res = await fetch(`${API_BASE}/vendorPanel/${vendorId}`, {
+        headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
       });
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        return await res.json();
+      if (!res.ok && res.status === 404) {
+        res = await fetch(`${API_BASE}/vendors/${vendorId}`, {
+          headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
+        });
       }
-    } catch (_) {}
+      if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await res.json();
+          const vendorObj = data.vendor || data;
+          const itemsList = Array.isArray(data.items) ? data.items : (Array.isArray(vendorObj.items) ? vendorObj.items : []);
+          const ordersList = Array.isArray(data.orders) ? data.orders : (Array.isArray(vendorObj.orders) ? vendorObj.orders : []);
+          
+          return {
+            vendor: vendorObj,
+            items: itemsList.map(item => ({
+              ...item,
+              item_id: item.item_id || item.id,
+              is_available: item.is_available ?? (item.in_stock !== false ? 1 : 0)
+            })),
+            orders: ordersList,
+            subscription: data.subscription || vendorObj.subscription || { status: 'ACTIVE', end_date: '2027-07-31' },
+            payments: data.payments || vendorObj.payments || []
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('Backend fetch failed for getVendorPanel, fallback to mock/local:', err);
+    }
     const vendor = MOCK_VENDORS.find(v => String(v.vendor_id) === String(vendorId)) || MOCK_VENDORS[0];
     return {
       vendor,
@@ -783,80 +863,94 @@ export const api = {
   },
 
   // 4.2 Add Menu Item
-  addVendorItem: async (vendorId, itemData, token) => {
+  addVendorItem: async (vendorId, itemData, token = '') => {
+    const jwtToken = token || getStoredToken();
     try {
       const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}/items`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
+          ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
         },
         body: JSON.stringify(itemData)
       });
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to add item');
+        if (!res.ok) throw new Error(data.error || data.message || 'Failed to add item');
         return data;
       }
-    } catch (_) {}
+    } catch (err) {
+      if (err.message && !err.message.includes('fetch')) throw err;
+    }
     return { message: 'Item added successfully', item_id: Math.floor(Math.random() * 1000 + 10) };
   },
 
   // 4.3 Edit Item or Toggle Availability
-  updateVendorItem: async (vendorId, itemId, itemData, token) => {
+  updateVendorItem: async (vendorId, itemId, itemData, token = '') => {
+    const jwtToken = token || getStoredToken();
     try {
       const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}/items/${itemId}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
+          ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
         },
         body: JSON.stringify(itemData)
       });
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to update item');
+        if (!res.ok) throw new Error(data.error || data.message || 'Failed to update item');
         return data;
       }
-    } catch (_) {}
+    } catch (err) {
+      if (err.message && !err.message.includes('fetch')) throw err;
+    }
     return { message: 'Availability status updated successfully' };
   },
 
   // 4.4 Delete Menu Item
-  deleteVendorItem: async (vendorId, itemId, token) => {
+  deleteVendorItem: async (vendorId, itemId, token = '') => {
+    const jwtToken = token || getStoredToken();
     try {
       const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}/items/${itemId}`, {
         method: 'DELETE',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
       });
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
-        return await res.json();
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || data.message || 'Failed to delete item');
+        return data;
       }
-    } catch (_) {}
+    } catch (err) {
+      if (err.message && !err.message.includes('fetch')) throw err;
+    }
     return { message: 'Item deleted successfully' };
   },
 
   // 4.5 Update Store Settings
-  updateVendorSettings: async (vendorId, settingsData, token) => {
+  updateVendorSettings: async (vendorId, settingsData, token = '') => {
+    const jwtToken = token || getStoredToken();
     try {
       const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}/settings`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
+          ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
         },
         body: JSON.stringify(settingsData)
       });
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to update settings');
+        if (!res.ok) throw new Error(data.error || data.message || 'Failed to update settings');
         return data;
       }
-    } catch (_) {}
+    } catch (err) {
+      if (err.message && !err.message.includes('fetch')) throw err;
+    }
     return { 
       message: 'Store settings updated successfully',
       logo: settingsData.logo || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80'

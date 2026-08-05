@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, getNormalizedImageUrl } from '../services/api';
 import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import DummyPaymentModal from '../components/DummyPaymentModal';
@@ -459,7 +459,7 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
                   <div className="p-5">
                     <div className="relative mb-4 rounded-2xl overflow-hidden bg-secondary h-44">
                       <img
-                        src={item.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&auto=format&fit=crop&q=80'}
+                        src={getNormalizedImageUrl(item)}
                         alt={item.item_name}
                         className="w-full h-full object-cover"
                       />

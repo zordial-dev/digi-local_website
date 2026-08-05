@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { api } from '../services/api';
+import { api, getNormalizedImageUrl } from '../services/api';
 import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2 } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import { QRCodeSVG } from 'qrcode.react';
@@ -579,7 +579,7 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                   <div>
                     <div className="relative mb-3 h-40 rounded-xl overflow-hidden bg-[#FAF9F6]">
                       <img
-                        src={item.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&auto=format&fit=crop&q=80'}
+                        src={getNormalizedImageUrl(item)}
                         alt={item.item_name}
                         className="w-full h-full object-cover"
                       />
