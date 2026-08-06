@@ -159,8 +159,8 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
       }
     } catch (_) {}
 
-    const storeNameStr = vendorData?.store_name || storeName || 'Community Store';
-    const societyNameStr = vendorData?.society_name || societyName || 'Gated Housing Society';
+    const storeNameStr = vendorData?.store_name || 'Community Store';
+    const societyNameStr = vendorData?.society_name || 'Gated Housing Society';
 
     const orderRecord = {
       order_id: orderId || `ORD-${Date.now().toString().slice(-6)}`,
@@ -226,9 +226,9 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
 
     try {
       setPlacingOrder(true);
-      const targetPhone = vendorData?.phone_number || '9876543210';
+      const targetPhone = vendorData?.phone_number || '8005625999';
       const cleanPhone = targetPhone.replace(/[^0-9]/g, '');
-      const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+      const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : (cleanPhone || '918005625999');
 
       const storeName = vendorData?.store_name || 'DigiLocal Store';
       const societyName = vendorData?.society_name || 'Society';
@@ -368,15 +368,24 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
                   </p>
                   
                   <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-3 font-medium">
-                    <span className="flex items-center space-x-1.5">
-                      <Phone className="w-3.5 h-3.5 text-gold" />
-                      <span>{vendorData.phone_number}</span>
-                    </span>
-                    <span className="px-3 py-1 rounded-full bg-secondary border border-border text-ink font-bold flex items-center space-x-1.5 shadow-sm text-[11px]">
-                      <FileText className="w-3.5 h-3.5 text-gold" />
-                      <span>GSTIN:</span>
-                      <span className="font-mono">{vendorData.gst_number || '07AAACR12341Z5'}</span>
-                    </span>
+                    {checkResidentAuth() ? (
+                      <>
+                        <span className="flex items-center space-x-1.5">
+                          <Phone className="w-3.5 h-3.5 text-gold" />
+                          <span>{vendorData.phone_number || 'Contact Available'}</span>
+                        </span>
+                        <span className="px-3 py-1 rounded-full bg-secondary border border-border text-ink font-bold flex items-center space-x-1.5 shadow-sm text-[11px]">
+                          <FileText className="w-3.5 h-3.5 text-gold" />
+                          <span>GSTIN:</span>
+                          <span className="font-mono">{vendorData.gst_number || '07AAACR12341Z5'}</span>
+                        </span>
+                      </>
+                    ) : (
+                      <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold shadow-xs">
+                        <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                        <span>Contact details & GSTIN hidden • Sign in to view vendor details</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -560,10 +569,27 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
 
       {/* LOCATION ENTRY MODAL */}
       {showLocationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-md">
-          <div className="bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 max-w-md w-full shadow-2xl text-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-md animate-fadeIn">
+          <div className="relative bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 max-w-md w-full shadow-2xl text-center">
             
-            <div className="w-14 h-14 rounded-full bg-secondary border border-border flex items-center justify-center mx-auto mb-4">
+            {/* Top Right Close / Cross (X) Button - Navigates back to previous page */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowLocationModal(false);
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  setRoute({ page: 'societyVendors', societyId: societyId || 'all' });
+                }
+              }}
+              className="absolute top-5 right-5 w-9 h-9 rounded-full bg-secondary hover:bg-border text-muted-foreground hover:text-ink flex items-center justify-center border border-border transition-colors cursor-pointer"
+              title="Cancel and go back"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-14 h-14 rounded-full bg-secondary border border-border flex items-center justify-center mx-auto mb-4 mt-2">
               <Home className="w-7 h-7 text-gold" />
             </div>
 

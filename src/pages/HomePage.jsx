@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { api } from '../services/api';
+import { api, getSocietyImage, DIVERSE_SOCIETY_IMAGES } from '../services/api';
 import { Search, MapPin, Building2, Store, PlusCircle, AlertCircle, ArrowRight, X, CheckCircle2, ArrowUpRight, Play, Sparkles, ChevronRight, ShieldCheck, Heart, Coffee, Clock, Lock, Smartphone, ShoppingBag, Cookie, Milk, Headphones, Star, Truck, MessageCircle, Filter, Zap, LogOut } from 'lucide-react';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
 import { SocietyCardSkeleton } from '../components/Skeletons';
@@ -18,8 +18,8 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
   const [selectedTargetSociety, setSelectedTargetSociety] = useState(null);
 
   useEffect(() => {
-    if (currentRoute?.openSocietyModal) {
-      checkVendorAuthBeforeSocietyCreate();
+    if (currentRoute?.openSocietyModal || currentRoute?.openRequestModal) {
+      setIsUnlistedModalOpen(true);
     }
   }, [currentRoute]);
 
@@ -476,7 +476,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                 <Building2 className="w-6 h-6 text-foreground" />
               </div>
               <span className="px-3 py-1 text-[10px] font-black bg-[#18281F] text-white rounded-full uppercase tracking-wider shadow-xs">
-                6+ SOCIETIES
+                {societies.length > 0 ? `${societies.length}+ SOCIETIES` : '6+ SOCIETIES'}
               </span>
             </div>
 
@@ -489,29 +489,36 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
             </h2>
 
             {/* Society Thumbnails Row */}
-            <div className="grid grid-cols-4 gap-2 pt-1">
-              {societies.slice(0, 4).map((soc) => (
-                <div
-                  key={soc.society_id}
-                  onClick={() => setRoute({ page: 'societyVendors', societyId: soc.society_id })}
-                  className="group/soc cursor-pointer"
-                >
-                  <div className="h-16 rounded-xl overflow-hidden bg-secondary border border-border relative mb-1">
-                    <img
-                      src={soc.image_url || soc.banner_image}
-                      alt={soc.society_name}
-                      className="w-full h-full object-cover group-hover/soc:scale-110 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                    <span className="absolute bottom-1 left-1 px-1 py-0.5 text-[8px] font-extrabold bg-[#18281F]/80 text-[#C4A066] rounded">
-                      {soc.society_id}
-                    </span>
+            <div className="grid grid-cols-4 gap-2.5 pt-1">
+              {societies.slice(0, 4).map((soc, idx) => {
+                const socImg = getSocietyImage(soc, idx);
+                const fullSocName = soc.society_name || 'Housing Society';
+
+                return (
+                  <div
+                    key={soc.society_id || idx}
+                    onClick={() => setRoute({ page: 'societyVendors', societyId: soc.society_id })}
+                    className="group/soc cursor-pointer"
+                    title={fullSocName}
+                  >
+                    <div className="h-16 rounded-2xl overflow-hidden bg-secondary border border-border relative mb-1.5 shadow-2xs">
+                      <img
+                        src={socImg}
+                        alt={fullSocName}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = DIVERSE_SOCIETY_IMAGES[idx % DIVERSE_SOCIETY_IMAGES.length];
+                        }}
+                        className="w-full h-full object-cover group-hover/soc:scale-110 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    </div>
+                    <p className="text-[10px] font-bold text-ink truncate leading-tight transition-colors group-hover/soc:text-[#C4A066]">
+                      {fullSocName}
+                    </p>
                   </div>
-                  <p className="text-[9px] font-bold text-ink truncate leading-tight">
-                    {soc.society_name.split(' ')[0]}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -520,7 +527,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
               const el = document.getElementById('societies-section');
               if (el) el.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="inline-flex items-center space-x-1.5 text-xs font-bold text-ink hover:text-[#C4A066] transition-colors pt-3"
+            className="inline-flex items-center space-x-1.5 text-xs font-bold text-ink hover:text-[#C4A066] transition-colors pt-3 cursor-pointer"
           >
             <span>View All Societies</span>
             <ArrowRight className="w-4 h-4" />
@@ -768,32 +775,44 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
         {/* Societies Bento Grid */}
         {!loading && societies.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {societies.map((soc) => (
-              <div
-                key={soc.society_id}
-                className="bg-card rounded-[2rem] border border-border hover:border-primary/40 transition-all duration-300 shadow-sm hover:shadow-md overflow-hidden flex flex-col justify-between group bento-card"
-              >
-                <div>
-                  {/* Banner Image */}
-                  <div className="h-48 w-full relative overflow-hidden bg-secondary">
-                    <img
-                      src={soc.image_url || soc.banner_image || 'https://static.squareyards.com/resources/images/noida/project-image/omaxe-greenwood-project-project-large-image1-2275.jpg'}
-                      alt={soc.society_name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
+            {societies.map((soc, idx) => {
+              const socImg = getSocietyImage(soc, idx);
+              const formattedId = typeof soc.society_id === 'number' 
+                ? `SOC-${soc.society_id}` 
+                : String(soc.society_id || '').startsWith('SOC-') 
+                  ? soc.society_id 
+                  : `SOC-${String(soc.society_id || idx).slice(-4)}`;
 
-                    {/* Unique Society ID Badge */}
-                    <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-emerald-950/80 backdrop-blur-md border border-emerald-500/30 text-emerald-300 text-[10px] font-extrabold flex items-center space-x-1 shadow-sm">
-                      <Building2 className="w-3 h-3 text-gold" />
-                      <span>{soc.society_id}</span>
-                    </div>
+              return (
+                <div
+                  key={soc.society_id || idx}
+                  className="bg-card rounded-[2rem] border border-border hover:border-primary/40 transition-all duration-300 shadow-sm hover:shadow-md overflow-hidden flex flex-col justify-between group bento-card"
+                >
+                  <div>
+                    {/* Banner Image */}
+                    <div className="h-48 w-full relative overflow-hidden bg-secondary">
+                      <img
+                        src={socImg}
+                        alt={soc.society_name}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = DIVERSE_SOCIETY_IMAGES[idx % DIVERSE_SOCIETY_IMAGES.length];
+                        }}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
 
-                    {/* Active Vendors Count Badge */}
-                    <div className="absolute top-3.5 right-3.5 px-3 py-1 rounded-full bg-ink/80 backdrop-blur-md border border-white/20 text-white text-[10px] font-extrabold flex items-center space-x-1.5">
-                      <Store className="w-3.5 h-3.5 text-gold" />
-                      <span>{soc.vendor_count || 0} Active Vendors</span>
+                      {/* Unique Society ID Badge */}
+                      <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-emerald-950/80 backdrop-blur-md border border-emerald-500/30 text-emerald-300 text-[10px] font-extrabold flex items-center space-x-1 shadow-sm">
+                        <Building2 className="w-3 h-3 text-gold" />
+                        <span>{formattedId}</span>
+                      </div>
+
+                      {/* Active Vendors Count Badge */}
+                      <div className="absolute top-3.5 right-3.5 px-3 py-1 rounded-full bg-ink/80 backdrop-blur-md border border-white/20 text-white text-[10px] font-extrabold flex items-center space-x-1.5">
+                        <Store className="w-3.5 h-3.5 text-gold" />
+                        <span>{soc.vendor_count || 0} Active Vendors</span>
+                      </div>
                     </div>
-                  </div>
 
                   {/* Society Info */}
                   <div className="p-6">
@@ -828,7 +847,8 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                   </button>
                 </div>
               </div>
-            ))}
+            );
+          })}
           </div>
         )}
 

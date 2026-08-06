@@ -1,42 +1,87 @@
-import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
-import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, FileText, Clock, MapPin, Building2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { api, getSocietyImage } from '../services/api';
+import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock } from 'lucide-react';
 import { getStoreStatus } from '../utils/storeHours';
 import { VendorCardSkeleton } from '../components/Skeletons';
+
+const checkUserLoggedIn = () => {
+  try {
+    const savedUser = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
+    const savedVendor = localStorage.getItem('digilocal_vendor_session');
+    if (savedUser) {
+      const parsed = JSON.parse(savedUser);
+      const u = parsed.user || parsed;
+      if (u && (u.user_id || u.email || u.name || u.phone)) return true;
+    }
+    if (savedVendor) {
+      const parsedV = JSON.parse(savedVendor);
+      const v = parsedV.vendor || parsedV;
+      if (v && (v.vendor_id || v.email || v.vendor_name || v.store_name)) return true;
+    }
+  } catch (_) {}
+  return false;
+};
 
 export default function SocietyVendorsPage({ societyId: initialSocietyId, setRoute }) {
   const [currentSocietyId, setCurrentSocietyId] = useState(initialSocietyId || 'all');
   const [society, setSociety] = useState(null);
-  const [vendors, setVendors] = useState([]);
+  const [allSocieties, setAllSocieties] = useState([]);
+  const [allMasterVendors, setAllMasterVendors] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // Custom Dropdown State
+  const [isSocietyDropdownOpen, setIsSocietyDropdownOpen] = useState(false);
+  const [societyFilterSearch, setSocietyFilterSearch] = useState('');
+  const dropdownRef = useRef(null);
+
+  // Click outside listener for dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsSocietyDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Sync props when initialSocietyId changes
   useEffect(() => {
-    if (initialSocietyId) {
-      setCurrentSocietyId(initialSocietyId);
-    } else {
-      setCurrentSocietyId('all');
+    const target = initialSocietyId || 'all';
+    if (target !== currentSocietyId) {
+      setCurrentSocietyId(target);
     }
   }, [initialSocietyId]);
 
-  // Load Active Society Details & Vendors
+  // Load all societies list for filter dropdown
+  useEffect(() => {
+    api.getSocieties().then(data => {
+      if (Array.isArray(data)) setAllSocieties(data);
+    }).catch(() => {});
+  }, []);
+
+  // Load Active Society Details & Vendors (runs when societyId changes)
   useEffect(() => {
     loadData();
-  }, [currentSocietyId, search]);
+  }, [currentSocietyId]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       if (currentSocietyId && currentSocietyId !== 'all') {
-        const socData = await api.getSociety(currentSocietyId);
+        let socData = await api.getSociety(currentSocietyId);
+        if (!socData || !socData.society_name) {
+          const found = allSocieties.find(s => String(s.society_id) === String(currentSocietyId) || String(s.society_id).replace('SOC-', '') === String(currentSocietyId).replace('SOC-', ''));
+          if (found) socData = found;
+        }
         setSociety(socData);
-        const venData = await api.getSocietyVendors(currentSocietyId, search);
-        setVendors(venData);
+        const venData = await api.getSocietyVendors(currentSocietyId, '');
+        setAllMasterVendors(Array.isArray(venData) ? venData : []);
       } else {
         setSociety(null);
-        const venData = await api.getSocietyVendors('all', search);
-        setVendors(venData);
+        const venData = await api.getSocietyVendors('all', '');
+        setAllMasterVendors(Array.isArray(venData) ? venData : []);
       }
     } catch (err) {
       console.error('Failed to load vendors:', err);
@@ -45,25 +90,51 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
     }
   };
 
+  // Synchronous client-side filtered vendors - Guarantees all vendors show instantly when search is empty
+  const vendors = useMemo(() => {
+    if (!search || !search.trim()) return allMasterVendors;
+    const term = search.toLowerCase().trim();
+    return allMasterVendors.filter(v =>
+      v.store_name?.toLowerCase().includes(term) ||
+      v.vendor_name?.toLowerCase().includes(term) ||
+      v.category?.toLowerCase().includes(term) ||
+      v.society_name?.toLowerCase().includes(term) ||
+      v.description?.toLowerCase().includes(term)
+    );
+  }, [allMasterVendors, search]);
+
+  const currentSocietyName = society?.society_name || (currentSocietyId !== 'all' ? (allSocieties.find(s => String(s.society_id) === String(currentSocietyId))?.society_name || 'Society') : '');
+
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 px-3 sm:px-6 font-sans">
       
       {/* Header Banner */}
       <div className="max-w-7xl mx-auto pt-4 pb-6">
+        <button
+          onClick={() => {
+            if (window.history.length > 1) {
+              window.history.back();
+            } else {
+              setRoute({ page: 'home' });
+            }
+          }}
+          className="mb-3 inline-flex items-center space-x-1.5 text-xs font-bold text-muted-foreground hover:text-ink transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back</span>
+        </button>
         <div className="bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 shadow-sm">
-          {currentSocietyId !== 'all' && society ? (
+          {currentSocietyId !== 'all' ? (
             /* 1. SPECIFIC SOCIETY HEADER WITH REAL SOCIETY NAME & LOCATION */
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-                {(society.image_url || society.banner_image) && (
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-border shadow-sm shrink-0">
-                    <img 
-                      src={society.image_url || society.banner_image} 
-                      alt={society.society_name} 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-border shadow-sm shrink-0">
+                  <img 
+                    src={getSocietyImage(society || { society_name: currentSocietyName })} 
+                    alt={currentSocietyName} 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
                 <div>
                   <div className="flex items-center space-x-2 mb-2">
                     <span className="px-3.5 py-1 text-[11px] font-bold bg-[#18281F] text-white rounded-full inline-block border border-emerald-900/40">
@@ -74,11 +145,11 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                     </span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-serif font-bold text-ink">
-                    {society.society_name} Vendors
+                    {currentSocietyName} Vendors
                   </h1>
                   <div className="flex items-center space-x-1.5 text-muted-foreground text-xs mt-1.5 font-medium">
                     <MapPin className="w-4 h-4 text-gold shrink-0" />
-                    <span>{society.location || 'Gated Residential Community'}</span>
+                    <span>{society?.location || 'Gated Residential Community'}</span>
                   </div>
                 </div>
               </div>
@@ -89,7 +160,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
                   <input
                     type="text"
-                    placeholder={`Search stores in ${society.society_name}...`}
+                    placeholder={`Search stores in ${currentSocietyName}...`}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full pl-11 pr-4 py-3 rounded-full bg-background border border-border text-ink text-xs font-semibold focus:outline-none focus:border-primary shadow-xs"
@@ -135,8 +206,129 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
         </div>
       </div>
 
-      {/* Vendors Bento Grid */}
+      {/* Vendors Bento Grid Container */}
       <div className="max-w-7xl mx-auto mt-2">
+        
+        {/* Society Filter Selector Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6 bg-card border border-border rounded-2xl p-3.5 sm:px-5 shadow-xs">
+          <div className="flex items-center space-x-2 text-xs font-bold text-ink">
+            <Building2 className="w-4 h-4 text-[#C4A066]" />
+            <span>Filter Vendors by Society:</span>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            {/* Custom Styled React Dropdown */}
+            <div className="relative w-full sm:w-80 z-30" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsSocietyDropdownOpen(!isSocietyDropdownOpen)}
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-[#F7F4EE] hover:bg-white text-ink text-xs font-bold transition-all shadow-xs flex items-center justify-between gap-2 cursor-pointer group"
+              >
+                <div className="flex items-center space-x-2 truncate">
+                  {currentSocietyId === 'all' ? (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-[#C4A066] shrink-0" />
+                      <span className="truncate">All Societies (Show All Vendors)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Building2 className="w-3.5 h-3.5 text-[#C4A066] shrink-0" />
+                      <span className="truncate">{society?.society_name || 'Selected Society'}</span>
+                    </>
+                  )}
+                </div>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground group-hover:text-ink transition-transform duration-200 shrink-0 ${isSocietyDropdownOpen ? 'rotate-180 text-[#C4A066]' : ''}`} />
+              </button>
+
+              {isSocietyDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-full sm:w-96 bg-white border border-[#E4DCC9] rounded-2xl shadow-2xl z-50 overflow-hidden animate-fadeIn">
+                  {/* Search inside dropdown */}
+                  <div className="p-2.5 border-b border-[#E4DCC9] bg-[#F7F4EE]">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        value={societyFilterSearch}
+                        onChange={(e) => setSocietyFilterSearch(e.target.value)}
+                        placeholder="Search society by name or location..."
+                        className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#E4DCC9] bg-white text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Options List */}
+                  <div className="max-h-64 overflow-y-auto p-1.5 space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentSocietyId('all');
+                        setRoute({ page: 'societyVendors', societyId: 'all' });
+                        setIsSocietyDropdownOpen(false);
+                      }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                        currentSocietyId === 'all' ? 'bg-[#18281F] text-white shadow-xs' : 'hover:bg-[#F7F4EE] text-[#18281F]'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2 truncate">
+                        <Sparkles className="w-3.5 h-3.5 text-[#C4A066] shrink-0" />
+                        <span>All Societies (Show All Vendors)</span>
+                      </div>
+                      {currentSocietyId === 'all' && <Check className="w-4 h-4 text-[#C4A066]" />}
+                    </button>
+
+                    {allSocieties
+                      .filter(s =>
+                        !societyFilterSearch.trim() ||
+                        s.society_name?.toLowerCase().includes(societyFilterSearch.toLowerCase()) ||
+                        s.location?.toLowerCase().includes(societyFilterSearch.toLowerCase())
+                      )
+                      .map((soc) => {
+                        const isSelected = String(currentSocietyId) === String(soc.society_id);
+                        return (
+                          <button
+                            type="button"
+                            key={soc.society_id}
+                            onClick={() => {
+                              setCurrentSocietyId(soc.society_id);
+                              setRoute({ page: 'societyVendors', societyId: soc.society_id });
+                              setIsSocietyDropdownOpen(false);
+                            }}
+                            className={`w-full text-left p-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                              isSelected ? 'bg-[#18281F] text-white font-bold shadow-xs' : 'hover:bg-[#F7F4EE] text-[#18281F]'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-2.5 min-w-0">
+                              <Building2 className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-[#C4A066]' : 'text-emerald-700'}`} />
+                              <div className="truncate">
+                                <span className="block truncate font-bold">{soc.society_name}</span>
+                                <span className={`text-[10px] block truncate ${isSelected ? 'text-emerald-200' : 'text-[#6B7C70]'}`}>
+                                  {soc.location}
+                                </span>
+                              </div>
+                            </div>
+                            {isSelected && <Check className="w-4 h-4 text-[#C4A066] shrink-0" />}
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {currentSocietyId !== 'all' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentSocietyId('all');
+                  setRoute({ page: 'societyVendors', societyId: 'all' });
+                }}
+                className="px-3.5 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-black transition-colors shrink-0 cursor-pointer"
+              >
+                Show All
+              </button>
+            )}
+          </div>
+        </div>
         
         {loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -164,100 +356,107 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
 
         {!loading && vendors.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {vendors.map((vendor) => (
-              <div
-                key={vendor.vendor_id}
-                onClick={() => setRoute({ page: 'vendorStorefront', societyId: vendor.society_id || currentSocietyId || 1, vendorId: vendor.vendor_id })}
-                className="group rounded-[2rem] bg-card border border-border hover:border-primary/40 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer overflow-hidden flex flex-col justify-between bento-card"
-              >
-                <div className="p-6">
-                  {currentSocietyId === 'all' && (
-                    <div className="mb-3 inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#FAF9F6] border border-border text-[10px] font-extrabold text-[#18281F]">
-                      <Building2 className="w-3 h-3 text-[#C4A066]" />
-                      <span>{vendor.society_name || 'Gated Society'}</span>
-                    </div>
-                  )}
+            {vendors.map((vendor) => {
+              const status = getStoreStatus(vendor.opening_time, vendor.closing_time);
+              const storeImage = vendor.logo || vendor.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80';
 
-                  <div className="flex items-start space-x-4 mb-4">
-                    <img
-                      src={vendor.logo || 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80'}
-                      alt={vendor.store_name}
-                      className="w-16 h-16 rounded-2xl object-cover border border-border bg-secondary shadow-sm group-hover:scale-105 transition-transform flex-shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1 flex-wrap gap-1">
-                        <div className="flex items-center space-x-1 text-primary text-[11px] font-bold">
-                          <ShieldCheck className="w-3.5 h-3.5 text-gold" />
-                          <span>Verified Vendor</span>
-                        </div>
-                        {(() => {
-                          const status = getStoreStatus(vendor.opening_time, vendor.closing_time);
-                          return (
-                            <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full ${
-                              status.isOpen 
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                                : 'bg-rose-50 text-rose-700 border border-rose-200'
-                            }`}>
-                              {status.isOpen ? '• OPEN' : '• CLOSED'}
-                            </span>
-                          );
-                        })()}
+              return (
+                <div
+                  key={vendor.vendor_id}
+                  onClick={() => setRoute({ page: 'vendorStorefront', societyId: vendor.society_id || currentSocietyId || 1, vendorId: vendor.vendor_id })}
+                  className="group rounded-3xl bg-white border border-[#E8E2D5] hover:border-[#18281F]/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between relative shadow-xs"
+                >
+                  <div>
+                    {/* Single Prominent Store Image Header */}
+                    <div className="h-44 w-full relative bg-gray-900 overflow-hidden">
+                      <img
+                        src={storeImage}
+                        alt={vendor.store_name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-black/20" />
+
+                      {/* Top Floating Badges Overlay */}
+                      <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
+                        <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white shadow-sm">
+                          <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span className="truncate max-w-[140px]">{vendor.society_name || 'Gated Society'}</span>
+                        </span>
+
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold flex items-center space-x-1.5 backdrop-blur-md shadow-sm border ${
+                          status.isOpen 
+                            ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50' 
+                            : 'bg-rose-950/80 text-rose-300 border-rose-500/50'
+                        }`}>
+                          <span className={`w-2 h-2 rounded-full ${status.isOpen ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+                          <span>{status.isOpen ? 'OPEN NOW' : 'CLOSED'}</span>
+                        </span>
                       </div>
-                      <h3 className="font-serif font-bold text-lg text-ink group-hover:text-primary transition-colors truncate">
-                        {vendor.store_name}
-                      </h3>
-                      <p className="text-xs text-muted-foreground font-medium">By {vendor.vendor_name}</p>
+
+                      {/* Store Title & Verified Badge Overlaid on Bottom of Cover Image */}
+                      <div className="absolute bottom-3 left-4 right-4 z-10 text-white">
+                        <div className="inline-flex items-center space-x-1.5 bg-emerald-950/85 backdrop-blur-md text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/40 text-[10px] font-extrabold mb-1 shadow-sm">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>Verified Store</span>
+                        </div>
+                        <h3 className="font-serif font-black text-xl text-white group-hover:text-emerald-300 transition-colors leading-tight truncate drop-shadow-md">
+                          {vendor.store_name}
+                        </h3>
+                        <p className="text-xs text-emerald-100/90 font-medium mt-0.5 truncate drop-shadow-sm">
+                          By {vendor.vendor_name}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Description Body */}
+                    <div className="p-4 pt-3">
+                      <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed font-normal">
+                        {vendor.description || 'Quality goods & daily essentials delivered within society via WhatsApp.'}
+                      </p>
                     </div>
                   </div>
 
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-4 font-normal">
-                    {vendor.description || 'Quality goods & daily essentials delivered within society via WhatsApp.'}
-                  </p>
+                  {/* Timing, Contact & CTA Button */}
+                  <div className="px-4 pb-4">
+                    <div className="flex items-center justify-between pt-2 mb-3 border-t border-gray-100 text-xs">
+                      {checkUserLoggedIn() ? (
+                        <span className="flex items-center space-x-1.5 font-bold text-[#18281F]">
+                          <Phone className="w-3.5 h-3.5 text-[#C4A066]" />
+                          <span>{vendor.phone_number || 'Contact Available'}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center space-x-1 text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/70 text-[11px] font-bold">
+                          <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>Login to view contact</span>
+                        </span>
+                      )}
 
-                  <div className="space-y-1.5 pt-3 border-t border-border/60 text-xs text-muted-foreground">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center space-x-1.5">
-                        <Phone className="w-3.5 h-3.5 text-gold" />
-                        <span>{vendor.phone_number}</span>
-                      </span>
                       {vendor.opening_time && (
-                        <span className="flex items-center space-x-1 text-[11px]">
-                          <Clock className="w-3.5 h-3.5 text-gold" />
+                        <span className="flex items-center space-x-1 text-[11px] text-gray-500 font-semibold">
+                          <Clock className="w-3.5 h-3.5 text-[#C4A066]" />
                           <span>{vendor.opening_time} – {vendor.closing_time}</span>
                         </span>
                       )}
                     </div>
-                    {vendor.gst_number && (
-                      <div className="flex items-center space-x-1.5 text-[11px] pt-1">
-                        <FileText className="w-3.5 h-3.5 text-gold" />
-                        <span className="font-mono bg-secondary px-2 py-0.5 rounded-md border border-border">GSTIN: {vendor.gst_number}</span>
+
+                    {!status.isOpen && status.nextOpenText ? (
+                      <div className="w-full py-2.5 bg-rose-50 border border-rose-200/80 rounded-xl text-rose-800 text-xs font-bold flex items-center justify-center space-x-2">
+                        <Clock className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>CLOSED • OPENS AT {vendor.opening_time} ({status.nextOpenText})</span>
+                      </div>
+                    ) : (
+                      <div className="w-full py-2.5 px-4 rounded-xl bg-[#18281F] text-[#C4A066] group-hover:bg-[#C4A066] group-hover:text-[#18281F] transition-all duration-300 flex items-center justify-between font-bold text-xs shadow-xs">
+                        <span className="flex items-center space-x-2">
+                          <ShoppingCart className="w-4 h-4 text-[#C4A066] group-hover:text-[#18281F] transition-colors" />
+                          <span>Visit Store & Order</span>
+                        </span>
+                        <ChevronRight className="w-4 h-4 text-[#C4A066] group-hover:text-[#18281F] group-hover:translate-x-1 transition-transform" />
                       </div>
                     )}
                   </div>
                 </div>
-
-                {(() => {
-                  const status = getStoreStatus(vendor.opening_time, vendor.closing_time);
-                  if (!status.isOpen && status.nextOpenText) {
-                    return (
-                      <div className="px-6 py-3 bg-rose-50 border-t border-rose-100 text-rose-700 text-xs font-bold flex items-center space-x-2">
-                        <Clock className="w-4 h-4 text-rose-500 flex-shrink-0" />
-                        <span>CLOSED • OPENS AT {vendor.opening_time} ({status.nextOpenText})</span>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="px-6 py-3.5 bg-secondary/50 border-t border-border group-hover:bg-primary group-hover:text-primary-foreground transition-colors flex items-center justify-between text-xs font-bold text-ink">
-                      <span className="flex items-center space-x-2">
-                        <ShoppingCart className="w-4 h-4 text-gold group-hover:text-primary-foreground" />
-                        <span>BROWSE CATALOG & ORDER</span>
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-gold group-hover:text-primary-foreground group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  );
-                })()}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

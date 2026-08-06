@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, MapPin, Building2, PlusCircle, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { getSocietyImage } from '../services/api';
 
 export default function HeroSearchComponent({ societies = [], onSelectSociety, onRequestUnlistedSociety }) {
   const [query, setQuery] = useState('');
@@ -80,7 +81,7 @@ export default function HeroSearchComponent({ societies = [], onSelectSociety, o
                   <div className="flex items-center space-x-3">
                     <div className="w-11 h-11 rounded-xl overflow-hidden border border-[#C5A880]/30 shrink-0 bg-[#FAF9F6]">
                       <img 
-                        src={society.image_url || society.banner_image || 'https://static.squareyards.com/resources/images/noida/project-image/omaxe-greenwood-project-project-large-image1-2275.jpg'} 
+                        src={getSocietyImage(society)} 
                         alt={society.society_name} 
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
                       />

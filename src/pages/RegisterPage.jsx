@@ -335,9 +335,15 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
           <div className="w-full flex items-center space-x-3 z-10">
             {/* 1. Back Button */}
             <button
-              onClick={() => handleNavigateWithAnimation('home')}
+              onClick={() => {
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  handleNavigateWithAnimation('login');
+                }
+              }}
               className="px-3.5 py-2 rounded-full bg-white/80 hover:bg-white text-[#1E3623] text-xs font-bold flex items-center space-x-1.5 border border-emerald-900/10 shadow-xs transition-all group shrink-0 cursor-pointer"
-              title="Back to Home"
+              title="Go Back"
             >
               <ArrowLeft className="w-3.5 h-3.5 text-[#1E3623] group-hover:-translate-x-0.5 transition-transform" />
               <span>Back</span>

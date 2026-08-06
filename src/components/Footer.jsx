@@ -23,7 +23,8 @@ import {
   Sparkles,
   Heart,
   ShoppingBag,
-  Bike
+  Bike,
+  RefreshCw
 } from 'lucide-react';
 
 export default function Footer({ setRoute }) {
@@ -121,7 +122,7 @@ export default function Footer({ setRoute }) {
                     onClick={() => setRoute({ page: 'home' })}
                     className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
                   >
-                    <MapPin className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+                    <MapPin className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
                     <span>Find My Society</span>
                   </button>
                 </li>
@@ -130,16 +131,16 @@ export default function Footer({ setRoute }) {
                     onClick={() => setRoute({ page: 'vendorRegister' })}
                     className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
                   >
-                    <Store className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+                    <Store className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
                     <span>Become a Vendor</span>
                   </button>
                 </li>
                 <li>
                   <button 
-                    onClick={() => setRoute({ page: 'home' })}
-                    className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
+                    onClick={() => setRoute({ page: 'home', openRequestModal: true, _ts: Date.now() })}
+                    className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group cursor-pointer"
                   >
-                    <PlusCircle className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+                    <PlusCircle className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
                     <span>Add Your Society</span>
                   </button>
                 </li>
@@ -161,7 +162,7 @@ export default function Footer({ setRoute }) {
                     onClick={() => navTo('help-support')}
                     className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
                   >
-                    <Headphones className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+                    <Headphones className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
                     <span>Help Center</span>
                   </button>
                 </li>
@@ -170,17 +171,17 @@ export default function Footer({ setRoute }) {
                     onClick={() => navTo('contact-support')}
                     className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
                   >
-                    <Mail className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+                    <Mail className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
                     <span>Contact Us</span>
                   </button>
                 </li>
                 <li>
                   <button 
-                    onClick={() => navTo('faqs')}
+                    onClick={() => navTo('help-support')}
                     className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
                   >
-                    <HelpCircle className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
-                    <span>FAQs</span>
+                    <HelpCircle className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
+                    <span>Help & FAQs</span>
                   </button>
                 </li>
               </ul>
@@ -201,7 +202,7 @@ export default function Footer({ setRoute }) {
                     onClick={() => navTo('about-us')}
                     className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
                   >
-                    <Info className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+                    <Info className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
                     <span>About Us</span>
                   </button>
                 </li>
@@ -210,8 +211,17 @@ export default function Footer({ setRoute }) {
                     onClick={() => navTo('privacy-policy')}
                     className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
                   >
-                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+                    <ShieldCheck className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
                     <span>Privacy Policy</span>
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => navTo('refund-policy')}
+                    className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
+                  >
+                    <RefreshCw className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
+                    <span>Refund Policy</span>
                   </button>
                 </li>
                 <li>
@@ -219,17 +229,8 @@ export default function Footer({ setRoute }) {
                     onClick={() => navTo('terms-and-conditions')}
                     className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
                   >
-                    <FileText className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+                    <FileText className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
                     <span>Terms & Conditions</span>
-                  </button>
-                </li>
-                <li>
-                  <button 
-                    onClick={() => setRoute({ page: 'admin' })}
-                    className="hover:text-amber-300 text-amber-300 font-bold transition-colors flex items-center space-x-2 text-left group pt-1"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-[#C4A066] shrink-0 group-hover:scale-110 transition-transform" />
-                    <span>Admin Access</span>
                   </button>
                 </li>
               </ul>
@@ -243,39 +244,12 @@ export default function Footer({ setRoute }) {
         <div className="w-full h-px bg-emerald-800/30 relative z-10" />
 
         {/* ========================================================================= */}
-        {/* BOTTOM BAR: SOCIAL ICONS | COPYRIGHT | BACK TO TOP                        */}
+        {/* BOTTOM BAR: COPYRIGHT | BACK TO TOP                                       */}
         {/* ========================================================================= */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10 pt-1">
           
-          {/* Social Circle Outline Buttons */}
-          <div className="flex items-center space-x-3">
-            <a 
-              href="https://wa.me/" 
-              target="_blank" 
-              rel="noreferrer"
-              className="w-10 h-10 rounded-full border border-emerald-700/50 bg-[#122218] flex items-center justify-center text-emerald-300 hover:border-[#C4A066] hover:bg-[#C4A066] hover:text-[#0B1610] transition-all shadow-sm group"
-              title="WhatsApp"
-            >
-              <MessageSquare className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            </a>
-            <a 
-              href="#" 
-              className="w-10 h-10 rounded-full border border-emerald-700/50 bg-[#122218] flex items-center justify-center text-emerald-300 hover:border-[#C4A066] hover:bg-[#C4A066] hover:text-[#0B1610] transition-all shadow-sm group"
-              title="Instagram"
-            >
-              <Instagram className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            </a>
-            <a 
-              href="#" 
-              className="w-10 h-10 rounded-full border border-emerald-700/50 bg-[#122218] flex items-center justify-center text-emerald-300 hover:border-[#C4A066] hover:bg-[#C4A066] hover:text-[#0B1610] transition-all shadow-sm group"
-              title="LinkedIn"
-            >
-              <Linkedin className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            </a>
-          </div>
-
           {/* Copyright & Mission Subtitle */}
-          <div className="text-center md:text-left space-y-0.5 border-l border-emerald-800/40 pl-4 hidden md:block">
+          <div className="text-center md:text-left space-y-0.5">
             <p className="text-xs sm:text-sm font-semibold text-white">© {new Date().getFullYear()} DigiLocal Network</p>
             <p className="text-xs text-emerald-400 font-medium">Built for safe, connected residential communities.</p>
           </div>

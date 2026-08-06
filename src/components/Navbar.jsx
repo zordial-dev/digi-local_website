@@ -3,17 +3,19 @@ import { Store, ArrowLeft, LogOut, Building2, BookOpen, HelpCircle, ArrowUpRight
 
 export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorLogout, activeUser, onUserLogout, onOpenLogin }) {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isNearFooter, setIsNearFooter] = useState(false);
   const isHomePage = currentRoute?.page === 'home';
   const isDashboardOrAdmin = currentRoute?.page === 'vendorDashboard' || currentRoute?.page === 'admin';
   const isProfilePage = currentRoute?.page === 'profile';
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 80) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
+      setIsScrolled(window.scrollY > 80);
+
+      // Hide side panel dock when within 650px of page bottom (near footer)
+      const scrollPos = window.scrollY + window.innerHeight;
+      const pageHeight = document.documentElement.scrollHeight;
+      setIsNearFooter(scrollPos >= pageHeight - 650);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
@@ -212,8 +214,8 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                 ) : (
                   <div className="flex items-center space-x-1.5 sm:space-x-2">
                     <button
-                      onClick={() => setRoute({ page: 'login' })}
-                      className="bg-[#E6C35C] hover:bg-[#d8b34c] text-[#0B150D] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full flex items-center space-x-1 text-xs font-black transition-all shadow-md hover:scale-105 shrink-0"
+                      onClick={() => setRoute({ page: 'login', accountType: 'resident' })}
+                      className="bg-[#E6C35C] hover:bg-[#d8b34c] text-[#0B150D] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full flex items-center space-x-1 text-xs font-black transition-all shadow-md hover:scale-105 shrink-0 cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5 rotate-180 text-[#0B150D]" />
                       <span>Log In</span>
@@ -356,12 +358,12 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
         )}
       </header>
 
-      {/* FLOATING LEFT VERTICAL PANEL DOCK (Appears smoothly on scroll) */}
+      {/* FLOATING LEFT VERTICAL PANEL DOCK (Appears while scrolling, retracts automatically near footer) */}
       <div 
-        className={`fixed left-3 sm:left-6 top-1/2 -translate-y-1/2 z-50 transition-all duration-500 ease-out ${
-          isScrolled 
+        className={`fixed left-2 sm:left-4 top-1/2 -translate-y-1/2 z-40 transition-all duration-500 ease-out hidden sm:flex ${
+          isScrolled && !isNearFooter
             ? 'translate-x-0 opacity-100 scale-100 pointer-events-auto' 
-            : '-translate-x-12 opacity-0 scale-90 pointer-events-none'
+            : '-translate-x-16 opacity-0 scale-90 pointer-events-none'
         }`}
       >
         <div className="bg-[#14261C]/90 backdrop-blur-xl border border-white/20 p-2 rounded-full shadow-2xl flex flex-col items-center space-y-2 text-xs">

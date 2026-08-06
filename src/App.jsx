@@ -18,11 +18,14 @@ function getRouteFromPath(path = window.location.pathname) {
   const cleanPath = path.toLowerCase().replace(/\/$/, '');
   const parts = cleanPath.split('/').filter(Boolean);
 
-  if (cleanPath === '' || cleanPath === '/') {
-    return { page: 'home' };
+  if (cleanPath === '/vendors' || cleanPath === '/all-vendors' || cleanPath === '/all') {
+    return { page: 'societyVendors', societyId: 'all' };
   }
-  if (cleanPath === '/login') {
-    return { page: 'login' };
+  if (cleanPath === '/login' || cleanPath === '/user-login' || cleanPath === '/userlogin') {
+    return { page: 'login', accountType: 'resident' };
+  }
+  if (cleanPath === '/vendor-login' || cleanPath === '/vendorlogin' || cleanPath === '/vendor-portal') {
+    return { page: 'login', accountType: 'vendor' };
   }
   if (cleanPath === '/register' || cleanPath === '/signup') {
     return { page: 'register' };
@@ -30,14 +33,17 @@ function getRouteFromPath(path = window.location.pathname) {
   if (cleanPath === '/profile' || cleanPath === '/user-profile' || cleanPath === '/account' || cleanPath === '/my-profile') {
     return { page: 'profile' };
   }
-  if (cleanPath === '/admin') {
+  if (cleanPath === '/admin' || cleanPath === '/admin-dashboard') {
     return { page: 'admin' };
   }
-  if (cleanPath === '/registervendor' || cleanPath === '/registervender') {
+  if (cleanPath === '/registervendor' || cleanPath === '/registervender' || cleanPath === '/register-vendor' || cleanPath === '/vendor-register') {
     return { page: 'vendorRegister' };
   }
   if (cleanPath === '/privacy-policy') {
     return { page: 'info', tab: 'privacy-policy' };
+  }
+  if (cleanPath === '/refund-policy' || cleanPath === '/refund' || cleanPath === '/refunds' || cleanPath === '/cancellation-policy') {
+    return { page: 'info', tab: 'refund-policy' };
   }
   if (cleanPath === '/child-security') {
     return { page: 'info', tab: 'child-security' };
@@ -45,8 +51,14 @@ function getRouteFromPath(path = window.location.pathname) {
   if (cleanPath === '/terms-and-conditions' || cleanPath === '/terms') {
     return { page: 'info', tab: 'terms-and-conditions' };
   }
-  if (cleanPath === '/help-support' || cleanPath === '/help') {
+  if (cleanPath === '/help-support' || cleanPath === '/help' || cleanPath === '/faqs' || cleanPath === '/faq') {
     return { page: 'info', tab: 'help-support' };
+  }
+  if (cleanPath === '/how-it-works' || cleanPath === '/howitworks') {
+    return { page: 'info', tab: 'how-it-works' };
+  }
+  if (cleanPath === '/about-us' || cleanPath === '/about' || cleanPath === '/our-story') {
+    return { page: 'info', tab: 'about-us' };
   }
   if (cleanPath === '/safety-standards') {
     return { page: 'info', tab: 'safety-standards' };
@@ -54,18 +66,31 @@ function getRouteFromPath(path = window.location.pathname) {
   if (cleanPath === '/contact-support' || cleanPath === '/contact') {
     return { page: 'info', tab: 'contact-support' };
   }
-  if (cleanPath === '/faqs' || cleanPath === '/faq') {
-    return { page: 'info', tab: 'faqs' };
-  }
   if (parts[0] === 'vendorpanel' && parts[1]) {
     return { page: 'vendorDashboard', vendorId: parts[1] };
   }
-  if (parts.length === 1 && !isNaN(parts[0])) {
-    return { page: 'societyVendors', societyId: parts[0] };
+  if (parts[0] === 'storefront' && parts[1] && parts[2]) {
+    return { page: 'vendorStorefront', societyId: parts[1], vendorId: parts[2] };
   }
-  if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+  if (parts.length === 2) {
     return { page: 'vendorStorefront', societyId: parts[0], vendorId: parts[1] };
   }
+  if (parts.length === 1 && parts[0] !== 'home') {
+    return { page: 'societyVendors', societyId: parts[0] };
+  }
+  if (cleanPath === '' || cleanPath === '/' || cleanPath === '/home') {
+    return { page: 'home' };
+  }
+
+  // Fallback to session stored route if path matches
+  try {
+    const saved = sessionStorage.getItem('digilocal_active_route');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed.page) return parsed;
+    }
+  } catch (_) {}
+
   return { page: 'home' };
 }
 
@@ -74,23 +99,23 @@ function getPathFromRoute(route) {
     case 'home':
       return '/';
     case 'login':
-      return '/login';
+      return route.accountType === 'vendor' || route.tab === 'vendor' ? '/vendor-login' : '/login';
     case 'register':
       return '/register';
     case 'profile':
       return '/profile';
     case 'societyVendors':
-      return `/${route.societyId}`;
+      return (!route.societyId || route.societyId === 'all') ? '/vendors' : `/${route.societyId}`;
     case 'vendorStorefront':
-      return `/${route.societyId}/${route.vendorId}`;
+      return `/${route.societyId || 1}/${route.vendorId}`;
     case 'vendorRegister':
-      return '/registerVendor';
+      return '/vendor-register';
     case 'vendorDashboard':
       return `/vendorPanel/${route.vendorId}`;
     case 'admin':
       return '/admin';
     case 'info':
-      return `/${route.tab || 'privacy-policy'}`;
+      return `/${route.tab || 'help-support'}`;
     default:
       return '/';
   }
@@ -102,8 +127,13 @@ export default function App() {
   const [activeUser, setActiveUser] = useState(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
-  // Restore Active User & Vendor sessions on mount
+  // Restore Active User & Vendor sessions on mount & sync route state in history
   useEffect(() => {
+    const initialRoute = getRouteFromPath();
+    setRouteState(initialRoute);
+    const path = getPathFromRoute(initialRoute);
+    window.history.replaceState(initialRoute, '', path);
+
     try {
       const savedVendor = localStorage.getItem('digilocal_vendor_session');
       if (savedVendor) {
@@ -131,16 +161,17 @@ export default function App() {
     } catch (_) {}
   }, []);
 
-  // Sync route state with URL pathname & browser history
+  // Sync route state with URL pathname, browser history & sessionStorage
   const setRoute = (newRoute, replace = false) => {
     setRouteState(newRoute);
+    try {
+      sessionStorage.setItem('digilocal_active_route', JSON.stringify(newRoute));
+    } catch (_) {}
     const path = getPathFromRoute(newRoute);
-    if (window.location.pathname !== path) {
-      if (replace) {
-        window.history.replaceState(newRoute, '', path);
-      } else {
-        window.history.pushState(newRoute, '', path);
-      }
+    if (replace) {
+      window.history.replaceState(newRoute, '', path);
+    } else {
+      window.history.pushState(newRoute, '', path);
     }
   };
 

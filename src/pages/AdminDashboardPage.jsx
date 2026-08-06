@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, getSocietyImage } from '../services/api';
 import { ShieldCheck, Search, Check, Store, Calendar, CreditCard, ChevronDown, ChevronUp, User, MapPin, Clock, RefreshCw, Building2, Plus, X, Image, LogOut } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import { VendorCardSkeleton, TableRowSkeleton } from '../components/Skeletons';
@@ -570,7 +570,7 @@ export default function AdminDashboardPage({ setRoute }) {
                     <div className="flex items-center space-x-3.5">
                       <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#C5A880]/30 shrink-0 bg-[#F6F3EC]">
                         <img 
-                          src={soc.image_url || soc.banner_image || 'https://static.squareyards.com/resources/images/noida/project-image/omaxe-greenwood-project-project-large-image1-2275.jpg'} 
+                          src={getSocietyImage(soc)} 
                           alt={soc.society_name} 
                           className="w-full h-full object-cover" 
                         />

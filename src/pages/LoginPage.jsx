@@ -11,6 +11,8 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   useEffect(() => {
     if (currentRoute?.tab === 'vendor' || currentRoute?.accountType === 'vendor') {
       setAccountType('vendor');
+    } else {
+      setAccountType('resident');
     }
   }, [currentRoute]);
   
@@ -157,7 +159,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
       try {
         setLoading(true);
         // RESIDENT / USER LOGIN FLOW
-        const res = await api.loginUser({ phone: targetId, email: `${targetId}@digilocal.com`, password: passwordInput });
+        const res = await api.loginUser({ phone: targetId, email: `${targetId}@digilocal.com`, password: passwordInput, isOtpLogin: authMethod === 'otp' });
         
         let userObj = res?.user;
         try {
@@ -229,7 +231,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
       try {
         setLoading(true);
         // VENDOR LOGIN FLOW
-        const res = await api.loginVendor({ email: targetId, phone: targetId, password: passwordInput });
+        const res = await api.loginVendor({ email: targetId, phone: targetId, password: passwordInput, isOtpLogin: authMethod === 'otp' });
 
         let vendorObj = res?.vendor;
         try {
@@ -398,9 +400,15 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         >
           <div className="w-full flex items-center space-x-3 z-10">
             <button
-              onClick={() => setRoute({ page: 'home' })}
+              onClick={() => {
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  setRoute({ page: 'home' });
+                }
+              }}
               className="px-3.5 py-2 rounded-full bg-white/80 hover:bg-white text-[#1E3623] text-xs font-bold flex items-center space-x-1.5 border border-emerald-900/10 shadow-xs transition-all group shrink-0 cursor-pointer"
-              title="Back to Home"
+              title="Go Back"
             >
               <ArrowLeft className="w-3.5 h-3.5 text-[#1E3623] group-hover:-translate-x-0.5 transition-transform" />
               <span>Back</span>
@@ -457,44 +465,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
             </button>
           </div>
 
-          {/* Dual Login Switcher Tabs (Resident User vs Vendor Portal) */}
-          <div className="bg-[#EDEDE4] p-1.5 rounded-full grid grid-cols-2 gap-1 text-xs font-bold shadow-inner">
-            <button
-              type="button"
-              onClick={() => {
-                setAccountType('resident');
-                setError('');
-                setSuccessMsg('');
-                setAuthMethod('password');
-              }}
-              className={`py-2.5 px-4 rounded-full flex items-center justify-center space-x-2 transition-all cursor-pointer ${
-                accountType === 'resident'
-                  ? 'bg-[#18281F] text-white shadow-md font-extrabold'
-                  : 'text-[#4A5D4E] hover:text-[#18281F]'
-              }`}
-            >
-              <User className={`w-3.5 h-3.5 ${accountType === 'resident' ? 'text-[#E6C35C]' : 'text-[#4A5D4E]'}`} />
-              <span>User Login</span>
-            </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setAccountType('vendor');
-                setError('');
-                setSuccessMsg('');
-                setAuthMethod('password');
-              }}
-              className={`py-2.5 px-4 rounded-full flex items-center justify-center space-x-2 transition-all cursor-pointer ${
-                accountType === 'vendor'
-                  ? 'bg-[#18281F] text-white shadow-md font-extrabold'
-                  : 'text-[#4A5D4E] hover:text-[#18281F]'
-              }`}
-            >
-              <Store className={`w-3.5 h-3.5 ${accountType === 'vendor' ? 'text-[#E6C35C]' : 'text-[#4A5D4E]'}`} />
-              <span>Vendor Login</span>
-            </button>
-          </div>
 
           <div className="space-y-5">
 
@@ -505,7 +476,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               </h1>
               <p className="text-xs text-muted-foreground mt-1.5 font-medium leading-relaxed">
                 {accountType === 'resident' 
-                  ? 'Login to view your resident profile, order history, and saved societies.'
+                  ? 'Login to view your profile, order history, and saved societies.'
                   : 'Login to manage your vendor store catalog, inventory, and incoming orders.'}
               </p>
             </div>
@@ -674,7 +645,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                     : authMethod === 'otp' 
                       ? 'Verify OTP & Log In' 
                       : accountType === 'resident' 
-                        ? 'Login as Resident User' 
+                        ? 'Log In' 
                         : 'Login as Vendor'}
                 </span>
                 <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
@@ -689,7 +660,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                 onClick={() => handleNavigateWithAnimation(accountType === 'resident' ? 'register' : 'vendorRegister')}
                 className="font-bold text-emerald-800 hover:text-emerald-950 underline transition-colors cursor-pointer"
               >
-                {accountType === 'resident' ? 'Create User Account' : 'Register Store as Vendor'}
+                {accountType === 'resident' ? 'Create Account' : 'Register Store as Vendor'}
               </button>
             </div>
           </div>
