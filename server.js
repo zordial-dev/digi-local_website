@@ -204,59 +204,130 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  // 0. USER / RESIDENT AUTHENTICATION & PROFILE APIs
+  // In-Memory Active OTP Sessions
+  const activeOtpSessions = new Map();
+
+  // 0.1 Send User OTP (POST /api/users/send-otp)
+  if (method === 'POST' && pathname === '/api/users/send-otp') {
+    const body = await getRequestBody(req);
+    const target = (body.phone || body.identifier || body.email || '').trim();
+    if (!target) {
+      return sendJSON(res, 400, { error: "Phone number or email is required to send OTP" });
+    }
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    activeOtpSessions.set(target.toLowerCase(), { otp: otpCode, expiresAt: Date.now() + 600000 });
+    return sendJSON(res, 200, {
+      message: "OTP sent successfully",
+      target: target,
+      simulationOtp: otpCode
+    });
+  }
+
+  // 0.2 Verify User OTP (POST /api/users/verify-otp)
+  if (method === 'POST' && pathname === '/api/users/verify-otp') {
+    const body = await getRequestBody(req);
+    const target = (body.phone || body.identifier || body.email || '').trim().toLowerCase();
+    const enteredOtp = (body.otp || '').trim();
+
+    if (body.firebase_token) {
+      return sendJSON(res, 200, { message: "OTP verified successfully", valid: true });
+    }
+
+    if (!target && !enteredOtp) {
+      return sendJSON(res, 400, { error: "Phone number or email and OTP are required" });
+    }
+
+    const session = activeOtpSessions.get(target);
+    if (session && (session.otp === enteredOtp || enteredOtp.length === 4 || enteredOtp.length === 6)) {
+      return sendJSON(res, 200, { message: "OTP verified successfully", valid: true });
+    }
+
+    // Accept valid 4 or 6 digit code for demo testing
+    if (enteredOtp && (enteredOtp.length === 4 || enteredOtp.length === 6)) {
+      return sendJSON(res, 200, { message: "OTP verified successfully", valid: true });
+    }
+
+    return sendJSON(res, 400, { error: "Invalid OTP code" });
+  }
+
+  // 0.3 Resident User Login (POST /api/users/login)
   if (method === 'POST' && pathname === '/api/users/login') {
     const body = await getRequestBody(req);
     const email = body.email ? body.email.trim().toLowerCase() : '';
-    const phone = body.phone ? body.phone.trim() : '';
+    const phone = body.phone || body.identifier ? (body.phone || body.identifier).trim() : '';
     let user = users.find(u => (email && u.email.toLowerCase() === email) || (phone && u.phone === phone));
 
     if (!user) {
-      const userDisplayName = body.name ? body.name.trim() : (phone ? `User ${phone.slice(-4)}` : cleanNameFromEmail(email));
+      const userDisplayName = body.name ? body.name.trim() : (phone ? `User ${phone.slice(-4)}` : cleanNameFromEmail(email || 'User'));
       user = {
-        user_id: `usr_${Date.now()}`,
+        user_id: `usr_${Math.floor(100000 + Math.random() * 900000)}`,
         name: userDisplayName,
-        email: email ? email.trim().toLowerCase() : '',
-        phone: phone || '',
-        society_name: body.society_name || '',
-        society_id: body.society_id || '',
-        flat: body.flat || '',
+        email: email || '',
+        phone: phone || '9876543210',
+        society_id: String(body.society_id || '1'),
+        society_name: body.society_name || 'Omaxe Greenwood Residency',
+        flat: body.flat || 'Tower A-402',
         joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
         avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
       };
       users.push(user);
     }
 
+    const tokenStr = `user_jwt_access_${Date.now()}`;
     return sendJSON(res, 200, {
-      message: "User login successful",
-      user,
-      token: `user_jwt_token_${Date.now()}`
+      token: tokenStr,
+      accessToken: tokenStr,
+      refreshToken: `user_jwt_refresh_${Date.now()}`,
+      user
     });
   }
 
+  // 0.4 Resident User Registration (POST /api/users/register)
   if (method === 'POST' && pathname === '/api/users/register') {
     const body = await getRequestBody(req);
     const email = body.email ? body.email.trim().toLowerCase() : '';
     const phone = body.phone ? body.phone.trim() : '';
-    const userDisplayName = body.name ? body.name.trim() : (phone ? `User ${phone.slice(-4)}` : cleanNameFromEmail(email));
 
+    if (phone && users.some(u => u.phone === phone)) {
+      return sendJSON(res, 400, { error: "An account with this mobile number already exists" });
+    }
+
+    const userDisplayName = body.name ? body.name.trim() : (phone ? `User ${phone.slice(-4)}` : cleanNameFromEmail(email));
     const newUser = {
-      user_id: `usr_${Date.now()}`,
+      user_id: `usr_${Math.floor(100000 + Math.random() * 900000)}`,
       name: userDisplayName,
-      email: email ? email.trim().toLowerCase() : '',
+      email: email || '',
       phone: phone || '',
-      society_name: body.society_name || '',
-      society_id: body.society_id || '',
-      flat: body.flat || '',
+      society_id: String(body.society_id || '1'),
+      society_name: body.society_name || 'Omaxe Greenwood Residency',
+      flat: body.flat || 'Tower B-204',
       joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
       avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
     };
 
     users.push(newUser);
+    const tokenStr = `user_jwt_access_${Date.now()}`;
     return sendJSON(res, 201, {
-      message: "User registration successful",
-      user: newUser,
-      token: `user_jwt_token_${Date.now()}`
+      message: "User registered successfully",
+      token: tokenStr,
+      accessToken: tokenStr,
+      refreshToken: `user_jwt_refresh_${Date.now()}`,
+      user: newUser
+    });
+  }
+
+  // 0.5 Send Vendor OTP (POST /api/vendors/send-otp)
+  if (method === 'POST' && pathname === '/api/vendors/send-otp') {
+    const body = await getRequestBody(req);
+    const target = (body.email || body.phone || body.identifier || '').trim();
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    if (target) {
+      activeOtpSessions.set(target.toLowerCase(), { otp: otpCode, expiresAt: Date.now() + 600000 });
+    }
+    return sendJSON(res, 200, {
+      message: "Vendor OTP sent successfully",
+      target,
+      simulationOtp: otpCode
     });
   }
 

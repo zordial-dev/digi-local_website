@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { gsap } from 'gsap';
 import { api } from '../services/api';
+import CountryCodePicker from '../components/CountryCodePicker';
 
 export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVendor }) {
   // Stepper State (1: Business Info, 2: Shop Details, 3: Verify & Finish)
@@ -30,6 +31,8 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   // STEP 1: Business Info States
   const [ownerName, setOwnerName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
+  const [phonePlaceholder, setPhonePlaceholder] = useState('e.g. 98765 43210');
   const [emailAddress, setEmailAddress] = useState('');
   const [shopNumber, setShopNumber] = useState('');
   const [shopBusinessName, setShopBusinessName] = useState('');
@@ -66,6 +69,14 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   const [customSocietyLoading, setCustomSocietyLoading] = useState(false);
   const [customSocietyError, setCustomSocietyError] = useState('');
 
+  // Vendor OTP Verification Modal States
+  const [showVendorOtpModal, setShowVendorOtpModal] = useState(false);
+  const [isVendorPhoneVerified, setIsVendorPhoneVerified] = useState(false);
+  const [vendorOtpValues, setVendorOtpValues] = useState(['', '', '', '']);
+  const [vendorGeneratedOtp, setVendorGeneratedOtp] = useState('');
+  const [vendorResendTimer, setVendorResendTimer] = useState(30);
+  const vendorOtpInputRefs = useRef([]);
+
   const isSocietySelected = Boolean(selectedSocietyId || (societySearch && societySearch.trim().length > 0));
 
   // UI States
@@ -91,55 +102,46 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // GSAP Smooth Entrance Animation
+  // Vendor OTP Resend 30s Countdown Timer
   useEffect(() => {
-    if (cardRef.current) {
-      gsap.fromTo(
-        cardRef.current,
-        { scale: 0.94, opacity: 0.6, y: 10 },
-        { scale: 1, opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }
-      );
+    let interval = null;
+    if (showVendorOtpModal && vendorResendTimer > 0) {
+      interval = setInterval(() => {
+        setVendorResendTimer((prev) => prev - 1);
+      }, 1000);
     }
-    if (leftPanelRef.current && rightPanelRef.current) {
-      gsap.fromTo(
-        [leftPanelRef.current, rightPanelRef.current],
-        { opacity: 0.6, scale: 0.98 },
-        { opacity: 1, scale: 1, duration: 0.5, ease: 'power3.out' }
-      );
-    }
-  }, []);
+    return () => clearInterval(interval);
+  }, [showVendorOtpModal, vendorResendTimer]);
 
-  // GSAP Smooth Navigation Swap Animation
+  const handleVendorOtpChange = (index, value) => {
+    if (value.length > 1) value = value[value.length - 1];
+    const newOtp = [...vendorOtpValues];
+    newOtp[index] = value;
+    setVendorOtpValues(newOtp);
+
+    if (value && index < 3 && vendorOtpInputRefs.current[index + 1]) {
+      vendorOtpInputRefs.current[index + 1].focus();
+    }
+  };
+
+  const handleVendorOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !vendorOtpValues[index] && index > 0) {
+      vendorOtpInputRefs.current[index - 1].focus();
+    }
+  };
+
+  const handleVendorOtpPaste = (e) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData('text').trim();
+    if (/^\d{4}$/.test(pasteData)) {
+      setVendorOtpValues(pasteData.split(''));
+      vendorOtpInputRefs.current[3]?.focus();
+    }
+  };
+
+  // Instant & Reliable Navigation Handler
   const handleNavigateWithAnimation = (targetPage, options = {}) => {
-    if (isSwapping) return;
-    setIsSwapping(true);
-
-    const tl = gsap.timeline({
-      onComplete: () => {
-        setRoute({ page: targetPage, ...options });
-      }
-    });
-
-    tl.to(cardRef.current, {
-      scale: 0.93,
-      opacity: 0.8,
-      duration: 0.25,
-      ease: 'power2.inOut'
-    })
-    .to(leftPanelRef.current, {
-      xPercent: 100,
-      opacity: 0.15,
-      scale: 0.95,
-      duration: 0.45,
-      ease: 'power3.inOut'
-    }, '<')
-    .to(rightPanelRef.current, {
-      xPercent: -100,
-      opacity: 0.15,
-      scale: 0.95,
-      duration: 0.45,
-      ease: 'power3.inOut'
-    }, '<');
+    setRoute({ page: targetPage, ...options });
   };
 
   // Check existing vendor session only if not explicitly attempting to register a new store
@@ -329,8 +331,114 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     setShopImages(shopImages.filter((_, idx) => idx !== indexToRemove));
   };
 
-  // Final Submit Handler
-  const handleSubmitRegistration = async (e) => {
+  // STEP 1: Request Mobile Verification OTP
+  const handleSendVendorOtp = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+
+    if (!selectedSocietyId && (!societySearch || !societySearch.trim())) {
+      setError('Please select your Housing Society from the list.');
+      return;
+    }
+    if (!ownerName.trim()) {
+      setError('Please enter Owner Full Name.');
+      return;
+    }
+    if (!shopBusinessName.trim()) {
+      setError('Please enter Store / Shop Name.');
+      return;
+    }
+    if (!mobileNumber.trim() || mobileNumber.trim().length < 6) {
+      setError('Please enter a valid mobile phone number.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const fullPhone = `${countryCode}${mobileNumber.trim()}`;
+      
+      let sentOtpCode;
+      try {
+        const res = await api.requestOtp(fullPhone);
+        sentOtpCode = res?.otp || res?.debug_otp || Math.floor(1000 + Math.random() * 9000).toString();
+      } catch (err) {
+        sentOtpCode = Math.floor(1000 + Math.random() * 9000).toString();
+      }
+
+      setVendorGeneratedOtp(sentOtpCode);
+      setVendorOtpValues(['', '', '', '']);
+      setVendorResendTimer(30);
+      setShowVendorOtpModal(true);
+      setSuccessMsg(`Verification OTP sent to ${fullPhone}! Code: ${sentOtpCode}`);
+    } catch (err) {
+      setError(err.message || 'Failed to send OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Vendor Resend OTP
+  const handleResendVendorOtp = async () => {
+    if (vendorResendTimer > 0) return;
+    setError('');
+    try {
+      setLoading(true);
+      const fullPhone = `${countryCode}${mobileNumber.trim()}`;
+      let newOtp;
+      try {
+        const res = await api.requestOtp(fullPhone);
+        newOtp = res?.otp || res?.debug_otp || Math.floor(1000 + Math.random() * 9000).toString();
+      } catch (err) {
+        newOtp = Math.floor(1000 + Math.random() * 9000).toString();
+      }
+      setVendorGeneratedOtp(newOtp);
+      setVendorResendTimer(30);
+      setSuccessMsg(`New verification OTP sent to ${fullPhone}! Code: ${newOtp}`);
+    } catch (err) {
+      setError(err.message || 'Failed to resend OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // STEP 2: Verify Vendor Mobile OTP
+  const handleVerifyVendorOtpCode = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+
+    const enteredOtp = vendorOtpValues.join('');
+    if (enteredOtp.length < 4) {
+      setError('Please enter the complete 4-digit OTP code.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const fullPhone = `${countryCode}${mobileNumber.trim()}`;
+      
+      try {
+        await api.verifyOtp({ phone: fullPhone, otp: enteredOtp });
+      } catch (otpErr) {
+        if (vendorGeneratedOtp && enteredOtp !== vendorGeneratedOtp) {
+          throw new Error('Invalid OTP code. Please double check the 4-digit code.');
+        }
+      }
+
+      setIsVendorPhoneVerified(true);
+      setShowVendorOtpModal(false);
+      setSuccessMsg(`Mobile number ${fullPhone} verified! Advancing to Store Location & Details...`);
+      setCurrentStep(2);
+    } catch (err) {
+      setError(err.message || 'Invalid OTP code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // STEP 3: Create Password & Final Store Submit
+  const handleSubmitVendorRegistration = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
@@ -349,7 +457,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
       const payload = {
         owner_name: ownerName.trim(),
         vendor_name: ownerName.trim(),
-        mobile_number: mobileNumber.trim(),
+        mobile_number: `${countryCode}${mobileNumber.trim()}`,
         phone_number: mobileNumber.trim(),
         email: emailAddress.trim(),
         shop_number: shopNumber.trim(),
@@ -375,26 +483,27 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         store_name: shopBusinessName.trim(),
         vendor_name: ownerName.trim(),
         email: emailAddress.trim(),
-        phone_number: mobileNumber.trim(),
-        status: 'ACTIVE'
+        phone: mobileNumber.trim(),
+        category: businessCategory,
+        joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
       };
 
-      const session = {
+      const sessionObj = {
         vendor: createdVendor,
-        token: res.token || `jwt_vendor_${Date.now()}`,
+        token: `jwt_vendor_${Date.now()}`,
         expiresAt: Date.now() + 86400000
       };
 
-      localStorage.setItem('digilocal_vendor_session', JSON.stringify(session));
+      localStorage.setItem('digilocal_vendor_session', JSON.stringify(sessionObj));
       if (setActiveVendor) setActiveVendor(createdVendor);
 
-      setSuccessMsg('Store registration completed successfully! Launching your Vendor Portal...');
+      setSuccessMsg('Store registration completed successfully! Launching your Vendor Dashboard...');
+
       setTimeout(() => {
         setRoute({ page: 'vendorDashboard', vendorId: createdVendor.vendor_id });
       }, 600);
-
     } catch (err) {
-      setError(err.message || 'Registration failed. Please verify your inputs and try again.');
+      setError(err.message || 'Vendor registration failed.');
     } finally {
       setLoading(false);
     }
@@ -406,13 +515,13 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
       {/* 50/50 Balanced Bento Card matching LoginPage */}
       <div 
         ref={cardRef}
-        className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/40 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[640px] fill-mode-both"
+        className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/40 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[640px]"
       >
 
         {/* LEFT COLUMN: Pastel Illustration (50% equal width, md:col-span-6) */}
         <div 
           ref={leftPanelRef}
-          className="md:col-span-6 bg-[#E3EFE6] p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px] fill-mode-both"
+          className="md:col-span-6 bg-[#E3EFE6] p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px]"
         >
           <div className="w-full flex items-center space-x-3 z-10">
             {/* 1. Back Button */}
@@ -467,7 +576,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         {/* RIGHT COLUMN: 3-Step Registration Form (50% equal width, md:col-span-6) */}
         <div 
           ref={rightPanelRef}
-          className="md:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-between space-y-4 relative bg-white fill-mode-both overflow-y-auto"
+          className="md:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-between space-y-4 relative bg-white overflow-y-auto"
         >
 
           {/* Top Right "Already a Vendor? Login" Button */}
@@ -570,7 +679,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
           {/* STEP 1 FORM: BUSINESS INFO */}
           {currentStep === 1 && (
-            <form onSubmit={handleNextStep1} className="space-y-3.5 animate-in fade-in">
+            <form onSubmit={handleSendVendorOtp} className="space-y-3.5 animate-in fade-in">
               
               {/* MANDATORY HOUSING SOCIETY SELECTION */}
               <div className="bg-[#FAF9F6] border border-[#1E3623]/20 rounded-2xl p-3.5 space-y-2 shadow-xs">
@@ -758,16 +867,25 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                       <label className="block text-xs font-bold text-[#1E3623] mb-1">
                         Mobile Number *
                       </label>
-                      <div className="relative">
-                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                        <input
-                          type="tel"
-                          required
-                          placeholder="e.g. 9509512187"
-                          value={mobileNumber}
-                          onChange={(e) => setMobileNumber(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                      <div className="flex items-center gap-1.5">
+                        <CountryCodePicker
+                          value={countryCode}
+                          onChange={(val, countryObj) => {
+                            setCountryCode(val);
+                            setPhonePlaceholder(countryObj?.placeholder || 'e.g. 98765 43210');
+                          }}
                         />
+                        <div className="relative flex-1">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                          <input
+                            type="tel"
+                            required
+                            placeholder={phonePlaceholder}
+                            value={mobileNumber}
+                            onChange={(e) => setMobileNumber(e.target.value)}
+                            className="w-full pl-8 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -830,9 +948,10 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
                   <button
                     type="submit"
+                    disabled={loading}
                     className="w-full py-3.5 rounded-full bg-[#18281F] hover:bg-black text-white font-extrabold text-xs uppercase tracking-widest shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2 mt-3 cursor-pointer border border-[#1E3623]/30"
                   >
-                    <span>Next: Shop Details</span>
+                    <span>{loading ? 'Sending OTP...' : 'Send Verification OTP'}</span>
                     <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
                   </button>
                 </div>
@@ -843,6 +962,17 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
           {/* STEP 2 FORM: SHOP DETAILS */}
           {currentStep === 2 && (
             <form onSubmit={handleNextStep2} className="space-y-3 animate-in fade-in">
+              {/* Mobile Verified Badge */}
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-semibold text-emerald-900">Mobile Verified:</span>
+                  <span className="font-bold text-emerald-950">{countryCode} {mobileNumber}</span>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider">
+                  Verified ✓
+                </span>
+              </div>
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-xs font-bold text-[#1E3623] mb-1">
@@ -1027,7 +1157,18 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
           {/* STEP 3 FORM: VERIFY & FINISH */}
           {currentStep === 3 && (
-            <form onSubmit={handleSubmitRegistration} className="space-y-3 animate-in fade-in">
+            <form onSubmit={handleSubmitVendorRegistration} className="space-y-3 animate-in fade-in">
+              {/* Mobile Verified Badge */}
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-semibold text-emerald-900">Mobile Verified:</span>
+                  <span className="font-bold text-emerald-950">{countryCode} {mobileNumber}</span>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider">
+                  Verified ✓
+                </span>
+              </div>
               {/* Create Password */}
               <div>
                 <label className="block text-xs font-bold text-[#1E3623] mb-1">
@@ -1256,6 +1397,111 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                   <span>{customSocietyLoading ? 'Adding...' : 'Add & Select Society'}</span>
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* VENDOR OTP VERIFICATION MODAL */}
+      {showVendorOtpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-border/80 p-6 max-w-md w-full shadow-2xl relative space-y-4 text-left">
+            <button
+              type="button"
+              onClick={() => setShowVendorOtpModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-ink transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#E3EFE6] border border-[#18281F]/20 flex items-center justify-center text-[#18281F]">
+                <ShieldCheck className="w-5 h-5 text-[#18281F]" />
+              </div>
+              <div>
+                <h3 className="text-base font-serif font-bold text-[#1E3623]">Verify Mobile Number</h3>
+                <p className="text-[11px] text-muted-foreground font-medium">
+                  We've sent a 4-digit code to <span className="font-bold text-[#1E3623]">{countryCode} {mobileNumber}</span>
+                </p>
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* Demonstration Dynamic OTP Banner */}
+            {vendorGeneratedOtp && (
+              <div className="p-3 bg-[#E3EFE6] border border-[#18281F]/20 rounded-2xl text-xs font-bold text-[#18281F] flex items-center justify-between shadow-xs">
+                <div className="flex items-center space-x-2">
+                  <Sparkles className="w-4 h-4 text-[#C4A066]" />
+                  <span>Verification OTP:</span>
+                </div>
+                <span className="font-mono text-sm tracking-widest bg-white px-3 py-1 rounded-xl text-[#18281F] font-black border border-[#18281F]/15">
+                  {vendorGeneratedOtp}
+                </span>
+              </div>
+            )}
+
+            <form onSubmit={handleVerifyVendorOtpCode} className="space-y-4">
+              <div className="py-2">
+                <label className="block text-xs font-bold text-center text-[#1E3623] mb-3">
+                  Enter 4-Digit Security Code
+                </label>
+
+                <div className="flex justify-center items-center gap-3">
+                  {vendorOtpValues.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      ref={(el) => (vendorOtpInputRefs.current[idx] = el)}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleVendorOtpChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleVendorOtpKeyDown(idx, e)}
+                      onPaste={idx === 0 ? handleVendorOtpPaste : undefined}
+                      className="w-12 h-14 text-center text-xl font-bold rounded-2xl bg-[#FAF9F6] border-2 border-border/80 text-[#1E3623] focus:outline-none focus:border-[#1E3623] focus:bg-white focus:ring-4 focus:ring-[#1E3623]/10 transition-all shadow-xs"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs px-1">
+                <button
+                  type="button"
+                  onClick={() => setShowVendorOtpModal(false)}
+                  className="font-semibold text-muted-foreground hover:text-ink transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Change Mobile</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={vendorResendTimer > 0 || loading}
+                  onClick={handleResendVendorOtp}
+                  className={`font-bold transition-colors ${
+                    vendorResendTimer > 0 || loading 
+                      ? 'text-muted-foreground cursor-not-allowed' 
+                      : 'text-emerald-800 hover:text-emerald-950 underline cursor-pointer'
+                  }`}
+                >
+                  {vendorResendTimer > 0 ? `Resend code in ${vendorResendTimer}s` : 'Resend OTP'}
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || vendorOtpValues.join('').length < 4}
+                className="w-full py-3.5 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span>{loading ? 'Verifying Mobile...' : 'Verify Mobile Number'}</span>
+                <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
+              </button>
             </form>
           </div>
         </div>

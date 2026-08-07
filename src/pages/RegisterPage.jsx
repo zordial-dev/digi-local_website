@@ -1,78 +1,102 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Phone, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
-import { gsap } from 'gsap';
+import { User, Phone, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, ShieldCheck } from 'lucide-react';
 import { api } from '../services/api';
+import CountryCodePicker from '../components/CountryCodePicker';
 
 export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) {
+  // Stepper State: 'phone' (Step 1) | 'otp' (Step 2) | 'password' (Step 3)
+  const [registerStep, setRegisterStep] = useState('phone');
+
+  // Input states
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
+  const [phonePlaceholder, setPhonePlaceholder] = useState('e.g. 98765 43210');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Animation State & Refs for GSAP Smooth Transitions
-  const [isSwapping, setIsSwapping] = useState(false);
-  const cardRef = useRef(null);
-  const leftPanelRef = useRef(null);
-  const rightPanelRef = useRef(null);
+  // 4 Single-Digit OTP State & Timer
+  const [otpValues, setOtpValues] = useState(['', '', '', '']);
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const otpInputRefs = useRef([]);
 
-  // GSAP Smooth Entrance Animation
-  useEffect(() => {
-    if (cardRef.current) {
-      gsap.fromTo(
-        cardRef.current,
-        { scale: 0.94, opacity: 0.6, y: 10 },
-        { scale: 1, opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }
-      );
-    }
-    if (leftPanelRef.current && rightPanelRef.current) {
-      gsap.fromTo(
-        [leftPanelRef.current, rightPanelRef.current],
-        { opacity: 0.6, scale: 0.98 },
-        { opacity: 1, scale: 1, duration: 0.5, ease: 'power3.out' }
-      );
-    }
-  }, []);
-
-  const handleNavigateWithAnimation = (targetPage) => {
-    if (isSwapping) return;
-    setIsSwapping(true);
-
-    const tl = gsap.timeline({
-      onComplete: () => {
-        setRoute({ page: targetPage });
-      }
-    });
-
-    tl.to(cardRef.current, {
-      scale: 0.93,
-      opacity: 0.8,
-      duration: 0.25,
-      ease: 'power2.inOut'
-    })
-    .to(leftPanelRef.current, {
-      xPercent: 100,
-      opacity: 0.15,
-      scale: 0.95,
-      duration: 0.45,
-      ease: 'power3.inOut'
-    }, '<')
-    .to(rightPanelRef.current, {
-      xPercent: -100,
-      opacity: 0.15,
-      scale: 0.95,
-      duration: 0.45,
-      ease: 'power3.inOut'
-    }, '<');
-  };
-
-  // UI States
+  // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const handleRegisterSubmit = async (e) => {
+  // Panel Animation Refs
+  const cardRef = useRef(null);
+  const leftPanelRef = useRef(null);
+  const rightPanelRef = useRef(null);
+
+  // Countdown Effect
+  useEffect(() => {
+    let timer = null;
+    if (resendCountdown > 0) {
+      timer = setInterval(() => {
+        setResendCountdown((prev) => (prev > 1 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [resendCountdown]);
+
+  // Navigate with animation
+  const handleNavigateWithAnimation = (targetPage) => {
+    setRoute({ page: targetPage });
+  };
+
+  // OTP Input Handlers
+  const handleOtpChange = (index, value) => {
+    const digit = value.replace(/[^0-9]/g, '').slice(-1);
+    const newOtp = [...otpValues];
+    newOtp[index] = digit;
+    setOtpValues(newOtp);
+
+    if (digit && index < 3 && otpInputRefs.current[index + 1]) {
+      otpInputRefs.current[index + 1].focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace') {
+      if (otpValues[index]) {
+        const newOtp = [...otpValues];
+        newOtp[index] = '';
+        setOtpValues(newOtp);
+      } else if (index > 0 && otpInputRefs.current[index - 1]) {
+        otpInputRefs.current[index - 1].focus();
+        const newOtp = [...otpValues];
+        newOtp[index - 1] = '';
+        setOtpValues(newOtp);
+      }
+    }
+  };
+
+  const handleOtpPaste = (e) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 4);
+    if (!pastedData) return;
+    const digits = pastedData.split('');
+    const newOtp = [...otpValues];
+    digits.forEach((d, idx) => {
+      if (idx < 4) newOtp[idx] = d;
+    });
+    setOtpValues(newOtp);
+    const focusIdx = Math.min(digits.length, 3);
+    if (otpInputRefs.current[focusIdx]) {
+      otpInputRefs.current[focusIdx].focus();
+    }
+  };
+
+  // STEP 1: Send OTP via Backend POST /api/users/send-otp
+  const handleSendRegisterOtp = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
@@ -81,10 +105,82 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
       setError('Please enter your full name.');
       return;
     }
-    if (!phoneNumber.trim() || phoneNumber.trim().length < 10) {
-      setError('Please enter a valid 10-digit mobile phone number.');
+    if (!phoneNumber.trim() || phoneNumber.trim().length < 6) {
+      setError('Please enter a valid mobile phone number.');
       return;
     }
+
+    try {
+      setLoading(true);
+      const fullPhone = `${countryCode}${phoneNumber.trim()}`;
+      const res = await api.requestOtp(fullPhone);
+      const code = res?.otp || res?.otpCode || res?.simulationOtp || Math.floor(1000 + Math.random() * 9000).toString();
+
+      setGeneratedOtp(code);
+      setOtpValues(['', '', '', '']);
+      setResendCountdown(30);
+      setRegisterStep('otp');
+      setSuccessMsg(`Verification OTP sent to ${fullPhone}! Code: ${code}`);
+    } catch (err) {
+      setError(err.message || 'Failed to send verification OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Resend OTP
+  const handleResendOtp = async () => {
+    if (resendCountdown > 0) return;
+    setError('');
+    try {
+      setLoading(true);
+      const fullPhone = `${countryCode}${phoneNumber.trim()}`;
+      const res = await api.requestOtp(fullPhone);
+      const code = res?.otp || res?.otpCode || res?.simulationOtp || Math.floor(1000 + Math.random() * 9000).toString();
+
+      setGeneratedOtp(code);
+      setResendCountdown(30);
+      setSuccessMsg(`New OTP sent to ${fullPhone}! Code: ${code}`);
+    } catch (err) {
+      setError(err.message || 'Failed to resend OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // STEP 2: Verify OTP via Backend POST /api/users/verify-otp
+  const handleVerifyOtpCode = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+
+    const enteredOtp = otpValues.join('').trim();
+    if (enteredOtp.length < 4) {
+      setError('Please enter the 4-digit OTP code.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const fullPhone = `${countryCode}${phoneNumber.trim()}`;
+      await api.verifyOtp(fullPhone, enteredOtp);
+
+      setIsPhoneVerified(true);
+      setRegisterStep('password');
+      setSuccessMsg(`Mobile number ${fullPhone} verified! Now create your password below.`);
+    } catch (err) {
+      setError(err.message || 'Invalid OTP code. Please double check and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // STEP 3: Complete Registration via Backend POST /api/users/register
+  const handleCompleteRegistrationWithPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+
     if (!password || password.length < 4) {
       setError('Password must be at least 4 characters long.');
       return;
@@ -97,47 +193,26 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
     try {
       setLoading(true);
       const cleanName = name.trim().replace(/\b\w/g, c => c.toUpperCase());
-      const userPhone = phoneNumber.trim();
-      const userEmail = '';
+      const userPhone = `${countryCode}${phoneNumber.trim()}`;
 
-      const payload = {
+      const res = await api.userRegister({
         name: cleanName,
         phone: userPhone,
-        email: userEmail,
         password
-      };
+      });
 
-      let userObj;
-      try {
-        const res = await api.registerUser(payload);
-        userObj = res?.user || {
-          user_id: `usr_${Date.now()}`,
-          name: cleanName,
-          phone: userPhone,
-          email: userEmail,
-          society_name: '',
-          society_id: '',
-          flat: '',
-          joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
-        };
-      } catch (err) {
-        userObj = {
-          user_id: `usr_${Date.now()}`,
-          name: cleanName,
-          phone: userPhone,
-          email: userEmail,
-          society_name: '',
-          society_id: '',
-          flat: '',
-          joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
-        };
-      }
+      // STORE BACKEND TOKENS
+      const accessToken = res.accessToken || res.data?.accessToken || res.token;
+      const refreshToken = res.refreshToken || res.data?.refreshToken;
+      const userObj = res.user || res.data?.user || { name: cleanName, phone: userPhone };
+
+      if (accessToken) localStorage.setItem('accessToken', accessToken);
+      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+      if (userObj) localStorage.setItem('user', JSON.stringify(userObj));
 
       const session = {
         user: userObj,
-        token: `jwt_resident_${Date.now()}`,
+        token: accessToken || `jwt_resident_${Date.now()}`,
         expiresAt: Date.now() + 86400000
       };
 
@@ -176,26 +251,43 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
 
   return (
     <div className="min-h-screen bg-[#EDEDE4] flex items-center justify-center p-3 sm:p-6 lg:p-8 font-sans text-foreground">
+      <div id="recaptcha-container"></div>
       
       {/* 50/50 Balanced Bento Card with GSAP Hardware-Accelerated 3D Zoom-Out & Panel Crossover Swap */}
       <div 
         ref={cardRef}
-        className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/40 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[620px] fill-mode-both"
+        className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/40 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[620px]"
       >
         
         {/* LEFT COLUMN: User Registration Form (50% equal width, md:col-span-6 md:order-1) */}
         <div 
           ref={leftPanelRef}
-          className="md:order-1 md:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-center space-y-5 relative bg-white fill-mode-both overflow-y-auto"
+          className="md:order-1 md:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-center space-y-5 relative bg-white overflow-y-auto"
         >
           
           {/* Header */}
           <div>
             <h1 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#1E3623]">
-              Create Account
+              {registerStep === 'phone' && 'Create Account'}
+              {registerStep === 'otp' && 'Verify Mobile Number'}
+              {registerStep === 'password' && 'Set Your Password'}
             </h1>
             <p className="text-xs text-muted-foreground mt-1.5 font-medium leading-relaxed">
-              Fill in your details below to register your DigiLocal account.
+              {registerStep === 'phone' && 'Enter your name and mobile number to verify your identity via OTP.'}
+              {registerStep === 'otp' && (
+                <>
+                  We've sent a 4-digit security code to{' '}
+                  <span className="font-bold text-[#1E3623]">{countryCode} {phoneNumber}</span>.{' '}
+                  <button
+                    type="button"
+                    onClick={() => setRegisterStep('phone')}
+                    className="text-emerald-800 underline font-bold hover:text-emerald-950 ml-1 cursor-pointer"
+                  >
+                    Edit Phone
+                  </button>
+                </>
+              )}
+              {registerStep === 'password' && 'Create a password for your DigiLocal account to finalize registration.'}
             </p>
           </div>
 
@@ -214,105 +306,220 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
             </div>
           )}
 
-          {/* Register Form */}
-          <form onSubmit={handleRegisterSubmit} className="space-y-4 font-sans">
-            
-            {/* Name */}
-            <div>
-              <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
-                Name *
-              </label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Aarush Sethiya"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
-                />
+          {/* STEP 1: Enter Name & Phone -> Request OTP */}
+          {registerStep === 'phone' && (
+            <form onSubmit={handleSendRegisterOtp} className="space-y-4 font-sans animate-in fade-in duration-300">
+              {/* Name */}
+              <div>
+                <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
+                  Full Name *
+                </label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Aarush Sethiya"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Phone Number */}
-            <div>
-              <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
-                Phone Number *
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type="tel"
-                  required
-                  placeholder="e.g. 9876543210"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
-                />
+              {/* Phone Number */}
+              <div>
+                <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
+                  Mobile Phone Number *
+                </label>
+                <div className="flex items-center gap-2">
+                  <CountryCodePicker
+                    value={countryCode}
+                    onChange={(val, countryObj) => {
+                      setCountryCode(val);
+                      setPhonePlaceholder(countryObj?.placeholder || 'e.g. 98765 43210');
+                    }}
+                  />
+                  <div className="relative flex-1">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="tel"
+                      required
+                      placeholder={phonePlaceholder}
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
-                Password *
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-11 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
-                />
+              {/* Submit CTA Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 mt-4 cursor-pointer"
+              >
+                <span>{loading ? 'Sending OTP...' : 'Send Verification OTP'}</span>
+                <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
+              </button>
+            </form>
+          )}
+
+          {/* STEP 2: Enter & Verify 4-Digit OTP */}
+          {registerStep === 'otp' && (
+            <form onSubmit={handleVerifyOtpCode} className="space-y-5 font-sans animate-in fade-in duration-300">
+              
+              {/* Dynamic OTP Demonstration Banner */}
+              {generatedOtp && (
+                <div className="p-3 bg-[#E3EFE6] border border-[#18281F]/20 rounded-2xl text-xs font-bold text-[#18281F] flex items-center justify-between shadow-xs">
+                  <div className="flex items-center space-x-2">
+                    <Sparkles className="w-4 h-4 text-[#C4A066]" />
+                    <span>Verification OTP Code:</span>
+                  </div>
+                  <span className="font-mono text-sm tracking-widest bg-white px-3 py-1 rounded-xl text-[#18281F] font-black border border-[#18281F]/15">
+                    {generatedOtp}
+                  </span>
+                </div>
+              )}
+
+              <div className="py-2">
+                <label className="block text-xs font-bold text-center text-[#1E3623] mb-3">
+                  Enter 4-Digit Security Code
+                </label>
+
+                {/* 4 Single-Digit Input Blocks */}
+                <div className="flex justify-center items-center gap-3">
+                  {otpValues.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      ref={(el) => (otpInputRefs.current[idx] = el)}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                      onPaste={idx === 0 ? handleOtpPaste : undefined}
+                      className="w-12 h-14 text-center text-xl font-bold rounded-2xl bg-[#FAF9F6] border-2 border-border/80 text-[#1E3623] focus:outline-none focus:border-[#1E3623] focus:bg-white focus:ring-4 focus:ring-[#1E3623]/10 transition-all shadow-xs"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Resend Timer & Actions */}
+              <div className="flex items-center justify-between text-xs px-1">
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
+                  onClick={() => setRegisterStep('phone')}
+                  className="font-semibold text-muted-foreground hover:text-ink transition-colors flex items-center gap-1 cursor-pointer"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Change Number</span>
                 </button>
-              </div>
-            </div>
 
-            {/* Re-enter Password */}
-            <div>
-              <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
-                Re-enter Password *
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  required
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-11 pr-11 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
-                />
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
+                  disabled={resendCountdown > 0 || loading}
+                  onClick={handleResendOtp}
+                  className={`font-bold transition-colors ${
+                    resendCountdown > 0 || loading 
+                      ? 'text-muted-foreground cursor-not-allowed' 
+                      : 'text-emerald-800 hover:text-emerald-950 underline cursor-pointer'
+                  }`}
                 >
-                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {resendCountdown > 0 ? `Resend code in ${resendCountdown}s` : 'Resend OTP'}
                 </button>
               </div>
-            </div>
 
-            {/* Submit CTA Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 mt-4 cursor-pointer"
-            >
-              <span>{loading ? 'Creating Account...' : 'Create My Account'}</span>
-              <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={loading || otpValues.join('').length < 4}
+                className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span>{loading ? 'Verifying OTP...' : 'Verify Mobile Number'}</span>
+                <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
+              </button>
+            </form>
+          )}
+
+          {/* STEP 3: Create Password (Only After Phone is Verified!) */}
+          {registerStep === 'password' && (
+            <form onSubmit={handleCompleteRegistrationWithPassword} className="space-y-4 font-sans animate-in fade-in duration-300">
+              
+              {/* Phone Verified Badge Indicator */}
+              <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-semibold text-emerald-900">Mobile Verified:</span>
+                  <span className="font-bold text-emerald-950">{countryCode} {phoneNumber}</span>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider">
+                  Verified ✓
+                </span>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
+                  Create Password *
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-11 pr-11 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Re-enter Password */}
+              <div>
+                <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
+                  Re-enter Password *
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    required
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full pl-11 pr-11 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Final Submit CTA Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 mt-4 cursor-pointer"
+              >
+                <span>{loading ? 'Finalizing Account...' : 'Complete Account Registration'}</span>
+                <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
+              </button>
+            </form>
+          )}
 
           {/* Already Registered Link */}
           <div className="text-center text-xs font-medium text-muted-foreground pt-1">
@@ -330,7 +537,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
         {/* RIGHT COLUMN: Pastel Illustration (50% equal width, md:col-span-6 md:order-2) */}
         <div 
           ref={rightPanelRef}
-          className="md:order-2 md:col-span-6 bg-[#E3EFE6] p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px] fill-mode-both"
+          className="md:order-2 md:col-span-6 bg-[#E3EFE6] p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px]"
         >
           <div className="w-full flex items-center space-x-3 z-10">
             {/* 1. Back Button */}

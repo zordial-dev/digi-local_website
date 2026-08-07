@@ -46,7 +46,7 @@ export default function Footer({ setRoute }) {
         {/* ========================================================================= */}
         {/* MAIN SPLIT CONTENT GRID (Wide layout)                                     */}
         {/* ========================================================================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start relative z-10">
           
           {/* LEFT BRAND SECTION (5 cols) */}
           <div className="lg:col-span-5 space-y-6">
@@ -99,13 +99,8 @@ export default function Footer({ setRoute }) {
 
           </div>
 
-          {/* VERTICAL DIVIDER LINE */}
-          <div className="hidden lg:block lg:col-span-1 flex justify-center h-full">
-            <div className="w-px h-52 bg-emerald-800/30 my-auto" />
-          </div>
-
-          {/* RIGHT LINKS COLUMNS (6 cols total - Wide spreading) */}
-          <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-3 gap-8 md:gap-10">
+          {/* RIGHT LINKS COLUMNS (7 cols total with left border line) */}
+          <div className="lg:col-span-7 pt-8 lg:pt-0 border-t lg:border-t-0 lg:border-l border-emerald-800/30 lg:pl-10 grid grid-cols-1 sm:grid-cols-3 gap-8 md:gap-10">
             
             {/* Column 1: EXPLORE */}
             <div className="space-y-4">

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Store, User, Phone, CheckCircle2, ShieldCheck, AlertCircle, Sparkles, KeyRound, Smartphone } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Store, User, Phone, CheckCircle2, ShieldCheck, AlertCircle, Sparkles, KeyRound, Smartphone, ChevronDown } from 'lucide-react';
 import { gsap } from 'gsap';
 import { api } from '../services/api';
+import CountryCodePicker from '../components/CountryCodePicker';
+import { sendFirebasePhoneOtp, verifyFirebasePhoneOtp } from '../firebase';
 
 export default function LoginPage({ currentRoute, setRoute, setActiveVendor, setActiveUser }) {
   const [accountType, setAccountType] = useState(
@@ -15,6 +17,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
       setAccountType('resident');
     }
   }, [currentRoute]);
+  
+  // Country Code & Dynamic Placeholder State
+  const [countryCode, setCountryCode] = useState('+91');
+  const [phonePlaceholder, setPhonePlaceholder] = useState('e.g. 98765 43210');
   
   // Auth Method State: 'password' (default) | 'otp' (inline 4-block OTP)
   const [authMethod, setAuthMethod] = useState('password');
@@ -36,36 +42,33 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   const leftPanelRef = useRef(null);
   const rightPanelRef = useRef(null);
 
-  // GSAP Smooth Entrance Animation
-  useEffect(() => {
-    if (cardRef.current) {
-      gsap.fromTo(
-        cardRef.current,
-        { scale: 0.94, opacity: 0.6, y: 10 },
-        { scale: 1, opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }
-      );
-    }
-    if (leftPanelRef.current && rightPanelRef.current) {
-      gsap.fromTo(
-        [leftPanelRef.current, rightPanelRef.current],
-        { opacity: 0.6, scale: 0.98 },
-        { opacity: 1, scale: 1, duration: 0.5, ease: 'power3.out' }
-      );
-    }
-  }, []);
+  // Instant & Reliable Navigation Handler
 
   // Try Another Method (Password Update Choice) Modal State
   const [showAltModal, setShowAltModal] = useState(false);
   const [altContact, setAltContact] = useState('');
-  const [altOtp, setAltOtp] = useState('5930');
+  const [altOtp, setAltOtp] = useState('');
   const [altNewPassword, setAltNewPassword] = useState('');
   const [altConfirmPassword, setAltConfirmPassword] = useState('');
   const [altStep, setAltStep] = useState(3); // 3: Password Update Choice, 4: Enter New Password
   const [altMsg, setAltMsg] = useState('');
   const [altMsgType, setAltMsgType] = useState('info'); // 'info' | 'success' | 'error'
 
-  // 4-Block OTP Input State & Refs
-  const [otpBoxes, setOtpBoxes] = useState(['5', '9', '3', '0']);
+  // Real Dynamic OTP State & 30s Resend Timer
+  const [otpBoxes, setOtpBoxes] = useState(['', '', '', '']);
+  const [resendCountdown, setResendCountdown] = useState(0);
+
+  useEffect(() => {
+    let timer = null;
+    if (resendCountdown > 0) {
+      timer = setInterval(() => {
+        setResendCountdown((prev) => (prev > 1 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [resendCountdown]);
   const box0Ref = useRef(null);
   const box1Ref = useRef(null);
   const box2Ref = useRef(null);
@@ -111,80 +114,41 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
     }
   };
 
-  // GSAP Smooth Panel Swap Animation
-  const handleNavigateWithAnimation = (targetPage) => {
-    if (isSwapping) return;
-    setIsSwapping(true);
-
-    const tl = gsap.timeline({
-      onComplete: () => {
-        setRoute({ page: targetPage });
-      }
-    });
-
-    tl.to(cardRef.current, {
-      scale: 0.93,
-      opacity: 0.8,
-      duration: 0.25,
-      ease: 'power2.inOut'
-    })
-    .to(leftPanelRef.current, {
-      xPercent: 100,
-      opacity: 0.15,
-      scale: 0.95,
-      duration: 0.45,
-      ease: 'power3.inOut'
-    }, '<')
-    .to(rightPanelRef.current, {
-      xPercent: -100,
-      opacity: 0.15,
-      scale: 0.95,
-      duration: 0.45,
-      ease: 'power3.inOut'
-    }, '<');
+  // Instant & Reliable Navigation Handler
+  const handleNavigateWithAnimation = (targetPage, options = {}) => {
+    setRoute({ page: targetPage, ...options });
   };
 
   // Central Direct Login Handler
   const performLoginDirectly = async (contactInput, passwordInput = '123456') => {
     setError('');
     setSuccessMsg('');
-    const targetId = (contactInput || (accountType === 'resident' ? userPhone : vendorIdentifier) || altContact).trim();
+    const rawContact = (contactInput || (accountType === 'resident' ? userPhone : vendorIdentifier) || altContact).trim();
+    const fullPhone = rawContact.startsWith('+') ? rawContact : `${countryCode}${rawContact}`;
 
     if (accountType === 'resident') {
-      if (!targetId) {
-        setError('Please enter your 10-digit mobile phone number.');
+      if (!rawContact) {
+        setError('Please enter your mobile phone number.');
         return;
       }
 
       try {
         setLoading(true);
-        // RESIDENT / USER LOGIN FLOW
-        const res = await api.loginUser({ phone: targetId, email: `${targetId}@digilocal.com`, password: passwordInput, isOtpLogin: authMethod === 'otp' });
-        
-        let userObj = res?.user;
-        try {
-          const pool = JSON.parse(localStorage.getItem('digilocal_registered_users') || '[]');
-          const match = pool.find(u => String(u.phone).trim() === targetId || String(u.email).trim().toLowerCase() === targetId.toLowerCase());
-          if (match) userObj = match;
-        } catch (_) {}
+        // RESIDENT / USER LOGIN FLOW (Item 2 of Checklist: POST /api/users/login)
+        const res = await api.userLogin({ phone: fullPhone, password: passwordInput });
 
-        if (!userObj) {
-          userObj = {
-            user_id: `usr_${Date.now()}`,
-            name: `Resident ${targetId.slice(-4)}`,
-            email: `${targetId}@digilocal.com`,
-            phone: targetId,
-            society_name: '',
-            society_id: '',
-            flat: '',
-            joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
-          };
-        }
+        // ITEM 4 CHECKLIST: STORE BACKEND TOKENS
+        const accessToken = res.accessToken || res.data?.accessToken || res.token;
+        const refreshToken = res.refreshToken || res.data?.refreshToken;
+        const userObj = res.user || res.data?.user || { phone: fullPhone, name: `Resident ${fullPhone.slice(-4)}` };
+
+        if (accessToken) localStorage.setItem('accessToken', accessToken);
+        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+        if (userObj) localStorage.setItem('user', JSON.stringify(userObj));
 
         const session = {
           user: userObj,
-          token: res?.token || `user_jwt_${Date.now()}`,
+          token: accessToken || `user_jwt_${Date.now()}`,
           expiresAt: Date.now() + 86400000
         };
 
@@ -223,7 +187,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
     } else {
 
-      if (!targetId) {
+      if (!rawContact) {
         setError('Please enter your vendor email address or phone number.');
         return;
       }
@@ -231,22 +195,22 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
       try {
         setLoading(true);
         // VENDOR LOGIN FLOW
-        const res = await api.loginVendor({ email: targetId, phone: targetId, password: passwordInput, isOtpLogin: authMethod === 'otp' });
+        const res = await api.loginVendor({ email: rawContact, phone: rawContact, password: passwordInput, isOtpLogin: authMethod === 'otp' });
 
         let vendorObj = res?.vendor;
         try {
           const pool = JSON.parse(localStorage.getItem('digilocal_registered_vendors') || '[]');
-          const match = pool.find(v => String(v.phone_number).trim() === targetId || String(v.email).trim().toLowerCase() === targetId.toLowerCase());
+          const match = pool.find(v => String(v.phone_number).trim() === rawContact || String(v.email).trim().toLowerCase() === rawContact.toLowerCase());
           if (match) vendorObj = match;
         } catch (_) {}
 
         if (!vendorObj) {
           vendorObj = {
             vendor_id: 1,
-            vendor_name: targetId.split('@')[0],
-            store_name: `${targetId.split('@')[0]}'s Store`,
-            email: targetId,
-            phone_number: targetId,
+            vendor_name: rawContact.split('@')[0],
+            store_name: `${rawContact.split('@')[0]}'s Store`,
+            email: rawContact,
+            phone_number: rawContact,
             status: 'ACTIVE'
           };
         }
@@ -286,41 +250,117 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   };
 
   // Main Form Submission
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     if (e) e.preventDefault();
-    const contact = (accountType === 'resident' ? userPhone : vendorIdentifier).trim();
+    const rawContact = (accountType === 'resident' ? userPhone : vendorIdentifier).trim();
+    const fullPhone = rawContact.startsWith('+') ? rawContact : `${countryCode}${rawContact}`;
 
     if (authMethod === 'otp') {
       const code = otpBoxes.join('').trim();
       if (code.length < 4) {
-        setError('Please enter all 4 digits of the OTP code.');
+        setError('Please enter the OTP security code.');
         return;
       }
-      if (code !== '5930' && code.length !== 4) {
-        setError('Invalid OTP code. Use demo OTP: 5930');
-        return;
-      }
+      setLoading(true);
       setError('');
-      setAltContact(contact);
-      setAltStep(3); // Open Password update prompt choice
-      setShowAltModal(true);
+      try {
+        let firebaseToken = null;
+        try {
+          const result = await verifyFirebasePhoneOtp(code);
+          firebaseToken = result.idToken;
+        } catch (fbVerifyErr) {
+          console.warn('Firebase OTP verify fallback:', fbVerifyErr);
+          await api.verifyOtp(fullPhone, code);
+        }
+
+        // Send to Backend: POST /api/users/login with { firebase_token }
+        const res = await api.userLogin({
+          phone: fullPhone,
+          firebase_token: firebaseToken || undefined,
+          otp: !firebaseToken ? code : undefined
+        });
+
+        // ITEM 4 CHECKLIST: STORE BACKEND TOKENS
+        const accessToken = res.accessToken || res.data?.accessToken || res.token;
+        const refreshToken = res.refreshToken || res.data?.refreshToken;
+        const userObj = res.user || res.data?.user || { phone: fullPhone };
+
+        if (accessToken) localStorage.setItem('accessToken', accessToken);
+        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+        if (userObj) localStorage.setItem('user', JSON.stringify(userObj));
+
+        const session = {
+          user: userObj,
+          token: accessToken || `user_jwt_${Date.now()}`,
+          expiresAt: Date.now() + 86400000
+        };
+
+        localStorage.setItem('digilocal_user_session', JSON.stringify(session));
+        localStorage.setItem('digilocal_resident_session', JSON.stringify(userObj));
+        if (setActiveUser) setActiveUser(userObj);
+
+        setSuccessMsg('Logged in successfully via OTP!');
+        setTimeout(() => setRoute({ page: 'profile' }), 400);
+      } catch (err) {
+        setError(err.message || 'Invalid OTP code. Please verify and try again.');
+      } finally {
+        setLoading(false);
+      }
     } else {
-      performLoginDirectly(contact, password);
+      performLoginDirectly(rawContact, password);
     }
   };
 
-  // Trigger inline OTP mode when clicking "Try another method"
-  const handleSwitchToOtpMethod = () => {
-    const contact = accountType === 'resident' ? userPhone : vendorIdentifier;
-    if (!contact.trim()) {
+  // Trigger inline OTP mode when clicking "Try another method" (Firebase SMS)
+  const handleSwitchToOtpMethod = async () => {
+    const rawContact = (accountType === 'resident' ? userPhone : vendorIdentifier).trim();
+    if (!rawContact) {
       setError(accountType === 'resident' ? 'Please enter your mobile phone number first.' : 'Please enter your email or phone number first.');
       return;
     }
+    const fullPhone = rawContact.startsWith('+') ? rawContact : `${countryCode}${rawContact}`;
     setError('');
-    setAuthMethod('otp');
-    setOtpBoxes(['5', '9', '3', '0']);
-    setAltOtp('5930');
-    setOtpSentMsg(`OTP sent to ${contact.trim()}. Demo OTP: 5930`);
+    setLoading(true);
+    try {
+      try {
+        await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
+        setOtpSentMsg(`SMS verification code sent via Firebase to ${fullPhone}.`);
+      } catch (fbErr) {
+        console.warn('Firebase SMS failed, falling back to backend simulation OTP:', fbErr);
+        const res = await api.requestOtp(fullPhone);
+        setOtpSentMsg(`OTP dispatched to ${fullPhone}. Code: ${res.otpCode || res.otp}`);
+      }
+
+      setAuthMethod('otp');
+      setOtpBoxes(Array(6).fill(''));
+      setResendCountdown(30);
+    } catch (err) {
+      setError(err.message || 'Failed to send OTP code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    const rawContact = (accountType === 'resident' ? userPhone : vendorIdentifier).trim();
+    if (!rawContact || resendCountdown > 0) return;
+    const fullPhone = rawContact.startsWith('+') ? rawContact : `${countryCode}${rawContact}`;
+    setError('');
+    setLoading(true);
+    try {
+      try {
+        await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
+        setOtpSentMsg(`Fresh SMS code sent via Firebase to ${fullPhone}.`);
+      } catch (fbErr) {
+        const res = await api.requestOtp(fullPhone);
+        setOtpSentMsg(`Fresh OTP dispatched to ${fullPhone}. Code: ${res.otpCode || res.otp}`);
+      }
+      setResendCountdown(30);
+    } catch (err) {
+      setError(err.message || 'Failed to resend OTP.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCompleteDirectLogin = async (newPwd = null) => {
@@ -386,17 +426,18 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
   return (
     <div className="min-h-screen bg-[#EDEDE4] flex items-center justify-center p-3 sm:p-6 lg:p-8 font-sans text-foreground">
+      <div id="recaptcha-container"></div>
       
       {/* 50/50 Balanced Bento Card with GSAP Hardware-Accelerated 3D Zoom-Out & Panel Crossover Swap */}
       <div 
         ref={cardRef}
-        className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/40 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[640px] fill-mode-both"
+        className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/40 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[640px]"
       >
 
         {/* LEFT COLUMN: Pastel Illustration (50% equal width, md:col-span-6) */}
         <div 
           ref={leftPanelRef}
-          className="md:col-span-6 bg-[#E3EFE6] p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px] fill-mode-both"
+          className="md:col-span-6 bg-[#E3EFE6] p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px]"
         >
           <div className="w-full flex items-center space-x-3 z-10">
             <button
@@ -449,7 +490,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         {/* RIGHT COLUMN: Login Form (50% equal width, md:col-span-6) */}
         <div 
           ref={rightPanelRef}
-          className="md:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-center space-y-6 relative bg-white fill-mode-both"
+          className="md:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-center space-y-6 relative bg-white"
         >
 
           {/* Top Right "Become a Vendor" Button */}
@@ -505,16 +546,25 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                   <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
                     Phone Number *
                   </label>
-                  <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type="tel"
-                      required
-                      placeholder="e.g. 9876543210"
-                      value={userPhone}
-                      onChange={(e) => setUserPhone(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                  <div className="flex items-center gap-2">
+                    <CountryCodePicker
+                      value={countryCode}
+                      onChange={(val, countryObj) => {
+                        setCountryCode(val);
+                        setPhonePlaceholder(countryObj?.placeholder || 'e.g. 98765 43210');
+                      }}
                     />
+                    <div className="relative flex-1">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input
+                        type="tel"
+                        required
+                        placeholder={phonePlaceholder}
+                        value={userPhone}
+                        onChange={(e) => setUserPhone(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                      />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -613,21 +663,19 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
                   {otpSentMsg && (
                     <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center justify-between shadow-xs">
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-1.5 min-w-0 pr-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>{otpSentMsg}</span>
+                        <span className="truncate">{otpSentMsg}</span>
                       </span>
                       <button
                         type="button"
-                        onClick={() => {
-                          const contact = accountType === 'resident' ? userPhone : vendorIdentifier;
-                          setOtpBoxes(['5', '9', '3', '0']);
-                          setAltOtp('5930');
-                          setOtpSentMsg(`OTP resent to ${contact.trim()}. Demo OTP: 5930`);
-                        }}
-                        className="text-[10px] font-extrabold text-emerald-900 underline ml-2 shrink-0 cursor-pointer"
+                        disabled={resendCountdown > 0 || loading}
+                        onClick={handleResendOtp}
+                        className={`text-[10px] font-extrabold underline ml-2 shrink-0 cursor-pointer ${
+                          resendCountdown > 0 ? 'text-gray-400 cursor-not-allowed no-underline' : 'text-emerald-900 hover:text-emerald-950'
+                        }`}
                       >
-                        Resend
+                        {resendCountdown > 0 ? `Resend in ${resendCountdown}s` : 'Resend OTP'}
                       </button>
                     </div>
                   )}

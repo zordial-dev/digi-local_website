@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api, getNormalizedImageUrl } from '../services/api';
-import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2 } from 'lucide-react';
+import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import { QRCodeSVG } from 'qrcode.react';
 import { DashboardSkeleton } from '../components/Skeletons';
@@ -23,6 +23,25 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
     is_available: true,
     image_url: ''
   });
+
+  // Custom Dropdowns for Add/Edit Item Modal
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const unitDropdownRef = useRef(null);
+  const categoryDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (unitDropdownRef.current && !unitDropdownRef.current.contains(event.target)) {
+        setShowUnitDropdown(false);
+      }
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target)) {
+        setShowCategoryDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Settings State (DigiCafe style complete settings)
   const [settingsForm, setSettingsForm] = useState({
@@ -357,7 +376,28 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
     );
   }
 
-  const { vendor, items, orders, subscription, payments } = panelData;
+  const { vendor, orders, subscription, payments } = panelData;
+  const rawItems = panelData?.items || [];
+
+  // Deduplicate items safely by item_id and name
+  const deduplicateVendorItems = (itemList) => {
+    const seenIds = new Set();
+    const seenNames = new Set();
+    const cleanList = [];
+    for (const item of itemList) {
+      if (!item) continue;
+      const idKey = String(item.item_id || item.id || '');
+      const nameKey = (item.item_name || '').trim().toLowerCase();
+      if (idKey && seenIds.has(idKey)) continue;
+      if (nameKey && seenNames.has(nameKey)) continue;
+      if (idKey) seenIds.add(idKey);
+      if (nameKey) seenNames.add(nameKey);
+      cleanList.push(item);
+    }
+    return cleanList;
+  };
+
+  const items = deduplicateVendorItems(rawItems);
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 px-3 sm:px-6">
@@ -574,8 +614,8 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {items.map((item) => (
-                <div key={item.item_id} className="rounded-2xl bg-white border border-[#C5A880]/25 p-5 flex flex-col justify-between shadow-sm">
+              {items.map((item, idx) => (
+                <div key={`item-${item.item_id || idx}-${idx}`} className="rounded-2xl bg-white border border-[#C5A880]/25 p-5 flex flex-col justify-between shadow-sm">
                   <div>
                     <div className="relative mb-3 h-40 rounded-xl overflow-hidden bg-[#FAF9F6]">
                       <img
@@ -992,127 +1032,320 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
 
       </div>
 
-      {/* Add / Edit Item Modal */}
+      {/* Add / Edit Product Modal (Pixel-Perfect DigiLocal Luxury Design) */}
       {showAddItemModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A1428]/50 backdrop-blur-sm">
-          <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 max-w-lg w-full shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-serif font-bold text-[#0A1428] uppercase">{editingItem ? 'Edit Item' : 'Add New Item'}</h3>
-              <button onClick={() => setShowAddItemModal(false)} className="text-[#787F8C] hover:text-[#0A1428]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white border border-[#E8E2D5] rounded-[2.5rem] p-5 sm:p-7 max-w-lg w-full shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto relative text-ink scrollbar-thin">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-[#E8E2D5]/70">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#E3EFE6] border border-[#18281F]/20 flex items-center justify-center text-[#18281F] shadow-xs">
+                  <Sparkles className="w-5 h-5 text-[#C4A066]" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-serif font-extrabold text-[#18281F]">
+                    {editingItem ? 'Edit Product Item' : 'Add New Product'}
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground font-medium">
+                    Configure item specifications, pricing & availability
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                type="button"
+                onClick={() => setShowAddItemModal(false)} 
+                className="w-9 h-9 rounded-full bg-[#FAF8F5] hover:bg-[#EFEADF] border border-[#E8E2D5] text-gray-500 hover:text-ink flex items-center justify-center transition-colors cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveItem} className="space-y-4">
+            <form onSubmit={handleSaveItem} className="space-y-5">
+
+              {/* 1. PRODUCT PHOTO UPLOAD BOX */}
+              <div className="bg-[#FAF8F5] p-4 sm:p-4.5 rounded-3xl border border-[#EBE5D8] space-y-3.5 shadow-2xs">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-[#18281F]">
+                  PRODUCT PHOTO UPLOAD
+                </label>
+
+                {/* Dotted Drop / Preview Box */}
+                <div className="border-2 border-dashed border-[#C4A066]/40 bg-white rounded-2xl p-4 text-center flex flex-col items-center justify-center min-h-[130px] transition-all">
+                  {itemForm.image_url ? (
+                    <div className="relative group w-full flex flex-col items-center">
+                      <img 
+                        src={getNormalizedImageUrl(itemForm.image_url)} 
+                        alt="Product preview" 
+                        className="h-28 object-contain rounded-xl shadow-xs"
+                        onError={(e) => {
+                          e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&auto=format&fit=crop&q=80';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setItemForm({ ...itemForm, image_url: '' })}
+                        className="mt-2 text-xs text-rose-600 hover:text-rose-700 font-bold transition-colors cursor-pointer flex items-center gap-1 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove Photo</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-2 space-y-1.5">
+                      <div className="w-10 h-10 rounded-full bg-[#E3EFE6] flex items-center justify-center text-[#18281F]">
+                        <ImageIcon className="w-5 h-5 text-[#C4A066]" />
+                      </div>
+                      <span className="text-xs font-bold text-gray-500">No photo attached</span>
+                      <span className="text-[10px] text-muted-foreground">Upload from device or enter image URL below</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons: Upload Media & Camera */}
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="bg-[#EFEADF] hover:bg-[#E4DDCB] text-[#18281F] py-2.5 px-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs border border-[#DCD5C5]">
+                    <Upload className="w-4 h-4 text-[#18281F]" />
+                    <span>Upload Media</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => setItemForm({ ...itemForm, image_url: reader.result });
+                          reader.readAsDataURL(file);
+                        }
+                      }} 
+                    />
+                  </label>
+
+                  <label className="bg-[#EFEADF] hover:bg-[#E4DDCB] text-[#18281F] py-2.5 px-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs border border-[#DCD5C5]">
+                    <Camera className="w-4 h-4 text-[#18281F]" />
+                    <span>Camera</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => setItemForm({ ...itemForm, image_url: reader.result });
+                          reader.readAsDataURL(file);
+                        }
+                      }} 
+                    />
+                  </label>
+                </div>
+
+                {/* OR PASTE DIRECT IMAGE URL */}
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-gray-400 mb-1">
+                    OR PASTE DIRECT IMAGE URL
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://... (image URL)"
+                    value={itemForm.image_url}
+                    onChange={(e) => setItemForm({ ...itemForm, image_url: e.target.value })}
+                    className="w-full bg-white border border-[#E5DFD1] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl px-4 py-2.5 text-xs font-medium text-[#18281F] focus:outline-none transition-all shadow-xs"
+                  />
+                </div>
+              </div>
+
+              {/* 2. PRODUCT NAME */}
               <div>
-                <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Item Name</label>
+                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
+                  PRODUCT NAME *
+                </label>
                 <input
                   type="text"
                   required
+                  placeholder="e.g. Amul Gold Fresh Milk 1L"
                   value={itemForm.item_name}
                   onChange={(e) => setItemForm({ ...itemForm, item_name: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
+                  className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl px-4 py-3 text-xs font-bold text-[#18281F] focus:outline-none transition-all shadow-2xs"
                 />
               </div>
 
+              {/* 3. CATEGORY SELECTION (Custom Premium Dropdown Menu) */}
               <div>
-                <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Description</label>
-                <textarea
-                  rows={2}
-                  value={itemForm.description}
-                  onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                />
-              </div>
+                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
+                  CATEGORY SELECTION *
+                </label>
+                <div className="relative" ref={categoryDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                    className="w-full bg-[#FAF8F5] border border-[#E8E2D5] hover:border-[#18281F] focus:border-[#18281F] rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-[#18281F] transition-all shadow-2xs flex items-center justify-between cursor-pointer"
+                  >
+                    <Tag className="w-4 h-4 text-[#C4A066] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <span>{itemForm.category || 'Select Category'}</span>
+                    <ChevronDown className={`w-4 h-4 text-[#18281F] transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+                  </button>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Price (₹)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={itemForm.price}
-                    onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Unit</label>
-                  <input
-                    type="text"
-                    placeholder="1 kg, 1L, piece"
-                    value={itemForm.unit}
-                    onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Category</label>
-                  <input
-                    type="text"
-                    placeholder="Dairy, Fruits, Bakery"
-                    value={itemForm.category}
-                    onChange={(e) => setItemForm({ ...itemForm, category: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Available Stock</label>
-                  <input
-                    type="number"
-                    value={itemForm.stock}
-                    onChange={(e) => setItemForm({ ...itemForm, stock: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                  />
+                  {showCategoryDropdown && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E8E2D5] rounded-2xl shadow-xl z-50 max-h-56 overflow-y-auto p-1.5 space-y-0.5 animate-in fade-in duration-150">
+                      {[
+                        'Dairy & Milk',
+                        'Fresh Fruits & Vegetables',
+                        'Bakery & Snacks',
+                        'Groceries & Staples',
+                        'Beverages & Cold Drinks',
+                        'Personal Care & Hygiene',
+                        'Home & Kitchen Care',
+                        'General'
+                      ].map((cat) => (
+                        <div
+                          key={cat}
+                          onClick={() => {
+                            setItemForm({ ...itemForm, category: cat });
+                            setShowCategoryDropdown(false);
+                          }}
+                          className={`px-3.5 py-2.5 text-xs font-bold rounded-xl cursor-pointer transition-colors flex items-center justify-between ${
+                            itemForm.category === cat 
+                              ? 'bg-[#18281F] text-white' 
+                              : 'text-[#18281F] hover:bg-[#E3EFE6]'
+                          }`}
+                        >
+                          <span>{cat}</span>
+                          {itemForm.category === cat && <Check className="w-3.5 h-3.5 text-[#E6C35C]" />}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Image URL</label>
-                <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/..."
-                  value={itemForm.image_url}
-                  onChange={(e) => setItemForm({ ...itemForm, image_url: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                />
+              {/* 4. PRICE (₹) & UNIT (Custom Dropdown + Quick Selector Pills) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Price Input */}
+                <div>
+                  <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
+                    PRICE (₹) *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-sm text-[#C4A066]">₹</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      placeholder="100.00"
+                      value={itemForm.price}
+                      onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })}
+                      className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl pl-9 pr-4 py-3 text-xs font-bold text-[#18281F] focus:outline-none transition-all shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Unit Custom Dropdown */}
+                <div>
+                  <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
+                    UNIT *
+                  </label>
+                  <div className="relative" ref={unitDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowUnitDropdown(!showUnitDropdown)}
+                      className="w-full bg-[#FAF8F5] border border-[#E8E2D5] hover:border-[#18281F] focus:border-[#18281F] rounded-2xl px-4 py-3 text-xs font-bold text-[#18281F] transition-all shadow-2xs flex items-center justify-between cursor-pointer"
+                    >
+                      <span>{itemForm.unit || 'Piece'}</span>
+                      <ChevronDown className={`w-4 h-4 text-[#18281F] transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showUnitDropdown && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E8E2D5] rounded-2xl shadow-xl z-50 max-h-56 overflow-y-auto p-1.5 space-y-0.5 animate-in fade-in duration-150">
+                        {[
+                          'Piece',
+                          '1 kg',
+                          '500g',
+                          '250g',
+                          '1L',
+                          '500ml',
+                          'Packet',
+                          'Box',
+                          'Dozen',
+                          'Set',
+                          'Bunch'
+                        ].map((u) => (
+                          <div
+                            key={u}
+                            onClick={() => {
+                              setItemForm({ ...itemForm, unit: u });
+                              setShowUnitDropdown(false);
+                            }}
+                            className={`px-3 py-2 text-xs font-bold rounded-xl cursor-pointer transition-colors flex items-center justify-between ${
+                              itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()
+                                ? 'bg-[#18281F] text-white' 
+                                : 'text-[#18281F] hover:bg-[#E3EFE6]'
+                            }`}
+                          >
+                            <span>{u}</span>
+                            {(itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()) && (
+                              <Check className="w-3.5 h-3.5 text-[#E6C35C]" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {/* Availability Switch */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20">
-                <span className="text-xs font-bold text-[#0A1428]">Item Availability for Customers</span>
+              {/* 5. ITEM AVAILABILITY TOGGLE */}
+              <div className="bg-[#FAF8F5] border border-[#E8E2D5] rounded-2xl p-4 flex items-center justify-between shadow-2xs">
+                <div>
+                  <div className="text-xs font-extrabold uppercase tracking-wider text-[#18281F]">
+                    ITEM AVAILABILITY
+                  </div>
+                  <div className="text-[11px] font-medium text-gray-500 mt-0.5 flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${itemForm.is_available ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+                    <span>{itemForm.is_available ? 'Item is live and orderable' : 'Item is hidden / out of stock'}</span>
+                  </div>
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setItemForm({ ...itemForm, is_available: !itemForm.is_available })}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                    itemForm.is_available ? 'bg-[#2E7D32]' : 'bg-slate-300'
+                  className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                    itemForm.is_available ? 'bg-[#18281F]' : 'bg-gray-300'
                   }`}
                 >
-                  <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
-                    itemForm.is_available ? 'translate-x-5' : 'translate-x-0'
-                  }`} />
+                  <span
+                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-[#C4A066] shadow-md transition duration-200 ease-in-out ${
+                      itemForm.is_available ? 'translate-x-5' : 'translate-x-0 bg-white'
+                    }`}
+                  />
                 </button>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowAddItemModal(false)}
-                  className="px-4 py-2 text-[#787F8C] hover:text-[#0A1428] text-xs font-semibold uppercase"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider"
-                >
-                  Save Item
-                </button>
+              {/* 6. DESCRIPTION */}
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
+                  DESCRIPTION (OPTIONAL)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Item specifications, weight, or brand details..."
+                  value={itemForm.description}
+                  onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
+                  className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl p-3.5 text-xs font-medium text-[#18281F] focus:outline-none transition-all shadow-2xs"
+                />
               </div>
+
+              {/* 7. SAVE BUTTON */}
+              <button
+                type="submit"
+                className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-white font-extrabold text-xs uppercase tracking-widest shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 cursor-pointer border border-[#1E3623]/30"
+              >
+                <span>{editingItem ? 'UPDATE PRODUCT ITEM' : 'SAVE PRODUCT ITEM'}</span>
+                <Sparkles className="w-4 h-4 text-[#E6C35C]" />
+              </button>
+
             </form>
           </div>
         </div>

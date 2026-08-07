@@ -17,7 +17,8 @@ import {
   ArrowRight, 
   ArrowLeft, 
   Plus, 
-  Trash2, 
+  Trash2,
+  ChevronDown,
   Star, 
   Key, 
   Bell, 
@@ -34,6 +35,7 @@ import {
   Receipt
 } from 'lucide-react';
 import { api } from '../services/api';
+import CountryCodePicker from '../components/CountryCodePicker';
 
 export default function UserProfilePage({ activeUser, setActiveUser, setRoute, onLogout }) {
   const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'profile' | 'addresses' | 'favorites' | 'settings'
@@ -52,6 +54,8 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
+  const [phonePlaceholder, setPhonePlaceholder] = useState('e.g. 98765 43210');
   const [society, setSociety] = useState('');
   const [societyId, setSocietyId] = useState('');
   const [flat, setFlat] = useState('');
@@ -782,20 +786,31 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                   <label className="block text-xs font-bold text-ink mb-1.5">
                     Mobile Phone Number *
                   </label>
-                  <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type="tel"
+                  <div className="flex items-center gap-2">
+                    <CountryCodePicker
                       disabled={!isEditing}
-                      required
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className={`w-full pl-11 pr-4 py-3 rounded-2xl text-xs font-semibold border transition-all ${
-                        isEditing 
-                          ? 'bg-white border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/10 text-ink shadow-xs' 
-                          : 'bg-secondary/40 border-border text-muted-foreground cursor-not-allowed'
-                      }`}
+                      value={countryCode}
+                      onChange={(val, countryObj) => {
+                        setCountryCode(val);
+                        setPhonePlaceholder(countryObj?.placeholder || 'e.g. 98765 43210');
+                      }}
                     />
+                    <div className="relative flex-1">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input
+                        type="tel"
+                        disabled={!isEditing}
+                        required
+                        placeholder={phonePlaceholder}
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className={`w-full pl-11 pr-4 py-3 rounded-2xl text-xs font-semibold border transition-all ${
+                          isEditing 
+                            ? 'bg-white border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/10 text-ink shadow-xs' 
+                            : 'bg-secondary/40 border-border text-muted-foreground cursor-not-allowed'
+                        }`}
+                      />
+                    </div>
                   </div>
                 </div>
 
