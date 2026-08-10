@@ -604,7 +604,38 @@ export const api = {
     return { message: 'Password reset successfully! You can now log in with your new password.' };
   },
 
-  // 1.5 Real OTP Authentication APIs
+  // 1.5 Real OTP Authentication & User Check APIs
+  checkUserPhone: async (phone) => {
+    const cleanPhone = String(phone || '').trim();
+    if (!cleanPhone) return { exists: false };
+    const last10 = cleanPhone.replace(/[^0-9]/g, '').slice(-10);
+
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/users/check-phone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanPhone })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { exists: !!data.exists, user: data.user || null };
+      }
+    } catch (_) {}
+
+    // Fallback: check local stored user sessions if backend unreachable
+    try {
+      const mockSession = localStorage.getItem('digilocal_resident_session');
+      if (mockSession) {
+        const user = JSON.parse(mockSession);
+        if (user.phone && user.phone.includes(last10)) {
+          return { exists: true, user };
+        }
+      }
+    } catch (_) {}
+
+    return { exists: false };
+  },
+
   requestOtp: async (identifier) => {
     const cleanId = String(identifier || '').trim();
     const rawId = cleanId.replace(/^\+/, '');

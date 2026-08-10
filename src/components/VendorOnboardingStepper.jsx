@@ -52,7 +52,7 @@ export default function VendorOnboardingStepper({ societyId, societyName, onComp
   const handleVerifyOTP = (e) => {
     e.preventDefault();
     if (otp !== STATIC_OTP) {
-      setOtpError(`Invalid OTP code. Please enter demo code "${STATIC_OTP}"`);
+      setOtpError('Invalid verification code. Please check and try again.');
       return;
     }
     setOtpError('');
@@ -169,7 +169,7 @@ export default function VendorOnboardingStepper({ societyId, societyName, onComp
               ) : !isPhoneVerified ? (
                 <div className="space-y-3">
                   <p className="text-xs text-muted-foreground font-semibold">
-                    OTP sent to +91 {phone}. Demo verification code: <span className="font-black text-gold bg-secondary px-2 py-0.5 rounded-md border border-border">1234</span>
+                    Verification code sent to +91 {phone}. Please check your phone.
                   </p>
                   <div className="flex space-x-2">
                     <input

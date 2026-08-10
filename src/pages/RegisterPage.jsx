@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Phone, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, ShieldCheck } from 'lucide-react';
 import { api } from '../services/api';
+import { sendFirebasePhoneOtp, verifyFirebasePhoneOtp } from '../firebase';
 import CountryCodePicker from '../components/CountryCodePicker';
 
 export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) {
@@ -22,12 +23,14 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [firebaseIdToken, setFirebaseIdToken] = useState(null);
   const otpInputRefs = useRef([]);
 
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   // Panel Animation Refs
   const cardRef = useRef(null);
@@ -86,16 +89,16 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
     const digits = pastedData.split('');
     const newOtp = [...otpValues];
     digits.forEach((d, idx) => {
-      if (idx < 4) newOtp[idx] = d;
+      if (idx < 6) newOtp[idx] = d;
     });
     setOtpValues(newOtp);
-    const focusIdx = Math.min(digits.length, 3);
+    const focusIdx = Math.min(digits.length, 5);
     if (otpInputRefs.current[focusIdx]) {
       otpInputRefs.current[focusIdx].focus();
     }
   };
 
-  // STEP 1: Send OTP via Backend POST /api/users/send-otp
+  // STEP 1: Send SMS via Firebase Phone Auth
   const handleSendRegisterOtp = async (e) => {
     e.preventDefault();
     setError('');
@@ -105,7 +108,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
       setError('Please enter your full name.');
       return;
     }
-    if (!phoneNumber.trim() || phoneNumber.trim().length < 6) {
+    if (!phoneNumber.trim() || phoneNumber.trim().length < 7) {
       setError('Please enter a valid mobile phone number.');
       return;
     }
@@ -113,42 +116,50 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
     try {
       setLoading(true);
       const fullPhone = `${countryCode}${phoneNumber.trim()}`;
-      const res = await api.requestOtp(fullPhone);
-      const code = res?.otp || res?.otpCode || res?.simulationOtp || Math.floor(1000 + Math.random() * 9000).toString();
 
-      setGeneratedOtp(code);
-      setOtpValues(['', '', '', '']);
+      const checkRes = await api.checkUserPhone(fullPhone);
+      if (checkRes.exists) {
+        setError('An account with this mobile number already exists. Please log in instead.');
+        return;
+      }
+
+      await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
+      setSuccessMsg(`Verification SMS sent to ${fullPhone}! Check your mobile phone.`);
+      setOtpValues(['', '', '', '', '', '']);
       setResendCountdown(30);
       setRegisterStep('otp');
-      setSuccessMsg(`Verification OTP sent to ${fullPhone}! Code: ${code}`);
     } catch (err) {
-      setError(err.message || 'Failed to send verification OTP.');
+      const errMsg = err?.message || String(err || '');
+      if (errMsg.includes('TOO_MANY_ATTEMPTS_TRY_LATER') || errMsg.includes('too-many-requests')) {
+        setError('Too many verification requests for this mobile number. Please wait a few minutes before trying again.');
+      } else if (errMsg.includes('INVALID_APP_CREDENTIAL') || errMsg.includes('invalid-app-credential')) {
+        setError('Security verification check failed. Please refresh the page and try again.');
+      } else {
+        setError(err.message || 'Failed to send verification SMS.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Resend OTP
+  // Resend OTP via Firebase
   const handleResendOtp = async () => {
     if (resendCountdown > 0) return;
     setError('');
     try {
       setLoading(true);
       const fullPhone = `${countryCode}${phoneNumber.trim()}`;
-      const res = await api.requestOtp(fullPhone);
-      const code = res?.otp || res?.otpCode || res?.simulationOtp || Math.floor(1000 + Math.random() * 9000).toString();
-
-      setGeneratedOtp(code);
+      await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
+      setSuccessMsg(`Verification SMS resent to ${fullPhone}!`);
       setResendCountdown(30);
-      setSuccessMsg(`New OTP sent to ${fullPhone}! Code: ${code}`);
     } catch (err) {
-      setError(err.message || 'Failed to resend OTP.');
+      setError(err.message || 'Failed to resend SMS.');
     } finally {
       setLoading(false);
     }
   };
 
-  // STEP 2: Verify OTP via Backend POST /api/users/verify-otp
+  // STEP 2: Verify Firebase OTP Code
   const handleVerifyOtpCode = async (e) => {
     e.preventDefault();
     setError('');
@@ -156,18 +167,25 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
 
     const enteredOtp = otpValues.join('').trim();
     if (enteredOtp.length < 4) {
-      setError('Please enter the 4-digit OTP code.');
+      setError('Please enter the OTP verification code.');
       return;
     }
 
     try {
       setLoading(true);
       const fullPhone = `${countryCode}${phoneNumber.trim()}`;
-      await api.verifyOtp(fullPhone, enteredOtp);
+      
+      try {
+        const result = await verifyFirebasePhoneOtp(enteredOtp);
+        setFirebaseIdToken(result.idToken);
+      } catch (fbVerifyErr) {
+        console.warn('Firebase verify fallback:', fbVerifyErr);
+        await api.verifyOtp(fullPhone, enteredOtp);
+      }
 
       setIsPhoneVerified(true);
       setRegisterStep('password');
-      setSuccessMsg(`Mobile number ${fullPhone} verified! Now create your password below.`);
+      setSuccessMsg(`Mobile number ${fullPhone} verified successfully! Now create your password below.`);
     } catch (err) {
       setError(err.message || 'Invalid OTP code. Please double check and try again.');
     } finally {
@@ -198,7 +216,8 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
       const res = await api.userRegister({
         name: cleanName,
         phone: userPhone,
-        password
+        password,
+        firebase_token: firebaseIdToken || undefined
       });
 
       // STORE BACKEND TOKENS
@@ -243,7 +262,13 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
         }, 600);
       }
     } catch (err) {
-      setError(err.message || 'Account creation failed. Please try again.');
+      const msg = err.message || '';
+      if (msg.includes('already exists') || msg.includes('already registered')) {
+        setError('An account with this mobile number already exists. Please log in instead.');
+        setShowLoginPrompt(true);
+      } else {
+        setError(msg || 'Account creation failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -293,9 +318,21 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
 
           {/* Notifications */}
           {error && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-xs">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{error}</span>
+            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold space-y-2 shadow-xs">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+              {showLoginPrompt && (
+                <button
+                  type="button"
+                  onClick={() => setRoute({ page: 'login' })}
+                  className="mt-1 w-full py-2 bg-[#1E3623] hover:bg-[#152718] text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-2 transition-all shadow-sm"
+                >
+                  <span>Log In to Existing Account</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           )}
 
@@ -370,19 +407,6 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
           {registerStep === 'otp' && (
             <form onSubmit={handleVerifyOtpCode} className="space-y-5 font-sans animate-in fade-in duration-300">
               
-              {/* Dynamic OTP Demonstration Banner */}
-              {generatedOtp && (
-                <div className="p-3 bg-[#E3EFE6] border border-[#18281F]/20 rounded-2xl text-xs font-bold text-[#18281F] flex items-center justify-between shadow-xs">
-                  <div className="flex items-center space-x-2">
-                    <Sparkles className="w-4 h-4 text-[#C4A066]" />
-                    <span>Verification OTP Code:</span>
-                  </div>
-                  <span className="font-mono text-sm tracking-widest bg-white px-3 py-1 rounded-xl text-[#18281F] font-black border border-[#18281F]/15">
-                    {generatedOtp}
-                  </span>
-                </div>
-              )}
-
               <div className="py-2">
                 <label className="block text-xs font-bold text-center text-[#1E3623] mb-3">
                   Enter 4-Digit Security Code

@@ -54,9 +54,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   const [altMsg, setAltMsg] = useState('');
   const [altMsgType, setAltMsgType] = useState('info'); // 'info' | 'success' | 'error'
 
-  // Real Dynamic OTP State & 30s Resend Timer
-  const [otpBoxes, setOtpBoxes] = useState(['', '', '', '']);
+  // Real Dynamic OTP State & 30s Resend Timer (6 Digits for Firebase SMS)
+  const [otpBoxes, setOtpBoxes] = useState(['', '', '', '', '', '']);
   const [resendCountdown, setResendCountdown] = useState(0);
+  const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
 
   useEffect(() => {
     let timer = null;
@@ -69,11 +70,14 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
       if (timer) clearInterval(timer);
     };
   }, [resendCountdown]);
+
   const box0Ref = useRef(null);
   const box1Ref = useRef(null);
   const box2Ref = useRef(null);
   const box3Ref = useRef(null);
-  const otpBoxRefs = [box0Ref, box1Ref, box2Ref, box3Ref];
+  const box4Ref = useRef(null);
+  const box5Ref = useRef(null);
+  const otpBoxRefs = [box0Ref, box1Ref, box2Ref, box3Ref, box4Ref, box5Ref];
 
   const handleOtpBoxChange = (index, value) => {
     const digit = value.replace(/[^0-9]/g, '').slice(-1);
@@ -82,7 +86,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
     setOtpBoxes(newBoxes);
     setAltOtp(newBoxes.join(''));
 
-    if (digit && index < 3 && otpBoxRefs[index + 1].current) {
+    if (digit && index < 5 && otpBoxRefs[index + 1].current) {
       otpBoxRefs[index + 1].current.focus();
     }
   };
@@ -180,7 +184,13 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           }, 400);
         }
       } catch (err) {
-        setError(err.message || 'Invalid phone number or password. Please try again.');
+        const msg = err.message || '';
+        if (msg.includes('account does not exist') || msg.includes('Invalid mobile number') || msg.includes('not found')) {
+          setError('No account found with this mobile number. Please register your account first.');
+          setShowRegisterPrompt(true);
+        } else {
+          setError(msg || 'Invalid phone number or password. Please try again.');
+        }
       } finally {
         setLoading(false);
       }
@@ -322,20 +332,35 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
     setError('');
     setLoading(true);
     try {
+      if (accountType === 'resident') {
+        const checkRes = await api.checkUserPhone(fullPhone);
+        if (!checkRes.exists) {
+          setError('No account found with this mobile number. Please register your account first.');
+          setShowRegisterPrompt(true);
+          return;
+        }
+      }
+
       try {
         await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-        setOtpSentMsg(`SMS verification code sent via Firebase to ${fullPhone}.`);
+        setOtpSentMsg(`Verification code sent to ${fullPhone}.`);
       } catch (fbErr) {
-        console.warn('Firebase SMS failed, falling back to backend simulation OTP:', fbErr);
-        const res = await api.requestOtp(fullPhone);
-        setOtpSentMsg(`OTP dispatched to ${fullPhone}. Code: ${res.otpCode || res.otp}`);
+        console.error('Firebase Phone Auth Error:', fbErr);
+        throw fbErr;
       }
 
       setAuthMethod('otp');
       setOtpBoxes(Array(6).fill(''));
       setResendCountdown(30);
     } catch (err) {
-      setError(err.message || 'Failed to send OTP code. Please try again.');
+      const errMsg = err?.message || String(err || '');
+      if (errMsg.includes('TOO_MANY_ATTEMPTS_TRY_LATER') || errMsg.includes('too-many-requests')) {
+        setError('Too many verification attempts for this mobile number. Please wait a few minutes before trying again.');
+      } else if (errMsg.includes('INVALID_APP_CREDENTIAL') || errMsg.includes('invalid-app-credential')) {
+        setError('Security verification check failed. Please refresh the page and try again.');
+      } else {
+        setError(err.message || 'Failed to send verification code. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -348,16 +373,25 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
     setError('');
     setLoading(true);
     try {
+      if (accountType === 'resident') {
+        const checkRes = await api.checkUserPhone(fullPhone);
+        if (!checkRes.exists) {
+          setError('No account found with this mobile number. Please register your account first.');
+          setShowRegisterPrompt(true);
+          return;
+        }
+      }
+
       try {
         await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-        setOtpSentMsg(`Fresh SMS code sent via Firebase to ${fullPhone}.`);
+        setOtpSentMsg(`Verification code resent to ${fullPhone}.`);
       } catch (fbErr) {
-        const res = await api.requestOtp(fullPhone);
-        setOtpSentMsg(`Fresh OTP dispatched to ${fullPhone}. Code: ${res.otpCode || res.otp}`);
+        await api.requestOtp(fullPhone);
+        setOtpSentMsg(`Verification code resent to ${fullPhone}.`);
       }
       setResendCountdown(30);
     } catch (err) {
-      setError(err.message || 'Failed to resend OTP.');
+      setError(err.message || 'Failed to resend verification code.');
     } finally {
       setLoading(false);
     }
@@ -524,9 +558,21 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
             {/* Notifications */}
             {error && (
-              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-xs">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{error}</span>
+              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold space-y-2 shadow-xs">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+                {showRegisterPrompt && (
+                  <button
+                    type="button"
+                    onClick={() => setRoute({ page: 'register' })}
+                    className="mt-1 w-full py-2 bg-[#1E3623] hover:bg-[#152718] text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-2 transition-all shadow-sm"
+                  >
+                    <span>Register New Account Now</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
 

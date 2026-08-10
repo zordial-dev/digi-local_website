@@ -108,3 +108,10 @@ body {
   transform-origin: center center;
 }
 
+/* Hide reCAPTCHA badge for clean UI */
+.grecaptcha-badge {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+

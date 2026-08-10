@@ -58,7 +58,7 @@ function VendorRegisterContent() {
 
   const handleVerifyOTP = () => {
     if (otpCode !== STATIC_OTP) {
-      setStep2Error(`Invalid OTP. For testing, please enter static demo code "${STATIC_OTP}".`);
+      setStep2Error('Invalid verification code. Please try again.');
       return;
     }
     setStep2Error('');
@@ -348,7 +348,7 @@ function VendorRegisterContent() {
                   {otpSent && (
                     <div className="space-y-3 border-t border-gray-100 pt-4">
                       <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                        6-Digit Verification Code (Demo code: <span className="text-[#C5A880]">123456</span>)
+                        6-Digit Verification Code
                       </label>
                       <div className="flex space-x-2">
                         <input

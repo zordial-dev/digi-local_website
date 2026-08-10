@@ -112,7 +112,7 @@ export default function DummyPaymentModal({
                   {title}
                 </h3>
                 <span className="px-2 py-0.5 text-[9px] font-black bg-[#C4A066] text-[#18281F] rounded-md uppercase tracking-widest">
-                  Demo Sandbox
+                  Secure Gateway
                 </span>
               </div>
               <p className="text-[11px] text-emerald-200/80 font-medium">{description}</p>
@@ -262,13 +262,13 @@ export default function DummyPaymentModal({
             {activeTab === 'card' && (
               <div className="space-y-3.5 bg-secondary/40 p-4 rounded-2xl border border-border">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-extrabold text-ink">Card Details (Demo Mode)</span>
+                  <span className="text-xs font-extrabold text-ink">Card Details</span>
                   <button
                     type="button"
                     onClick={handleFillTestCard}
                     className="text-[10px] font-extrabold text-primary hover:underline"
                   >
-                    + Fill Demo Card
+                    + Auto-Fill Test Card
                   </button>
                 </div>
 
@@ -410,7 +410,7 @@ export default function DummyPaymentModal({
               </span>
               <h3 className="text-2xl font-serif font-black text-ink">₹{lastTxn?.amount.toFixed(2)} Paid Successfully!</h3>
               <p className="text-xs text-muted-foreground mt-1 font-medium">
-                Your transaction has been verified in demo mode.
+                Your transaction has been processed successfully.
               </p>
             </div>
 

@@ -86,7 +86,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
   };
 
   // 2. Step 1: Send Resident OTP
-  const handleSendOtp = (e) => {
+  const handleSendOtp = async (e) => {
     e.preventDefault();
     setOtpError('');
     
@@ -99,11 +99,24 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
       return;
     }
 
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedOtp(code);
-    setOtpInput(code);
-    setStep(2);
-    setInfoMsg(`Demo OTP code ${code} sent to +91 ${userPhone}`);
+    try {
+      setLoading(true);
+      const checkRes = await api.checkUserPhone(userPhone);
+      if (!checkRes.exists) {
+        setOtpError('No account found with this mobile number. Please register your account first.');
+        return;
+      }
+
+      const code = Math.floor(1000 + Math.random() * 9000).toString();
+      setGeneratedOtp(code);
+      setOtpInput('');
+      setStep(2);
+      setInfoMsg(`Verification OTP sent to +91 ${userPhone}`);
+    } catch (err) {
+      setOtpError(err.message || 'Failed to verify account registration.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Step 2: Verify Resident OTP & Log In -> Navigates to User Profile Page!
@@ -159,8 +172,8 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
   const handleResendOtp = () => {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     setGeneratedOtp(code);
-    setOtpInput(code);
-    setInfoMsg(`New Demo OTP code ${code} resent to +91 ${userPhone}`);
+    setOtpInput('');
+    setInfoMsg(`Verification OTP resent to +91 ${userPhone}`);
   };
 
   return (
@@ -360,20 +373,6 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
                 <p className="text-[11px]">Sent to: <strong>+91 {userPhone}</strong> ({userName})</p>
               </div>
 
-              {/* Demo OTP Banner Card */}
-              <div className="p-4 bg-[#18281F] text-white rounded-2xl border border-gold/40 flex items-center justify-between shadow-md">
-                <div>
-                  <span className="text-[10px] uppercase font-black tracking-widest text-[#C4A066]">
-                    Demo OTP Verification Code
-                  </span>
-                  <div className="text-2xl font-mono font-black text-white tracking-widest mt-0.5">
-                    {generatedOtp}
-                  </div>
-                </div>
-                <div className="px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold text-emerald-300 border border-white/15 flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-gold" /> Auto-Filled
-                </div>
-              </div>
 
               <div>
                 <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">

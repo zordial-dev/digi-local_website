@@ -1433,19 +1433,6 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
               </div>
             )}
 
-            {/* Demonstration Dynamic OTP Banner */}
-            {vendorGeneratedOtp && (
-              <div className="p-3 bg-[#E3EFE6] border border-[#18281F]/20 rounded-2xl text-xs font-bold text-[#18281F] flex items-center justify-between shadow-xs">
-                <div className="flex items-center space-x-2">
-                  <Sparkles className="w-4 h-4 text-[#C4A066]" />
-                  <span>Verification OTP:</span>
-                </div>
-                <span className="font-mono text-sm tracking-widest bg-white px-3 py-1 rounded-xl text-[#18281F] font-black border border-[#18281F]/15">
-                  {vendorGeneratedOtp}
-                </span>
-              </div>
-            )}
-
             <form onSubmit={handleVerifyVendorOtpCode} className="space-y-4">
               <div className="py-2">
                 <label className="block text-xs font-bold text-center text-[#1E3623] mb-3">
