@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { api } from './services/api';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBkbIdA9m57t-qXZuQZpZReFzj55yELsTs",
@@ -46,39 +47,40 @@ export const setupRecaptcha = (containerId = 'recaptcha-container') => {
   return window.recaptchaVerifier;
 };
 
-// Helper for sending SMS via Firebase Phone Auth
+// Helper for sending real SMS via Firebase Phone Auth
 export const sendFirebasePhoneOtp = async (phoneNumber, containerId = 'recaptcha-container') => {
+  // Ensure testing mode is false so real SMS is sent to mobile phone
+  try {
+    auth.settings.appVerificationDisabledForTesting = false;
+  } catch (_) {}
+
   try {
     const verifier = setupRecaptcha(containerId);
     try { await verifier.render(); } catch (_) {}
 
+    console.log(`📱 [FIREBASE SMS] Sending real SMS to ${phoneNumber}...`);
     const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifier);
     window.confirmationResult = confirmationResult;
+    console.log(`✅ [FIREBASE SMS SENT] SMS dispatched successfully to ${phoneNumber}`);
     return confirmationResult;
   } catch (err) {
-    console.warn('First attempt failed:', err?.message || err);
+    console.error('❌ [FIREBASE SMS ERROR]:', err?.message || err);
 
     if (window.recaptchaVerifier) {
       try { window.recaptchaVerifier.clear(); } catch (_) {}
       window.recaptchaVerifier = null;
     }
 
-    // Fallback attempt for test mode & development environments
-    if (err?.code === 'auth/invalid-app-credential' || String(err).includes('INVALID_APP_CREDENTIAL')) {
-      try {
-        console.log('⚡ Enabling test verification fallback for Firebase Phone Auth...');
-        auth.settings.appVerificationDisabledForTesting = true;
-        const verifierFallback = setupRecaptcha(containerId);
-        const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifierFallback);
-        window.confirmationResult = confirmationResult;
-        return confirmationResult;
-      } catch (fallbackErr) {
-        console.error('Firebase Phone Auth Fallback Error:', fallbackErr);
-        throw fallbackErr;
-      }
+    // Second attempt with clean reCAPTCHA container
+    try {
+      const freshVerifier = setupRecaptcha(containerId);
+      const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, freshVerifier);
+      window.confirmationResult = confirmationResult;
+      return confirmationResult;
+    } catch (retryErr) {
+      console.error('❌ [FIREBASE SMS RETRY ERROR]:', retryErr?.message || retryErr);
+      throw retryErr;
     }
-
-    throw err;
   }
 };
 

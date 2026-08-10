@@ -690,20 +690,28 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: cleanId, identifier: cleanId, otp: cleanCode })
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          return await res.json();
-        }
+        return data;
+      } else {
+        throw new Error(data.error || 'Invalid OTP code. Please enter the correct verification code.');
       }
-    } catch (_) {}
-
-    const storedOtp = sessionStorage.getItem(`digilocal_otp_${cleanId.toLowerCase()}`) || sessionStorage.getItem(`digilocal_otp_${rawId.toLowerCase()}`);
-    if (storedOtp && storedOtp === cleanCode) {
-      return { success: true, message: 'OTP verified successfully' };
+    } catch (err) {
+      if (err.message && !err.message.includes('fetch') && !err.message.includes('NetworkError')) {
+        throw err;
+      }
     }
 
-    throw new Error('Invalid OTP code. Please double check the 4-digit code.');
+    const storedOtp = sessionStorage.getItem(`digilocal_otp_${cleanId.toLowerCase()}`) || sessionStorage.getItem(`digilocal_otp_${rawId.toLowerCase()}`);
+    if (storedOtp) {
+      if (storedOtp === cleanCode) {
+        return { success: true, message: 'OTP verified successfully' };
+      } else {
+        throw new Error('Invalid OTP code. Please enter the correct verification code.');
+      }
+    }
+
+    throw new Error('Invalid OTP code. Please enter the correct verification code.');
   },
 
   // 1.8 User Login (Password or Firebase Token)

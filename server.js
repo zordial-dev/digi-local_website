@@ -238,16 +238,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     const session = activeOtpSessions.get(target);
-    if (session && (session.otp === enteredOtp || enteredOtp.length === 4 || enteredOtp.length === 6)) {
+    if (session && session.otp === enteredOtp) {
       return sendJSON(res, 200, { message: "OTP verified successfully", valid: true });
     }
 
-    // Accept valid 4 or 6 digit code for demo testing
-    if (enteredOtp && (enteredOtp.length === 4 || enteredOtp.length === 6)) {
-      return sendJSON(res, 200, { message: "OTP verified successfully", valid: true });
-    }
-
-    return sendJSON(res, 400, { error: "Invalid OTP code" });
+    return sendJSON(res, 400, { error: "Invalid OTP code. Please enter the correct verification code." });
   }
 
   // 0.3 Resident User Login (POST /api/users/login)

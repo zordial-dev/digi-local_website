@@ -124,7 +124,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
       }
 
       await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-      setSuccessMsg(`Verification SMS sent to ${fullPhone}! Check your mobile phone.`);
+      setSuccessMsg(`Verification SMS code sent to ${fullPhone}! Check your mobile phone.`);
       setOtpValues(['', '', '', '', '', '']);
       setResendCountdown(30);
       setRegisterStep('otp');

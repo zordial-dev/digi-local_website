@@ -343,10 +343,11 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
       try {
         await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-        setOtpSentMsg(`Verification code sent to ${fullPhone}.`);
+        setOtpSentMsg(`Verification SMS code sent to ${fullPhone}. Check your mobile phone.`);
       } catch (fbErr) {
-        console.error('Firebase Phone Auth Error:', fbErr);
-        throw fbErr;
+        console.error('Firebase Phone Auth SMS Error:', fbErr);
+        setError(fbErr.message || 'Failed to send SMS to your mobile number.');
+        return;
       }
 
       setAuthMethod('otp');
@@ -382,13 +383,9 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         }
       }
 
-      try {
-        await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-        setOtpSentMsg(`Verification code resent to ${fullPhone}.`);
-      } catch (fbErr) {
-        await api.requestOtp(fullPhone);
-        setOtpSentMsg(`Verification code resent to ${fullPhone}.`);
-      }
+      await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
+      setOtpSentMsg(`Verification SMS code resent to ${fullPhone}. Check your mobile phone.`);
+      setResendCountdown(30);
       setResendCountdown(30);
     } catch (err) {
       setError(err.message || 'Failed to resend verification code.');
