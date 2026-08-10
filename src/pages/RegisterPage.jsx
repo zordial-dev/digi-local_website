@@ -123,20 +123,20 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
         return;
       }
 
-      await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-      setSuccessMsg(`Verification SMS code sent to ${fullPhone}! Check your mobile phone.`);
+      try {
+        await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
+        setSuccessMsg(`Verification SMS code sent to ${fullPhone}! Check your mobile phone.`);
+      } catch (fbErr) {
+        console.warn('Firebase Phone Auth warning:', fbErr?.message || fbErr);
+        setError(fbErr?.message || 'Failed to send verification SMS.');
+        return;
+      }
+
       setOtpValues(['', '', '', '', '', '']);
       setResendCountdown(30);
       setRegisterStep('otp');
     } catch (err) {
-      const errMsg = err?.message || String(err || '');
-      if (errMsg.includes('TOO_MANY_ATTEMPTS_TRY_LATER') || errMsg.includes('too-many-requests')) {
-        setError('Too many verification requests for this mobile number. Please wait a few minutes before trying again.');
-      } else if (errMsg.includes('INVALID_APP_CREDENTIAL') || errMsg.includes('invalid-app-credential')) {
-        setError('Security verification check failed. Please refresh the page and try again.');
-      } else {
-        setError(err.message || 'Failed to send verification SMS.');
-      }
+      setError(err.message || 'Failed to initialize verification.');
     } finally {
       setLoading(false);
     }

@@ -16,7 +16,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // Helper to setup recaptcha verifier safely
-export const setupRecaptcha = (containerId = 'recaptcha-container') => {
+export const setupRecaptcha = async (containerId = 'recaptcha-container') => {
   let el = document.getElementById(containerId);
   if (!el) {
     el = document.createElement('div');
@@ -31,10 +31,10 @@ export const setupRecaptcha = (containerId = 'recaptcha-container') => {
     window.recaptchaVerifier = null;
   }
 
-  window.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
+  const verifier = new RecaptchaVerifier(auth, el, {
     'size': 'invisible',
     'callback': () => {
-      console.log('reCAPTCHA verified!');
+      console.log('reCAPTCHA solved!');
     },
     'expired-callback': () => {
       if (window.recaptchaVerifier) {
@@ -44,53 +44,54 @@ export const setupRecaptcha = (containerId = 'recaptcha-container') => {
     }
   });
 
-  return window.recaptchaVerifier;
+  try {
+    await verifier.render();
+  } catch (renderErr) {
+    console.warn('reCAPTCHA render notice:', renderErr);
+  }
+
+  window.recaptchaVerifier = verifier;
+  return verifier;
 };
 
-// Helper for sending real SMS via Firebase Phone Auth
+// Helper for sending SMS via Firebase Phone Auth
 export const sendFirebasePhoneOtp = async (phoneNumber, containerId = 'recaptcha-container') => {
-  // Ensure testing mode is false so real SMS is sent to mobile phone
-  try {
-    auth.settings.appVerificationDisabledForTesting = false;
-  } catch (_) {}
+  console.log(`📱 [FIREBASE PHONE AUTH] Requesting SMS for ${phoneNumber}...`);
+
+  // Clean up any existing verifier
+  if (window.recaptchaVerifier) {
+    try { window.recaptchaVerifier.clear(); } catch (_) {}
+    window.recaptchaVerifier = null;
+  }
+
+  const verifier = await setupRecaptcha(containerId);
 
   try {
-    const verifier = setupRecaptcha(containerId);
-    try { await verifier.render(); } catch (_) {}
-
-    console.log(`📱 [FIREBASE SMS] Sending real SMS to ${phoneNumber}...`);
     const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifier);
     window.confirmationResult = confirmationResult;
-    console.log(`✅ [FIREBASE SMS SENT] SMS dispatched successfully to ${phoneNumber}`);
+    console.log(`✅ [FIREBASE PHONE AUTH SUCCESS] Session created for ${phoneNumber}`);
     return confirmationResult;
   } catch (err) {
-    console.error('❌ [FIREBASE SMS ERROR]:', err?.message || err);
+    console.error('❌ [FIREBASE PHONE AUTH ERROR]:', err?.code || err?.message || err);
 
     if (window.recaptchaVerifier) {
       try { window.recaptchaVerifier.clear(); } catch (_) {}
       window.recaptchaVerifier = null;
     }
 
-    // Second attempt with clean reCAPTCHA container
-    try {
-      const freshVerifier = setupRecaptcha(containerId);
-      const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, freshVerifier);
-      window.confirmationResult = confirmationResult;
-      return confirmationResult;
-    } catch (retryErr) {
-      console.error('❌ [FIREBASE SMS RETRY ERROR]:', retryErr?.message || retryErr);
-      throw retryErr;
-    }
+    throw err;
   }
 };
 
 // Helper for verifying 6-digit code and returning Firebase ID Token
 export const verifyFirebasePhoneOtp = async (code) => {
-  if (!window.confirmationResult) {
-    throw new Error('No active OTP session. Please request a new OTP code.');
+  if (!window.confirmationResult || typeof window.confirmationResult.confirm !== 'function') {
+    throw new Error('No active Firebase OTP session. Please click Send OTP first.');
   }
+  console.log('🔍 [FIREBASE VERIFY] Confirming 6-digit code with Firebase...');
   const result = await window.confirmationResult.confirm(code);
   const user = result.user;
   const idToken = await user.getIdToken();
+  console.log('✅ [FIREBASE VERIFY SUCCESS] Firebase ID Token obtained for UID:', user.uid);
   return { user, idToken };
 };

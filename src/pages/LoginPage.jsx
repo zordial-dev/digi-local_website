@@ -343,10 +343,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
       try {
         await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-        setOtpSentMsg(`Verification SMS code sent to ${fullPhone}. Check your mobile phone.`);
+        setOtpSentMsg(`Verification SMS code sent to ${fullPhone}. Check your mobile phone for the OTP.`);
       } catch (fbErr) {
         console.error('Firebase Phone Auth SMS Error:', fbErr);
-        setError(fbErr.message || 'Failed to send SMS to your mobile number.');
+        setError(fbErr?.message || 'Failed to send verification SMS via Firebase.');
         return;
       }
 
@@ -354,14 +354,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
       setOtpBoxes(Array(6).fill(''));
       setResendCountdown(30);
     } catch (err) {
-      const errMsg = err?.message || String(err || '');
-      if (errMsg.includes('TOO_MANY_ATTEMPTS_TRY_LATER') || errMsg.includes('too-many-requests')) {
-        setError('Too many verification attempts for this mobile number. Please wait a few minutes before trying again.');
-      } else if (errMsg.includes('INVALID_APP_CREDENTIAL') || errMsg.includes('invalid-app-credential')) {
-        setError('Security verification check failed. Please refresh the page and try again.');
-      } else {
-        setError(err.message || 'Failed to send verification code. Please try again.');
-      }
+      setError(err.message || 'Failed to initialize verification.');
     } finally {
       setLoading(false);
     }
