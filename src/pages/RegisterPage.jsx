@@ -18,8 +18,8 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // 4 Single-Digit OTP State & Timer
-  const [otpValues, setOtpValues] = useState(['', '', '', '']);
+  // 6 Single-Digit OTP State & Timer
+  const [otpValues, setOtpValues] = useState(['', '', '', '', '', '']);
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
@@ -62,7 +62,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
     newOtp[index] = digit;
     setOtpValues(newOtp);
 
-    if (digit && index < 3 && otpInputRefs.current[index + 1]) {
+    if (digit && index < 5 && otpInputRefs.current[index + 1]) {
       otpInputRefs.current[index + 1].focus();
     }
   };
@@ -84,7 +84,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
 
   const handleOtpPaste = (e) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 4);
+    const pastedData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 6);
     if (!pastedData) return;
     const digits = pastedData.split('');
     const newOtp = [...otpValues];
@@ -123,20 +123,22 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
         return;
       }
 
-      try {
-        await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-        setSuccessMsg(`Verification SMS code sent to ${fullPhone}! Check your mobile phone.`);
-      } catch (fbErr) {
-        console.warn('Firebase Phone Auth warning:', fbErr?.message || fbErr);
-        setError(fbErr?.message || 'Failed to send verification SMS.');
-        return;
-      }
-
+      await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
+      setSuccessMsg(`Verification SMS code sent to ${fullPhone}! Check your mobile phone.`);
       setOtpValues(['', '', '', '', '', '']);
       setResendCountdown(30);
       setRegisterStep('otp');
     } catch (err) {
-      setError(err.message || 'Failed to initialize verification.');
+      const errMsg = err?.message || String(err || '');
+      if (errMsg.includes('TOO_MANY_ATTEMPTS_TRY_LATER') || errMsg.includes('too-many-requests')) {
+        setError('Too many verification requests for this mobile number. Please wait a few minutes before trying again.');
+      } else if (errMsg.includes('INVALID_APP_CREDENTIAL') || errMsg.includes('invalid-app-credential')) {
+        setError('Security verification check failed. Please refresh the page and try again.');
+      } else if (errMsg.includes('already been rendered') || errMsg.includes('reCAPTCHA')) {
+        setError('Verification check reset. Please click "Send Verification OTP" again.');
+      } else {
+        setError(err.message || 'Failed to send verification SMS.');
+      }
     } finally {
       setLoading(false);
     }
@@ -166,8 +168,8 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
     setSuccessMsg('');
 
     const enteredOtp = otpValues.join('').trim();
-    if (enteredOtp.length < 4) {
-      setError('Please enter the OTP verification code.');
+    if (enteredOtp.length < 6) {
+      setError('Please enter the complete 6-digit OTP verification code.');
       return;
     }
 
@@ -301,7 +303,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
               {registerStep === 'phone' && 'Enter your name and mobile number to verify your identity via OTP.'}
               {registerStep === 'otp' && (
                 <>
-                  We've sent a 4-digit security code to{' '}
+                  We've sent a 6-digit security code to{' '}
                   <span className="font-bold text-[#1E3623]">{countryCode} {phoneNumber}</span>.{' '}
                   <button
                     type="button"
@@ -403,17 +405,17 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
             </form>
           )}
 
-          {/* STEP 2: Enter & Verify 4-Digit OTP */}
+          {/* STEP 2: Enter & Verify 6-Digit OTP */}
           {registerStep === 'otp' && (
             <form onSubmit={handleVerifyOtpCode} className="space-y-5 font-sans animate-in fade-in duration-300">
               
               <div className="py-2">
                 <label className="block text-xs font-bold text-center text-[#1E3623] mb-3">
-                  Enter 4-Digit Security Code
+                  Enter 6-Digit Security Code
                 </label>
 
-                {/* 4 Single-Digit Input Blocks */}
-                <div className="flex justify-center items-center gap-3">
+                {/* 6 Single-Digit Input Blocks */}
+                <div className="flex justify-center items-center gap-2 sm:gap-2.5">
                   {otpValues.map((digit, idx) => (
                     <input
                       key={idx}
@@ -425,7 +427,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
                       onChange={(e) => handleOtpChange(idx, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                       onPaste={idx === 0 ? handleOtpPaste : undefined}
-                      className="w-12 h-14 text-center text-xl font-bold rounded-2xl bg-[#FAF9F6] border-2 border-border/80 text-[#1E3623] focus:outline-none focus:border-[#1E3623] focus:bg-white focus:ring-4 focus:ring-[#1E3623]/10 transition-all shadow-xs"
+                      className="w-10 h-12 sm:w-11 sm:h-13 text-center text-lg font-bold rounded-2xl bg-[#FAF9F6] border-2 border-border/80 text-[#1E3623] focus:outline-none focus:border-[#1E3623] focus:bg-white focus:ring-4 focus:ring-[#1E3623]/10 transition-all shadow-xs"
                     />
                   ))}
                 </div>
@@ -458,7 +460,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser }) 
 
               <button
                 type="submit"
-                disabled={loading || otpValues.join('').length < 4}
+                disabled={loading || otpValues.join('').length < 6}
                 className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>{loading ? 'Verifying OTP...' : 'Verify Mobile Number'}</span>

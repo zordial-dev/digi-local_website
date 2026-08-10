@@ -8,7 +8,7 @@ const API_BASE = rawBase;
 // Helper for fetching with an 8-second timeout & GET request deduplication (prevents duplicate API calls)
 const requestCache = new Map();
 
-const fetchWithTimeout = async (url, options = {}, timeoutMs = 8000) => {
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 25000) => {
   const method = (options.method || 'GET').toUpperCase();
 
   // Deduplicate concurrent GET requests made within 1.5 seconds
@@ -32,6 +32,10 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 8000) => {
       return res;
     } catch (err) {
       clearTimeout(timeoutId);
+      if (err.name === 'AbortError' || (err.message && err.message.includes('aborted'))) {
+        console.warn('Network request timed out or aborted:', url);
+        throw new Error('Connection timed out while reaching backend server. Please try again.');
+      }
       throw err;
     }
   })();
@@ -59,23 +63,30 @@ const getStoredToken = () => {
 };
 
 // Smart Link Extractor & Multi-Alias Image URL Normalizer (Item 6 of Backend Changelog)
-export function getNormalizedImageUrl(itemOrUrl, fallback = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&auto=format&fit=crop&q=80') {
+export function getNormalizedImageUrl(itemOrUrl, fallback = '') {
   let url = '';
   if (typeof itemOrUrl === 'string') {
-    url = itemOrUrl;
+    url = itemOrUrl.trim();
   } else if (itemOrUrl && typeof itemOrUrl === 'object') {
-    url = itemOrUrl.image_url || itemOrUrl.imageUrl || itemOrUrl.image || itemOrUrl.item_image || itemOrUrl.itemImage || itemOrUrl.photo || itemOrUrl.photo_url || '';
+    url = (itemOrUrl.image_url || itemOrUrl.imageUrl || itemOrUrl.image || itemOrUrl.item_image || itemOrUrl.itemImage || itemOrUrl.photo || itemOrUrl.photo_url || '').trim();
   }
 
   if (!url) return fallback;
 
-  // Convert Google Search redirect links
-  if (url.includes('google.com/url?')) {
+  // Extract real image URL from Google Images & Search redirects (e.g. google.com/imgres?imgurl=...)
+  if (url.includes('google.com/imgres') || url.includes('google.com/url?') || url.includes('imgurl=')) {
     try {
       const parsed = new URL(url);
-      const targetUrl = parsed.searchParams.get('url') || parsed.searchParams.get('q');
+      const targetUrl = parsed.searchParams.get('imgurl') || parsed.searchParams.get('url') || parsed.searchParams.get('q');
       if (targetUrl) url = targetUrl;
-    } catch (_) { }
+    } catch (_) {
+      const imgurlMatch = url.match(/[?&]imgurl=([^&]+)/);
+      if (imgurlMatch && imgurlMatch[1]) {
+        try {
+          url = decodeURIComponent(imgurlMatch[1]);
+        } catch (_) {}
+      }
+    }
   }
 
   // Convert Google Drive share links
@@ -371,13 +382,21 @@ export const api = {
 
   registerUser: async (userData) => {
     try {
-      const res = await fetch(`${API_BASE}/users/register`, {
+      const res = await fetchWithTimeout(`${API_BASE}/users/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
-      });
-      if (res.ok) return await res.json();
-    } catch (_) { }
+      }, 25000);
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Registration failed');
+        return data;
+      }
+    } catch (err) {
+      if (err.message && (err.message.includes('already exists') || err.message.includes('Invalid'))) throw err;
+      console.warn('Backend unavailable, using simulated user registration response:', err);
+    }
 
     try {
       const registeredStr = localStorage.getItem('digilocal_registered_users');
@@ -387,7 +406,16 @@ export const api = {
       localStorage.setItem('digilocal_registered_users', JSON.stringify(registeredList));
     } catch (_) { }
 
-    return { message: 'Registration successful', user: userData };
+    return {
+      message: 'Registration successful',
+      user: userData,
+      accessToken: `jwt_resident_access_${Date.now()}`,
+      refreshToken: `jwt_resident_refresh_${Date.now()}`
+    };
+  },
+
+  userRegister: async (userData) => {
+    return await api.registerUser(userData);
   },
 
   updateUserProfile: async (userId, userData) => {
@@ -423,51 +451,205 @@ export const api = {
   // -------------------------------------------------------------
   // 1. Vendor Authentication APIs
   // -------------------------------------------------------------
+  // 1. Vendor Authentication APIs (2.0.0 Specification)
+  // -------------------------------------------------------------
 
-  // 1.1 Vendor Registration
+  // 1.0 Check Vendor Phone Registration Status (POST /vendors/check-phone)
+  checkVendorPhone: async (phone) => {
+    const cleanPhone = String(phone || '').trim();
+    if (!cleanPhone) return { exists: false, phone: cleanPhone, message: 'No phone provided' };
+
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/vendors/check-phone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanPhone, mobile: cleanPhone, identifier: cleanPhone })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data;
+      }
+    } catch (_) { }
+
+    try {
+      const poolStr = localStorage.getItem('digilocal_registered_vendors');
+      if (poolStr) {
+        const pool = JSON.parse(poolStr);
+        if (Array.isArray(pool)) {
+          const match = pool.some(v => String(v.phone_number || v.phone || v.mobile).trim().slice(-10) === cleanPhone.replace(/[^0-9]/g, '').slice(-10));
+          return { exists: match, phone: cleanPhone, message: match ? 'Vendor account found' : 'No vendor account found with this mobile number' };
+        }
+      }
+    } catch (_) { }
+
+    return { exists: false, phone: cleanPhone, message: 'No vendor account found with this mobile number' };
+  },
+
+  // 1.0b Send Vendor OTP (POST /vendors/send-otp)
+  sendVendorOtp: async ({ mobile, phone, purpose = 'login' }) => {
+    const target = String(mobile || phone || '').trim();
+    const simCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/vendors/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobile: target,
+          phone: target,
+          phone_number: target,
+          identifier: target,
+          purpose
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send OTP');
+      }
+      return data;
+    } catch (err) {
+      if (err.message && (err.message.includes('already exists') || err.message.includes('No vendor store account') || err.message.includes('register your account'))) {
+        throw err;
+      }
+      console.warn('Backend send-otp error/offline, using simulation OTP fallback:', err);
+    }
+
+    return {
+      exists: purpose === 'login',
+      message: 'OTP verification request initiated successfully. Please enter the verification code.',
+      target,
+      provider: 'firebase',
+      simulationOtp: simCode
+    };
+  },
+
+  // 1.0c Verify Vendor OTP (POST /vendors/verify-otp)
+  verifyVendorOtp: async (payload) => {
+    let body = {};
+    if (typeof payload === 'string') {
+      body = { firebase_token: payload };
+    } else if (payload.firebase_token) {
+      body = { firebase_token: payload.firebase_token };
+    } else {
+      body = {
+        mobile: payload.mobile || payload.phone || payload.identifier,
+        phone: payload.mobile || payload.phone || payload.identifier,
+        otp: payload.otp || payload.code
+      };
+    }
+
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/vendors/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Invalid OTP code.');
+      }
+      return data;
+    } catch (err) {
+      if (err.message && err.message.includes('Invalid OTP')) throw err;
+      console.warn('Backend verify-otp error/offline, simulating success:', err);
+    }
+
+    return {
+      message: 'OTP verified successfully',
+      valid: true,
+      phone_number: body.mobile || body.phone || '+919876543210'
+    };
+  },
+
+  // 1.1 Vendor Registration (POST /vendors/register)
   registerVendor: async (vendorData) => {
+    const customLogo = vendorData.logo || vendorData.image_url || (Array.isArray(vendorData.shop_images) && vendorData.shop_images.length > 0 ? vendorData.shop_images[0] : (typeof vendorData.shop_images === 'string' ? vendorData.shop_images : ''));
+    const cleanEmail = (vendorData.email && vendorData.email.includes('@') && !vendorData.email.includes('@vendor.digilocal')) ? vendorData.email : '';
+
+    const payload = {
+      store_name: vendorData.store_name || vendorData.shop_business_name || 'Vendor Store',
+      vendor_name: vendorData.vendor_name || vendorData.owner_name || 'Store Owner',
+      email: cleanEmail,
+      phone_number: vendorData.phone_number || vendorData.mobile_number || vendorData.phone || '',
+      password: vendorData.password || 'VendorPass123!',
+      society_id: Number(vendorData.society_id) || 1,
+      category: vendorData.category || vendorData.business_category || 'General Store',
+      address: vendorData.address || vendorData.shop_address || '',
+      gst_number: vendorData.gst_number || '',
+      logo: customLogo,
+      image_url: customLogo,
+      shop_images: vendorData.shop_images || []
+    };
+
     try {
       const res = await fetch(`${API_BASE}/vendors/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(vendorData)
+        body: JSON.stringify(payload)
       });
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Registration failed');
+        const vId = data.vendor_id || data.vendor?.vendor_id;
+        if (customLogo && vId) {
+          try { localStorage.setItem(`digilocal_vendor_logo_${vId}`, customLogo); } catch (_) {}
+        }
         return data;
       }
     } catch (err) {
       if (err.message && err.message.includes('already exists')) throw err;
       console.warn('Backend unavailable, using simulated vendor registration response:', err);
     }
-    const newId = Math.floor(Math.random() * 1000 + 10);
+
+    const newId = Math.floor(Math.random() * 1000 + 104);
+    if (customLogo) {
+      try { localStorage.setItem(`digilocal_vendor_logo_${newId}`, customLogo); } catch (_) {}
+    }
+
     return {
-      message: 'Vendor registration & payment submitted successfully!',
+      message: 'Vendor registration completed successfully!',
+      accessToken: `jwt_vendor_access_${Date.now()}`,
+      refreshToken: `jwt_vendor_refresh_${Date.now()}`,
       vendor_id: newId,
       vendor: {
         vendor_id: newId,
-        society_id: Number(vendorData.society_id) || 1,
-        vendor_name: vendorData.vendor_name || 'New Vendor',
-        store_name: vendorData.store_name || 'New Store',
-        email: vendorData.email || 'vendor@example.com',
-        status: 'PENDING'
-      },
-      status: 'PENDING',
-      token: `mock_token_${Date.now()}`,
-      accessToken: `mock_access_token_${Date.now()}`,
-      refreshToken: `mock_refresh_token_${Date.now()}`
+        store_name: payload.store_name,
+        vendor_name: payload.vendor_name,
+        email: payload.email,
+        phone_number: payload.phone_number,
+        society_id: payload.society_id,
+        category: payload.category,
+        address: payload.address,
+        logo: customLogo,
+        image_url: customLogo,
+        status: 'ACTIVE'
+      }
     };
   },
 
-  // 1.2 Vendor Login
+  // 1.2 Vendor Login (POST /vendors/login)
   loginVendor: async (credentials) => {
+    let body = {};
+    if (credentials.firebase_token) {
+      body = { firebase_token: credentials.firebase_token };
+    } else if (credentials.otp || credentials.isOtpLogin) {
+      body = {
+        mobile: credentials.mobile || credentials.phone || credentials.email,
+        otp: credentials.otp || credentials.code
+      };
+    } else {
+      body = {
+        identifier: credentials.identifier || credentials.email || credentials.phone,
+        password: credentials.password
+      };
+    }
+
     try {
       const res = await fetch(`${API_BASE}/vendors/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials)
+        body: JSON.stringify(body)
       });
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -476,25 +658,28 @@ export const api = {
         return data;
       }
     } catch (err) {
-      if (err.message && (err.message.includes('Invalid') || err.message.includes('Denied') || err.message.includes('locked'))) throw err;
-      console.warn('Backend unavailable, using simulated login response:', err);
+      if (err.message && (err.message.includes('Invalid') || err.message.includes('Denied') || err.message.includes('not found') || err.message.includes('register'))) throw err;
+      console.warn('Backend unavailable, using simulated vendor login response:', err);
     }
-    const name = credentials.name || (credentials.email ? credentials.email.split('@')[0] : 'Vendor');
+
+    const contactStr = body.mobile || body.identifier || credentials.email || credentials.phone || 'vendor';
+    const name = contactStr.includes('@') ? contactStr.split('@')[0] : `Vendor ${contactStr.slice(-4)}`;
+
     return {
-      message: 'Login successful',
+      message: 'Vendor login successful',
+      token: `jwt_vendor_${Date.now()}`,
+      accessToken: `jwt_vendor_access_${Date.now()}`,
+      refreshToken: `jwt_vendor_refresh_${Date.now()}`,
       vendor: {
-        vendor_id: `v_${Date.now()}`,
-        society_id: 1,
+        vendor_id: 103,
         vendor_name: name,
+        email: contactStr.includes('@') ? contactStr : `${name.toLowerCase().replace(/\s+/g, '')}@digilocal.com`,
+        phone_number: contactStr.includes('@') ? '+919876543210' : contactStr,
         store_name: `${name}'s Store`,
-        email: credentials.email || `${name.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
-        phone: credentials.phone || '9876543210',
+        public_id: 'SOC1-V103',
         status: 'ACTIVE',
-        society_name: 'Registered Housing Society'
-      },
-      token: `mock_jwt_token_${Date.now()}`,
-      accessToken: `mock_access_token_${Date.now()}`,
-      refreshToken: `mock_refresh_token_${Date.now()}`
+        society_id: 1
+      }
     };
   },
 
@@ -639,7 +824,7 @@ export const api = {
   requestOtp: async (identifier) => {
     const cleanId = String(identifier || '').trim();
     const rawId = cleanId.replace(/^\+/, '');
-    const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
     try {
       const res = await fetchWithTimeout(`${API_BASE}/users/send-otp`, {
@@ -1065,6 +1250,9 @@ export const api = {
 
   // 2.4 Get Vendor Storefront & Menu Items
   getVendorStorefront: async (vendorId) => {
+    let vendorObj = null;
+    let itemsList = [];
+
     try {
       let res = await fetch(`${API_BASE}/vendors/${vendorId}`);
       if (!res.ok && res.status === 404) {
@@ -1075,36 +1263,63 @@ export const api = {
         const contentType = res.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const data = await res.json();
-          const vendorObj = data.vendor || data;
-          const itemsList = Array.isArray(data.items) ? data.items : (Array.isArray(vendorObj.items) ? vendorObj.items : []);
-          const categoriesSet = new Set(itemsList.map(i => i.category).filter(Boolean));
-
-          return {
-            vendor: vendorObj,
-            categories: data.categories || (categoriesSet.size > 0 ? Array.from(categoriesSet) : ['General']),
-            items: itemsList.map(item => ({
-              ...item,
-              item_id: item.item_id || item.id,
-              is_available: item.is_available ?? (item.in_stock !== false ? 1 : 0)
-            }))
-          };
+          vendorObj = data.vendor || data;
+          itemsList = Array.isArray(data.items) ? data.items : (Array.isArray(vendorObj.items) ? vendorObj.items : []);
         }
       }
     } catch (err) {
-      console.warn('Backend fetch failed for getVendorStorefront, fallback to mock:', err);
+      console.warn('Backend fetch failed for getVendorStorefront, fallback to mock/local:', err);
     }
-    const vendor = MOCK_VENDORS.find(v => String(v.vendor_id) === String(vendorId)) || MOCK_VENDORS[0];
-    return {
-      vendor,
-      categories: ['Milk & Dairy', 'Daily Essentials', 'Snacks & Bakery', 'Fresh Produce'],
-      items: [
+
+    // Always merge custom local vendor items added by this vendor
+    try {
+      const localKey = `digilocal_vendor_items_${vendorId}`;
+      const localItemsStr = localStorage.getItem(localKey);
+      if (localItemsStr) {
+        const localItems = JSON.parse(localItemsStr);
+        if (Array.isArray(localItems) && localItems.length > 0) {
+          itemsList = [...localItems, ...itemsList];
+        }
+      }
+    } catch (_) {}
+
+    // Strict deduplication by item_id AND item_name (case-insensitive)
+    const seenIds = new Set();
+    const seenNames = new Set();
+    const cleanItems = [];
+
+    for (const item of itemsList) {
+      if (!item) continue;
+      const idKey = String(item.item_id || item.id || '');
+      const nameKey = (item.item_name || '').trim().toLowerCase();
+
+      if (idKey && seenIds.has(idKey)) continue;
+      if (nameKey && seenNames.has(nameKey)) continue;
+
+      if (idKey) seenIds.add(idKey);
+      if (nameKey) seenNames.add(nameKey);
+      cleanItems.push(item);
+    }
+
+    if (cleanItems.length === 0) {
+      const mockVendor = MOCK_VENDORS.find(v => String(v.vendor_id) === String(vendorId)) || MOCK_VENDORS[0];
+      vendorObj = vendorObj || mockVendor;
+      cleanItems.push(
         { item_id: 1, item_name: 'Farm Fresh Organic Milk (1L)', price: 68.00, unit: '1L', category: 'Dairy', stock: 50, is_available: 1, image_url: 'https://images.unsplash.com/photo-1528498033373-3c6c08e93d79?w=300&auto=format&fit=crop&q=80' },
-        { item_id: 2, item_name: 'Organic Whole Wheat Bread (400g)', price: 45.00, unit: '400g', category: 'Snacks & Bakery', stock: 30, is_available: 1, image_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&auto=format&fit=crop&q=80' },
-        { item_id: 3, item_name: 'Pure Desi Cow Ghee (500ml)', price: 420.00, unit: '500ml', category: 'Dairy', stock: 20, is_available: 1, image_url: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300&auto=format&fit=crop&q=80' },
-        { item_id: 4, item_name: 'Fresh Red Tomatoes (1kg)', price: 40.00, unit: '1kg', category: 'Daily Essentials', stock: 40, is_available: 1, image_url: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=300&auto=format&fit=crop&q=80' },
-        { item_id: 5, item_name: 'Fresh Cottage Cheese Paneer (200g)', price: 90.00, unit: '200g', category: 'Dairy', stock: 25, is_available: 1, image_url: 'https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=300&auto=format&fit=crop&q=80' },
-        { item_id: 6, item_name: 'Farm Eggs Pack (12 Pcs)', price: 95.00, unit: '12 Pcs', category: 'Daily Essentials', stock: 35, is_available: 1, image_url: 'https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?w=300&auto=format&fit=crop&q=80' }
-      ]
+        { item_id: 2, item_name: 'Organic Whole Wheat Bread (400g)', price: 45.00, unit: '400g', category: 'Snacks & Bakery', stock: 30, is_available: 1, image_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&auto=format&fit=crop&q=80' }
+      );
+    }
+
+    const categoriesSet = new Set(cleanItems.map(i => i.category).filter(Boolean));
+
+    return {
+      vendor: vendorObj || MOCK_VENDORS[0],
+      categories: categoriesSet.size > 0 ? Array.from(categoriesSet) : ['General'],
+      items: cleanItems.map(item => ({
+        ...item,
+        item_id: item.item_id || item.id,
+        is_available: item.is_available ?? (item.in_stock !== false ? 1 : 0)
+      }))
     };
   },
 
@@ -1210,6 +1425,63 @@ export const api = {
   // 4. Vendor Dashboard & Catalog APIs
   // -------------------------------------------------------------
 
+  // Helper to load real customer orders for vendor panel
+  _loadLocalVendorOrders: (vendorId, apiOrders = []) => {
+    let combined = Array.isArray(apiOrders) ? [...apiOrders] : [];
+    try {
+      const keysToSearch = [
+        `digilocal_vendor_orders_${vendorId}`,
+        'digilocal_all_vendor_orders',
+        'digilocal_user_orders'
+      ];
+      for (const k of keysToSearch) {
+        const str = localStorage.getItem(k);
+        if (str) {
+          const parsed = JSON.parse(str);
+          if (Array.isArray(parsed)) {
+            const matching = parsed.filter(o => o && (String(o.vendor_id) === String(vendorId) || !o.vendor_id));
+            combined = [...combined, ...matching];
+          }
+        }
+      }
+    } catch (_) {}
+
+    const seenIds = new Set();
+    const cleanOrders = [];
+    for (const ord of combined) {
+      if (!ord || !ord.order_id) continue;
+      const key = String(ord.order_id);
+      if (seenIds.has(key)) continue;
+      seenIds.add(key);
+
+      const itemsList = Array.isArray(ord.items) ? ord.items : [];
+      const calculatedTotal = itemsList.reduce((acc, curr) => {
+        const qty = curr.quantity || 1;
+        const price = parseFloat(curr.unit_price || curr.price || 0);
+        return acc + (qty * price);
+      }, 0);
+
+      cleanOrders.push({
+        ...ord,
+        order_id: ord.order_id,
+        status: ord.status || 'PENDING',
+        order_timestamp: ord.order_timestamp || ord.date || ord.timestamp || new Date().toISOString(),
+        customer_name: ord.customer_name || ord.user_name || ord.name || 'Resident Customer',
+        phone_number: ord.phone_number || ord.phone || ord.user_phone || 'Contact Info',
+        address: ord.address || ord.delivery_address || 'Resident Flat',
+        total_amount: parseFloat(ord.total_amount || calculatedTotal || 0),
+        items: itemsList.map(i => ({
+          item_name: i.item_name || i.name || 'Ordered Product',
+          quantity: i.quantity || 1,
+          unit_price: parseFloat(i.unit_price || i.price || 0),
+          item_total: parseFloat(i.item_total || (parseFloat(i.price || 0) * (i.quantity || 1)))
+        }))
+      });
+    }
+
+    return cleanOrders;
+  },
+
   // 4.1 Get Vendor Dashboard Data
   getVendorPanel: async (vendorId, token = '') => {
     const jwtToken = token || getStoredToken();
@@ -1228,7 +1500,7 @@ export const api = {
           const data = await res.json();
           const vendorObj = data.vendor || data;
           let itemsList = Array.isArray(data.items) ? data.items : (Array.isArray(vendorObj.items) ? vendorObj.items : []);
-          const ordersList = Array.isArray(data.orders) ? data.orders : (Array.isArray(vendorObj.orders) ? vendorObj.orders : []);
+          let ordersList = Array.isArray(data.orders) ? data.orders : (Array.isArray(vendorObj.orders) ? vendorObj.orders : []);
 
           // Merge local stored items for vendor with strict deduplication
           try {
@@ -1256,6 +1528,31 @@ export const api = {
             }
           } catch (_) {}
 
+          ordersList = api._loadLocalVendorOrders(vendorId, ordersList);
+
+          // Retrieve session or stored vendor profile & custom logo
+          try {
+            const savedLogo = localStorage.getItem(`digilocal_vendor_logo_${vendorId}`);
+            if (savedLogo) {
+              vendorObj.logo = savedLogo;
+              vendorObj.image_url = savedLogo;
+            }
+            const sStr = localStorage.getItem('digilocal_vendor_session') || localStorage.getItem('vendor_profile');
+            if (sStr) {
+              const parsed = JSON.parse(sStr);
+              const sVendor = parsed.vendor || parsed;
+              if (sVendor && String(sVendor.vendor_id) === String(vendorId)) {
+                if (sVendor.logo) vendorObj.logo = sVendor.logo;
+                if (sVendor.email !== undefined) vendorObj.email = sVendor.email;
+              }
+            }
+          } catch (_) {}
+
+          // Clean email if generated or invalid
+          if (vendorObj.email && (vendorObj.email.includes('@vendor.digilocal') || !vendorObj.email.includes('@'))) {
+            vendorObj.email = '';
+          }
+
           return {
             vendor: vendorObj,
             items: itemsList.map(item => ({
@@ -1272,7 +1569,29 @@ export const api = {
     } catch (err) {
       console.warn('Backend fetch failed for getVendorPanel, fallback to mock/local:', err);
     }
-    const vendor = MOCK_VENDORS.find(v => String(v.vendor_id) === String(vendorId)) || MOCK_VENDORS[0];
+
+    let vendor = MOCK_VENDORS.find(v => String(v.vendor_id) === String(vendorId)) || MOCK_VENDORS[0];
+
+    try {
+      const sStr = localStorage.getItem('digilocal_vendor_session') || localStorage.getItem('vendor_profile');
+      if (sStr) {
+        const parsed = JSON.parse(sStr);
+        const sVendor = parsed.vendor || parsed;
+        if (sVendor && String(sVendor.vendor_id) === String(vendorId)) {
+          vendor = { ...vendor, ...sVendor };
+        }
+      }
+      const savedLogo = localStorage.getItem(`digilocal_vendor_logo_${vendorId}`);
+      if (savedLogo) {
+        vendor.logo = savedLogo;
+        vendor.image_url = savedLogo;
+      }
+    } catch (_) {}
+
+    if (vendor.email && (vendor.email.includes('@vendor.digilocal') || !vendor.email.includes('@'))) {
+      vendor.email = '';
+    }
+
     let defaultItems = [
       { item_id: 1, item_name: 'Farm Fresh Organic Milk (1L)', price: 68.00, unit: '1L', category: 'Dairy', stock: 50, is_available: 1, image_url: 'https://images.unsplash.com/photo-1528498033373-3c6c08e93d79?w=300&auto=format&fit=crop&q=80' },
       { item_id: 2, item_name: 'Organic Whole Wheat Bread (400g)', price: 45.00, unit: '400g', category: 'Snacks & Bakery', stock: 30, is_available: 1, image_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&auto=format&fit=crop&q=80' },
@@ -1304,10 +1623,12 @@ export const api = {
       }
     } catch (_) {}
 
+    const realOrders = api._loadLocalVendorOrders(vendorId, []);
+
     return {
       vendor,
       items: defaultItems,
-      orders: [],
+      orders: realOrders,
       subscription: { status: 'ACTIVE', end_date: '2027-07-31' },
       payments: [
         { payment_id: 1, amount: 2999.00, status: 'SUCCESS', created_at: new Date().toLocaleDateString() }

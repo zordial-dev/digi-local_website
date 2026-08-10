@@ -263,54 +263,97 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   const handleFormSubmit = async (e) => {
     if (e) e.preventDefault();
     const rawContact = (accountType === 'resident' ? userPhone : vendorIdentifier).trim();
-    const fullPhone = rawContact.startsWith('+') ? rawContact : `${countryCode}${rawContact}`;
+    const isEmail = rawContact.includes('@');
+    const fullPhone = isEmail ? rawContact : (rawContact.startsWith('+') ? rawContact : `${countryCode}${rawContact}`);
 
     if (authMethod === 'otp') {
       const code = otpBoxes.join('').trim();
-      if (code.length < 4) {
-        setError('Please enter the OTP security code.');
+      if (code.length < 6) {
+        setError('Please enter the complete 6-digit OTP security code.');
         return;
       }
       setLoading(true);
       setError('');
       try {
-        let firebaseToken = null;
-        try {
-          const result = await verifyFirebasePhoneOtp(code);
-          firebaseToken = result.idToken;
-        } catch (fbVerifyErr) {
-          console.warn('Firebase OTP verify fallback:', fbVerifyErr);
-          await api.verifyOtp(fullPhone, code);
+        if (accountType === 'resident') {
+          let firebaseToken = null;
+          if (!isEmail) {
+            try {
+              const result = await verifyFirebasePhoneOtp(code);
+              firebaseToken = result.idToken;
+            } catch (fbVerifyErr) {
+              console.warn('Firebase OTP verify fallback:', fbVerifyErr);
+              await api.verifyOtp(fullPhone, code);
+            }
+          }
+
+          const res = await api.userLogin({
+            phone: fullPhone,
+            firebase_token: firebaseToken || undefined,
+            otp: !firebaseToken ? code : undefined
+          });
+
+          const accessToken = res.accessToken || res.data?.accessToken || res.token;
+          const refreshToken = res.refreshToken || res.data?.refreshToken;
+          const userObj = res.user || res.data?.user || { phone: fullPhone };
+
+          if (accessToken) localStorage.setItem('accessToken', accessToken);
+          if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+          if (userObj) localStorage.setItem('user', JSON.stringify(userObj));
+
+          const session = {
+            user: userObj,
+            token: accessToken || `user_jwt_${Date.now()}`,
+            expiresAt: Date.now() + 86400000
+          };
+
+          localStorage.setItem('digilocal_user_session', JSON.stringify(session));
+          localStorage.setItem('digilocal_resident_session', JSON.stringify(userObj));
+          if (setActiveUser) setActiveUser(userObj);
+
+          setSuccessMsg('Logged in successfully via OTP!');
+          setTimeout(() => setRoute({ page: 'profile' }), 400);
+        } else {
+          // VENDOR OTP LOGIN FLOW (2.0.0 API Spec: POST /vendors/login)
+          let firebaseToken = null;
+          if (!isEmail) {
+            try {
+              const result = await verifyFirebasePhoneOtp(code);
+              firebaseToken = result.idToken;
+            } catch (_) {}
+          }
+
+          const res = await api.loginVendor({
+            mobile: fullPhone,
+            phone: fullPhone,
+            email: rawContact,
+            otp: code,
+            firebase_token: firebaseToken || undefined
+          });
+
+          const accessToken = res.accessToken || res.data?.accessToken || res.token;
+          const refreshToken = res.refreshToken || res.data?.refreshToken;
+          const vendorObj = res.vendor || res.data?.vendor || { phone_number: fullPhone, store_name: `Store ${fullPhone.slice(-4)}` };
+
+          if (accessToken) {
+            localStorage.setItem('vendor_access_token', accessToken);
+            localStorage.setItem('accessToken', accessToken);
+          }
+          if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+          if (vendorObj) localStorage.setItem('vendor_profile', JSON.stringify(vendorObj));
+
+          const session = {
+            vendor: vendorObj,
+            token: accessToken || `vendor_jwt_${Date.now()}`,
+            expiresAt: Date.now() + 86400000
+          };
+
+          localStorage.setItem('digilocal_vendor_session', JSON.stringify(session));
+          if (setActiveVendor) setActiveVendor(vendorObj);
+
+          setSuccessMsg(`Logged in successfully as ${vendorObj.store_name || vendorObj.vendor_name || 'Vendor'}! Opening Dashboard...`);
+          setTimeout(() => setRoute({ page: 'vendorDashboard', vendorId: vendorObj.vendor_id }), 400);
         }
-
-        // Send to Backend: POST /api/users/login with { firebase_token }
-        const res = await api.userLogin({
-          phone: fullPhone,
-          firebase_token: firebaseToken || undefined,
-          otp: !firebaseToken ? code : undefined
-        });
-
-        // ITEM 4 CHECKLIST: STORE BACKEND TOKENS
-        const accessToken = res.accessToken || res.data?.accessToken || res.token;
-        const refreshToken = res.refreshToken || res.data?.refreshToken;
-        const userObj = res.user || res.data?.user || { phone: fullPhone };
-
-        if (accessToken) localStorage.setItem('accessToken', accessToken);
-        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-        if (userObj) localStorage.setItem('user', JSON.stringify(userObj));
-
-        const session = {
-          user: userObj,
-          token: accessToken || `user_jwt_${Date.now()}`,
-          expiresAt: Date.now() + 86400000
-        };
-
-        localStorage.setItem('digilocal_user_session', JSON.stringify(session));
-        localStorage.setItem('digilocal_resident_session', JSON.stringify(userObj));
-        if (setActiveUser) setActiveUser(userObj);
-
-        setSuccessMsg('Logged in successfully via OTP!');
-        setTimeout(() => setRoute({ page: 'profile' }), 400);
       } catch (err) {
         setError(err.message || 'Invalid OTP code. Please verify and try again.');
       } finally {
@@ -321,14 +364,15 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
     }
   };
 
-  // Trigger inline OTP mode when clicking "Try another method" (Firebase SMS)
+  // Trigger inline OTP mode when clicking "Try another method"
   const handleSwitchToOtpMethod = async () => {
     const rawContact = (accountType === 'resident' ? userPhone : vendorIdentifier).trim();
     if (!rawContact) {
       setError(accountType === 'resident' ? 'Please enter your mobile phone number first.' : 'Please enter your email or phone number first.');
       return;
     }
-    const fullPhone = rawContact.startsWith('+') ? rawContact : `${countryCode}${rawContact}`;
+    const isEmail = rawContact.includes('@');
+    const fullPhone = isEmail ? rawContact : (rawContact.startsWith('+') ? rawContact : `${countryCode}${rawContact}`);
     setError('');
     setLoading(true);
     try {
@@ -339,22 +383,31 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           setShowRegisterPrompt(true);
           return;
         }
+      } else {
+        // Vendor Pre-Check Phone Registration (POST /vendors/check-phone)
+        const checkRes = await api.checkVendorPhone(fullPhone);
+        if (checkRes && checkRes.exists === false) {
+          setError(checkRes.message || 'No vendor store account found with this mobile number. Please register your account first.');
+          setShowRegisterPrompt(true);
+          return;
+        }
       }
 
-      try {
+      let sentOtp = '';
+      if (!isEmail) {
         await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-        setOtpSentMsg(`Verification SMS code sent to ${fullPhone}. Check your mobile phone for the OTP.`);
-      } catch (fbErr) {
-        console.error('Firebase Phone Auth SMS Error:', fbErr);
-        setError(fbErr?.message || 'Failed to send verification SMS via Firebase.');
-        return;
+        setOtpSentMsg(`Verification SMS code sent to ${fullPhone} via Firebase! Check your mobile phone.`);
+      } else {
+        const res = await api.requestOtp(rawContact);
+        sentOtp = res?.otp || res?.simulationOtp || res?.otpCode || '';
+        setOtpSentMsg(`Verification OTP sent to ${rawContact}.${sentOtp ? ` Code: ${sentOtp}` : ''}`);
       }
 
       setAuthMethod('otp');
       setOtpBoxes(Array(6).fill(''));
       setResendCountdown(30);
     } catch (err) {
-      setError(err.message || 'Failed to initialize verification.');
+      setError(err.message || 'Failed to send verification code. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -363,22 +416,25 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   const handleResendOtp = async () => {
     const rawContact = (accountType === 'resident' ? userPhone : vendorIdentifier).trim();
     if (!rawContact || resendCountdown > 0) return;
-    const fullPhone = rawContact.startsWith('+') ? rawContact : `${countryCode}${rawContact}`;
+    const isEmail = rawContact.includes('@');
+    const fullPhone = isEmail ? rawContact : (rawContact.startsWith('+') ? rawContact : `${countryCode}${rawContact}`);
     setError('');
     setLoading(true);
     try {
-      if (accountType === 'resident') {
-        const checkRes = await api.checkUserPhone(fullPhone);
-        if (!checkRes.exists) {
-          setError('No account found with this mobile number. Please register your account first.');
-          setShowRegisterPrompt(true);
-          return;
+      if (!isEmail) {
+        try {
+          await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
+          setOtpSentMsg(`Verification SMS code resent to ${fullPhone}. Check your mobile phone.`);
+        } catch (_) {
+          const res = await api.requestOtp(fullPhone);
+          const code = res?.otp || res?.simulationOtp || res?.otpCode || '';
+          setOtpSentMsg(`Verification OTP resent to ${fullPhone}.${code ? ` Code: ${code}` : ''}`);
         }
+      } else {
+        const res = await api.requestOtp(rawContact);
+        const code = res?.otp || res?.simulationOtp || res?.otpCode || '';
+        setOtpSentMsg(`Verification OTP resent to ${rawContact}.${code ? ` Code: ${code}` : ''}`);
       }
-
-      await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-      setOtpSentMsg(`Verification SMS code resent to ${fullPhone}. Check your mobile phone.`);
-      setResendCountdown(30);
       setResendCountdown(30);
     } catch (err) {
       setError(err.message || 'Failed to resend verification code.');
@@ -773,7 +829,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                 {altStep === 4 && 'Set New Password'}
               </h3>
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed font-medium">
-                {altStep === 3 && 'Your 4-digit mobile OTP has been successfully verified! Would you like to update your account password before continuing?'}
+                {altStep === 3 && 'Your 6-digit mobile OTP has been successfully verified! Would you like to update your account password before continuing?'}
                 {altStep === 4 && 'Enter your new password below to update your login credentials.'}
               </p>
             </div>

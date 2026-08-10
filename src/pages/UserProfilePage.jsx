@@ -37,6 +37,16 @@ import {
 import { api } from '../services/api';
 import CountryCodePicker from '../components/CountryCodePicker';
 
+function getInitials(nameStr) {
+  if (!nameStr || typeof nameStr !== 'string') return 'U';
+  const parts = nameStr.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'U';
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export default function UserProfilePage({ activeUser, setActiveUser, setRoute, onLogout }) {
   const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'profile' | 'addresses' | 'favorites' | 'settings'
 
@@ -48,7 +58,7 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
     society: '',
     societyId: '',
     flat: '',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
+    avatar: ''
   });
 
   const [name, setName] = useState('');
@@ -59,7 +69,7 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
   const [society, setSociety] = useState('');
   const [societyId, setSocietyId] = useState('');
   const [flat, setFlat] = useState('');
-  const [avatar, setAvatar] = useState('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80');
+  const [avatar, setAvatar] = useState('');
   
   // UI Notifications & Editing State
   const [isEditing, setIsEditing] = useState(false);
@@ -114,7 +124,7 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         society: userData.society_name || userData.society || '',
         societyId: userData.society_id || '',
         flat: userData.flat || '',
-        avatar: userData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
+        avatar: userData.avatar || ''
       };
 
       setSavedProfile(initialProfile);
@@ -135,17 +145,19 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         if (Array.isArray(parsed)) {
           setAddresses(parsed);
         }
-      } else if (userData && (userData.society_name || userData.flat)) {
+      } else if (userData && userData.society_name && userData.flat) {
         const initialAddr = [{
           id: 1,
           label: 'Primary Residence',
-          society: userData.society_name || '',
-          flat: userData.flat || '',
+          society: userData.society_name,
+          flat: userData.flat,
           pincode: userData.pincode || '201310',
           isDefault: true
         }];
         setAddresses(initialAddr);
         localStorage.setItem('digilocal_saved_addresses', JSON.stringify(initialAddr));
+      } else {
+        setAddresses([]);
       }
     } catch (_) {}
 
@@ -406,17 +418,10 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
             {/* Left Info: Avatar + Identity */}
             <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-5 sm:gap-6">
               
-              {/* Profile Avatar Frame */}
+              {/* Profile Avatar Frame: 2-Letter Initials Avatar */}
               <div className="relative group shrink-0">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-[#E6C35C]/80 p-1 shadow-xl bg-[#0F1C15] overflow-hidden">
-                  <img 
-                    src={savedProfile.avatar || avatar} 
-                    alt={savedProfile.name || name}
-                    className="w-full h-full object-cover rounded-full"
-                    onError={(e) => {
-                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(savedProfile.name || name)}&background=1E3623&color=E6C35C&bold=true`;
-                    }}
-                  />
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-[#E6C35C]/80 p-1 shadow-xl bg-gradient-to-br from-[#1E3623] to-[#0F1C15] flex items-center justify-center text-[#E6C35C] font-serif text-3xl sm:text-4xl font-bold tracking-wider select-none">
+                  {getInitials(savedProfile.name || name)}
                 </div>
                 <div className="absolute bottom-1 right-1 bg-[#E6C35C] text-[#0F1C15] p-1.5 rounded-full shadow-md border border-[#18281F]">
                   <Sparkles className="w-3.5 h-3.5" />

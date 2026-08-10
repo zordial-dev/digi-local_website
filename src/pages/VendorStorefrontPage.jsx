@@ -146,7 +146,16 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
     const matchesSearch = item.item_name.toLowerCase().includes(search.toLowerCase()) || 
                           (item.description && item.description.toLowerCase().includes(search.toLowerCase()));
     return matchesCat && matchesSearch;
-  });
+  }).reduce((acc, current) => {
+    const nameKey = (current.item_name || '').trim().toLowerCase();
+    const idKey = String(current.item_id || current.id || '');
+    const isDuplicate = acc.some(item => 
+      (nameKey && (item.item_name || '').trim().toLowerCase() === nameKey) ||
+      (idKey && String(item.item_id || item.id || '') === idKey)
+    );
+    if (!isDuplicate) acc.push(current);
+    return acc;
+  }, []);
 
   // Save Order Helper for User Profile Order History
   const saveOrderToUserProfile = (orderId, totalAmount, itemsList, isWhatsApp = false, txnDetails = null) => {
@@ -197,6 +206,23 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
       if (!Array.isArray(userOrdersList)) userOrdersList = [];
       userOrdersList = [orderRecord, ...userOrdersList.filter(o => o && String(o.order_id) !== String(orderRecord.order_id))];
       localStorage.setItem('digilocal_user_orders', JSON.stringify(userOrdersList));
+
+      // Save to vendor specific orders list for real-time Vendor Dashboard reflection
+      const targetVendorId = vendorData?.vendor_id || vendorId || 1;
+      const vendorOrdersKey = `digilocal_vendor_orders_${targetVendorId}`;
+      const vOrdersStr = localStorage.getItem(vendorOrdersKey);
+      let vOrdersList = vOrdersStr ? JSON.parse(vOrdersStr) : [];
+      if (!Array.isArray(vOrdersList)) vOrdersList = [];
+      vOrdersList = [orderRecord, ...vOrdersList.filter(o => o && String(o.order_id) !== String(orderRecord.order_id))];
+      localStorage.setItem(vendorOrdersKey, JSON.stringify(vOrdersList));
+
+      // Global vendor orders list fallback
+      const globalOrdersKey = 'digilocal_all_vendor_orders';
+      const gOrdersStr = localStorage.getItem(globalOrdersKey);
+      let gOrdersList = gOrdersStr ? JSON.parse(gOrdersStr) : [];
+      if (!Array.isArray(gOrdersList)) gOrdersList = [];
+      gOrdersList = [orderRecord, ...gOrdersList.filter(o => o && String(o.order_id) !== String(orderRecord.order_id))];
+      localStorage.setItem(globalOrdersKey, JSON.stringify(gOrdersList));
     } catch (err) {
       console.warn('Failed to save order to localStorage:', err);
     }

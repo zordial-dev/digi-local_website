@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api, getNormalizedImageUrl } from '../services/api';
-import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check } from 'lucide-react';
+import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import { QRCodeSVG } from 'qrcode.react';
 import { DashboardSkeleton } from '../components/Skeletons';
@@ -17,9 +17,9 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
     item_name: '',
     description: '',
     price: '',
-    stock: '50',
+    stock: '',
     category: 'General',
-    unit: 'piece',
+    unit: 'Piece',
     is_available: true,
     image_url: ''
   });
@@ -94,12 +94,26 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
 
   const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
 
-  const handleToggleAvailability = async (item) => {
+  const handleToggleAvailability = async (item, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const newAvail = !item.is_available;
+    // Optimistic UI state update so page does not reload
+    setPanelData((prev) => {
+      if (!prev) return prev;
+      const updatedItems = (prev.items || []).map((i) =>
+        i.item_id === item.item_id ? { ...i, is_available: newAvail } : i
+      );
+      return { ...prev, items: updatedItems };
+    });
+
     try {
-      const newAvail = !item.is_available;
       await api.updateVendorItem(vendorId, item.item_id, { is_available: newAvail });
-      loadPanelData();
     } catch (err) {
+      // Revert on error
+      loadPanelData();
       setModalConfig({
         isOpen: true,
         title: 'Status Update Error',
@@ -161,9 +175,9 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
       item_name: item.item_name,
       description: item.description || '',
       price: item.price,
-      stock: item.stock || 50,
+      stock: item.stock !== undefined && item.stock !== null ? String(item.stock) : '10',
       category: item.category || 'General',
-      unit: item.unit || 'piece',
+      unit: item.unit || 'Piece',
       is_available: Boolean(item.is_available),
       image_url: item.image_url || ''
     });
@@ -175,9 +189,9 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
       item_name: '',
       description: '',
       price: '',
-      stock: '50',
+      stock: '',
       category: 'General',
-      unit: 'piece',
+      unit: 'Piece',
       is_available: true,
       image_url: ''
     });
@@ -409,8 +423,8 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
             <div className="flex items-center space-x-5 min-w-0 flex-1">
               <div className="w-20 h-20 rounded-2xl border-2 border-border bg-secondary flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm relative">
                 <img
-                  src={vendor.logo || 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80'}
-                  alt=""
+                  src={vendor.logo || vendor.image_url || localStorage.getItem(`digilocal_vendor_logo_${vendor.vendor_id}`) || 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80'}
+                  alt={vendor.store_name || ''}
                   onError={(e) => {
                     e.target.style.display = 'none';
                     if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
@@ -437,7 +451,10 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                   {vendor.store_name}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-1 font-medium truncate">
-                  Vendor: {vendor.vendor_name} ({vendor.email})
+                  Vendor: {vendor.vendor_name}
+                  {vendor.email && vendor.email.includes('@') && !vendor.email.includes('@vendor.digilocal') 
+                    ? ` (${vendor.email})` 
+                    : (vendor.phone_number || vendor.phone ? ` • ${vendor.phone_number || vendor.phone}` : '')}
                 </p>
               </div>
             </div>
@@ -511,85 +528,217 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
         {/* 1. ORDERS TAB */}
         {activeTab === 'orders' && (
           <div>
-            <h2 className="text-lg font-serif font-bold text-[#0A1428] mb-6 uppercase tracking-wider">Incoming Customer Orders</h2>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-serif font-extrabold text-[#18281F] uppercase tracking-wider">
+                  Incoming Customer Orders
+                </h2>
+                <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                  Manage resident orders, track fulfillment status, and contact customer directly
+                </p>
+              </div>
+              {orders.length > 0 && (
+                <span className="px-3.5 py-1.5 rounded-full bg-[#18281F] text-[#E6C35C] font-extrabold text-xs shadow-xs">
+                  {orders.length} Active Order{orders.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
             
             {orders.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-2xl border border-[#C5A880]/20 p-8 shadow-sm">
-                <ShoppingBag className="w-12 h-12 text-[#787F8C] mx-auto mb-3" />
-                <h3 className="text-base font-bold text-[#0A1428] mb-1">No orders received yet</h3>
-                <p className="text-[#787F8C] text-xs font-medium">When customers place orders via WhatsApp or website, they will appear here live.</p>
+              <div className="text-center py-16 bg-white rounded-3xl border border-[#1E3623]/15 p-8 shadow-xs">
+                <div className="w-16 h-16 rounded-full bg-[#E3EFE6] border border-[#18281F]/20 flex items-center justify-center text-[#18281F] mx-auto mb-3 shadow-2xs">
+                  <ShoppingBag className="w-8 h-8 text-[#18281F]" />
+                </div>
+                <h3 className="text-base font-serif font-bold text-[#18281F] mb-1">No customer orders received yet</h3>
+                <p className="text-muted-foreground text-xs font-medium max-w-sm mx-auto">
+                  When residents place orders for your store items, customer details and item lists will appear here live.
+                </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {orders.map((order) => (
-                  <div key={order.order_id} className="rounded-2xl bg-white border border-[#C5A880]/25 p-6 flex flex-col md:flex-row justify-between gap-6 shadow-sm">
-                    <div className="space-y-3 flex-1">
-                      <div className="flex items-center space-x-3">
-                        <span className="font-extrabold text-[#0A1428] text-base">Order #{order.order_id}</span>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                          order.status === 'PLACED' ? 'bg-[#F6F3EC] text-[#0A1428] border border-[#C5A880]/30' :
-                          order.status === 'ACCEPTED' ? 'bg-teal-50 text-teal-800 border border-teal-200' :
-                          order.status === 'COMPLETED' ? 'bg-[#E8F5E9] text-[#2E7D32] border border-[#2E7D32]/30' :
-                          'bg-rose-50 text-rose-800 border border-rose-200'
-                        }`}>
-                          {order.status}
-                        </span>
-                        <span className="text-xs text-[#787F8C] font-medium">
-                          {new Date(order.order_timestamp).toLocaleString()}
-                        </span>
-                      </div>
+              <div className="grid grid-cols-1 gap-5">
+                {orders.map((order) => {
+                  const statusUpper = (order.status || 'PENDING').toUpperCase();
+                  const customerPhone = order.phone_number || order.phone || order.user_phone || '';
+                  const customerName = order.customer_name || order.user_name || order.name || 'Resident Customer';
+                  const deliveryAddr = order.address || order.delivery_address || 'Resident Address';
+                  const orderItems = Array.isArray(order.items) ? order.items : [];
+                  const orderDateStr = new Date(order.order_timestamp || order.date || order.timestamp || Date.now()).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
 
-                      <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20 text-xs font-medium space-y-1">
-                        <p className="font-bold text-[#0A1428]">Customer: {order.customer_name} ({order.phone_number})</p>
-                        <p className="text-[#787F8C]">Address: {order.address}</p>
-                      </div>
-
-                      <div className="space-y-1.5 pt-2">
-                        <p className="text-[10px] font-bold text-[#0A1428] uppercase tracking-wider">Order Items:</p>
-                        {order.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between text-xs text-[#1F2229] font-medium">
-                            <span>• {item.item_name} (×{item.quantity})</span>
-                            <span className="font-bold text-[#0A1428]">₹{parseFloat(item.item_total).toFixed(2)}</span>
+                  return (
+                    <div
+                      key={order.order_id}
+                      className="rounded-3xl bg-white border border-[#1E3623]/15 p-6 flex flex-col lg:flex-row justify-between gap-6 shadow-xs hover:shadow-md transition-all relative overflow-hidden"
+                    >
+                      {/* Left Side: Order Identifiers & Customer Card */}
+                      <div className="space-y-4 flex-1 min-w-0">
+                        {/* Header: Order ID + Status Badge + Date */}
+                        <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-border/60">
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-[#18281F] text-[#E6C35C] flex items-center justify-center font-bold text-xs shadow-xs">
+                              #{order.order_id.toString().slice(-4)}
+                            </div>
+                            <span className="font-serif font-extrabold text-[#18281F] text-base tracking-wide">
+                              Order #{order.order_id}
+                            </span>
                           </div>
-                        ))}
+
+                          <div className="flex items-center gap-2">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-2xs ${
+                              statusUpper === 'PLACED' || statusUpper === 'PENDING'
+                                ? 'bg-[#FFF9E6] text-[#8C6B1B] border-[#E6C35C]'
+                                : statusUpper === 'ACCEPTED'
+                                ? 'bg-[#E3EFE6] text-[#1E3623] border-[#1E3623]/30'
+                                : statusUpper === 'COMPLETED' || statusUpper === 'DELIVERED'
+                                ? 'bg-[#18281F] text-[#E6C35C] border-[#18281F]'
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                            }`}>
+                              ● {statusUpper}
+                            </span>
+
+                            <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1 bg-[#FAF9F6] px-2.5 py-1 rounded-full border border-border/60">
+                              <Clock className="w-3 h-3 text-[#18281F]" />
+                              <span>{orderDateStr}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Customer Identity Card */}
+                        <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-[#1E3623]/10 space-y-2 text-xs font-semibold">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 text-[#18281F]">
+                              <User className="w-4 h-4 text-[#18281F] shrink-0" />
+                              <span className="font-extrabold text-sm text-[#18281F]">
+                                {customerName}
+                              </span>
+                            </div>
+
+                            {customerPhone && (
+                              <div className="flex items-center gap-2">
+                                <a
+                                  href={`tel:${customerPhone}`}
+                                  className="text-xs font-bold text-emerald-900 hover:text-emerald-950 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-emerald-300 shadow-2xs"
+                                >
+                                  <Phone className="w-3 h-3 text-emerald-700" />
+                                  <span>{customerPhone}</span>
+                                </a>
+
+                                <a
+                                  href={`https://wa.me/${customerPhone.replace(/[^0-9]/g, '')}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-xl border border-emerald-300 transition-colors"
+                                >
+                                  <MessageCircle className="w-3 h-3 text-emerald-800" />
+                                  <span>Chat</span>
+                                </a>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-start gap-2 text-muted-foreground pt-1 border-t border-border/50">
+                            <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                            <span className="font-semibold text-gray-700">
+                              {deliveryAddr}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Itemized Products List */}
+                        <div className="space-y-2 pt-1">
+                          <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-[#18281F]">
+                            <span>ORDER ITEMS ({orderItems.length})</span>
+                            <span>ITEM SUB-TOTAL</span>
+                          </div>
+
+                          <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-border/70">
+                            {orderItems.length > 0 ? (
+                              orderItems.map((item, idx) => {
+                                const qty = item.quantity || 1;
+                                const unitPrice = parseFloat(item.unit_price || item.price || 0);
+                                const total = item.item_total ? parseFloat(item.item_total) : (qty * unitPrice);
+
+                                return (
+                                  <div key={idx} className="flex justify-between items-center text-xs font-semibold">
+                                    <div className="flex items-center gap-2 pr-2 min-w-0">
+                                      <span className="w-5 h-5 rounded-md bg-[#E3EFE6] text-[#18281F] text-[10px] font-extrabold flex items-center justify-center shrink-0">
+                                        ×{qty}
+                                      </span>
+                                      <span className="text-[#18281F] truncate font-bold">
+                                        {item.item_name || item.name || 'Ordered Product'}
+                                      </span>
+                                    </div>
+                                    <span className="font-extrabold text-[#18281F] shrink-0">
+                                      ₹{total.toFixed(2)}
+                                    </span>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="text-xs text-muted-foreground font-semibold py-1">
+                                Standard customer store order
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Side: Total Amount & Order Lifecycle Action Buttons */}
+                      <div className="flex flex-col justify-between items-end border-t lg:border-t-0 lg:border-l border-border/60 pt-4 lg:pt-0 lg:pl-6 min-w-[200px]">
+                        <div className="text-right w-full bg-[#FAF9F6] p-4 rounded-2xl border border-[#1E3623]/10">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                            TOTAL ORDER AMOUNT
+                          </span>
+                          <p className="text-2xl font-serif font-black text-[#18281F] mt-0.5">
+                            ₹{parseFloat(order.total_amount || 0).toFixed(2)}
+                          </p>
+                          <span className="text-[10px] font-bold text-emerald-800 bg-[#E3EFE6] px-2 py-0.5 rounded-full inline-block mt-1">
+                            {order.payment_method || 'Verified Resident Order'}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col gap-2 w-full mt-4">
+                          {(statusUpper === 'PLACED' || statusUpper === 'PENDING' || statusUpper === 'IN_PROGRESS') && (
+                            <button
+                              type="button"
+                              onClick={() => handleOrderStatusChange(order.order_id, 'ACCEPTED')}
+                              className="w-full py-2.5 px-4 rounded-2xl bg-[#18281F] hover:bg-black text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-4 h-4 text-[#E6C35C]" />
+                              <span>Accept Order</span>
+                            </button>
+                          )}
+
+                          {statusUpper === 'ACCEPTED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleOrderStatusChange(order.order_id, 'COMPLETED')}
+                              className="w-full py-2.5 px-4 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-4 h-4 text-white" />
+                              <span>Mark Completed</span>
+                            </button>
+                          )}
+
+                          {statusUpper !== 'CANCELLED' && statusUpper !== 'COMPLETED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleOrderStatusChange(order.order_id, 'CANCELLED')}
+                              className="w-full py-2 px-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 uppercase tracking-wider transition-colors cursor-pointer"
+                            >
+                              Cancel Order
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-
-                    <div className="flex flex-col justify-between items-end border-t md:border-t-0 md:border-l border-[#C5A880]/20 pt-4 md:pt-0 md:pl-6">
-                      <div className="text-right">
-                        <span className="text-xs text-[#787F8C] font-medium">Total Amount</span>
-                        <p className="text-2xl font-extrabold text-[#C5A880]">₹{parseFloat(order.total_amount).toFixed(2)}</p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 mt-4">
-                        {order.status === 'PLACED' && (
-                          <button
-                            onClick={() => handleOrderStatusChange(order.order_id, 'ACCEPTED')}
-                            className="px-4 py-2 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-sm uppercase tracking-wider"
-                          >
-                            Accept Order
-                          </button>
-                        )}
-                        {order.status === 'ACCEPTED' && (
-                          <button
-                            onClick={() => handleOrderStatusChange(order.order_id, 'COMPLETED')}
-                            className="px-4 py-2 rounded-xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-bold text-xs shadow-sm uppercase tracking-wider"
-                          >
-                            Mark Completed
-                          </button>
-                        )}
-                        {order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (
-                          <button
-                            onClick={() => handleOrderStatusChange(order.order_id, 'CANCELLED')}
-                            className="px-3 py-2 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-bold border border-rose-200 uppercase"
-                          >
-                            Cancel
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -644,7 +793,7 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                     <div className="flex items-center space-x-2">
                       <button
                         type="button"
-                        onClick={() => handleToggleAvailability(item)}
+                        onClick={(e) => handleToggleAvailability(item, e)}
                         className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
                           item.is_available ? 'bg-[#2E7D32]' : 'bg-slate-300'
                         }`}
@@ -1079,7 +1228,7 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                         alt="Product preview" 
                         className="h-28 object-contain rounded-xl shadow-xs"
                         onError={(e) => {
-                          e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&auto=format&fit=crop&q=80';
+                          e.target.onerror = null;
                         }}
                       />
                       <button
@@ -1151,7 +1300,11 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                     type="url"
                     placeholder="https://... (image URL)"
                     value={itemForm.image_url}
-                    onChange={(e) => setItemForm({ ...itemForm, image_url: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const extracted = getNormalizedImageUrl(val);
+                      setItemForm({ ...itemForm, image_url: extracted || val });
+                    }}
                     className="w-full bg-white border border-[#E5DFD1] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl px-4 py-2.5 text-xs font-medium text-[#18281F] focus:outline-none transition-all shadow-xs"
                   />
                 </div>
@@ -1221,15 +1374,15 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                 </div>
               </div>
 
-              {/* 4. PRICE (₹) & UNIT (Custom Dropdown + Quick Selector Pills) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* 4. PRICE (₹), UNIT & STOCK QUANTITY */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* Price Input */}
                 <div>
                   <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
                     PRICE (₹) *
                   </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-sm text-[#C4A066]">₹</span>
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-[#C4A066]">₹</span>
                     <input
                       type="number"
                       step="0.01"
@@ -1237,7 +1390,7 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                       placeholder="100.00"
                       value={itemForm.price}
                       onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })}
-                      className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl pl-9 pr-4 py-3 text-xs font-bold text-[#18281F] focus:outline-none transition-all shadow-2xs"
+                      className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl pl-8 pr-3 py-3 text-xs font-bold text-[#18281F] focus:outline-none transition-all shadow-2xs"
                     />
                   </div>
                 </div>
@@ -1251,25 +1404,25 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                     <button
                       type="button"
                       onClick={() => setShowUnitDropdown(!showUnitDropdown)}
-                      className="w-full bg-[#FAF8F5] border border-[#E8E2D5] hover:border-[#18281F] focus:border-[#18281F] rounded-2xl px-4 py-3 text-xs font-bold text-[#18281F] transition-all shadow-2xs flex items-center justify-between cursor-pointer"
+                      className="w-full bg-[#FAF8F5] border border-[#E8E2D5] hover:border-[#18281F] focus:border-[#18281F] rounded-2xl px-3 py-3 text-xs font-bold text-[#18281F] transition-all shadow-2xs flex items-center justify-between cursor-pointer"
                     >
-                      <span>{itemForm.unit || 'Piece'}</span>
-                      <ChevronDown className={`w-4 h-4 text-[#18281F] transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
+                      <span className="truncate">{itemForm.unit || 'Piece'}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 text-[#18281F] shrink-0 transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
                     </button>
 
                     {showUnitDropdown && (
                       <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E8E2D5] rounded-2xl shadow-xl z-50 max-h-56 overflow-y-auto p-1.5 space-y-0.5 animate-in fade-in duration-150">
                         {[
                           'Piece',
+                          'Set',
+                          'Packet',
+                          'Box',
                           '1 kg',
                           '500g',
                           '250g',
                           '1L',
                           '500ml',
-                          'Packet',
-                          'Box',
                           'Dozen',
-                          'Set',
                           'Bunch'
                         ].map((u) => (
                           <div
@@ -1292,6 +1445,25 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                         ))}
                       </div>
                     )}
+                  </div>
+                </div>
+
+                {/* Stock Quantity Input */}
+                <div>
+                  <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
+                    STOCK QUANTITY *
+                  </label>
+                  <div className="relative">
+                    <Package className="w-3.5 h-3.5 text-[#C4A066] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      placeholder="e.g. 10"
+                      value={itemForm.stock}
+                      onChange={(e) => setItemForm({ ...itemForm, stock: e.target.value })}
+                      className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl pl-9 pr-3 py-3 text-xs font-bold text-[#18281F] focus:outline-none transition-all shadow-2xs"
+                    />
                   </div>
                 </div>
               </div>

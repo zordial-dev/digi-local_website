@@ -136,11 +136,11 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
         name: userName.trim(),
         email: `${userName.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
         phone: userPhone,
-        flat: flatAddress || 'Tower A-402',
-        society_name: 'Omaxe Greenwood Residency',
-        society_id: 'SOC-101',
-        joined_date: 'August 2026',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
+        flat: flatAddress.trim(),
+        society_name: '',
+        society_id: '',
+        joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+        avatar: ''
       };
       
       const session = {

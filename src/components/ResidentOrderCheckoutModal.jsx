@@ -44,7 +44,7 @@ export default function ResidentOrderCheckoutModal({ isOpen, onClose, cartItems 
       const payload = {
         vendor_id: vendor?.vendor_id || 1,
         phone_number: phoneNumber,
-        delivery_address: flatAddress || 'Tower A-402, Resident Flat',
+        delivery_address: flatAddress || 'Resident Address',
         delivery_slot: selectedSlot,
         total_amount: totalAmount,
         items: cartItems.map(item => ({

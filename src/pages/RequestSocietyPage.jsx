@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api } from '../services/api';
 import { ArrowLeft, Building2, MapPin, CheckCircle2, Store, Send, Sparkles, Eye, ShieldCheck, Home, ChevronRight, Hash, Phone, User } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
+import CategoryPicker from '../components/CategoryPicker';
 
 export default function RequestSocietyPage({ setRoute }) {
   const [loading, setLoading] = useState(false);
@@ -352,20 +353,11 @@ export default function RequestSocietyPage({ setRoute }) {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-[#0A1428] mb-1">Business Category</label>
-                      <select
-                        name="vendor_category"
+                      <CategoryPicker
                         value={formData.vendor_category}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 rounded-lg bg-white border border-[#C5A880]/30 text-xs text-[#0A1428]"
-                      >
-                        <option value="Grocery">Grocery & Essentials</option>
-                        <option value="Laundry">Laundry & Dry Clean</option>
-                        <option value="Milk">Milk & Dairy</option>
-                        <option value="Vegetables">Fruits & Vegetables</option>
-                        <option value="Repairs">Repairs & Electricians</option>
-                        <option value="Pharmacy">Pharmacy & Health</option>
-                      </select>
+                        onChange={(val) => setFormData(prev => ({ ...prev, vendor_category: val }))}
+                        label="Business Category"
+                      />
                     </div>
 
                     <div className="sm:col-span-2">

@@ -18,30 +18,43 @@ import {
   Hash, 
   Briefcase, 
   ChevronDown,
-  Sparkles
+  ShieldCheck,
+  Sparkles,
+  Upload,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Camera,
+  FolderPlus
 } from 'lucide-react';
-import { gsap } from 'gsap';
 import { api } from '../services/api';
 import CountryCodePicker from '../components/CountryCodePicker';
+import CategoryPicker from '../components/CategoryPicker';
+import { sendFirebasePhoneOtp, verifyFirebasePhoneOtp } from '../firebase';
 
 export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVendor }) {
-  // Stepper State (1: Business Info, 2: Shop Details, 3: Verify & Finish)
+  // Stepper State (1: Society & Contact Verification, 2: Shop Details, 3: Password & Finish)
   const [currentStep, setCurrentStep] = useState(1);
 
-  // STEP 1: Business Info States
-  const [ownerName, setOwnerName] = useState('');
+  // STEP 1: Society & Verification States
+  const [selectedSocietyId, setSelectedSocietyId] = useState(currentRoute?.societyId || '');
+  const [societySearch, setSocietySearch] = useState(currentRoute?.societyName || '');
+  const [verificationMethod, setVerificationMethod] = useState('phone'); // 'phone' | 'email'
+  
   const [mobileNumber, setMobileNumber] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
   const [phonePlaceholder, setPhonePlaceholder] = useState('e.g. 98765 43210');
   const [emailAddress, setEmailAddress] = useState('');
-  const [shopNumber, setShopNumber] = useState('');
-  const [shopBusinessName, setShopBusinessName] = useState('');
-  const [businessCategory, setBusinessCategory] = useState('Resin Art & Handicrafts');
+  
+  const [isVendorContactVerified, setIsVendorContactVerified] = useState(false);
+  const [verifiedContactValue, setVerifiedContactValue] = useState('');
+  const [firebaseIdToken, setFirebaseIdToken] = useState(null);
 
   // STEP 2: Shop Details States
+  const [ownerName, setOwnerName] = useState('');
+  const [shopBusinessName, setShopBusinessName] = useState('');
+  const [businessCategory, setBusinessCategory] = useState('Resin Art & Handicrafts');
+  const [shopNumber, setShopNumber] = useState('');
   const [shopAddress, setShopAddress] = useState('');
-  const [selectedSocietyId, setSelectedSocietyId] = useState(currentRoute?.societyId || '');
-  const [societySearch, setSocietySearch] = useState(currentRoute?.societyName || '');
   const [pincode, setPincode] = useState('');
   const [city, setCity] = useState('');
   const [gstNumber, setGstNumber] = useState('');
@@ -49,7 +62,13 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&auto=format&fit=crop&q=80"
   ]);
 
-  // STEP 3: Verify & Finish States
+  // Custom Photo Upload Modal States
+  const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
+  const [photoUploadTab, setPhotoUploadTab] = useState('device'); // 'device' | 'url' | 'presets'
+  const [customPhotoUrlInput, setCustomPhotoUrlInput] = useState('');
+  const fileInputRef = useRef(null);
+
+  // STEP 3: Password & Finish States
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
@@ -69,10 +88,9 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   const [customSocietyLoading, setCustomSocietyLoading] = useState(false);
   const [customSocietyError, setCustomSocietyError] = useState('');
 
-  // Vendor OTP Verification Modal States
+  // 6-Digit Vendor OTP Verification Modal States
   const [showVendorOtpModal, setShowVendorOtpModal] = useState(false);
-  const [isVendorPhoneVerified, setIsVendorPhoneVerified] = useState(false);
-  const [vendorOtpValues, setVendorOtpValues] = useState(['', '', '', '']);
+  const [vendorOtpValues, setVendorOtpValues] = useState(['', '', '', '', '', '']);
   const [vendorGeneratedOtp, setVendorGeneratedOtp] = useState('');
   const [vendorResendTimer, setVendorResendTimer] = useState(30);
   const vendorOtpInputRefs = useRef([]);
@@ -83,9 +101,8 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [isSwapping, setIsSwapping] = useState(false);
 
-  // GSAP Animation Refs matching LoginPage
+  // GSAP / DOM Refs
   const cardRef = useRef(null);
   const leftPanelRef = useRef(null);
   const rightPanelRef = useRef(null);
@@ -113,38 +130,55 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     return () => clearInterval(interval);
   }, [showVendorOtpModal, vendorResendTimer]);
 
+  // 6-Digit OTP Handlers
   const handleVendorOtpChange = (index, value) => {
-    if (value.length > 1) value = value[value.length - 1];
+    const digit = value.replace(/[^0-9]/g, '').slice(-1);
     const newOtp = [...vendorOtpValues];
-    newOtp[index] = value;
+    newOtp[index] = digit;
     setVendorOtpValues(newOtp);
 
-    if (value && index < 3 && vendorOtpInputRefs.current[index + 1]) {
+    if (digit && index < 5 && vendorOtpInputRefs.current[index + 1]) {
       vendorOtpInputRefs.current[index + 1].focus();
     }
   };
 
   const handleVendorOtpKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !vendorOtpValues[index] && index > 0) {
-      vendorOtpInputRefs.current[index - 1].focus();
+    if (e.key === 'Backspace') {
+      if (vendorOtpValues[index]) {
+        const newOtp = [...vendorOtpValues];
+        newOtp[index] = '';
+        setVendorOtpValues(newOtp);
+      } else if (index > 0 && vendorOtpInputRefs.current[index - 1]) {
+        vendorOtpInputRefs.current[index - 1].focus();
+        const newOtp = [...vendorOtpValues];
+        newOtp[index - 1] = '';
+        setVendorOtpValues(newOtp);
+      }
     }
   };
 
   const handleVendorOtpPaste = (e) => {
     e.preventDefault();
-    const pasteData = e.clipboardData.getData('text').trim();
-    if (/^\d{4}$/.test(pasteData)) {
-      setVendorOtpValues(pasteData.split(''));
-      vendorOtpInputRefs.current[3]?.focus();
+    const pasteData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 6);
+    if (!pasteData) return;
+    const digits = pasteData.split('');
+    const newOtp = [...vendorOtpValues];
+    digits.forEach((d, idx) => {
+      if (idx < 6) newOtp[idx] = d;
+    });
+    setVendorOtpValues(newOtp);
+    const focusIdx = Math.min(digits.length, 5);
+    if (vendorOtpInputRefs.current[focusIdx]) {
+      vendorOtpInputRefs.current[focusIdx].focus();
     }
   };
 
-  // Instant & Reliable Navigation Handler
+  // Navigation Handler
   const handleNavigateWithAnimation = (targetPage, options = {}) => {
     setRoute({ page: targetPage, ...options });
   };
 
-  // Check existing vendor session only if not explicitly attempting to register a new store
+  // Check existing vendor session
   useEffect(() => {
     try {
       if (currentRoute?.allowNewStore || currentRoute?.isAddingNewStore) {
@@ -195,60 +229,6 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   const filteredSocieties = societiesList.filter((s) =>
     s.society_name.toLowerCase().includes(societySearch.toLowerCase())
   );
-
-  // Validate Step 1
-  const handleNextStep1 = (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (!selectedSocietyId && !societySearch.trim()) {
-      setError('Please search & select your Housing Society first to proceed.');
-      return;
-    }
-    if (!ownerName.trim()) {
-      setError('Please enter Vendor Owner Name.');
-      return;
-    }
-    if (!mobileNumber.trim() || mobileNumber.length < 10) {
-      setError('Please enter a valid 10-digit Mobile Phone Number.');
-      return;
-    }
-    if (!emailAddress.trim() || !emailAddress.includes('@')) {
-      setError('Please enter a valid Email Address.');
-      return;
-    }
-    if (!shopBusinessName.trim()) {
-      setError('Please enter Shop / Business Name.');
-      return;
-    }
-
-    setCurrentStep(2);
-  };
-
-  // Validate Step 2
-  const handleNextStep2 = (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (!shopNumber.trim()) {
-      setError('Please enter Shop Number / Unit ID.');
-      return;
-    }
-    if (!shopAddress.trim()) {
-      setError('Please enter Shop Address.');
-      return;
-    }
-    if (!pincode.trim()) {
-      setError('Please enter Pincode.');
-      return;
-    }
-    if (!city.trim()) {
-      setError('Please enter City.');
-      return;
-    }
-
-    setCurrentStep(3);
-  };
 
   // Handle Adding Custom Society
   const handleAddCustomSociety = async (e) => {
@@ -312,132 +292,216 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     }
   };
 
-  // Image Upload Handler Simulation
-  const handleAddImage = () => {
-    const sampleImages = [
-      "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&auto=format&fit=crop&q=80"
-    ];
+  // Real Photo Upload & Custom Image Handlers
+  const handleOpenPhotoUpload = () => {
     if (shopImages.length >= 5) {
-      setError('Maximum 5 images allowed.');
+      setError('Maximum 5 shop images allowed.');
       return;
     }
-    const nextImg = sampleImages[shopImages.length % sampleImages.length];
-    setShopImages([...shopImages, nextImg]);
+    setShowPhotoUploadModal(true);
+  };
+
+  const handleDeviceFileUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if (shopImages.length + files.length > 5) {
+      setError('Maximum 5 shop images allowed.');
+      return;
+    }
+
+    files.forEach((file) => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target.result;
+        setShopImages((prev) => [...prev, dataUrl]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    setShowPhotoUploadModal(false);
+    if (e.target) e.target.value = '';
+  };
+
+  const handleAddCustomPhotoUrl = (e) => {
+    e.preventDefault();
+    if (!customPhotoUrlInput.trim()) return;
+
+    if (shopImages.length >= 5) {
+      setError('Maximum 5 shop images allowed.');
+      return;
+    }
+
+    setShopImages((prev) => [...prev, customPhotoUrlInput.trim()]);
+    setCustomPhotoUrlInput('');
+    setShowPhotoUploadModal(false);
+  };
+
+  const handleSelectPresetPhoto = (url) => {
+    if (shopImages.length >= 5) {
+      setError('Maximum 5 shop images allowed.');
+      return;
+    }
+    setShopImages((prev) => [...prev, url]);
+    setShowPhotoUploadModal(false);
   };
 
   const handleRemoveImage = (indexToRemove) => {
     setShopImages(shopImages.filter((_, idx) => idx !== indexToRemove));
   };
 
-  // STEP 1: Request Mobile Verification OTP
-  const handleSendVendorOtp = async (e) => {
+  // STEP 1: Request Verification 6-Digit OTP (Mobile OR Email)
+  const handleSendVendorVerificationOtp = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
 
     if (!selectedSocietyId && (!societySearch || !societySearch.trim())) {
-      setError('Please select your Housing Society from the list.');
+      setError('Please search & select your Housing Society first to proceed.');
       return;
     }
-    if (!ownerName.trim()) {
-      setError('Please enter Owner Full Name.');
-      return;
-    }
-    if (!shopBusinessName.trim()) {
-      setError('Please enter Store / Shop Name.');
-      return;
-    }
-    if (!mobileNumber.trim() || mobileNumber.trim().length < 6) {
-      setError('Please enter a valid mobile phone number.');
-      return;
+
+    let targetIdentifier = '';
+    if (verificationMethod === 'phone') {
+      if (!mobileNumber.trim() || mobileNumber.trim().length < 7) {
+        setError('Please enter a valid mobile phone number for OTP verification.');
+        return;
+      }
+      targetIdentifier = `${countryCode}${mobileNumber.trim()}`;
+    } else {
+      if (!emailAddress.trim() || !emailAddress.includes('@')) {
+        setError('Please enter a valid email address for OTP verification.');
+        return;
+      }
+      targetIdentifier = emailAddress.trim();
     }
 
     try {
       setLoading(true);
-      const fullPhone = `${countryCode}${mobileNumber.trim()}`;
-      
-      let sentOtpCode;
-      try {
-        const res = await api.requestOtp(fullPhone);
-        sentOtpCode = res?.otp || res?.debug_otp || Math.floor(1000 + Math.random() * 9000).toString();
-      } catch (err) {
-        sentOtpCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+      if (verificationMethod === 'phone') {
+        await sendFirebasePhoneOtp(targetIdentifier, 'recaptcha-container');
+        setSuccessMsg(`6-Digit Verification SMS code sent to ${targetIdentifier} via Firebase! Check your mobile phone.`);
+      } else {
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        setVendorGeneratedOtp(code);
+        setSuccessMsg(`6-Digit Verification OTP sent to ${targetIdentifier}! Code: ${code}`);
       }
 
-      setVendorGeneratedOtp(sentOtpCode);
-      setVendorOtpValues(['', '', '', '']);
+      setVendorOtpValues(['', '', '', '', '', '']);
       setVendorResendTimer(30);
+      setVerifiedContactValue(targetIdentifier);
       setShowVendorOtpModal(true);
-      setSuccessMsg(`Verification OTP sent to ${fullPhone}! Code: ${sentOtpCode}`);
     } catch (err) {
-      setError(err.message || 'Failed to send OTP. Please try again.');
+      const errMsg = err?.message || String(err || '');
+      if (errMsg.includes('TOO_MANY_ATTEMPTS_TRY_LATER') || errMsg.includes('too-many-requests')) {
+        setError('Too many verification requests for this mobile number. Please wait a few minutes before trying again.');
+      } else if (errMsg.includes('INVALID_APP_CREDENTIAL') || errMsg.includes('invalid-app-credential')) {
+        setError('Security verification check failed. Please refresh the page and try again.');
+      } else {
+        setError(err.message || 'Failed to send verification OTP via Firebase.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Vendor Resend OTP
+  // Vendor Resend 6-Digit OTP via Firebase
   const handleResendVendorOtp = async () => {
     if (vendorResendTimer > 0) return;
     setError('');
     try {
       setLoading(true);
-      const fullPhone = `${countryCode}${mobileNumber.trim()}`;
-      let newOtp;
-      try {
-        const res = await api.requestOtp(fullPhone);
-        newOtp = res?.otp || res?.debug_otp || Math.floor(1000 + Math.random() * 9000).toString();
-      } catch (err) {
-        newOtp = Math.floor(1000 + Math.random() * 9000).toString();
+      const targetIdentifier = verifiedContactValue || (verificationMethod === 'phone' ? `${countryCode}${mobileNumber.trim()}` : emailAddress.trim());
+
+      if (verificationMethod === 'phone') {
+        await sendFirebasePhoneOtp(targetIdentifier, 'recaptcha-container');
+        setSuccessMsg(`6-digit verification SMS code resent to ${targetIdentifier} via Firebase!`);
+      } else {
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        setVendorGeneratedOtp(code);
+        setSuccessMsg(`New 6-digit verification OTP resent to ${targetIdentifier}! Code: ${code}`);
       }
-      setVendorGeneratedOtp(newOtp);
+
       setVendorResendTimer(30);
-      setSuccessMsg(`New verification OTP sent to ${fullPhone}! Code: ${newOtp}`);
     } catch (err) {
-      setError(err.message || 'Failed to resend OTP.');
+      setError(err.message || 'Failed to resend SMS via Firebase.');
     } finally {
       setLoading(false);
     }
   };
 
-  // STEP 2: Verify Vendor Mobile OTP
+  // STEP 1 VERIFICATION: Verify 6-Digit Firebase OTP Code & Advance to Step 2
   const handleVerifyVendorOtpCode = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
 
-    const enteredOtp = vendorOtpValues.join('');
-    if (enteredOtp.length < 4) {
-      setError('Please enter the complete 4-digit OTP code.');
+    const enteredOtp = vendorOtpValues.join('').trim();
+    if (enteredOtp.length < 6) {
+      setError('Please enter the complete 6-digit security code.');
       return;
     }
 
     try {
       setLoading(true);
-      const fullPhone = `${countryCode}${mobileNumber.trim()}`;
-      
-      try {
-        await api.verifyOtp({ phone: fullPhone, otp: enteredOtp });
-      } catch (otpErr) {
+      const targetIdentifier = verifiedContactValue || (verificationMethod === 'phone' ? `${countryCode}${mobileNumber.trim()}` : emailAddress.trim());
+
+      if (verificationMethod === 'phone') {
+        const result = await verifyFirebasePhoneOtp(enteredOtp);
+        setFirebaseIdToken(result.idToken);
+      } else {
         if (vendorGeneratedOtp && enteredOtp !== vendorGeneratedOtp) {
-          throw new Error('Invalid OTP code. Please double check the 4-digit code.');
+          throw new Error('Invalid 6-digit OTP code. Please double check and try again.');
         }
       }
 
-      setIsVendorPhoneVerified(true);
+      setIsVendorContactVerified(true);
       setShowVendorOtpModal(false);
-      setSuccessMsg(`Mobile number ${fullPhone} verified! Advancing to Store Location & Details...`);
+      setSuccessMsg(`Mobile number ${targetIdentifier} verified via Firebase! Now fill in your shop & owner details.`);
       setCurrentStep(2);
     } catch (err) {
-      setError(err.message || 'Invalid OTP code.');
+      setError(err.message || 'Invalid 6-digit OTP code. Please double check and try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // STEP 3: Create Password & Final Store Submit
+  // STEP 2: Validate Shop & Business Info -> Move to Step 3
+  const handleNextStep2 = (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!ownerName.trim()) {
+      setError('Please enter Owner Full Name.');
+      return;
+    }
+    if (!shopBusinessName.trim()) {
+      setError('Please enter Shop / Business Name.');
+      return;
+    }
+    if (!shopNumber.trim()) {
+      setError('Please enter Shop Number / Unit ID.');
+      return;
+    }
+    if (!shopAddress.trim()) {
+      setError('Please enter Shop Address.');
+      return;
+    }
+    if (!pincode.trim()) {
+      setError('Please enter Pincode.');
+      return;
+    }
+    if (!city.trim()) {
+      setError('Please enter City.');
+      return;
+    }
+
+    setCurrentStep(3);
+  };
+
+  // STEP 3: Create Password & Final Store Registration Submit
   const handleSubmitVendorRegistration = async (e) => {
     e.preventDefault();
     setError('');
@@ -454,12 +518,16 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
     try {
       setLoading(true);
+      const mainPhone = verificationMethod === 'phone' ? `${countryCode}${mobileNumber.trim()}` : (mobileNumber.trim() ? `${countryCode}${mobileNumber.trim()}` : '');
+      const customLogo = (Array.isArray(shopImages) && shopImages.length > 0 ? shopImages[0] : (typeof shopImages === 'string' ? shopImages : ''));
+      const cleanEmail = mainEmail || (verificationMethod === 'email' ? verifiedContactValue : '');
+
       const payload = {
         owner_name: ownerName.trim(),
         vendor_name: ownerName.trim(),
-        mobile_number: `${countryCode}${mobileNumber.trim()}`,
-        phone_number: mobileNumber.trim(),
-        email: emailAddress.trim(),
+        mobile_number: mainPhone || verifiedContactValue,
+        phone_number: mobileNumber.trim() || verifiedContactValue,
+        email: cleanEmail,
         shop_number: shopNumber.trim(),
         store_name: shopBusinessName.trim(),
         shop_business_name: shopBusinessName.trim(),
@@ -471,26 +539,48 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         city: city.trim(),
         gst_number: gstNumber.trim(),
         shop_images: shopImages,
-        password
+        logo: customLogo,
+        image_url: customLogo,
+        password,
+        verification_type: verificationMethod,
+        verified_contact: verifiedContactValue,
+        firebase_token: firebaseIdToken || undefined
       };
 
       const res = await api.registerVendor(payload);
       
-      const createdVendor = res.vendor || {
-        vendor_id: res.vendor_id || Math.floor(Math.random() * 1000 + 10),
+      const accessToken = res.accessToken || res.data?.accessToken || res.token;
+      const refreshToken = res.refreshToken || res.data?.refreshToken;
+      const createdVendor = res.vendor || res.data?.vendor || {
+        vendor_id: res.vendor_id || Math.floor(Math.random() * 1000 + 104),
         society_id: selectedSocietyId || 1,
         society_name: societySearch.trim(),
         store_name: shopBusinessName.trim(),
         vendor_name: ownerName.trim(),
-        email: emailAddress.trim(),
-        phone: mobileNumber.trim(),
+        email: cleanEmail,
+        phone_number: mainPhone || verifiedContactValue,
         category: businessCategory,
+        logo: customLogo,
+        image_url: customLogo,
         joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
       };
 
+      if (customLogo && createdVendor?.vendor_id) {
+        try {
+          localStorage.setItem(`digilocal_vendor_logo_${createdVendor.vendor_id}`, customLogo);
+        } catch (_) {}
+      }
+
+      if (accessToken) {
+        localStorage.setItem('vendor_access_token', accessToken);
+        localStorage.setItem('accessToken', accessToken);
+      }
+      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+      if (createdVendor) localStorage.setItem('vendor_profile', JSON.stringify(createdVendor));
+
       const sessionObj = {
         vendor: createdVendor,
-        token: `jwt_vendor_${Date.now()}`,
+        token: accessToken || `jwt_vendor_${Date.now()}`,
         expiresAt: Date.now() + 86400000
       };
 
@@ -511,7 +601,8 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
   return (
     <div className="min-h-screen bg-[#EDEDE4] flex items-center justify-center p-3 sm:p-6 lg:p-8 font-sans text-foreground">
-      
+      <div id="recaptcha-container"></div>
+
       {/* 50/50 Balanced Bento Card matching LoginPage */}
       <div 
         ref={cardRef}
@@ -624,12 +715,12 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                   1
                 </div>
                 <span className={`text-[10px] font-bold ${currentStep === 1 ? 'text-[#18281F]' : 'text-muted-foreground'}`}>
-                  Business Info
+                  Society & Verification
                 </span>
               </div>
 
               {/* Step 2 Circle */}
-              <div className="flex flex-col items-center z-10 space-y-0.5 cursor-pointer" onClick={() => { if (ownerName && shopBusinessName) setCurrentStep(2); }}>
+              <div className="flex flex-col items-center z-10 space-y-0.5 cursor-pointer" onClick={() => { if (isVendorContactVerified) setCurrentStep(2); }}>
                 <div 
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
                     currentStep >= 2 
@@ -677,11 +768,11 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
             </div>
           )}
 
-          {/* STEP 1 FORM: BUSINESS INFO */}
+          {/* STEP 1 FORM: SOCIETY SELECTION & VERIFY CONTACT BEFORE FILLING DETAILS */}
           {currentStep === 1 && (
-            <form onSubmit={handleSendVendorOtp} className="space-y-3.5 animate-in fade-in">
+            <form onSubmit={handleSendVendorVerificationOtp} className="space-y-4 animate-in fade-in">
               
-              {/* MANDATORY HOUSING SOCIETY SELECTION */}
+              {/* 1. MANDATORY HOUSING SOCIETY SELECTION */}
               <div className="bg-[#FAF9F6] border border-[#1E3623]/20 rounded-2xl p-3.5 space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-extrabold text-[#1E3623] flex items-center gap-1.5 uppercase tracking-wider">
@@ -760,7 +851,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                   )}
                 </div>
 
-                {/* 1. When NO society is selected: Show Can't find society button */}
+                {/* Society Selection Summary Box */}
                 {!isSocietySelected ? (
                   <button
                     type="button"
@@ -771,7 +862,6 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                     <span>Can't find your society? Register Unlisted Society</span>
                   </button>
                 ) : (
-                  /* 2. When society IS selected/added: Hide register button and show filled form details dropdown */
                   <div className="mt-2 p-3 bg-emerald-50/70 border border-emerald-300/60 rounded-xl space-y-2 text-xs animate-in fade-in duration-200">
                     <div 
                       onClick={() => setShowSelectedDetails(!showSelectedDetails)}
@@ -829,45 +919,61 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                 )}
               </div>
 
-              {/* VENDOR DETAILS SECTION */}
+              {/* 2. CONTACT VERIFICATION SECTION (Mobile OR Email choice - NOT both compulsory!) */}
               <div className="relative pt-1">
-                {/* Floating Lock Badge Overlay */}
                 {!isSocietySelected && (
-                  <div className="absolute inset-0 z-20 flex items-center justify-center p-2 rounded-2xl bg-white/40 backdrop-blur-[2px]">
+                  <div className="absolute inset-0 z-20 flex items-center justify-center p-2 rounded-2xl bg-white/50 backdrop-blur-[2px]">
                     <div className="px-4 py-2 bg-[#18281F] text-white text-xs font-extrabold rounded-full shadow-xl flex items-center gap-2 border border-white/20">
                       <Lock className="w-3.5 h-3.5 text-[#E6C35C]" />
-                      <span>Select society above to unlock form</span>
+                      <span>Select Housing Society above first</span>
                     </div>
                   </div>
                 )}
 
-                <div className={`space-y-3 transition-all duration-300 ${!isSocietySelected ? 'opacity-40 filter blur-[1.5px] pointer-events-none select-none' : ''}`}>
+                <div className={`space-y-4 transition-all duration-300 ${!isSocietySelected ? 'opacity-40 filter blur-[1.5px] pointer-events-none select-none' : ''}`}>
                   
-                  {/* Owner Name */}
                   <div>
-                    <label className="block text-xs font-bold text-[#1E3623] mb-1">
-                      Owner Name *
+                    <label className="block text-xs font-extrabold text-[#1E3623] mb-2 uppercase tracking-wider">
+                      Verify Contact (Choose Mobile OR Email) *
                     </label>
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Lovely Sethiya"
-                        value={ownerName}
-                        onChange={(e) => setOwnerName(e.target.value)}
-                        className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
-                      />
+
+                    {/* Verification Method Pill Selector */}
+                    <div className="grid grid-cols-2 gap-2 p-1 bg-[#FAF9F6] border border-border/80 rounded-2xl">
+                      <button
+                        type="button"
+                        onClick={() => setVerificationMethod('phone')}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                          verificationMethod === 'phone'
+                            ? 'bg-[#18281F] text-white shadow-sm'
+                            : 'text-[#18281F] hover:bg-white'
+                        }`}
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>Mobile Number</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setVerificationMethod('email')}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                          verificationMethod === 'email'
+                            ? 'bg-[#18281F] text-white shadow-sm'
+                            : 'text-[#18281F] hover:bg-white'
+                        }`}
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        <span>Email Address</span>
+                      </button>
                     </div>
                   </div>
 
-                  {/* 2-Column Grid for Mobile & Email */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* Input field based on chosen channel */}
+                  {verificationMethod === 'phone' ? (
                     <div>
-                      <label className="block text-xs font-bold text-[#1E3623] mb-1">
-                        Mobile Number *
+                      <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
+                        Mobile Phone Number *
                       </label>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
                         <CountryCodePicker
                           value={countryCode}
                           onChange={(val, countryObj) => {
@@ -876,82 +982,43 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                           }}
                         />
                         <div className="relative flex-1">
-                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                           <input
                             type="tel"
                             required
                             placeholder={phonePlaceholder}
                             value={mobileNumber}
                             onChange={(e) => setMobileNumber(e.target.value)}
-                            className="w-full pl-8 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                            className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
                           />
                         </div>
                       </div>
                     </div>
-
+                  ) : (
                     <div>
-                      <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                      <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
                         Email Address *
                       </label>
                       <div className="relative">
-                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
                           type="email"
                           required
                           placeholder="e.g. lovelysethia753@gmail.com"
                           value={emailAddress}
                           onChange={(e) => setEmailAddress(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                          className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
                         />
                       </div>
                     </div>
-                  </div>
-
-                  {/* 2-Column Grid for Shop Name & Category */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <div>
-                      <label className="block text-xs font-bold text-[#1E3623] mb-1">
-                        Shop / Business Name *
-                      </label>
-                      <div className="relative">
-                        <Store className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. ResinReverie"
-                          value={shopBusinessName}
-                          onChange={(e) => setShopBusinessName(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink transition-all shadow-xs"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-[#1E3623] mb-1">
-                        Business Category *
-                      </label>
-                      <div className="relative">
-                        <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                        <select
-                          value={businessCategory}
-                          onChange={(e) => setBusinessCategory(e.target.value)}
-                          className="w-full pl-9 pr-8 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink transition-all appearance-none cursor-pointer"
-                        >
-                          {categoryOptions.map((cat, idx) => (
-                            <option key={idx} value={cat}>{cat}</option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                      </div>
-                    </div>
-                  </div>
+                  )}
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3.5 rounded-full bg-[#18281F] hover:bg-black text-white font-extrabold text-xs uppercase tracking-widest shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2 mt-3 cursor-pointer border border-[#1E3623]/30"
+                    className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-white font-extrabold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2 cursor-pointer border border-[#1E3623]/30"
                   >
-                    <span>{loading ? 'Sending OTP...' : 'Send Verification OTP'}</span>
+                    <span>{loading ? 'Sending OTP...' : `Send 6-Digit OTP (${verificationMethod === 'phone' ? 'SMS' : 'Email'})`}</span>
                     <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
                   </button>
                 </div>
@@ -959,20 +1026,113 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
             </form>
           )}
 
-          {/* STEP 2 FORM: SHOP DETAILS */}
+          {/* STEP 2 FORM: FILL SHOP & OWNER DETAILS (Only unlocked after OTP verification!) */}
           {currentStep === 2 && (
-            <form onSubmit={handleNextStep2} className="space-y-3 animate-in fade-in">
-              {/* Mobile Verified Badge */}
-              <div className="p-2.5 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-xs">
+            <form onSubmit={handleNextStep2} className="space-y-3.5 animate-in fade-in">
+              
+              {/* Verified Contact Banner */}
+              <div className="p-3 bg-emerald-50 border border-emerald-300/80 rounded-2xl flex items-center justify-between text-xs shadow-xs">
                 <div className="flex items-center space-x-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="font-semibold text-emerald-900">Mobile Verified:</span>
-                  <span className="font-bold text-emerald-950">{countryCode} {mobileNumber}</span>
+                  <span className="font-semibold text-emerald-900">Verified Contact:</span>
+                  <span className="font-bold text-emerald-950">{verifiedContactValue}</span>
                 </div>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider">
                   Verified ✓
                 </span>
               </div>
+
+              {/* Owner Name */}
+              <div>
+                <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                  Owner Name *
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Lovely Sethiya"
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                    className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink transition-all shadow-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Optional Secondary Contact */}
+              {verificationMethod === 'phone' ? (
+                <div>
+                  <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                    Email Address <span className="text-muted-foreground font-normal">(Optional)</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="email"
+                      placeholder="e.g. lovelysethia753@gmail.com"
+                      value={emailAddress}
+                      onChange={(e) => setEmailAddress(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink transition-all shadow-xs"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                    Mobile Phone Number <span className="text-muted-foreground font-normal">(Optional)</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <CountryCodePicker
+                      value={countryCode}
+                      onChange={(val, countryObj) => {
+                        setCountryCode(val);
+                        setPhonePlaceholder(countryObj?.placeholder || 'e.g. 98765 43210');
+                      }}
+                    />
+                    <div className="relative flex-1">
+                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input
+                        type="tel"
+                        placeholder={phonePlaceholder}
+                        value={mobileNumber}
+                        onChange={(e) => setMobileNumber(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink transition-all shadow-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 2-Column Grid for Shop Name & Category */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                    Shop / Business Name *
+                  </label>
+                  <div className="relative">
+                    <Store className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. ResinReverie"
+                      value={shopBusinessName}
+                      onChange={(e) => setShopBusinessName(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink transition-all shadow-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <CategoryPicker
+                    value={businessCategory}
+                    onChange={(val) => setBusinessCategory(val)}
+                    label="Business Category / Variety *"
+                  />
+                </div>
+              </div>
+
+              {/* Shop Number & Address */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-xs font-bold text-[#1E3623] mb-1">
@@ -1009,55 +1169,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                 </div>
               </div>
 
-              {/* Select Society Selector */}
-              <div className="relative">
-                <label className="block text-xs font-bold text-[#1E3623] mb-1">
-                  Select Society
-                </label>
-                <div className="relative">
-                  <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    required
-                    placeholder="Anupam apartment"
-                    value={societySearch}
-                    onFocus={() => setShowSocietyDropdown(true)}
-                    onChange={(e) => {
-                      setSocietySearch(e.target.value);
-                      setShowSocietyDropdown(true);
-                    }}
-                    className="w-full pl-11 pr-10 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
-                  />
-                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                </div>
-
-                {/* Society Autocomplete Dropdown */}
-                {showSocietyDropdown && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-border/80 rounded-2xl shadow-xl z-30 max-h-40 overflow-y-auto p-1.5 space-y-1">
-                    {filteredSocieties.map((soc) => (
-                      <div
-                        key={soc.society_id}
-                        onClick={() => {
-                          setSelectedSocietyId(soc.society_id);
-                          setSocietySearch(soc.society_name);
-                          setShowSocietyDropdown(false);
-                        }}
-                        className="px-3 py-2 text-xs font-semibold text-[#18281F] hover:bg-[#E3EFE6] rounded-xl cursor-pointer transition-colors flex items-center justify-between"
-                      >
-                        <span>{soc.society_name}</span>
-                        <span className="text-[10px] text-muted-foreground">{soc.location || soc.city || 'Active'}</span>
-                      </div>
-                    ))}
-                    {filteredSocieties.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-muted-foreground italic">
-                        Custom society: "{societySearch}"
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Pincode & City 2-Column Grid */}
+              {/* Pincode & City */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-xs font-bold text-[#1E3623] mb-1">
@@ -1088,6 +1200,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                 </div>
               </div>
 
+              {/* GST Number */}
               <div>
                 <label className="block text-xs font-bold text-[#1E3623] mb-1">
                   GST Number <span className="text-muted-foreground font-normal">(Optional)</span>
@@ -1101,25 +1214,32 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                 />
               </div>
 
-              {/* Shop Images Upload Box */}
+              {/* Shop Images */}
               <div className="space-y-1.5 pt-0.5">
                 <label className="block text-xs font-bold text-[#1E3623]">
                   Shop Images
                 </label>
 
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleDeviceFileUpload} 
+                  accept="image/*" 
+                  multiple 
+                  className="hidden" 
+                />
+
                 <div className="grid grid-cols-4 gap-2.5 items-center">
-                  {/* Upload Action Trigger */}
                   <div 
-                    onClick={handleAddImage}
+                    onClick={handleOpenPhotoUpload}
                     className="border-2 border-dashed border-border/80 hover:border-[#18281F] bg-[#FAF9F6] hover:bg-[#E3EFE6]/50 rounded-2xl p-2 flex flex-col items-center justify-center cursor-pointer transition-all h-20 text-center group"
                   >
-                    <div className="w-7 h-7 rounded-full bg-white border border-border flex items-center justify-center text-[#18281F] group-hover:scale-110 transition-transform">
-                      <Plus className="w-3.5 h-3.5" />
+                    <div className="w-7 h-7 rounded-full bg-white border border-border flex items-center justify-center text-[#18281F] group-hover:scale-110 transition-transform shadow-2xs">
+                      <Camera className="w-3.5 h-3.5 text-[#18281F]" />
                     </div>
                     <span className="text-[9px] font-bold text-[#18281F] mt-1">Add Photos</span>
                   </div>
 
-                  {/* Thumbnail Previews */}
                   {shopImages.map((imgUrl, idx) => (
                     <div key={idx} className="relative h-20 rounded-2xl overflow-hidden border border-border/60 group shadow-xs">
                       <img src={imgUrl} alt={`Shop ${idx}`} className="w-full h-full object-cover" />
@@ -1155,31 +1275,32 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
             </form>
           )}
 
-          {/* STEP 3 FORM: VERIFY & FINISH */}
+          {/* STEP 3 FORM: CREATE PASSWORD & SUBMIT */}
           {currentStep === 3 && (
             <form onSubmit={handleSubmitVendorRegistration} className="space-y-3 animate-in fade-in">
-              {/* Mobile Verified Badge */}
+              {/* Verified Contact Banner */}
               <div className="p-2.5 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-xs">
                 <div className="flex items-center space-x-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="font-semibold text-emerald-900">Mobile Verified:</span>
-                  <span className="font-bold text-emerald-950">{countryCode} {mobileNumber}</span>
+                  <span className="font-semibold text-emerald-900">Verified Contact:</span>
+                  <span className="font-bold text-emerald-950">{verifiedContactValue}</span>
                 </div>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider">
                   Verified ✓
                 </span>
               </div>
+
               {/* Create Password */}
               <div>
                 <label className="block text-xs font-bold text-[#1E3623] mb-1">
-                  Create Password
+                  Create Password *
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
-                    placeholder="#23Lovely"
+                    placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-11 pr-11 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink transition-all shadow-xs"
@@ -1187,17 +1308,17 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              {/* Registration Details Card Summary */}
+              {/* Registration Details Summary Card */}
               <div className="bg-[#FAF9F6] border border-border/80 rounded-2xl p-3.5 space-y-2 shadow-xs">
                 <h3 className="text-xs font-serif font-extrabold text-[#1E3623] border-b border-border/60 pb-1.5 flex items-center justify-between">
-                  <span>Registration Details</span>
+                  <span>Registration Summary</span>
                   <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-800 text-[9px] font-black rounded-full uppercase tracking-wider">
                     Summary
                   </span>
@@ -1206,27 +1327,27 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                 <div className="grid grid-cols-2 gap-y-1.5 text-[11px]">
                   <div>
                     <span className="text-muted-foreground font-medium">Owner:</span>
-                    <span className="font-bold text-[#1E3623] ml-1">{ownerName || 'Lovely Sethiya'}</span>
+                    <span className="font-bold text-[#1E3623] ml-1">{ownerName}</span>
                   </div>
 
                   <div>
-                    <span className="text-muted-foreground font-medium">Mobile:</span>
-                    <span className="font-bold text-[#1E3623] ml-1">{mobileNumber || '9509512187'}</span>
+                    <span className="text-muted-foreground font-medium">Society:</span>
+                    <span className="font-bold text-[#1E3623] ml-1">{societySearch}</span>
                   </div>
 
                   <div className="col-span-2">
-                    <span className="text-muted-foreground font-medium">Email:</span>
-                    <span className="font-bold text-[#1E3623] ml-1">{emailAddress || 'lovelysethia753@gmail.com'}</span>
+                    <span className="text-muted-foreground font-medium">Verified Contact:</span>
+                    <span className="font-bold text-[#1E3623] ml-1">{verifiedContactValue}</span>
                   </div>
 
                   <div>
                     <span className="text-muted-foreground font-medium">Shop Name:</span>
-                    <span className="font-bold text-[#1E3623] ml-1">{shopBusinessName || 'ResinReverie'}</span>
+                    <span className="font-bold text-[#1E3623] ml-1">{shopBusinessName}</span>
                   </div>
 
                   <div>
                     <span className="text-muted-foreground font-medium">Shop No:</span>
-                    <span className="font-bold text-[#1E3623] ml-1">{shopNumber || 'Block A 12'}</span>
+                    <span className="font-bold text-[#1E3623] ml-1">{shopNumber}</span>
                   </div>
 
                   <div className="col-span-2">
@@ -1237,7 +1358,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                   <div className="col-span-2">
                     <span className="text-muted-foreground font-medium">Address:</span>
                     <span className="font-bold text-[#1E3623] ml-1">
-                      {shopAddress || 'Anupam Apartment'}, {societySearch}, {city} {pincode}
+                      {shopAddress}, {city} {pincode}
                     </span>
                   </div>
                 </div>
@@ -1288,7 +1409,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
             <button
               type="button"
               onClick={() => setShowCustomSocietyModal(false)}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-ink transition-colors"
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-ink transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1402,7 +1523,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         </div>
       )}
 
-      {/* VENDOR OTP VERIFICATION MODAL */}
+      {/* 6-DIGIT VENDOR OTP VERIFICATION MODAL */}
       {showVendorOtpModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white rounded-3xl border border-border/80 p-6 max-w-md w-full shadow-2xl relative space-y-4 text-left">
@@ -1419,9 +1540,11 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                 <ShieldCheck className="w-5 h-5 text-[#18281F]" />
               </div>
               <div>
-                <h3 className="text-base font-serif font-bold text-[#1E3623]">Verify Mobile Number</h3>
+                <h3 className="text-base font-serif font-bold text-[#1E3623]">
+                  Verify {verificationMethod === 'phone' ? 'Mobile Number' : 'Email Address'}
+                </h3>
                 <p className="text-[11px] text-muted-foreground font-medium">
-                  We've sent a 4-digit code to <span className="font-bold text-[#1E3623]">{countryCode} {mobileNumber}</span>
+                  We've sent a 6-digit security code to <span className="font-bold text-[#1E3623]">{verifiedContactValue}</span>
                 </p>
               </div>
             </div>
@@ -1436,10 +1559,11 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
             <form onSubmit={handleVerifyVendorOtpCode} className="space-y-4">
               <div className="py-2">
                 <label className="block text-xs font-bold text-center text-[#1E3623] mb-3">
-                  Enter 4-Digit Security Code
+                  Enter 6-Digit Security Code
                 </label>
 
-                <div className="flex justify-center items-center gap-3">
+                {/* 6 Single-Digit Input Blocks */}
+                <div className="flex justify-center items-center gap-2 sm:gap-2.5">
                   {vendorOtpValues.map((digit, idx) => (
                     <input
                       key={idx}
@@ -1451,7 +1575,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                       onChange={(e) => handleVendorOtpChange(idx, e.target.value)}
                       onKeyDown={(e) => handleVendorOtpKeyDown(idx, e)}
                       onPaste={idx === 0 ? handleVendorOtpPaste : undefined}
-                      className="w-12 h-14 text-center text-xl font-bold rounded-2xl bg-[#FAF9F6] border-2 border-border/80 text-[#1E3623] focus:outline-none focus:border-[#1E3623] focus:bg-white focus:ring-4 focus:ring-[#1E3623]/10 transition-all shadow-xs"
+                      className="w-10 h-12 sm:w-11 sm:h-13 text-center text-lg font-bold rounded-2xl bg-[#FAF9F6] border-2 border-border/80 text-[#1E3623] focus:outline-none focus:border-[#1E3623] focus:bg-white focus:ring-4 focus:ring-[#1E3623]/10 transition-all shadow-xs"
                     />
                   ))}
                 </div>
@@ -1464,7 +1588,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                   className="font-semibold text-muted-foreground hover:text-ink transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Change Mobile</span>
+                  <span>Change Contact</span>
                 </button>
 
                 <button
@@ -1483,13 +1607,189 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
               <button
                 type="submit"
-                disabled={loading || vendorOtpValues.join('').length < 4}
+                disabled={loading || vendorOtpValues.join('').length < 6}
                 className="w-full py-3.5 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>{loading ? 'Verifying Mobile...' : 'Verify Mobile Number'}</span>
+                <span>{loading ? 'Verifying...' : `Verify ${verificationMethod === 'phone' ? 'Mobile Number' : 'Email Address'}`}</span>
                 <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM SHOP PHOTO UPLOADER MODAL */}
+      {showPhotoUploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-border/80 p-6 max-w-lg w-full shadow-2xl relative space-y-4 text-left overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowPhotoUploadModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-ink transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#E3EFE6] border border-[#18281F]/20 flex items-center justify-center text-[#18281F]">
+                <Camera className="w-5 h-5 text-[#18281F]" />
+              </div>
+              <div>
+                <h3 className="text-base font-serif font-bold text-[#1E3623]">
+                  Add Shop Photos
+                </h3>
+                <p className="text-[11px] text-muted-foreground font-medium">
+                  Upload custom photos from your computer/phone, paste an image URL, or pick presets.
+                </p>
+              </div>
+            </div>
+
+            {/* Tab Navigation Pill Selector */}
+            <div className="flex items-center p-1 bg-[#FAF9F6] border border-border/70 rounded-2xl gap-1">
+              <button
+                type="button"
+                onClick={() => setPhotoUploadTab('device')}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  photoUploadTab === 'device'
+                    ? 'bg-[#18281F] text-white shadow-xs'
+                    : 'text-muted-foreground hover:text-[#1E3623]'
+                }`}
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload Device File</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPhotoUploadTab('url')}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  photoUploadTab === 'url'
+                    ? 'bg-[#18281F] text-white shadow-xs'
+                    : 'text-muted-foreground hover:text-[#1E3623]'
+                }`}
+              >
+                <LinkIcon className="w-3.5 h-3.5" />
+                <span>Custom Image URL</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPhotoUploadTab('presets')}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  photoUploadTab === 'presets'
+                    ? 'bg-[#18281F] text-white shadow-xs'
+                    : 'text-muted-foreground hover:text-[#1E3623]'
+                }`}
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>Category Presets</span>
+              </button>
+            </div>
+
+            {/* TAB 1: DEVICE FILE UPLOAD */}
+            {photoUploadTab === 'device' && (
+              <div className="space-y-4 pt-2">
+                <div
+                  onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                  className="border-2 border-dashed border-[#1E3623]/30 hover:border-[#1E3623] bg-[#FAF9F6] hover:bg-[#E3EFE6]/40 rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all space-y-3 group"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-white border border-[#1E3623]/20 flex items-center justify-center text-[#1E3623] group-hover:scale-110 transition-transform shadow-md">
+                    <FolderPlus className="w-7 h-7 text-[#18281F]" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-[#1E3623]">
+                      Click to choose image files from your computer or phone
+                    </h4>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 font-semibold">
+                      Supports JPG, PNG, WEBP & Data URLs (Max 5MB each)
+                    </p>
+                  </div>
+                  <span className="px-4 py-1.5 rounded-full bg-[#18281F] text-white text-[11px] font-bold shadow-xs">
+                    Browse Device Photos
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: CUSTOM IMAGE URL */}
+            {photoUploadTab === 'url' && (
+              <form onSubmit={handleAddCustomPhotoUrl} className="space-y-3 pt-2">
+                <div>
+                  <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                    Paste Image URL
+                  </label>
+                  <div className="relative">
+                    <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="url"
+                      required
+                      placeholder="https://images.unsplash.com/photo-..."
+                      value={customPhotoUrlInput}
+                      onChange={(e) => setCustomPhotoUrlInput(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink transition-all shadow-xs"
+                    />
+                  </div>
+                </div>
+
+                {customPhotoUrlInput && (
+                  <div className="p-2 border border-border/60 rounded-2xl bg-[#FAF9F6] space-y-1">
+                    <span className="text-[10px] font-bold text-muted-foreground">Image Preview:</span>
+                    <div className="h-24 rounded-xl overflow-hidden bg-white border border-border">
+                      <img
+                        src={customPhotoUrlInput}
+                        alt="Custom Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.alt = 'Invalid Image URL';
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={!customPhotoUrlInput.trim()}
+                  className="w-full py-3 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Add Custom Image URL
+                </button>
+              </form>
+            )}
+
+            {/* TAB 3: CATEGORY PRESETS */}
+            {photoUploadTab === 'presets' && (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#1E3623]">
+                    Preserved Photos for <span className="text-emerald-950 font-black">{businessCategory}</span>:
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-semibold">Click any image to add</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2.5 max-h-56 overflow-y-auto p-1 custom-scrollbar">
+                  {[
+                    "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&auto=format&fit=crop&q=80",
+                    "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400&auto=format&fit=crop&q=80",
+                    "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&auto=format&fit=crop&q=80",
+                    "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=400&auto=format&fit=crop&q=80",
+                    "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&auto=format&fit=crop&q=80",
+                    "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400&auto=format&fit=crop&q=80"
+                  ].map((url, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => handleSelectPresetPhoto(url)}
+                      className="relative h-20 rounded-2xl overflow-hidden border border-border/80 hover:border-[#1E3623] hover:ring-2 hover:ring-[#1E3623]/20 cursor-pointer transition-all group shadow-xs"
+                    >
+                      <img src={url} alt={`Preset ${idx}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
+                        + Select
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
