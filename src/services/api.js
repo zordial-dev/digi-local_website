@@ -97,7 +97,118 @@ export function getNormalizedImageUrl(itemOrUrl, fallback = '') {
     }
   }
 
+  // Auto-convert iStockphoto / Shutterstock / Freepik / Pinterest HTML webpage URLs to high-res image CDN links
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes('istockphoto.com/photos') || lowerUrl.includes('istockphoto.com/search') || lowerUrl.includes('shutterstock.com/') || lowerUrl.includes('freepik.com/') || lowerUrl.includes('pinterest.com/pin')) {
+    if (lowerUrl.includes('flower') || lowerUrl.includes('florist') || lowerUrl.includes('plant') || lowerUrl.includes('gardening') || lowerUrl.includes('rose') || lowerUrl.includes('bouquet')) {
+      return 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80';
+    } else if (lowerUrl.includes('bakery') || lowerUrl.includes('cake') || lowerUrl.includes('dessert') || lowerUrl.includes('pastry') || lowerUrl.includes('bake')) {
+      return 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&auto=format&fit=crop&q=80';
+    } else if (lowerUrl.includes('grocery') || lowerUrl.includes('fruit') || lowerUrl.includes('vegetable') || lowerUrl.includes('organic') || lowerUrl.includes('market')) {
+      return 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80';
+    } else if (lowerUrl.includes('dairy') || lowerUrl.includes('milk') || lowerUrl.includes('butter') || lowerUrl.includes('cheese')) {
+      return 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=800&auto=format&fit=crop&q=80';
+    } else if (lowerUrl.includes('chemist') || lowerUrl.includes('pharmacy') || lowerUrl.includes('medicine')) {
+      return 'https://images.unsplash.com/photo-1586015555751-63c2763f03b2?w=800&auto=format&fit=crop&q=80';
+    }
+    return 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80';
+  }
+
   return url;
+}
+
+// Store Operating Hours & Real-time Status Evaluator
+export function getStoreTimeStatus(vendor) {
+  if (!vendor) return { isOpen: true, statusText: 'Open Now', badgeType: 'open', closingInfo: 'Open' };
+
+  // Manual toggle override if vendor explicitly closed store or marked inactive
+  if (vendor.is_open === false || vendor.is_closed === true || vendor.store_status === 'CLOSED' || vendor.status === 'CLOSED' || vendor.status === 'INACTIVE') {
+    return {
+      isOpen: false,
+      statusText: 'Store Closed Currently',
+      badgeType: 'closed',
+      closingInfo: 'Temporarily Closed'
+    };
+  }
+
+  const openStr = vendor.opening_timing || vendor.opening_time || '08:00 AM';
+  const closeStr = vendor.closing_timing || vendor.closing_time || '10:00 PM';
+
+  const parseTimeToMinutes = (timeStr) => {
+    if (!timeStr) return null;
+    let s = timeStr.trim().toUpperCase();
+    let isPM = s.includes('PM');
+    let isAM = s.includes('AM');
+    s = s.replace(/(AM|PM)/g, '').trim();
+
+    let parts = s.split(':');
+    let hours = parseInt(parts[0], 10);
+    let minutes = parts[1] ? parseInt(parts[1], 10) : 0;
+
+    if (isNaN(hours)) return null;
+
+    if (isPM && hours < 12) hours += 12;
+    if (isAM && hours === 12) hours = 0;
+
+    return hours * 60 + minutes;
+  };
+
+  const openMins = parseTimeToMinutes(openStr) ?? (8 * 60);
+  const closeMins = parseTimeToMinutes(closeStr) ?? (22 * 60);
+
+  const now = new Date();
+  const currentMins = now.getHours() * 60 + now.getMinutes();
+
+  let isOpen = false;
+  if (closeMins > openMins) {
+    isOpen = currentMins >= openMins && currentMins < closeMins;
+  } else {
+    // Overnight timing (e.g. 8 PM to 4 AM)
+    isOpen = currentMins >= openMins || currentMins < closeMins;
+  }
+
+  if (!isOpen) {
+    return {
+      isOpen: false,
+      statusText: `Closed • Opens at ${openStr}`,
+      badgeType: 'closed',
+      closingInfo: `Opens at ${openStr}`
+    };
+  }
+
+  // Check closing countdown
+  let minsUntilClose = 0;
+  if (closeMins > currentMins) {
+    minsUntilClose = closeMins - currentMins;
+  } else {
+    minsUntilClose = (24 * 60 - currentMins) + closeMins;
+  }
+
+  if (minsUntilClose <= 60 && minsUntilClose > 0) {
+    return {
+      isOpen: true,
+      statusText: `Closing Soon • Closes in ${minsUntilClose} mins`,
+      badgeType: 'closing_soon',
+      closingInfo: `Closes in ${minsUntilClose} ${minsUntilClose === 1 ? 'min' : 'mins'}`
+    };
+  }
+
+  const hoursUntilClose = Math.floor(minsUntilClose / 60);
+  if (hoursUntilClose <= 2 && hoursUntilClose >= 1) {
+    return {
+      isOpen: true,
+      statusText: `Closes in ${hoursUntilClose} ${hoursUntilClose === 1 ? 'hour' : 'hours'}`,
+      badgeType: 'closing_soon',
+      closingInfo: `Closes in ${hoursUntilClose} ${hoursUntilClose === 1 ? 'hour' : 'hours'}`
+    };
+  }
+
+  return {
+    isOpen: true,
+    statusText: `Open Now • Closes at ${closeStr}`,
+    badgeType: 'open',
+    closingInfo: `Closes at ${closeStr}`
+  };
 }
 
 export const DIVERSE_SOCIETY_IMAGES = [
@@ -1268,7 +1379,9 @@ export const api = {
         categoryCover = 'https://images.unsplash.com/photo-1586015555751-63c2763f03b2?w=800&auto=format&fit=crop&q=80';
       }
 
-      const logoToUse = savedLogo || v.logo || v.image_url || v.image || (Array.isArray(v.shop_images) && v.shop_images.length > 0 ? v.shop_images[0] : null) || categoryCover;
+      const logoToUse = getNormalizedImageUrl(
+        savedLogo || v.logo || v.image_url || v.image || (Array.isArray(v.shop_images) && v.shop_images.length > 0 ? v.shop_images[0] : null) || categoryCover
+      );
 
       return {
         ...v,
@@ -1372,7 +1485,9 @@ export const api = {
       categoryCover = 'https://images.unsplash.com/photo-1586015555751-63c2763f03b2?w=800&auto=format&fit=crop&q=80';
     }
 
-    const logoToUse = savedLogo || finalVendor.logo || finalVendor.image_url || finalVendor.image || (Array.isArray(finalVendor.shop_images) && finalVendor.shop_images.length > 0 ? finalVendor.shop_images[0] : null) || categoryCover;
+    const logoToUse = getNormalizedImageUrl(
+      savedLogo || finalVendor.logo || finalVendor.image_url || finalVendor.image || (Array.isArray(finalVendor.shop_images) && finalVendor.shop_images.length > 0 ? finalVendor.shop_images[0] : null) || categoryCover
+    );
 
     const vendorWithLogo = {
       ...finalVendor,
@@ -1404,12 +1519,70 @@ export const api = {
   },
 
 
+  // Auto decrement item stock quantity upon order creation
+  decrementVendorItemStock: (vendorId, orderedItems = []) => {
+    if (!orderedItems || !orderedItems.length) return;
+    try {
+      const targetVId = String(vendorId || '');
+      const keysToUpdate = new Set([
+        `digilocal_vendor_items_${vendorId}`,
+        `digilocal_vendor_items_${targetVId}`
+      ]);
+      
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('digilocal_vendor_items_')) {
+          keysToUpdate.add(k);
+        }
+      }
+
+      keysToUpdate.forEach(localKey => {
+        try {
+          const rawStr = localStorage.getItem(localKey);
+          if (rawStr) {
+            let itemList = JSON.parse(rawStr);
+            if (Array.isArray(itemList) && itemList.length > 0) {
+              let modified = false;
+              itemList = itemList.map(item => {
+                const itemMatch = orderedItems.find(o => 
+                  String(o.item_id || o.id) === String(item.item_id || item.id) ||
+                  (o.item_name || o.name || '').trim().toLowerCase() === (item.item_name || item.name || '').trim().toLowerCase()
+                );
+                if (itemMatch) {
+                  const qtyOrdered = Number(itemMatch.quantity) || 1;
+                  const currentStock = Number(item.stock !== undefined && item.stock !== null ? item.stock : 10);
+                  const remainingStock = Math.max(0, currentStock - qtyOrdered);
+                  modified = true;
+                  return {
+                    ...item,
+                    stock: remainingStock,
+                    is_available: remainingStock > 0 ? (item.is_available ?? 1) : 0
+                  };
+                }
+                return item;
+              });
+              if (modified) {
+                localStorage.setItem(localKey, JSON.stringify(itemList));
+              }
+            }
+          }
+        } catch (_) {}
+      });
+    } catch (err) {
+      console.warn('Failed to decrement vendor item stock:', err);
+    }
+  },
+
   // -------------------------------------------------------------
   // 3. Customer Orders APIs
   // -------------------------------------------------------------
 
   // 3.1 Place Customer Order
   placeOrder: async (orderData) => {
+    if (orderData && orderData.vendor_id && Array.isArray(orderData.items)) {
+      api.decrementVendorItemStock(orderData.vendor_id, orderData.items);
+    }
+
     try {
       const res = await fetch(`${API_BASE}/orders`, {
         method: 'POST',
@@ -1468,18 +1641,76 @@ export const api = {
     };
   },
 
+  // Helper to persist order status changes across local storage keys
+  _updateLocalOrderStatus: (orderId, newStatus) => {
+    if (!orderId) return;
+    const targetIdStr = String(orderId).replace('ORD-', '').trim().toLowerCase();
+    const isTarget = (o) => {
+      if (!o || !o.order_id) return false;
+      const oStr = String(o.order_id).replace('ORD-', '').trim().toLowerCase();
+      return oStr === targetIdStr || String(o.order_id) === String(orderId);
+    };
+
+    const keysToScan = [
+      'digilocal_active_order',
+      'digilocal_user_orders',
+      'digilocal_all_vendor_orders'
+    ];
+
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('digilocal_vendor_orders_')) {
+          keysToScan.push(k);
+        }
+      }
+    } catch (_) {}
+
+    for (const key of keysToScan) {
+      try {
+        const val = localStorage.getItem(key);
+        if (!val) continue;
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) {
+          let modified = false;
+          const updated = parsed.map(o => {
+            if (isTarget(o)) {
+              modified = true;
+              return { ...o, status: newStatus };
+            }
+            return o;
+          });
+          if (modified) {
+            localStorage.setItem(key, JSON.stringify(updated));
+          }
+        } else if (typeof parsed === 'object' && parsed !== null) {
+          if (isTarget(parsed)) {
+            parsed.status = newStatus;
+            localStorage.setItem(key, JSON.stringify(parsed));
+          }
+        }
+      } catch (_) {}
+    }
+  },
+
   // 3.3 Update Order Status
   updateOrderStatus: async (orderId, status) => {
+    api._updateLocalOrderStatus(orderId, status);
     try {
+      const jwtToken = getStoredToken();
       const res = await fetch(`${API_BASE}/orders/${orderId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+        },
         body: JSON.stringify({ status })
       });
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to update order status');
+        api._updateLocalOrderStatus(orderId, status);
         return data;
       }
     } catch (_) { }
@@ -1505,13 +1736,11 @@ export const api = {
       if (!o) return false;
       const cName = (o.customer_name || o.user_name || o.name || '').trim().toLowerCase();
       const pNum = (o.phone_number || o.phone || o.user_phone || '').trim();
-      const addr = (o.address || o.delivery_address || '').trim().toLowerCase();
       const oId = String(o.order_id || '');
 
       if (cName.includes('rahul sharma') || cName.includes('demo customer')) return false;
       if (pNum === '9876543210' || pNum === '9876543211' || pNum === '9876543212' || pNum === '+919876543210') return false;
-      if (addr.includes('omaxe greenwood')) return false;
-      if (oId === '1642' || oId === 'ORD-1642' || oId === '1') return false;
+      if ((oId === '1642' || oId === 'ORD-1642' || oId === '1') && cName.includes('rahul')) return false;
       return true;
     };
 
@@ -1531,7 +1760,8 @@ export const api = {
           if (Array.isArray(parsed)) {
             const matching = parsed.filter(o => {
               if (!isRealOrder(o)) return false;
-              return String(o.vendor_id) === String(vendorId) || !o.vendor_id;
+              const oVendorId = o.vendor_id !== undefined && o.vendor_id !== null ? String(o.vendor_id) : (o.vendorId ? String(o.vendorId) : '');
+              return oVendorId === String(vendorId);
             });
             combined = [...combined, ...matching];
           }

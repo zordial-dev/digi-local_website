@@ -223,14 +223,15 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
               </nav>
 
               {/* Quick Contact Card */}
-              <div className="mt-6 pt-6 border-t border-[#E4DCC9] px-2 text-center">
-                <p className="text-xs text-[#6B7C70] mb-2 font-medium">Need immediate assistance?</p>
-                <button
-                  onClick={() => handleTabChange('contact-support')}
+              <div className="mt-6 pt-6 border-t border-[#E4DCC9] px-2 text-center space-y-2">
+                <p className="text-xs text-[#6B7C70] font-medium">Need Support?</p>
+                <a
+                  href="mailto:support@digilocal.network"
                   className="w-full py-2.5 px-4 rounded-xl bg-[#EFE8D8] hover:bg-[#C4A066] hover:text-[#18281F] text-[#18281F] text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-[#E4DCC9]"
                 >
-                  <Headphones className="w-3.5 h-3.5" /> Reach Support
-                </button>
+                  <Mail className="w-3.5 h-3.5 text-[#C4A066]" />
+                  <span>Email Support Desk</span>
+                </a>
               </div>
             </div>
           </div>
@@ -799,8 +800,8 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                 </div>
               )}
 
-              {/* TAB 5: HELP & SUPPORT HUB (UNIFIED GUIDE, FAQS, FORM & DIRECT CONTACT) */}
-              {(activeTab === 'help-support' || activeTab === 'faqs' || activeTab === 'contact-support') && (
+              {/* TAB 5: HELP & SUPPORT HUB (FAQS & HOW-TO GUIDES) */}
+              {(activeTab === 'help-support' || activeTab === 'faqs') && (
                 <div className="space-y-8 animate-fadeIn">
                   <div className="flex items-center space-x-3 pb-4 border-b border-[#E4DCC9]">
                     <div className="w-10 h-10 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
@@ -808,7 +809,7 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                     </div>
                     <div>
                       <h2 className="text-2xl font-serif font-bold text-[#18281F]">Help & Support Center</h2>
-                      <p className="text-xs text-[#6B7C70]">Interactive FAQs, How-To Guides, Support Form & Escalation Desk</p>
+                      <p className="text-xs text-[#6B7C70]">Interactive FAQs, How-To Guides & Quick Knowledgebase</p>
                     </div>
                   </div>
 
@@ -861,7 +862,7 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                     <div className="space-y-3 pt-1">
                       {filteredFaqs.length === 0 ? (
                         <div className="py-8 text-center text-xs text-[#6B7C70]">
-                          No matching questions found for "{searchQuery}". Scroll down to fill out our Support Form below.
+                          No matching questions found for "{searchQuery}". Click below to send a message to our Support Team.
                         </div>
                       ) : (
                         filteredFaqs.map((faq, idx) => {
@@ -895,153 +896,182 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                     </div>
                   </div>
 
-                  {/* Section 3: Submit Support Ticket / Contact Form */}
-                  <div className="space-y-4 pt-4 border-t border-[#E4DCC9]/60">
-                    <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center gap-2">
-                      <Headphones className="w-4 h-4 text-[#C4A066]" /> Submit a Support Request
-                    </h3>
+                  {/* Callout to Contact Support */}
+                  <div className="p-6 rounded-2xl bg-[#18281F] text-[#F7F4EE] flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="space-y-1 text-center sm:text-left">
+                      <h4 className="font-serif font-bold text-base text-white flex items-center justify-center sm:justify-start gap-2">
+                        <Headphones className="w-4.5 h-4.5 text-[#C4A066]" /> Need Direct Assistance?
+                      </h4>
+                      <p className="text-xs text-emerald-200/80">
+                        Can't find what you're looking for? Submit a ticket or chat directly with our customer desk.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleTabChange('contact-support')}
+                      className="px-5 py-3 rounded-xl bg-[#C4A066] hover:bg-amber-400 text-[#18281F] font-bold text-xs transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer shadow-md"
+                    >
+                      <span>Contact Support Team</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                      {/* Contact Form */}
-                      <div className="lg:col-span-2 space-y-4">
-                        {contactSubmitted ? (
-                          <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-3">
-                            <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-                            <h3 className="text-lg font-serif font-bold text-emerald-900">Message Received!</h3>
-                            <p className="text-xs text-emerald-700">
-                              Thank you for reaching out. Our support team will review your query and respond via email or phone within 2 hours.
-                            </p>
-                          </div>
-                        ) : (
-                          <form onSubmit={handleContactSubmit} className="space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-xs font-bold text-[#18281F] mb-1">Your Full Name *</label>
-                                <input
-                                  type="text"
-                                  required
-                                  value={contactForm.name}
-                                  onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                                  placeholder="e.g. Ramesh Kumar"
-                                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-[#18281F] mb-1">Email Address</label>
-                                <input
-                                  type="email"
-                                  value={contactForm.email}
-                                  onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                                  placeholder="e.g. ramesh@gmail.com"
-                                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-xs font-bold text-[#18281F] mb-1">Phone Number</label>
-                                <input
-                                  type="tel"
-                                  value={contactForm.phone}
-                                  onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
-                                  placeholder="e.g. +91 9876543210"
-                                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-[#18281F] mb-1">Query Category</label>
-                                <select
-                                  value={contactForm.category}
-                                  onChange={(e) => setContactForm({ ...contactForm, category: e.target.value })}
-                                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
-                                >
-                                  <option>General Query</option>
-                                  <option>Order Issue / Vendor Dispute</option>
-                                  <option>Society Addition Request</option>
-                                  <option>Vendor Registration Assistance</option>
-                                  <option>Safety or Policy Violation</option>
-                                </select>
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-bold text-[#18281F] mb-1">Society Name (Optional)</label>
-                              <input
-                                type="text"
-                                value={contactForm.societyName}
-                                onChange={(e) => setContactForm({ ...contactForm, societyName: e.target.value })}
-                                placeholder="e.g. Green Meadows Apartments, Phase 2"
-                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-bold text-[#18281F] mb-1">Your Message / Detail *</label>
-                              <textarea
-                                rows={3}
-                                required
-                                value={contactForm.message}
-                                onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
-                                placeholder="Describe your question or issue in detail..."
-                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
-                              />
-                            </div>
-
-                            <button
-                              type="submit"
-                              className="w-full py-3 rounded-xl bg-[#18281F] hover:bg-[#243A2D] text-[#F7F4EE] text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                            >
-                              <Send className="w-4 h-4 text-[#C4A066]" /> Send Message to Support
-                            </button>
-                          </form>
-                        )}
-                      </div>
-
-                      {/* Direct Support Desk Cards */}
-                      <div className="space-y-3">
-                        <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                          <div className="flex items-center space-x-2 text-xs font-bold text-[#18281F]">
-                            <Mail className="w-4 h-4 text-[#C4A066]" />
-                            <span>Email Support Desk</span>
-                          </div>
-                          <p className="text-[11px] text-[#6B7C70]">For official inquiries, society onboarding, or vendor disputes:</p>
-                          <a href="mailto:support@digilocal.network" className="text-xs font-bold text-[#18281F] hover:text-[#C4A066] block">
-                            support@digilocal.network
-                          </a>
-                        </div>
-
-                        <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                          <div className="flex items-center space-x-2 text-xs font-bold text-[#18281F]">
-                            <Clock className="w-4 h-4 text-[#C4A066]" />
-                            <span>Support Hours</span>
-                          </div>
-                          <p className="text-[11px] text-[#6B7C70]">Monday – Sunday</p>
-                          <p className="text-xs font-bold text-[#18281F]">8:00 AM – 9:00 PM IST</p>
-                        </div>
-
-                        <div className="p-4 rounded-2xl bg-emerald-900 text-[#F7F4EE] space-y-2">
-                          <div className="flex items-center space-x-2 text-xs font-bold text-[#C4A066]">
-                            <MessageSquare className="w-4 h-4" />
-                            <span>Instant WhatsApp Help</span>
-                          </div>
-                          <p className="text-[11px] text-emerald-200/80">Need quick chat assistance?</p>
-                          <a
-                            href="https://wa.me/918005625999?text=Hi%20DigiLocal%20Support%2C%20I%20need%20assistance"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="w-full py-2 rounded-xl bg-[#C4A066] hover:bg-amber-400 text-[#18281F] font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
-                          >
-                            Chat on WhatsApp
-                          </a>
-                        </div>
-                      </div>
-
+              {/* TAB 6: CONTACT SUPPORT PAGE */}
+              {activeTab === 'contact-support' && (
+                <div className="space-y-8 animate-fadeIn">
+                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E4DCC9]">
+                    <div className="w-10 h-10 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
+                      <Headphones className="w-5 h-5 text-[#C4A066]" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-serif font-bold text-[#18281F]">Contact Support</h2>
+                      <p className="text-xs text-[#6B7C70]">24/7 Assistance, Support Form & Direct Helpdesk Channels</p>
                     </div>
                   </div>
 
-                  {/* Section 4: Vendor Registration CTA */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    {/* Contact Form */}
+                    <div className="lg:col-span-2 space-y-4">
+                      <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center gap-2">
+                        <Send className="w-4 h-4 text-[#C4A066]" /> Submit a Support Request
+                      </h3>
+                      {contactSubmitted ? (
+                        <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-3">
+                          <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
+                          <h3 className="text-lg font-serif font-bold text-emerald-900">Message Received!</h3>
+                          <p className="text-xs text-emerald-700">
+                            Thank you for reaching out. Our support team will review your query and respond via email or phone within 2 hours.
+                          </p>
+                        </div>
+                      ) : (
+                        <form onSubmit={handleContactSubmit} className="space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-[#18281F] mb-1">Your Full Name *</label>
+                              <input
+                                type="text"
+                                required
+                                value={contactForm.name}
+                                onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                                placeholder="e.g. Ramesh Kumar"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-[#18281F] mb-1">Email Address</label>
+                              <input
+                                type="email"
+                                value={contactForm.email}
+                                onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                                placeholder="e.g. ramesh@gmail.com"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-[#18281F] mb-1">Phone Number</label>
+                              <input
+                                type="tel"
+                                value={contactForm.phone}
+                                onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                                placeholder="e.g. +91 9876543210"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-[#18281F] mb-1">Query Category</label>
+                              <select
+                                value={contactForm.category}
+                                onChange={(e) => setContactForm({ ...contactForm, category: e.target.value })}
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                              >
+                                <option>General Query</option>
+                                <option>Order Issue / Vendor Dispute</option>
+                                <option>Society Addition Request</option>
+                                <option>Vendor Registration Assistance</option>
+                                <option>Safety or Policy Violation</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-[#18281F] mb-1">Society Name (Optional)</label>
+                            <input
+                              type="text"
+                              value={contactForm.societyName}
+                              onChange={(e) => setContactForm({ ...contactForm, societyName: e.target.value })}
+                              placeholder="e.g. Green Meadows Apartments, Phase 2"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-[#18281F] mb-1">Your Message / Detail *</label>
+                            <textarea
+                              rows={3}
+                              required
+                              value={contactForm.message}
+                              onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+                              placeholder="Describe your question or issue in detail..."
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                            />
+                          </div>
+
+                          <button
+                            type="submit"
+                            className="w-full py-3 rounded-xl bg-[#18281F] hover:bg-[#243A2D] text-[#F7F4EE] text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <Send className="w-4 h-4 text-[#C4A066]" /> Send Message to Support
+                          </button>
+                        </form>
+                      )}
+                    </div>
+
+                    {/* Direct Support Desk Cards */}
+                    <div className="space-y-3">
+                      <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center gap-2">
+                        <PhoneCall className="w-4 h-4 text-[#C4A066]" /> Direct Channels
+                      </h3>
+
+                      <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
+                        <div className="flex items-center space-x-2 text-xs font-bold text-[#18281F]">
+                          <Mail className="w-4 h-4 text-[#C4A066]" />
+                          <span>Email Support Desk</span>
+                        </div>
+                        <p className="text-[11px] text-[#6B7C70]">For official inquiries, society onboarding, or vendor disputes:</p>
+                        <a href="mailto:support@digilocal.network" className="text-xs font-bold text-[#18281F] hover:text-[#C4A066] block">
+                          support@digilocal.network
+                        </a>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
+                        <div className="flex items-center space-x-2 text-xs font-bold text-[#18281F]">
+                          <Clock className="w-4 h-4 text-[#C4A066]" />
+                          <span>Support Hours</span>
+                        </div>
+                        <p className="text-[11px] text-[#6B7C70]">Monday – Sunday</p>
+                        <p className="text-xs font-bold text-[#18281F]">8:00 AM – 9:00 PM IST</p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-emerald-900 text-[#F7F4EE] space-y-2">
+                        <div className="flex items-center space-x-2 text-xs font-bold text-[#C4A066]">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Quick Response Guarantee</span>
+                        </div>
+                        <p className="text-[11px] text-emerald-200/80">Support ticket responses within 2 hours during active hours.</p>
+                        <span className="inline-block text-xs font-bold text-white bg-emerald-800/80 px-3 py-1 rounded-full border border-emerald-700/60">
+                          Fast Ticket Resolution
+                        </span>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Vendor Registration CTA */}
                   <div className="p-5 rounded-2xl bg-[#18281F] text-[#F7F4EE] space-y-3">
                     <h4 className="font-serif font-bold text-lg text-white">Are you a Local Vendor?</h4>
                     <p className="text-xs text-emerald-200/80 leading-relaxed">

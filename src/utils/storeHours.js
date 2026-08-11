@@ -24,12 +24,23 @@ const parseTime12h = (timeStr) => {
  * @param {string} closing_timing  e.g. "10:00 PM"
  * @returns {{ isOpen: boolean, opensAt: string, closesAt: string, nextOpenIn: string }}
  */
-export const getStoreStatus = (opening_timing, closing_timing) => {
+export const getStoreStatus = (opening_timing, closing_timing, vendor = null) => {
+  if (vendor && (vendor.is_open === false || vendor.is_closed === true || vendor.store_status === 'CLOSED' || vendor.status === 'CLOSED' || vendor.status === 'INACTIVE')) {
+    return {
+      isOpen: false,
+      opensAt: opening_timing || '—',
+      closesAt: closing_timing || '—',
+      nextOpenIn: '',
+      statusText: 'Closed Currently',
+      closingCountdown: ''
+    };
+  }
+
   const open = parseTime12h(opening_timing);
   const close = parseTime12h(closing_timing);
 
   if (!open || !close) {
-    return { isOpen: true, opensAt: opening_timing || '—', closesAt: closing_timing || '—', nextOpenIn: '' };
+    return { isOpen: true, opensAt: opening_timing || '—', closesAt: closing_timing || '—', nextOpenIn: '', statusText: 'Open Now', closingCountdown: '' };
   }
 
   const now = new Date();
@@ -39,15 +50,15 @@ export const getStoreStatus = (opening_timing, closing_timing) => {
 
   let isOpen;
   if (openMins < closeMins) {
-    // Normal day hours: e.g. 08:00 AM → 10:00 PM
     isOpen = nowMins >= openMins && nowMins < closeMins;
   } else {
-    // Overnight hours: e.g. 10:00 PM → 06:00 AM
     isOpen = nowMins >= openMins || nowMins < closeMins;
   }
 
-  // Calculate "opens in X hours Y mins" when closed
   let nextOpenIn = '';
+  let closingCountdown = '';
+  let statusText = isOpen ? 'Open Now' : `Closed • Opens at ${opening_timing || '8 AM'}`;
+
   if (!isOpen) {
     let diffMins;
     if (nowMins < openMins) {
@@ -58,12 +69,24 @@ export const getStoreStatus = (opening_timing, closing_timing) => {
     const h = Math.floor(diffMins / 60);
     const m = diffMins % 60;
     nextOpenIn = h > 0 ? `${h}h ${m}m` : `${m}m`;
+  } else {
+    let minsUntilClose = closeMins > nowMins ? (closeMins - nowMins) : ((24 * 60 - nowMins) + closeMins);
+    if (minsUntilClose <= 60 && minsUntilClose > 0) {
+      closingCountdown = `Closes in ${minsUntilClose} mins`;
+      statusText = `Closing Soon (${closingCountdown})`;
+    } else if (minsUntilClose <= 120 && minsUntilClose > 60) {
+      const hrs = Math.floor(minsUntilClose / 60);
+      closingCountdown = `Closes in ${hrs} ${hrs === 1 ? 'hour' : 'hours'}`;
+      statusText = `Open Now (${closingCountdown})`;
+    }
   }
 
   return {
     isOpen,
     opensAt: opening_timing || '—',
     closesAt: closing_timing || '—',
-    nextOpenIn
+    nextOpenIn,
+    closingCountdown,
+    statusText
   };
 };

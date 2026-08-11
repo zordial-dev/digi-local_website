@@ -198,10 +198,28 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
   };
 
   const handleOrderStatusChange = async (orderId, newStatus) => {
+    // Immediate optimistic state update
+    setPanelData((prev) => {
+      if (!prev || !Array.isArray(prev.orders)) return prev;
+      const updatedOrders = prev.orders.map((o) =>
+        String(o.order_id) === String(orderId) ? { ...o, status: newStatus } : o
+      );
+      return { ...prev, orders: updatedOrders };
+    });
+
     try {
       await api.updateOrderStatus(orderId, newStatus);
       loadPanelData();
+      if (newStatus === 'COMPLETED') {
+        setModalConfig({
+          isOpen: true,
+          title: '✅ Order Marked Completed',
+          message: `Order ${orderId} has been successfully marked as completed and fulfilled.`,
+          type: 'success'
+        });
+      }
     } catch (err) {
+      loadPanelData();
       setModalConfig({
         isOpen: true,
         title: 'Order Status Error',
@@ -423,7 +441,7 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
             <div className="flex items-center space-x-5 min-w-0 flex-1">
               <div className="w-20 h-20 rounded-2xl border-2 border-border bg-secondary flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm relative">
                 <img
-                  src={vendor.logo || vendor.image_url || localStorage.getItem(`digilocal_vendor_logo_${vendor.vendor_id}`) || 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80'}
+                  src={getNormalizedImageUrl(vendor.logo || vendor.image_url || localStorage.getItem(`digilocal_vendor_logo_${vendor.vendor_id}`)) || 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=200&auto=format&fit=crop&q=80'}
                   alt={vendor.store_name || ''}
                   onError={(e) => {
                     e.target.style.display = 'none';
@@ -560,7 +578,13 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                   const statusUpper = (order.status || 'PENDING').toUpperCase();
                   const customerPhone = order.phone_number || order.phone || order.user_phone || '';
                   const customerName = order.customer_name || order.user_name || order.name || 'Resident Customer';
-                  const deliveryAddr = order.address || order.delivery_address || 'Resident Address';
+                  let rawAddr = order.address || order.delivery_address || 'Resident Address';
+                  const targetSocietyName = order.society_name || vendor?.society_name || vendor?.location || '';
+                  
+                  if (targetSocietyName && rawAddr.match(/,\s*(Society|Gated Community|Gated Housing Society)$/i)) {
+                    rawAddr = rawAddr.replace(/,\s*(Society|Gated Community|Gated Housing Society)$/i, `, ${targetSocietyName}`);
+                  }
+                  const deliveryAddr = rawAddr;
                   const orderItems = Array.isArray(order.items) ? order.items : [];
                   const orderDateStr = new Date(order.order_timestamp || order.date || order.timestamp || Date.now()).toLocaleString('en-US', {
                     month: 'short',
@@ -579,11 +603,12 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                       <div className="space-y-4 flex-1 min-w-0">
                         {/* Header: Order ID + Status Badge + Date */}
                         <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-border/60">
-                          <div className="flex items-center space-x-2.5">
-                            <div className="w-8 h-8 rounded-xl bg-[#18281F] text-[#E6C35C] flex items-center justify-center font-bold text-xs shadow-xs">
-                              #{order.order_id.toString().slice(-4)}
+                          <div className="flex items-center space-x-2.5 min-w-0">
+                            <div className="px-2.5 py-1.5 rounded-xl bg-[#18281F] text-[#E6C35C] flex items-center justify-center font-black text-xs shadow-2xs shrink-0 gap-1">
+                              <ShoppingBag className="w-3.5 h-3.5 text-[#E6C35C]" />
+                              <span>#{order.order_id.toString().replace('ORD-', '').slice(-4)}</span>
                             </div>
-                            <span className="font-serif font-extrabold text-[#18281F] text-base tracking-wide">
+                            <span className="font-serif font-extrabold text-[#18281F] text-base tracking-wide truncate">
                               Order #{order.order_id}
                             </span>
                           </div>
@@ -725,6 +750,20 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                             </button>
                           )}
 
+                          {statusUpper === 'COMPLETED' && (
+                            <div className="w-full py-2.5 px-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 font-extrabold text-xs flex items-center justify-center gap-1.5 uppercase tracking-wider shadow-2xs">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              <span>Order Completed</span>
+                            </div>
+                          )}
+
+                          {statusUpper === 'CANCELLED' && (
+                            <div className="w-full py-2.5 px-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 font-extrabold text-xs flex items-center justify-center gap-1.5 uppercase tracking-wider shadow-2xs">
+                              <XCircle className="w-4 h-4 text-rose-600" />
+                              <span>Order Cancelled</span>
+                            </div>
+                          )}
+
                           {statusUpper !== 'CANCELLED' && statusUpper !== 'COMPLETED' && (
                             <button
                               type="button"
@@ -856,14 +895,67 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Store Logo Image URL</label>
-                  <input
-                    type="url"
-                    placeholder="https://images.unsplash.com/..."
-                    value={settingsForm.logo}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, logo: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-[#0A1428] uppercase">Store Logo Image URL</label>
+                    <span className="text-[10px] text-amber-800 font-medium">💡 Requires direct image URL (.jpg/.png/CDN)</span>
+                  </div>
+                  <div className="flex gap-3 items-center">
+                    <input
+                      type="url"
+                      placeholder="https://images.unsplash.com/..."
+                      value={settingsForm.logo}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, logo: e.target.value })}
+                      className="flex-1 px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
+                    />
+                    {settingsForm.logo && (
+                      <div className="w-10 h-10 rounded-xl border border-border overflow-hidden shrink-0 bg-gray-100 flex items-center justify-center">
+                        <img
+                          src={getNormalizedImageUrl(settingsForm.logo)}
+                          alt="Preview"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1.5 leading-normal">
+                    Note: iStockphoto HTML search pages (like <code className="bg-muted px-1 rounded">https://www.istockphoto.com/photos/...</code>) are web page URLs. DigiLocal automatically converts them to high-resolution store cover images.
+                  </p>
+                  
+                  {/* Preset Quick Selectors */}
+                  <div className="mt-2.5 flex flex-wrap gap-1.5 items-center">
+                    <span className="text-[11px] font-bold text-[#0A1428] mr-1">Quick Presets:</span>
+                    <button
+                      type="button"
+                      onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80' })}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-[11px] font-bold border border-emerald-200 transition-colors"
+                    >
+                      🌸 Florist / Bouquet
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&auto=format&fit=crop&q=80' })}
+                      className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200 transition-colors"
+                    >
+                      🍞 Bakery & Cakes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80' })}
+                      className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-900 text-[11px] font-bold border border-blue-200 transition-colors"
+                    >
+                      🥦 Fresh Grocery
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=800&auto=format&fit=crop&q=80' })}
+                      className="px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-900 text-[11px] font-bold border border-cyan-200 transition-colors"
+                    >
+                      🥛 Dairy Products
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -902,7 +994,10 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
 
               {/* SECTION 2: STORE TIMINGS */}
               <div className="p-5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/25 space-y-4">
-                <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider border-b border-[#C5A880]/15 pb-2">2. Operating Timings</h3>
+                <div className="flex items-center justify-between border-b border-[#C5A880]/15 pb-2">
+                  <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider">2. Store Operating Timings & Availability</h3>
+                  <span className="text-[10px] text-muted-foreground font-medium">Controls store open/closed badges & ordering availability</span>
+                </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -1181,23 +1276,23 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
 
       </div>
 
-      {/* Add / Edit Product Modal (Pixel-Perfect DigiLocal Luxury Design) */}
+      {/* Add / Edit Product Modal (Compact, Sleek & Modern Design) */}
       {showAddItemModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white border border-[#E8E2D5] rounded-[2.5rem] p-5 sm:p-7 max-w-lg w-full shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto relative text-ink scrollbar-thin">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white border border-[#E8E2D5] rounded-2xl max-w-md w-full max-h-[88vh] shadow-xl flex flex-col overflow-hidden text-ink relative">
             
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3.5 border-b border-[#E8E2D5]/70">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#E3EFE6] border border-[#18281F]/20 flex items-center justify-center text-[#18281F] shadow-xs">
-                  <Sparkles className="w-5 h-5 text-[#C4A066]" />
+            {/* Sleek Compact Header */}
+            <div className="px-4 py-3 border-b border-[#E8E2D5] flex items-center justify-between shrink-0 bg-[#FAF9F6]">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#E3EFE6] border border-[#18281F]/20 flex items-center justify-center text-[#18281F]">
+                  <Sparkles className="w-4 h-4 text-[#C4A066]" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-serif font-extrabold text-[#18281F]">
+                  <h3 className="text-base font-serif font-bold text-[#18281F]">
                     {editingItem ? 'Edit Product Item' : 'Add New Product'}
                   </h3>
-                  <p className="text-[11px] text-muted-foreground font-medium">
-                    Configure item specifications, pricing & availability
+                  <p className="text-[10px] text-muted-foreground font-medium">
+                    Enter product details, pricing & stock quantity
                   </p>
                 </div>
               </div>
@@ -1205,320 +1300,331 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
               <button 
                 type="button"
                 onClick={() => setShowAddItemModal(false)} 
-                className="w-9 h-9 rounded-full bg-[#FAF8F5] hover:bg-[#EFEADF] border border-[#E8E2D5] text-gray-500 hover:text-ink flex items-center justify-center transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-full bg-white hover:bg-[#EFEADF] border border-[#E8E2D5] text-gray-500 hover:text-ink flex items-center justify-center transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveItem} className="space-y-5">
+            {/* Form Body */}
+            <form onSubmit={handleSaveItem} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 overflow-y-auto space-y-3 flex-1 scrollbar-thin">
 
-              {/* 1. PRODUCT PHOTO UPLOAD BOX */}
-              <div className="bg-[#FAF8F5] p-4 sm:p-4.5 rounded-3xl border border-[#EBE5D8] space-y-3.5 shadow-2xs">
-                <label className="block text-[11px] font-black uppercase tracking-wider text-[#18281F]">
-                  PRODUCT PHOTO UPLOAD
-                </label>
-
-                {/* Dotted Drop / Preview Box */}
-                <div className="border-2 border-dashed border-[#C4A066]/40 bg-white rounded-2xl p-4 text-center flex flex-col items-center justify-center min-h-[130px] transition-all">
-                  {itemForm.image_url ? (
-                    <div className="relative group w-full flex flex-col items-center">
-                      <img 
-                        src={getNormalizedImageUrl(itemForm.image_url)} 
-                        alt="Product preview" 
-                        className="h-28 object-contain rounded-xl shadow-xs"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setItemForm({ ...itemForm, image_url: '' })}
-                        className="mt-2 text-xs text-rose-600 hover:text-rose-700 font-bold transition-colors cursor-pointer flex items-center gap-1 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Remove Photo</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-2 space-y-1.5">
-                      <div className="w-10 h-10 rounded-full bg-[#E3EFE6] flex items-center justify-center text-[#18281F]">
-                        <ImageIcon className="w-5 h-5 text-[#C4A066]" />
-                      </div>
-                      <span className="text-xs font-bold text-gray-500">No photo attached</span>
-                      <span className="text-[10px] text-muted-foreground">Upload from device or enter image URL below</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Action Buttons: Upload Media & Camera */}
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="bg-[#EFEADF] hover:bg-[#E4DDCB] text-[#18281F] py-2.5 px-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs border border-[#DCD5C5]">
-                    <Upload className="w-4 h-4 text-[#18281F]" />
-                    <span>Upload Media</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => setItemForm({ ...itemForm, image_url: reader.result });
-                          reader.readAsDataURL(file);
-                        }
-                      }} 
-                    />
-                  </label>
-
-                  <label className="bg-[#EFEADF] hover:bg-[#E4DDCB] text-[#18281F] py-2.5 px-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs border border-[#DCD5C5]">
-                    <Camera className="w-4 h-4 text-[#18281F]" />
-                    <span>Camera</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      capture="environment" 
-                      className="hidden" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => setItemForm({ ...itemForm, image_url: reader.result });
-                          reader.readAsDataURL(file);
-                        }
-                      }} 
-                    />
-                  </label>
-                </div>
-
-                {/* OR PASTE DIRECT IMAGE URL */}
+                {/* 1. COMPACT PHOTO UPLOAD BAR */}
                 <div>
-                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-gray-400 mb-1">
-                    OR PASTE DIRECT IMAGE URL
+                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                    PRODUCT IMAGE
+                  </label>
+                  <div className="flex items-center gap-3 bg-[#FAF8F5] p-2.5 rounded-xl border border-[#EBE5D8]">
+                    <div className="relative shrink-0">
+                      {itemForm.image_url ? (
+                        <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-[#C4A066]">
+                          <img 
+                            src={getNormalizedImageUrl(itemForm.image_url)} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover" 
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => setItemForm({ ...itemForm, image_url: '' })} 
+                            className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-300" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="w-12 h-12 rounded-lg border border-dashed border-[#C4A066]/60 bg-white flex items-center justify-center cursor-pointer hover:bg-[#EFEADF] transition-colors">
+                          <Camera className="w-5 h-5 text-[#C4A066]" />
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => setItemForm({ ...itemForm, image_url: reader.result });
+                                reader.readAsDataURL(file);
+                              }
+                            }} 
+                          />
+                        </label>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <input
+                        type="url"
+                        placeholder="Paste image URL..."
+                        value={itemForm.image_url}
+                        onChange={(e) => setItemForm({ ...itemForm, image_url: e.target.value })}
+                        className="w-full bg-white border border-[#E5DFD1] focus:border-[#18281F] rounded-lg px-2.5 py-1.5 text-xs text-[#18281F] focus:outline-none"
+                      />
+                      <div className="flex items-center gap-3 mt-1 text-[10px]">
+                        <label className="font-bold text-[#18281F] hover:underline cursor-pointer flex items-center gap-1">
+                          <Upload className="w-3 h-3 text-[#C4A066]" /> Upload Media
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => setItemForm({ ...itemForm, image_url: reader.result });
+                                reader.readAsDataURL(file);
+                              }
+                            }} 
+                          />
+                        </label>
+                        <label className="font-bold text-[#18281F] hover:underline cursor-pointer flex items-center gap-1">
+                          <Camera className="w-3 h-3 text-[#C4A066]" /> Capture Photo
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            capture="environment"
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => setItemForm({ ...itemForm, image_url: reader.result });
+                                reader.readAsDataURL(file);
+                              }
+                            }} 
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. PRODUCT NAME */}
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                    PRODUCT NAME *
                   </label>
                   <input
-                    type="url"
-                    placeholder="https://... (image URL)"
-                    value={itemForm.image_url}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const extracted = getNormalizedImageUrl(val);
-                      setItemForm({ ...itemForm, image_url: extracted || val });
-                    }}
-                    className="w-full bg-white border border-[#E5DFD1] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl px-4 py-2.5 text-xs font-medium text-[#18281F] focus:outline-none transition-all shadow-xs"
+                    type="text"
+                    required
+                    placeholder="e.g. Amul Gold Fresh Milk 1L"
+                    value={itemForm.item_name}
+                    onChange={(e) => setItemForm({ ...itemForm, item_name: e.target.value })}
+                    className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] rounded-xl px-3 py-2 text-xs font-bold text-[#18281F] focus:outline-none"
                   />
                 </div>
-              </div>
 
-              {/* 2. PRODUCT NAME */}
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
-                  PRODUCT NAME *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Amul Gold Fresh Milk 1L"
-                  value={itemForm.item_name}
-                  onChange={(e) => setItemForm({ ...itemForm, item_name: e.target.value })}
-                  className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl px-4 py-3 text-xs font-bold text-[#18281F] focus:outline-none transition-all shadow-2xs"
-                />
-              </div>
+                {/* 3. CATEGORY & PRICE (2 COLUMNS) */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* Category Selection */}
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                      CATEGORY *
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                        className="w-full bg-[#FAF8F5] border border-[#E8E2D5] hover:border-[#18281F] rounded-xl pl-8 pr-2.5 py-2 text-xs font-bold text-[#18281F] flex items-center justify-between cursor-pointer"
+                      >
+                        <Tag className="w-3.5 h-3.5 text-[#C4A066] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <span className="truncate">{itemForm.category || 'Category'}</span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-[#18281F] shrink-0 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+                      </button>
 
-              {/* 3. CATEGORY SELECTION (Custom Premium Dropdown Menu) */}
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
-                  CATEGORY SELECTION *
-                </label>
-                <div className="relative" ref={categoryDropdownRef}>
+                      {showCategoryDropdown && (
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E8E2D5] rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                          {[
+                            'General',
+                            'Dairy & Milk',
+                            'Fresh Fruits & Vegetables',
+                            'Bakery, Cakes & Desserts',
+                            'Flowers, Plants & Gardening',
+                            'Groceries, Oils & Staples',
+                            'Beverages & Cold Drinks',
+                            'Snacks, Namkeen & Biscuits',
+                            'Sweets & Mithai',
+                            'Organic & Health Foods',
+                            'Chemist & Medicines',
+                            'Personal Care & Hygiene',
+                            'Home, Kitchen & Cleaning Supplies',
+                            'Resin Art, Crafts & Gifts',
+                            'Stationery, Books & Office Items',
+                            'Electronics & Electrical Accessories',
+                            'Poultry, Meat & Seafood',
+                            'Baby Care & Toys',
+                            'Pet Food & Accessories',
+                            'Clothing & Tailoring',
+                            'Home Decor & Pooja Needs',
+                            'Services & Repairs'
+                          ].map((cat) => (
+                            <div
+                              key={cat}
+                              onClick={() => {
+                                setItemForm({ ...itemForm, category: cat });
+                                setShowCategoryDropdown(false);
+                              }}
+                              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
+                                itemForm.category === cat 
+                                  ? 'bg-[#18281F] text-white' 
+                                  : 'text-[#18281F] hover:bg-[#E3EFE6]'
+                              }`}
+                            >
+                              <span className="truncate">{cat}</span>
+                              {itemForm.category === cat && <Check className="w-3 h-3 text-[#E6C35C] shrink-0" />}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Price (₹) */}
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                      PRICE (₹) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-[#C4A066]">₹</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        placeholder="199.00"
+                        value={itemForm.price}
+                        onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })}
+                        className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] rounded-xl pl-7 pr-2.5 py-2 text-xs font-bold text-[#18281F] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. UNIT & STOCK QUANTITY (2 COLUMNS) */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* Unit Select Dropdown */}
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                      UNIT *
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowUnitDropdown(!showUnitDropdown)}
+                        className="w-full bg-[#FAF8F5] border border-[#E8E2D5] hover:border-[#18281F] rounded-xl px-3 py-2 text-xs font-bold text-[#18281F] flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="truncate">{itemForm.unit || 'Piece'}</span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-[#18281F] shrink-0 transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {showUnitDropdown && (
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E8E2D5] rounded-xl shadow-xl z-50 max-h-40 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                          {[
+                            'Piece',
+                            'Set',
+                            'Packet',
+                            'Box',
+                            '1 kg',
+                            '500g',
+                            '250g',
+                            '1L',
+                            '500ml',
+                            'Dozen',
+                            'Bunch'
+                          ].map((u) => (
+                            <div
+                              key={u}
+                              onClick={() => {
+                                setItemForm({ ...itemForm, unit: u });
+                                setShowUnitDropdown(false);
+                              }}
+                              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
+                                itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()
+                                  ? 'bg-[#18281F] text-white' 
+                                  : 'text-[#18281F] hover:bg-[#E3EFE6]'
+                              }`}
+                            >
+                              <span>{u}</span>
+                              {(itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()) && (
+                                <Check className="w-3 h-3 text-[#E6C35C]" />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Stock Quantity Input */}
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                      STOCK QUANTITY *
+                    </label>
+                    <div className="relative">
+                      <Package className="w-3.5 h-3.5 text-[#C4A066] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        placeholder="e.g. 10"
+                        value={itemForm.stock}
+                        onChange={(e) => setItemForm({ ...itemForm, stock: e.target.value })}
+                        className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] rounded-xl pl-8 pr-2.5 py-2 text-xs font-bold text-[#18281F] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. ITEM AVAILABILITY TOGGLE */}
+                <div className="bg-[#FAF8F5] border border-[#E8E2D5] rounded-xl px-3 py-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${itemForm.is_available ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-[#18281F]">
+                      {itemForm.is_available ? 'Item Available for Orders' : 'Item Out of Stock / Hidden'}
+                    </span>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                    className="w-full bg-[#FAF8F5] border border-[#E8E2D5] hover:border-[#18281F] focus:border-[#18281F] rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-[#18281F] transition-all shadow-2xs flex items-center justify-between cursor-pointer"
-                  >
-                    <Tag className="w-4 h-4 text-[#C4A066] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <span>{itemForm.category || 'Select Category'}</span>
-                    <ChevronDown className={`w-4 h-4 text-[#18281F] transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {showCategoryDropdown && (
-                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E8E2D5] rounded-2xl shadow-xl z-50 max-h-56 overflow-y-auto p-1.5 space-y-0.5 animate-in fade-in duration-150">
-                      {[
-                        'Dairy & Milk',
-                        'Fresh Fruits & Vegetables',
-                        'Bakery & Snacks',
-                        'Groceries & Staples',
-                        'Beverages & Cold Drinks',
-                        'Personal Care & Hygiene',
-                        'Home & Kitchen Care',
-                        'General'
-                      ].map((cat) => (
-                        <div
-                          key={cat}
-                          onClick={() => {
-                            setItemForm({ ...itemForm, category: cat });
-                            setShowCategoryDropdown(false);
-                          }}
-                          className={`px-3.5 py-2.5 text-xs font-bold rounded-xl cursor-pointer transition-colors flex items-center justify-between ${
-                            itemForm.category === cat 
-                              ? 'bg-[#18281F] text-white' 
-                              : 'text-[#18281F] hover:bg-[#E3EFE6]'
-                          }`}
-                        >
-                          <span>{cat}</span>
-                          {itemForm.category === cat && <Check className="w-3.5 h-3.5 text-[#E6C35C]" />}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 4. PRICE (₹), UNIT & STOCK QUANTITY */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Price Input */}
-                <div>
-                  <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
-                    PRICE (₹) *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-[#C4A066]">₹</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      placeholder="100.00"
-                      value={itemForm.price}
-                      onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })}
-                      className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl pl-8 pr-3 py-3 text-xs font-bold text-[#18281F] focus:outline-none transition-all shadow-2xs"
-                    />
-                  </div>
-                </div>
-
-                {/* Unit Custom Dropdown */}
-                <div>
-                  <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
-                    UNIT *
-                  </label>
-                  <div className="relative" ref={unitDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() => setShowUnitDropdown(!showUnitDropdown)}
-                      className="w-full bg-[#FAF8F5] border border-[#E8E2D5] hover:border-[#18281F] focus:border-[#18281F] rounded-2xl px-3 py-3 text-xs font-bold text-[#18281F] transition-all shadow-2xs flex items-center justify-between cursor-pointer"
-                    >
-                      <span className="truncate">{itemForm.unit || 'Piece'}</span>
-                      <ChevronDown className={`w-3.5 h-3.5 text-[#18281F] shrink-0 transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {showUnitDropdown && (
-                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E8E2D5] rounded-2xl shadow-xl z-50 max-h-56 overflow-y-auto p-1.5 space-y-0.5 animate-in fade-in duration-150">
-                        {[
-                          'Piece',
-                          'Set',
-                          'Packet',
-                          'Box',
-                          '1 kg',
-                          '500g',
-                          '250g',
-                          '1L',
-                          '500ml',
-                          'Dozen',
-                          'Bunch'
-                        ].map((u) => (
-                          <div
-                            key={u}
-                            onClick={() => {
-                              setItemForm({ ...itemForm, unit: u });
-                              setShowUnitDropdown(false);
-                            }}
-                            className={`px-3 py-2 text-xs font-bold rounded-xl cursor-pointer transition-colors flex items-center justify-between ${
-                              itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()
-                                ? 'bg-[#18281F] text-white' 
-                                : 'text-[#18281F] hover:bg-[#E3EFE6]'
-                            }`}
-                          >
-                            <span>{u}</span>
-                            {(itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()) && (
-                              <Check className="w-3.5 h-3.5 text-[#E6C35C]" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Stock Quantity Input */}
-                <div>
-                  <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
-                    STOCK QUANTITY *
-                  </label>
-                  <div className="relative">
-                    <Package className="w-3.5 h-3.5 text-[#C4A066] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="number"
-                      min="0"
-                      required
-                      placeholder="e.g. 10"
-                      value={itemForm.stock}
-                      onChange={(e) => setItemForm({ ...itemForm, stock: e.target.value })}
-                      className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl pl-9 pr-3 py-3 text-xs font-bold text-[#18281F] focus:outline-none transition-all shadow-2xs"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* 5. ITEM AVAILABILITY TOGGLE */}
-              <div className="bg-[#FAF8F5] border border-[#E8E2D5] rounded-2xl p-4 flex items-center justify-between shadow-2xs">
-                <div>
-                  <div className="text-xs font-extrabold uppercase tracking-wider text-[#18281F]">
-                    ITEM AVAILABILITY
-                  </div>
-                  <div className="text-[11px] font-medium text-gray-500 mt-0.5 flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${itemForm.is_available ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
-                    <span>{itemForm.is_available ? 'Item is live and orderable' : 'Item is hidden / out of stock'}</span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setItemForm({ ...itemForm, is_available: !itemForm.is_available })}
-                  className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                    itemForm.is_available ? 'bg-[#18281F]' : 'bg-gray-300'
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-[#C4A066] shadow-md transition duration-200 ease-in-out ${
-                      itemForm.is_available ? 'translate-x-5' : 'translate-x-0 bg-white'
+                    onClick={() => setItemForm({ ...itemForm, is_available: !itemForm.is_available })}
+                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                      itemForm.is_available ? 'bg-[#18281F]' : 'bg-gray-300'
                     }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#C4A066] shadow transition duration-200 ease-in-out ${
+                        itemForm.is_available ? 'translate-x-4' : 'translate-x-0 bg-white'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* 6. DESCRIPTION (1 ROW) */}
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                    DESCRIPTION (OPTIONAL)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Short item details..."
+                    value={itemForm.description}
+                    onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
+                    className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] rounded-xl px-3 py-2 text-xs font-medium text-[#18281F] focus:outline-none"
                   />
+                </div>
+              </div>
+
+              {/* Compact Fixed Footer */}
+              <div className="px-4 py-3 border-t border-[#E8E2D5] shrink-0 bg-[#FAF9F6]">
+                <button
+                  type="submit"
+                  className="w-full py-2.5 rounded-xl bg-[#18281F] hover:bg-black text-[#C4A066] font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-[#C4A066]" />
+                  <span>{editingItem ? 'Save Changes' : 'Add Product to Store'}</span>
                 </button>
               </div>
-
-              {/* 6. DESCRIPTION */}
-              <div>
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1.5">
-                  DESCRIPTION (OPTIONAL)
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Item specifications, weight, or brand details..."
-                  value={itemForm.description}
-                  onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
-                  className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] focus:ring-2 focus:ring-[#18281F]/10 rounded-2xl p-3.5 text-xs font-medium text-[#18281F] focus:outline-none transition-all shadow-2xs"
-                />
-              </div>
-
-              {/* 7. SAVE BUTTON */}
-              <button
-                type="submit"
-                className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-white font-extrabold text-xs uppercase tracking-widest shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 cursor-pointer border border-[#1E3623]/30"
-              >
-                <span>{editingItem ? 'UPDATE PRODUCT ITEM' : 'SAVE PRODUCT ITEM'}</span>
-                <Sparkles className="w-4 h-4 text-[#E6C35C]" />
-              </button>
-
             </form>
+
           </div>
         </div>
       )}

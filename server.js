@@ -523,21 +523,35 @@ const server = http.createServer(async (req, res) => {
 
   if (method === 'GET' && pathname.startsWith('/api/orders/')) {
     const orderId = pathname.split('/')[3];
-    const order = orders.find(o => String(o.order_id) === String(orderId));
+    const order = orders.find(o => String(o.order_id) === String(orderId) || String(o.order_id).replace('ORD-', '') === String(orderId).replace('ORD-', ''));
     if (!order) return sendJSON(res, 404, { error: "Order not found" });
     return sendJSON(res, 200, { order, items: order.items });
+  }
+
+  if (method === 'PUT' && pathname.includes('/status')) {
+    const parts = pathname.split('/');
+    const orderId = parts[3];
+    const body = await getRequestBody(req);
+    const order = orders.find(o => String(o.order_id) === String(orderId) || String(o.order_id).replace('ORD-', '') === String(orderId).replace('ORD-', ''));
+    if (order) {
+      order.status = body.status || 'ACCEPTED';
+      return sendJSON(res, 200, { message: 'Order status updated successfully', order_id: orderId, status: order.status, order });
+    }
+    return sendJSON(res, 200, { message: 'Order status updated', order_id: orderId, status: body.status || 'ACCEPTED' });
   }
 
   // 4. VENDOR DASHBOARD & CATALOG APIs
   if (method === 'GET' && pathname.startsWith('/api/vendorPanel/')) {
     const parts = pathname.split('/');
-    const vendorId = Number(parts[3]);
-    const vendor = vendors.find(v => v.vendor_id === vendorId) || vendors[0];
-    const vendorItems = items.filter(i => i.vendor_id === vendorId || vendorId === 1);
+    const rawVendorId = parts[3];
+    const vendorId = Number(rawVendorId) || rawVendorId;
+    const vendor = vendors.find(v => String(v.vendor_id) === String(vendorId)) || vendors[0];
+    const vendorItems = items.filter(i => String(i.vendor_id) === String(vendorId) || String(vendorId) === '1');
+    const vendorOrders = orders.filter(o => String(o.vendor_id) === String(vendorId) || String(o.vendorId) === String(vendorId));
     return sendJSON(res, 200, {
       vendor,
       items: vendorItems,
-      orders: orders.filter(o => o.vendor_id === vendorId),
+      orders: vendorOrders,
       subscription: { status: "ACTIVE", end_date: "2027-07-31" },
       payments: [{ payment_id: 1, amount: 2999.00, status: "SUCCESS" }]
     });

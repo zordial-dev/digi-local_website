@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { api, getNormalizedImageUrl } from '../services/api';
-import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn } from 'lucide-react';
+import { api, getNormalizedImageUrl, getStoreTimeStatus } from '../services/api';
+import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn, Clock } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import DummyPaymentModal from '../components/DummyPaymentModal';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
@@ -142,15 +142,19 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const filteredItems = items.filter(item => {
+    if (!item) return false;
     const matchesCat = selectedCategory === 'All' || item.category === selectedCategory;
-    const matchesSearch = item.item_name.toLowerCase().includes(search.toLowerCase()) || 
-                          (item.description && item.description.toLowerCase().includes(search.toLowerCase()));
+    const itemName = String(item.item_name || item.name || '');
+    const itemDesc = String(item.description || '');
+    const q = (search || '').toLowerCase().trim();
+    const matchesSearch = !q || itemName.toLowerCase().includes(q) || itemDesc.toLowerCase().includes(q);
     return matchesCat && matchesSearch;
   }).reduce((acc, current) => {
-    const nameKey = (current.item_name || '').trim().toLowerCase();
+    if (!current) return acc;
+    const nameKey = String(current.item_name || current.name || '').trim().toLowerCase();
     const idKey = String(current.item_id || current.id || '');
     const isDuplicate = acc.some(item => 
-      (nameKey && (item.item_name || '').trim().toLowerCase() === nameKey) ||
+      (nameKey && String(item.item_name || item.name || '').trim().toLowerCase() === nameKey) ||
       (idKey && String(item.item_id || item.id || '') === idKey)
     );
     if (!isDuplicate) acc.push(current);
@@ -176,7 +180,7 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
     } catch (_) {}
 
     const storeNameStr = vendorData?.store_name || 'Community Store';
-    const societyNameStr = vendorData?.society_name || 'Gated Housing Society';
+    const societyNameStr = vendorData?.society_name || vendorData?.location || currentUser?.society_name || currentUser?.society || 'Anupam Apartment';
     const targetVendorId = vendorData?.vendor_id || vendorId || 1;
 
     const resName = currentUser?.name || currentUser?.full_name || currentUser?.owner_name || (flatNumber ? `Resident (Flat ${flatNumber})` : 'Resident Customer');
@@ -244,6 +248,9 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
       if (!Array.isArray(gOrdersList)) gOrdersList = [];
       gOrdersList = [orderRecord, ...gOrdersList.filter(o => o && String(o.order_id) !== String(orderRecord.order_id))];
       localStorage.setItem(globalOrdersKey, JSON.stringify(gOrdersList));
+
+      // Auto-decrement item stock in vendor catalog
+      api.decrementVendorItemStock(targetVendorId, itemsList);
     } catch (err) {
       console.warn('Failed to save order to localStorage:', err);
     }
@@ -278,8 +285,8 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
       const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : (cleanPhone || '918005625999');
 
       const storeName = vendorData?.store_name || 'DigiLocal Store';
-      const societyName = vendorData?.society_name || 'Society';
-      const gstNumber = vendorData?.gst_number || '07AAACR12341Z5';
+      const societyName = vendorData?.society_name || vendorData?.location || currentUser?.society_name || currentUser?.society || 'Anupam Apartment';
+      const gstNumber = vendorData?.gst_number || '';
 
       let msg = `🛎️ *New Order from Flat ${flatNumber}* - ${storeName}\n`;
       msg += `--------------------------------------\n`;
@@ -302,7 +309,9 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
 
       msg += `\n--------------------------------------\n`;
       msg += `💵 *Total Bill Amount:* ₹${subtotal.toFixed(2)}\n`;
-      msg += `📄 *Vendor GSTIN:* ${gstNumber}\n`;
+      if (gstNumber) {
+        msg += `📄 *Vendor GSTIN:* ${gstNumber}\n`;
+      }
       msg += `--------------------------------------\n\n`;
       msg += `Please confirm preparation and delivery to my flat. Thank you!`;
 
@@ -472,21 +481,43 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="flex items-start space-x-5">
                 <img
-                  src={vendorData.logo || 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80'}
+                  src={getNormalizedImageUrl(vendorData.logo || vendorData.image_url) || 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=200&auto=format&fit=crop&q=80'}
                   alt={vendorData.store_name}
+                  onError={(e) => {
+                    e.target.src = 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=200&auto=format&fit=crop&q=80';
+                  }}
                   className="w-20 h-20 rounded-2xl object-cover border-2 border-border bg-secondary shadow-sm"
                 />
                 <div>
-                  <div className="flex items-center space-x-1.5 text-xs font-bold text-primary mb-1">
-                    <ShieldCheck className="w-4 h-4 text-gold" />
-                    <span>Verified Store • {vendorData.society_name}</span>
+                  <div className="flex items-center space-x-1.5 text-xs font-bold text-primary mb-1 flex-wrap gap-2">
+                    <div className="flex items-center space-x-1">
+                      <ShieldCheck className="w-4 h-4 text-gold" />
+                      <span>Verified Store • {vendorData.society_name}</span>
+                    </div>
+                    {(() => {
+                      const timeStatus = getStoreTimeStatus(vendorData);
+                      return (
+                        <span className={`px-3 py-0.5 rounded-full text-[11px] font-extrabold flex items-center space-x-1 border shadow-2xs ${
+                          timeStatus.badgeType === 'closed'
+                            ? 'bg-rose-50 text-rose-800 border-rose-200'
+                            : timeStatus.badgeType === 'closing_soon'
+                            ? 'bg-amber-50 text-amber-900 border-amber-300'
+                            : 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                        }`}>
+                          <Clock className="w-3 h-3 shrink-0" />
+                          <span>{timeStatus.statusText}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
                   <h1 className="text-3xl font-serif font-black text-ink uppercase tracking-wide">
                     {vendorData.store_name}
                   </h1>
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-xl font-medium">
-                    {vendorData.description}
-                  </p>
+                  {vendorData.description && vendorData.description.trim() && (
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-xl font-medium">
+                      {vendorData.description}
+                    </p>
+                  )}
                   
                   <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-3 font-medium">
                     {checkResidentAuth() ? (
@@ -495,11 +526,13 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
                           <Phone className="w-3.5 h-3.5 text-gold" />
                           <span>{vendorData.phone_number || 'Contact Available'}</span>
                         </span>
-                        <span className="px-3 py-1 rounded-full bg-secondary border border-border text-ink font-bold flex items-center space-x-1.5 shadow-sm text-[11px]">
-                          <FileText className="w-3.5 h-3.5 text-gold" />
-                          <span>GSTIN:</span>
-                          <span className="font-mono">{vendorData.gst_number || '07AAACR12341Z5'}</span>
-                        </span>
+                        {vendorData.gst_number && vendorData.gst_number.trim() && (
+                          <span className="px-3 py-1 rounded-full bg-secondary border border-border text-ink font-bold flex items-center space-x-1.5 shadow-sm text-[11px]">
+                            <FileText className="w-3.5 h-3.5 text-gold" />
+                            <span>GSTIN:</span>
+                            <span className="font-mono">{vendorData.gst_number}</span>
+                          </span>
+                        )}
                       </>
                     ) : (
                       <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold shadow-xs">
@@ -525,143 +558,147 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
         </div>
       </div>
 
-      {/* Catalog Section */}
-      <div className="max-w-7xl mx-auto mt-4">
-        
-        {/* Category Navigation Pills */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-card border border-border p-4 rounded-[2rem] shadow-sm">
-          <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-5 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all uppercase tracking-wider ${
-                  selectedCategory === cat
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-secondary text-muted-foreground hover:text-ink border border-border'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          <div className="w-full md:w-72">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-              <input
-                type="text"
-                placeholder="Search menu items..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 rounded-full bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
-              />
-            </div>
-          </div>
+      {/* Category Navigation Pills & Search Input */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-card border border-border p-4 rounded-[2rem] shadow-sm">
+        <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-5 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all uppercase tracking-wider ${
+                selectedCategory === cat
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-secondary text-muted-foreground hover:text-ink border border-border'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
 
-        {/* Item Cards Grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <ProductCardSkeleton key={i} />
-            ))}
+        <div className="w-full md:w-72">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+            <input
+              type="text"
+              placeholder="Search menu items..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 rounded-full bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
+            />
           </div>
-        ) : filteredItems.length === 0 ? (
-          <div className="text-center py-16 bg-card rounded-[2.5rem] border border-border p-8 shadow-sm">
-            <ShoppingBag className="w-12 h-12 text-gold mx-auto mb-3" />
-            <h3 className="text-base font-bold text-ink mb-1">No items found</h3>
-            <p className="text-muted-foreground text-xs font-medium">Try selecting a different category or search term.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredItems.map((item) => {
-              const inCart = cart.find(c => c.item_id === item.item_id);
-              const isAvailable = item.is_available !== undefined ? Boolean(item.is_available) : true;
-
-              return (
-                <div
-                  key={item.item_id}
-                  className={`rounded-[2rem] bg-card border border-border overflow-hidden flex flex-col justify-between transition-all duration-200 shadow-sm bento-card ${
-                    !isAvailable ? 'opacity-70 bg-secondary/50' : 'hover:border-primary/40 hover:shadow-md'
-                  }`}
-                >
-                  <div className="p-5">
-                    <div className="relative mb-4 rounded-2xl overflow-hidden bg-secondary h-44">
-                      <img
-                        src={getNormalizedImageUrl(item)}
-                        alt={item.item_name}
-                        className="w-full h-full object-cover"
-                      />
-                      
-                      <div className="absolute top-3 left-3">
-                        {isAvailable ? (
-                          <span className="px-3 py-1 text-[10px] font-extrabold bg-primary text-primary-foreground rounded-full shadow-sm">
-                            In Stock ({item.unit})
-                          </span>
-                        ) : (
-                          <span className="px-3 py-1 text-[10px] font-extrabold bg-rose-600 text-white rounded-full shadow-sm flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            Unavailable
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="absolute top-3 right-3">
-                        <span className="px-3 py-1 text-[10px] font-bold bg-card/90 text-ink border border-border rounded-full shadow-sm">
-                          {item.category || 'General'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <h3 className="text-lg font-serif font-extrabold text-ink mb-1">{item.item_name}</h3>
-                    <p className="text-muted-foreground text-xs line-clamp-2 mb-3 leading-relaxed font-medium">
-                      {item.description || 'Fresh quality item.'}
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-secondary/50 border-t border-border flex items-center justify-between">
-                    <div>
-                      <span className="text-lg font-extrabold text-primary">₹{parseFloat(item.price).toFixed(2)}</span>
-                      <span className="text-[11px] text-muted-foreground ml-1 font-medium">/ {item.unit}</span>
-                    </div>
-
-                    {!isAvailable ? (
-                      <span className="text-[11px] font-bold text-rose-700 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20">
-                        Out of Stock
-                      </span>
-                    ) : inCart ? (
-                      <div className="flex items-center space-x-2 bg-card border border-border rounded-full p-1 shadow-sm">
-                        <button
-                          onClick={() => updateQuantity(item.item_id, -1)}
-                          className="w-7 h-7 rounded-full bg-secondary hover:bg-border text-ink flex items-center justify-center font-bold"
-                        >
-                          <Minus className="w-3.5 h-3.5 text-ink" />
-                        </button>
-                        <span className="text-xs font-extrabold text-ink px-2">{inCart.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.item_id, 1)}
-                          className="w-7 h-7 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center font-bold"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => addToCart(item)}
-                        className="px-5 py-2 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-sm flex items-center space-x-1.5 transition-all uppercase tracking-wider text-[11px]"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-gold" />
-                        <span>Add</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        </div>
       </div>
+
+      {/* Products Grid */}
+      {loading ? (
+        <ProductCardSkeleton count={6} />
+      ) : filteredItems.length === 0 ? (
+        <div className="text-center py-16 bg-card rounded-[2.5rem] border border-border p-8 shadow-sm">
+          <ShoppingBag className="w-12 h-12 text-gold mx-auto mb-3" />
+          <h3 className="text-base font-bold text-ink mb-1">No items found</h3>
+          <p className="text-muted-foreground text-xs font-medium">Try selecting a different category or search term.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredItems.map((item) => {
+            const timeStatus = getStoreTimeStatus(vendorData);
+            const isStoreClosed = !timeStatus.isOpen;
+            const inCart = cart.find(c => c.item_id === item.item_id);
+            const isAvailable = isStoreClosed ? false : (item.is_available !== undefined ? Boolean(item.is_available) : true);
+
+            return (
+              <div
+                key={item.item_id}
+                className={`rounded-[2rem] overflow-hidden flex flex-col justify-between transition-all duration-200 shadow-sm bento-card ${
+                  isStoreClosed
+                    ? 'border border-rose-200/80 bg-rose-50/20 opacity-80'
+                    : !isAvailable
+                    ? 'border border-amber-200/80 bg-amber-50/20 opacity-80'
+                    : 'border border-emerald-200/70 hover:border-emerald-500/60 hover:shadow-md bg-white'
+                }`}
+              >
+                <div className="p-5">
+                  <div className="relative mb-4 rounded-2xl overflow-hidden bg-secondary h-44">
+                    <img
+                      src={getNormalizedImageUrl(item)}
+                      alt={item.item_name}
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    <div className="absolute top-3 left-3">
+                      {isAvailable ? (
+                        <span className="px-3 py-1 text-[10px] font-extrabold bg-emerald-600 text-white rounded-full shadow-sm flex items-center gap-1">
+                          <Check className="w-3 h-3 text-white" />
+                          In Stock ({item.unit})
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 text-[10px] font-extrabold bg-amber-600 text-white rounded-full shadow-sm flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          Out of Stock
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="absolute top-3 right-3">
+                      <span className="px-3 py-1 text-[10px] font-bold bg-card/90 text-ink border border-border rounded-full shadow-sm">
+                        {item.category || 'General'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <h3 className="text-lg font-serif font-extrabold text-ink mb-1">{item.item_name}</h3>
+                  <p className="text-muted-foreground text-xs line-clamp-2 mb-3 leading-relaxed font-medium">
+                    {item.description || 'Fresh quality item.'}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-secondary/50 border-t border-border flex items-center justify-between">
+                  <div>
+                    <span className="text-lg font-extrabold text-emerald-800">₹{parseFloat(item.price).toFixed(2)}</span>
+                    <span className="text-[11px] text-muted-foreground ml-1 font-medium">/ {item.unit}</span>
+                  </div>
+
+                  {isStoreClosed ? (
+                    <span className="text-[11px] font-bold text-rose-700 px-3.5 py-1.5 rounded-full bg-rose-100 border border-rose-300 flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-rose-600" />
+                      Store Closed
+                    </span>
+                  ) : !isAvailable ? (
+                    <span className="text-[11px] font-bold text-amber-800 px-3.5 py-1.5 rounded-full bg-amber-100 border border-amber-300">
+                      Out of Stock
+                    </span>
+                  ) : inCart ? (
+                    <div className="flex items-center space-x-2 bg-emerald-50 border border-emerald-300 rounded-full p-1 shadow-sm">
+                      <button
+                        onClick={() => updateQuantity(item.item_id, -1)}
+                        className="w-7 h-7 rounded-full bg-emerald-200 hover:bg-emerald-300 text-emerald-950 flex items-center justify-center font-bold"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-xs font-extrabold text-emerald-950 px-2">{inCart.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.item_id, 1)}
+                        className="w-7 h-7 rounded-full bg-emerald-700 text-white hover:bg-emerald-800 flex items-center justify-center font-bold"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => addToCart(item)}
+                      className="px-5 py-2 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-sm flex items-center space-x-1.5 transition-all uppercase tracking-wider text-[11px]"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-emerald-200" />
+                      <span>Add</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Floating Bottom Cart Bar */}
       {cartItemCount > 0 && !showCartDrawer && (

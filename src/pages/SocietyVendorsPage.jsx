@@ -365,7 +365,11 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                                       (vendor.store_name ? localStorage.getItem(`digilocal_vendor_logo_${vendor.store_name}`) : null);
 
               const storeImage = savedCustomLogo || vendor.logo || vendor.image_url || vendor.image || (Array.isArray(vendor.shop_images) && vendor.shop_images.length > 0 ? vendor.shop_images[0] : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80');
-              const status = getStoreStatus(vendor.opening_time, vendor.closing_time);
+              const status = getStoreStatus(
+                vendor.opening_timing || vendor.opening_time || '08:00 AM',
+                vendor.closing_timing || vendor.closing_time || '10:00 PM',
+                vendor
+              );
 
               return (
                 <div
@@ -397,13 +401,15 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                           <span className="truncate max-w-[140px]">{vendor.society_name || 'Gated Society'}</span>
                         </span>
 
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold flex items-center space-x-1.5 backdrop-blur-md shadow-sm border ${
-                          status.isOpen 
-                            ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50' 
-                            : 'bg-rose-950/80 text-rose-300 border-rose-500/50'
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold flex items-center space-x-1.5 backdrop-blur-md shadow-sm border uppercase ${
+                          !status.isOpen 
+                            ? 'bg-rose-950/80 text-rose-300 border-rose-500/50' 
+                            : status.closingCountdown
+                            ? 'bg-amber-950/80 text-amber-300 border-amber-500/50'
+                            : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50'
                         }`}>
-                          <span className={`w-2 h-2 rounded-full ${status.isOpen ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-                          <span>{status.isOpen ? 'OPEN NOW' : 'CLOSED'}</span>
+                          <span className={`w-2 h-2 rounded-full ${!status.isOpen ? 'bg-rose-400' : status.closingCountdown ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+                          <span>{status.statusText}</span>
                         </span>
                       </div>
 

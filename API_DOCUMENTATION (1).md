@@ -515,28 +515,74 @@ Every response automatically includes security headers:
 
 ---
 
-### 5.3 Update Order Status (Vendor Panel)
-- **Endpoint**: `PUT /api/orders/:orderId/status`
+### 5.3 Update Order Status / Mark Completed
+- **Endpoint**: `PUT /api/orders/:orderId/status` *(Also supports `POST` and `PATCH` methods)*
+- **Base URL**: `http://172.25.12.195:5001/api`
 - **Auth Required**: Bearer Token (`vendor` or `admin` Role)
-- **Headers**: `Authorization: Bearer <accessToken>`
-- **Path Parameters**: `orderId` (Integer)
-- **Input Parameters (`req.body`)**:
-  | Field | Type | Required | Description / Constraints |
-  | :--- | :--- | :--- | :--- |
-  | `status` | Enum | Yes | Allowed values: `PLACED`, `ACCEPTED`, `COMPLETED`, `CANCELLED` |
+- **Headers**:
+  ```http
+  Content-Type: application/json
+  Authorization: Bearer <accessToken>
+  ```
+- **Path Parameters**:
+  | Parameter | Type | Required | Description | Example |
+  | :--- | :--- | :--- | :--- | :--- |
+  | `orderId` | String | Yes | Unique Order ID string | `ORD-4509` |
+
+- **Request Body**:
+  ```json
+  {
+    "status": "COMPLETED"
+  }
+  ```
+
+- **Supported Status Values & Synonyms**:
+  | Button / Action | Accepted Input Values | Normalized DB Status |
+  | :--- | :--- | :--- |
+  | **Mark Completed** | `"COMPLETED"`, `"COMPLETE"`, `"DELIVERED"`, `"FULFILLED"`, `"DONE"` | `COMPLETED` |
+  | **Accept Order** | `"ACCEPTED"`, `"CONFIRMED"`, `"ACCEPT"`, `"PREPARING"` | `ACCEPTED` |
+  | **Out for Delivery** | `"IN_PROGRESS"`, `"PROCESSING"`, `"OUT_FOR_DELIVERY"` | `IN_PROGRESS` |
+  | **Cancel Order** | `"CANCELLED"`, `"CANCELED"`, `"REJECTED"`, `"DECLINED"` | `CANCELLED` |
 
 - **Possible Cases & Responses**:
-  - `200 OK`: Order status updated.
-    ```json
-    {
-      "message": "Order status updated",
-      "status": "ACCEPTED"
-    }
-    ```
-  - `400 Bad Request`: Invalid status string.
-  - `401 Unauthorized`: Token missing or invalid.
-  - `403 Forbidden`: User role insufficient.
-  - `500 Internal Server Error`: Status update failure.
+  1. **Success Response (`200 OK`)**:
+     ```json
+     {
+       "success": true,
+       "message": "Order status updated successfully",
+       "order_id": "ORD-4509",
+       "status": "COMPLETED",
+       "raw_status": "COMPLETED"
+     }
+     ```
+  2. **Order Not Found (`404 Not Found`)**:
+     ```json
+     {
+       "error": "Order ID 'ORD-9999' not found"
+     }
+     ```
+  3. **Invalid Status (`400 Bad Request`)**:
+     ```json
+     {
+       "error": "Invalid order status 'INVALID_STATUS'. Allowed statuses: PENDING, ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED",
+       "allowedStatuses": ["PENDING", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]
+     }
+     ```
+
+- **Live Verification**:
+  ```bash
+  # Executed Test Request:
+  PUT http://172.25.12.195:5001/api/orders/ORD-4509/status
+  Body: { "status": "COMPLETED" }
+
+  # Verified Response: 200 OK
+  {
+    "success": true,
+    "message": "Order status updated successfully",
+    "order_id": "ORD-4509",
+    "status": "COMPLETED"
+  }
+  ```
 
 ---
 
