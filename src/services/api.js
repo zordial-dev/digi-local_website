@@ -654,12 +654,19 @@ export const api = {
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Login failed');
-        return data;
+        if (!res.ok) {
+          if (res.status === 500) {
+            console.warn('⚠️ [BACKEND 500 ERROR] Vendor login endpoint crashed on Render backend server:', data);
+          } else {
+            throw new Error(data.error || 'Login failed');
+          }
+        } else {
+          return data;
+        }
       }
     } catch (err) {
       if (err.message && (err.message.includes('Invalid') || err.message.includes('Denied') || err.message.includes('not found') || err.message.includes('register'))) throw err;
-      console.warn('Backend unavailable, using simulated vendor login response:', err);
+      console.warn('Backend server returned 500 or offline, using simulated vendor login response:', err);
     }
 
     const contactStr = body.mobile || body.identifier || credentials.email || credentials.phone || 'vendor';
@@ -1237,6 +1244,40 @@ export const api = {
       }
     } catch (_) { }
 
+    // Bind custom uploaded logos & category cover images
+    combinedList = combinedList.map(v => {
+      if (!v) return v;
+      const vId = v.vendor_id;
+      const savedLogo = (vId ? localStorage.getItem(`digilocal_vendor_logo_${vId}`) : null) ||
+                        (vId ? localStorage.getItem(`digilocal_vendor_logo_${String(vId)}`) : null) ||
+                        (v.store_name ? localStorage.getItem(`digilocal_vendor_logo_${v.store_name}`) : null);
+
+      const cat = String(v.category || '').toLowerCase();
+      const name = String(v.store_name || '').toLowerCase();
+      let categoryCover = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80';
+
+      if (cat.includes('flower') || cat.includes('florist') || cat.includes('plant') || cat.includes('gardening') || name.includes('flower') || name.includes('bouquet') || name.includes('flora')) {
+        categoryCover = 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80';
+      } else if (cat.includes('bakery') || cat.includes('cake') || cat.includes('dessert') || cat.includes('sweet') || name.includes('dessert') || name.includes('cake') || name.includes('bake')) {
+        categoryCover = 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&auto=format&fit=crop&q=80';
+      } else if (cat.includes('resin') || cat.includes('handicraft') || cat.includes('art') || cat.includes('gift') || name.includes('resin') || name.includes('craft')) {
+        categoryCover = 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=80';
+      } else if (cat.includes('dairy') || cat.includes('milk') || name.includes('amul') || name.includes('dairy') || name.includes('mother dairy')) {
+        categoryCover = 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=800&auto=format&fit=crop&q=80';
+      } else if (cat.includes('chemist') || cat.includes('pharmacy') || cat.includes('medicine') || name.includes('med') || name.includes('pharma')) {
+        categoryCover = 'https://images.unsplash.com/photo-1586015555751-63c2763f03b2?w=800&auto=format&fit=crop&q=80';
+      }
+
+      const logoToUse = savedLogo || v.logo || v.image_url || v.image || (Array.isArray(v.shop_images) && v.shop_images.length > 0 ? v.shop_images[0] : null) || categoryCover;
+
+      return {
+        ...v,
+        logo: logoToUse,
+        image: logoToUse,
+        image_url: logoToUse
+      };
+    });
+
     // Filter by search query if provided
     if (!search || !search.trim()) return combinedList;
     const term = search.toLowerCase().trim();
@@ -1310,10 +1351,40 @@ export const api = {
       );
     }
 
+    const finalVendor = vendorObj || MOCK_VENDORS[0];
+    const savedLogo = (vendorId ? localStorage.getItem(`digilocal_vendor_logo_${vendorId}`) : null) ||
+                      (vendorId ? localStorage.getItem(`digilocal_vendor_logo_${String(vendorId)}`) : null) ||
+                      (finalVendor.store_name ? localStorage.getItem(`digilocal_vendor_logo_${finalVendor.store_name}`) : null);
+
+    const cat = String(finalVendor.category || '').toLowerCase();
+    const name = String(finalVendor.store_name || '').toLowerCase();
+    let categoryCover = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80';
+
+    if (cat.includes('flower') || cat.includes('florist') || cat.includes('plant') || cat.includes('gardening') || name.includes('flower') || name.includes('bouquet') || name.includes('flora')) {
+      categoryCover = 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80';
+    } else if (cat.includes('bakery') || cat.includes('cake') || cat.includes('dessert') || cat.includes('sweet') || name.includes('dessert') || name.includes('cake') || name.includes('bake')) {
+      categoryCover = 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&auto=format&fit=crop&q=80';
+    } else if (cat.includes('resin') || cat.includes('handicraft') || cat.includes('art') || cat.includes('gift') || name.includes('resin') || name.includes('craft')) {
+      categoryCover = 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=80';
+    } else if (cat.includes('dairy') || cat.includes('milk') || name.includes('amul') || name.includes('dairy') || name.includes('mother dairy')) {
+      categoryCover = 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=800&auto=format&fit=crop&q=80';
+    } else if (cat.includes('chemist') || cat.includes('pharmacy') || cat.includes('medicine') || name.includes('med') || name.includes('pharma')) {
+      categoryCover = 'https://images.unsplash.com/photo-1586015555751-63c2763f03b2?w=800&auto=format&fit=crop&q=80';
+    }
+
+    const logoToUse = savedLogo || finalVendor.logo || finalVendor.image_url || finalVendor.image || (Array.isArray(finalVendor.shop_images) && finalVendor.shop_images.length > 0 ? finalVendor.shop_images[0] : null) || categoryCover;
+
+    const vendorWithLogo = {
+      ...finalVendor,
+      logo: logoToUse,
+      image: logoToUse,
+      image_url: logoToUse
+    };
+
     const categoriesSet = new Set(cleanItems.map(i => i.category).filter(Boolean));
 
     return {
-      vendor: vendorObj || MOCK_VENDORS[0],
+      vendor: vendorWithLogo,
       categories: categoriesSet.size > 0 ? Array.from(categoriesSet) : ['General'],
       items: cleanItems.map(item => ({
         ...item,
@@ -1428,9 +1499,28 @@ export const api = {
   // Helper to load real customer orders for vendor panel
   _loadLocalVendorOrders: (vendorId, apiOrders = []) => {
     let combined = Array.isArray(apiOrders) ? [...apiOrders] : [];
+
+    // Filter out mock dummy orders from backend fallback
+    const isRealOrder = (o) => {
+      if (!o) return false;
+      const cName = (o.customer_name || o.user_name || o.name || '').trim().toLowerCase();
+      const pNum = (o.phone_number || o.phone || o.user_phone || '').trim();
+      const addr = (o.address || o.delivery_address || '').trim().toLowerCase();
+      const oId = String(o.order_id || '');
+
+      if (cName.includes('rahul sharma') || cName.includes('demo customer')) return false;
+      if (pNum === '9876543210' || pNum === '9876543211' || pNum === '9876543212' || pNum === '+919876543210') return false;
+      if (addr.includes('omaxe greenwood')) return false;
+      if (oId === '1642' || oId === 'ORD-1642' || oId === '1') return false;
+      return true;
+    };
+
+    combined = combined.filter(isRealOrder);
+
     try {
       const keysToSearch = [
         `digilocal_vendor_orders_${vendorId}`,
+        `digilocal_vendor_orders_${String(vendorId)}`,
         'digilocal_all_vendor_orders',
         'digilocal_user_orders'
       ];
@@ -1439,7 +1529,10 @@ export const api = {
         if (str) {
           const parsed = JSON.parse(str);
           if (Array.isArray(parsed)) {
-            const matching = parsed.filter(o => o && (String(o.vendor_id) === String(vendorId) || !o.vendor_id));
+            const matching = parsed.filter(o => {
+              if (!isRealOrder(o)) return false;
+              return String(o.vendor_id) === String(vendorId) || !o.vendor_id;
+            });
             combined = [...combined, ...matching];
           }
         }
@@ -1464,7 +1557,7 @@ export const api = {
       cleanOrders.push({
         ...ord,
         order_id: ord.order_id,
-        status: ord.status || 'PENDING',
+        status: ord.status || 'PLACED',
         order_timestamp: ord.order_timestamp || ord.date || ord.timestamp || new Date().toISOString(),
         customer_name: ord.customer_name || ord.user_name || ord.name || 'Resident Customer',
         phone_number: ord.phone_number || ord.phone || ord.user_phone || 'Contact Info',

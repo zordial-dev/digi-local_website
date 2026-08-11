@@ -565,11 +565,33 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
       };
 
-      if (customLogo && createdVendor?.vendor_id) {
+      if (customLogo) {
         try {
-          localStorage.setItem(`digilocal_vendor_logo_${createdVendor.vendor_id}`, customLogo);
+          if (createdVendor?.vendor_id) {
+            localStorage.setItem(`digilocal_vendor_logo_${createdVendor.vendor_id}`, customLogo);
+            localStorage.setItem(`digilocal_vendor_logo_${String(createdVendor.vendor_id)}`, customLogo);
+          }
+          if (shopBusinessName.trim()) {
+            localStorage.setItem(`digilocal_vendor_logo_${shopBusinessName.trim()}`, customLogo);
+          }
         } catch (_) {}
       }
+
+      // Add/Update vendor in local registered vendors array for instant UI reflection
+      try {
+        const regStr = localStorage.getItem('digilocal_registered_vendors');
+        let regList = regStr ? JSON.parse(regStr) : [];
+        if (!Array.isArray(regList)) regList = [];
+        const fullVendorRecord = {
+          ...createdVendor,
+          logo: customLogo || createdVendor.logo,
+          image: customLogo || createdVendor.image,
+          image_url: customLogo || createdVendor.image_url,
+          shop_images: shopImages
+        };
+        regList = [fullVendorRecord, ...regList.filter(v => v && String(v.vendor_id) !== String(createdVendor.vendor_id))];
+        localStorage.setItem('digilocal_registered_vendors', JSON.stringify(regList));
+      } catch (_) {}
 
       if (accessToken) {
         localStorage.setItem('vendor_access_token', accessToken);

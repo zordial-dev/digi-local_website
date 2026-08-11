@@ -211,12 +211,12 @@ export default function ResidentOrderCheckoutModal({ isOpen, onClose, cartItems 
                 <form onSubmit={handleVerifyAndPlaceOrder} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1 text-center">
-                      Enter 4-Digit OTP Code (Prototype static code: <span className="text-[#C5A880]">1234</span>)
+                      Enter 6-Digit OTP Code (Prototype static code: <span className="text-[#C5A880]">123456</span>)
                     </label>
                     <input
                       type="text"
-                      maxLength={4}
-                      placeholder="1234"
+                      maxLength={6}
+                      placeholder="123456"
                       value={otp}
                       onChange={(e) => setOtp(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-gray-300 text-center font-mono font-bold text-xl tracking-widest focus:ring-2 focus:ring-[#C5A880]"

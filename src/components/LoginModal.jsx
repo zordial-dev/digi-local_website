@@ -125,7 +125,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
     setOtpError('');
 
     if (otpInput.trim() !== generatedOtp) {
-      setOtpError('Invalid OTP code. Please enter the correct 4-digit verification code.');
+      setOtpError('Invalid OTP code. Please enter the correct 6-digit verification code.');
       return;
     }
 
@@ -376,15 +376,15 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
 
               <div>
                 <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-1.5">
-                  Enter 4-Digit Security OTP *
+                  Enter 6-Digit Security OTP *
                 </label>
                 <div className="relative">
                   <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
                   <input
                     type="text"
                     required
-                    maxLength={4}
-                    placeholder="Enter 4-digit code"
+                    maxLength={6}
+                    placeholder="Enter 6-digit code"
                     value={otpInput}
                     onChange={(e) => setOtpInput(e.target.value)}
                     className="w-full pl-11 pr-4 py-3.5 text-center text-lg font-mono font-bold rounded-2xl bg-background border-2 border-primary text-ink focus:outline-none focus:ring-4 focus:ring-primary/20 tracking-widest"

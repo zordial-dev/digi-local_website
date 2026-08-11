@@ -170,7 +170,12 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         localStorage.setItem('digilocal_resident_session', JSON.stringify(userObj));
         if (setActiveUser) setActiveUser(userObj);
 
-        if (pendingSocietyId) {
+        if (currentRoute?.redirectVendorId) {
+          setSuccessMsg(`Logged in successfully! Opening Vendor Storefront...`);
+          setTimeout(() => {
+            setRoute({ page: 'vendorStorefront', societyId: currentRoute.redirectSocietyId || 1, vendorId: currentRoute.redirectVendorId });
+          }, 400);
+        } else if (pendingSocietyId) {
           sessionStorage.removeItem('digilocal_pending_society_id');
           sessionStorage.removeItem('digilocal_pending_society_name');
           setSuccessMsg(`Logged in successfully! Redirecting to ${pendingSocietyName || 'your selected society'}...`);
@@ -721,7 +726,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                 <div className="space-y-3 pt-1 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-[#1E3623]">
-                      4-Digit Verification Code *
+                      6-Digit Verification Code *
                     </label>
                     <button
                       type="button"

@@ -246,11 +246,20 @@ export default function App() {
         )}
 
         {route.page === 'societyVendors' && (
-          <SocietyVendorsPage societyId={route.societyId} setRoute={setRoute} />
+          <SocietyVendorsPage
+            societyId={route.societyId}
+            setRoute={setRoute}
+            onOpenLoginModal={() => setIsLoginModalOpen(true)}
+          />
         )}
 
         {route.page === 'vendorStorefront' && (
-          <VendorStorefrontPage societyId={route.societyId} vendorId={route.vendorId} setRoute={setRoute} />
+          <VendorStorefrontPage
+            societyId={route.societyId}
+            vendorId={route.vendorId}
+            setRoute={setRoute}
+            onOpenLoginModal={() => setIsLoginModalOpen(true)}
+          />
         )}
 
         {route.page === 'vendorRegister' && (

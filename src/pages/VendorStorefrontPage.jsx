@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api, getNormalizedImageUrl } from '../services/api';
-import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import DummyPaymentModal from '../components/DummyPaymentModal';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
 import LoginModal from '../components/LoginModal';
 import { ProductCardSkeleton } from '../components/Skeletons';
 
-export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) {
+export default function VendorStorefrontPage({ societyId, vendorId, setRoute, onOpenLoginModal }) {
   const [vendorData, setVendorData] = useState(null);
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -157,46 +157,63 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
     return acc;
   }, []);
 
-  // Save Order Helper for User Profile Order History
+  // Save Order Helper for User Profile Order History & Vendor Dashboard
   const saveOrderToUserProfile = (orderId, totalAmount, itemsList, isWhatsApp = false, txnDetails = null) => {
     let currentUser = null;
     try {
-      const uStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
-      if (uStr) {
-        const parsed = JSON.parse(uStr);
-        currentUser = parsed.user || parsed;
+      const keys = ['digilocal_user_session', 'digilocal_resident_session', 'user_profile', 'resident_profile', 'digilocal_user', 'digilocal_resident'];
+      for (const k of keys) {
+        const uStr = localStorage.getItem(k);
+        if (uStr) {
+          const parsed = JSON.parse(uStr);
+          const u = parsed.user || parsed.resident || parsed;
+          if (u && (u.name || u.phone || u.mobile || u.full_name)) {
+            currentUser = u;
+            break;
+          }
+        }
       }
     } catch (_) {}
 
     const storeNameStr = vendorData?.store_name || 'Community Store';
     const societyNameStr = vendorData?.society_name || 'Gated Housing Society';
+    const targetVendorId = vendorData?.vendor_id || vendorId || 1;
+
+    const resName = currentUser?.name || currentUser?.full_name || currentUser?.owner_name || (flatNumber ? `Resident (Flat ${flatNumber})` : 'Resident Customer');
+    const resPhone = currentUser?.phone || currentUser?.mobile || currentUser?.phone_number || currentUser?.user_phone || '+919784319840';
 
     const orderRecord = {
       order_id: orderId || `ORD-${Date.now().toString().slice(-6)}`,
-      user_id: currentUser?.user_id || currentUser?.id || `usr_${currentUser?.phone || 'guest'}`,
-      phone: currentUser?.phone || '',
-      user_phone: currentUser?.phone || '',
-      customer_name: currentUser?.name || `Flat ${flatNumber}`,
-      vendor_id: vendorData?.vendor_id || vendorId || 1,
+      user_id: currentUser?.user_id || currentUser?.id || `usr_${resPhone.replace(/[^0-9]/g, '')}`,
+      customer_name: resName,
+      user_name: resName,
+      name: resName,
+      phone: resPhone,
+      user_phone: resPhone,
+      phone_number: resPhone,
+      vendor_id: targetVendorId,
       store_name: storeNameStr,
       store_logo: vendorData?.logo || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80',
       society_name: societyNameStr,
       date: new Date().toISOString(),
-      status: 'IN_PROGRESS',
+      order_timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
+      status: 'PLACED',
       status_label: isWhatsApp ? 'WhatsApp Order Placed' : 'Order Paid & Out for Delivery',
       payment_status: isWhatsApp ? 'PENDING_COD' : 'PAID',
-      payment_method: txnDetails?.paymentMethod || (isWhatsApp ? 'COD / WhatsApp' : 'UPI'),
+      payment_method: txnDetails?.paymentMethod || (isWhatsApp ? 'COD / WhatsApp' : 'UPI Payment'),
       total_amount: totalAmount,
+      address: `Flat ${flatNumber} (${buildingNumber || 'Block A'}), ${societyNameStr}`,
       delivery_address: `Flat ${flatNumber} (${buildingNumber || 'Block A'}), ${societyNameStr}`,
       items: itemsList.map(c => ({
         item_id: c.item_id || c.id,
         item_name: c.item_name || c.name,
         name: c.item_name || c.name,
-        quantity: c.quantity,
-        unit_price: c.price,
-        price: c.price
-      })),
-      timestamp: new Date().toISOString()
+        quantity: c.quantity || 1,
+        unit_price: parseFloat(c.price || 0),
+        price: parseFloat(c.price || 0),
+        item_total: parseFloat(c.price || 0) * (c.quantity || 1)
+      }))
     };
 
     try {
@@ -207,14 +224,18 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
       userOrdersList = [orderRecord, ...userOrdersList.filter(o => o && String(o.order_id) !== String(orderRecord.order_id))];
       localStorage.setItem('digilocal_user_orders', JSON.stringify(userOrdersList));
 
-      // Save to vendor specific orders list for real-time Vendor Dashboard reflection
-      const targetVendorId = vendorData?.vendor_id || vendorId || 1;
-      const vendorOrdersKey = `digilocal_vendor_orders_${targetVendorId}`;
-      const vOrdersStr = localStorage.getItem(vendorOrdersKey);
-      let vOrdersList = vOrdersStr ? JSON.parse(vOrdersStr) : [];
-      if (!Array.isArray(vOrdersList)) vOrdersList = [];
-      vOrdersList = [orderRecord, ...vOrdersList.filter(o => o && String(o.order_id) !== String(orderRecord.order_id))];
-      localStorage.setItem(vendorOrdersKey, JSON.stringify(vOrdersList));
+      // Save to vendor specific orders list (both numeric and string keys)
+      const vKey1 = `digilocal_vendor_orders_${targetVendorId}`;
+      const vKey2 = `digilocal_vendor_orders_${String(targetVendorId)}`;
+      [vKey1, vKey2].forEach(vk => {
+        try {
+          const vOrdersStr = localStorage.getItem(vk);
+          let vOrdersList = vOrdersStr ? JSON.parse(vOrdersStr) : [];
+          if (!Array.isArray(vOrdersList)) vOrdersList = [];
+          vOrdersList = [orderRecord, ...vOrdersList.filter(o => o && String(o.order_id) !== String(orderRecord.order_id))];
+          localStorage.setItem(vk, JSON.stringify(vOrdersList));
+        } catch (_) {}
+      });
 
       // Global vendor orders list fallback
       const globalOrdersKey = 'digilocal_all_vendor_orders';
@@ -285,11 +306,23 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
       msg += `--------------------------------------\n\n`;
       msg += `Please confirm preparation and delivery to my flat. Thank you!`;
 
+      let currentUser = null;
+      try {
+        const uStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session') || localStorage.getItem('user_profile');
+        if (uStr) {
+          const parsed = JSON.parse(uStr);
+          currentUser = parsed.user || parsed.resident || parsed;
+        }
+      } catch (_) {}
+
+      const resName = currentUser?.name || currentUser?.full_name || currentUser?.owner_name || `Flat ${flatNumber}`;
+      const resPhone = currentUser?.phone || currentUser?.mobile || currentUser?.phone_number || '+919784319840';
+
       const backendPayload = {
         vendor_id: vendorId,
-        customer_name: `Flat ${flatNumber}`,
-        phone_number: targetPhone,
-        address: `Flat ${flatNumber}, ${societyName}`,
+        customer_name: resName,
+        phone_number: resPhone,
+        address: `Flat ${flatNumber} (${buildingNumber || 'Block A'}), ${societyName}`,
         items: cart.map(i => ({
           item_id: i.item_id,
           quantity: i.quantity,
@@ -329,6 +362,68 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
     setShowConfirmModal(false);
     setShowCartDrawer(true);
   };
+
+  if (!checkResidentAuth()) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="relative w-full max-w-md bg-white rounded-[2.2rem] p-7 sm:p-8 shadow-2xl border border-[#E8E2D5] text-center space-y-5 animate-in zoom-in-95 duration-200">
+          
+          {/* Top Right Close Button */}
+          <button
+            onClick={() => setRoute({ page: 'societyVendors', societyId: societyId || 'all' })}
+            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#FAF8F5] hover:bg-[#F3EFE6] text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-pointer"
+            aria-label="Close"
+          >
+            <X className="w-4.5 h-4.5 text-gray-500" />
+          </button>
+
+          {/* Center Gold Building Icon */}
+          <div className="w-16 h-16 rounded-2xl bg-[#FFFBF0] border border-[#F5E6C4] flex items-center justify-center mx-auto text-[#C4A066] shadow-xs">
+            <Building2 className="w-8 h-8 text-[#C4A066]" />
+          </div>
+
+          {/* Pill Badge & Title */}
+          <div className="space-y-2">
+            <span className="inline-block px-4 py-1 rounded-full bg-[#FFF5E5] text-[#C47D14] border border-[#FFE3B5] text-[11px] font-extrabold uppercase tracking-widest">
+              LOGIN REQUIRED
+            </span>
+
+            <h2 className="text-2xl sm:text-3xl font-serif font-black text-[#18281F] leading-tight">
+              Explore {vendorData?.store_name || 'Community Store'}
+            </h2>
+
+            <p className="text-xs sm:text-sm text-gray-600 font-medium leading-relaxed max-w-xs mx-auto pt-1">
+              Please log in to your account to view approved local stores, products, and daily essentials for {vendorData?.store_name || 'this storefront'}.
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <button
+              onClick={() => setRoute({
+                page: 'login',
+                accountType: 'resident',
+                redirectVendorId: vendorId,
+                redirectSocietyId: societyId
+              })}
+              className="w-full sm:w-1/2 py-3.5 px-5 rounded-full bg-[#18281F] hover:bg-[#233A2E] text-white font-extrabold text-xs shadow-md tracking-wider uppercase transition-all flex items-center justify-center space-x-2 cursor-pointer"
+            >
+              <LogIn className="w-4 h-4 text-[#C4A066]" />
+              <span>LOG IN NOW</span>
+            </button>
+
+            <button
+              onClick={() => setRoute({ page: 'register' })}
+              className="w-full sm:w-1/2 py-3.5 px-5 rounded-full bg-[#F5EFE0] hover:bg-[#EBE2CC] text-[#18281F] font-extrabold text-xs border border-[#E3D9C3] tracking-wider uppercase transition-all flex items-center justify-center cursor-pointer"
+            >
+              <span>REGISTER</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-28 px-3 sm:px-6">
@@ -776,10 +871,24 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute }) 
           setShowCartDrawer(false);
           try {
             setPlacingOrder(true);
+            let currentUser = null;
+            try {
+              const uStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session') || localStorage.getItem('user_profile');
+              if (uStr) {
+                const parsed = JSON.parse(uStr);
+                currentUser = parsed.user || parsed.resident || parsed;
+              }
+            } catch (_) {}
+
+            const resName = currentUser?.name || currentUser?.full_name || currentUser?.owner_name || `Flat ${flatNumber}`;
+            const resPhone = currentUser?.phone || currentUser?.mobile || currentUser?.phone_number || '+919784319840';
+
             const payload = {
               vendor_id: vendorId,
-              buyer_name: `Flat ${flatNumber} Resident`,
-              buyer_phone: '9876543210',
+              buyer_name: resName,
+              customer_name: resName,
+              buyer_phone: resPhone,
+              phone_number: resPhone,
               flat_number: flatNumber,
               building_number: buildingNumber,
               order_remark: orderRemark,

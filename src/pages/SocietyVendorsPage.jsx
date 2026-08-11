@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { api, getSocietyImage } from '../services/api';
-import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock } from 'lucide-react';
+import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock, LogIn } from 'lucide-react';
 import { getStoreStatus } from '../utils/storeHours';
 import { VendorCardSkeleton } from '../components/Skeletons';
 
@@ -22,13 +22,15 @@ const checkUserLoggedIn = () => {
   return false;
 };
 
-export default function SocietyVendorsPage({ societyId: initialSocietyId, setRoute }) {
+export default function SocietyVendorsPage({ societyId: initialSocietyId, setRoute, onOpenLoginModal }) {
   const [currentSocietyId, setCurrentSocietyId] = useState(initialSocietyId || 'all');
   const [society, setSociety] = useState(null);
   const [allSocieties, setAllSocieties] = useState([]);
   const [allMasterVendors, setAllMasterVendors] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showLoginPromptModal, setShowLoginPromptModal] = useState(false);
+  const [selectedVendorForPrompt, setSelectedVendorForPrompt] = useState(null);
 
   // Custom Dropdown State
   const [isSocietyDropdownOpen, setIsSocietyDropdownOpen] = useState(false);
@@ -357,13 +359,25 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
         {!loading && vendors.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {vendors.map((vendor) => {
+              const vId = vendor.vendor_id;
+              const savedCustomLogo = (vId ? localStorage.getItem(`digilocal_vendor_logo_${vId}`) : null) ||
+                                      (vId ? localStorage.getItem(`digilocal_vendor_logo_${String(vId)}`) : null) ||
+                                      (vendor.store_name ? localStorage.getItem(`digilocal_vendor_logo_${vendor.store_name}`) : null);
+
+              const storeImage = savedCustomLogo || vendor.logo || vendor.image_url || vendor.image || (Array.isArray(vendor.shop_images) && vendor.shop_images.length > 0 ? vendor.shop_images[0] : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80');
               const status = getStoreStatus(vendor.opening_time, vendor.closing_time);
-              const storeImage = vendor.logo || vendor.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80';
 
               return (
                 <div
                   key={vendor.vendor_id}
-                  onClick={() => setRoute({ page: 'vendorStorefront', societyId: vendor.society_id || currentSocietyId || 1, vendorId: vendor.vendor_id })}
+                  onClick={() => {
+                    if (!checkUserLoggedIn()) {
+                      setSelectedVendorForPrompt(vendor);
+                      setShowLoginPromptModal(true);
+                      return;
+                    }
+                    setRoute({ page: 'vendorStorefront', societyId: vendor.society_id || currentSocietyId || 1, vendorId: vendor.vendor_id });
+                  }}
                   className="group rounded-3xl bg-white border border-[#E8E2D5] hover:border-[#18281F]/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between relative shadow-xs"
                 >
                   <div>
@@ -460,6 +474,73 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
           </div>
         )}
       </div>
+
+      {/* LOGIN REQUIRED POPUP MODAL (MATCHES USER DESIGN SPECIFICATION EXACTLY) */}
+      {showLoginPromptModal && !checkUserLoggedIn() && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-white rounded-[2.2rem] p-7 sm:p-8 shadow-2xl border border-[#E8E2D5] text-center space-y-5 animate-in zoom-in-95 duration-200">
+            
+            {/* Top Right Close Button */}
+            <button
+              onClick={() => setShowLoginPromptModal(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#FAF8F5] hover:bg-[#F3EFE6] text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="w-4.5 h-4.5 text-gray-500" />
+            </button>
+
+            {/* Center Gold Building Icon */}
+            <div className="w-16 h-16 rounded-2xl bg-[#FFFBF0] border border-[#F5E6C4] flex items-center justify-center mx-auto text-[#C4A066] shadow-xs">
+              <Building2 className="w-8 h-8 text-[#C4A066]" />
+            </div>
+
+            {/* Pill Badge & Title */}
+            <div className="space-y-2">
+              <span className="inline-block px-4 py-1 rounded-full bg-[#FFF5E5] text-[#C47D14] border border-[#FFE3B5] text-[11px] font-extrabold uppercase tracking-widest">
+                LOGIN REQUIRED
+              </span>
+
+              <h2 className="text-2xl sm:text-3xl font-serif font-black text-[#18281F] leading-tight">
+                Explore {selectedVendorForPrompt?.store_name || society?.society_name || 'Community Vendors'}
+              </h2>
+
+              <p className="text-xs sm:text-sm text-gray-600 font-medium leading-relaxed max-w-xs mx-auto pt-1">
+                Please log in to your account to view approved local stores, products, and daily essentials for {selectedVendorForPrompt?.store_name || society?.society_name || 'your residential complex'}.
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setShowLoginPromptModal(false);
+                  setRoute({
+                    page: 'login',
+                    accountType: 'resident',
+                    redirectVendorId: selectedVendorForPrompt?.vendor_id,
+                    redirectSocietyId: currentSocietyId
+                  });
+                }}
+                className="w-full sm:w-1/2 py-3.5 px-5 rounded-full bg-[#18281F] hover:bg-[#233A2E] text-white font-extrabold text-xs shadow-md tracking-wider uppercase transition-all flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                <LogIn className="w-4 h-4 text-[#C4A066]" />
+                <span>LOG IN NOW</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowLoginPromptModal(false);
+                  setRoute({ page: 'register' });
+                }}
+                className="w-full sm:w-1/2 py-3.5 px-5 rounded-full bg-[#F5EFE0] hover:bg-[#EBE2CC] text-[#18281F] font-extrabold text-xs border border-[#E3D9C3] tracking-wider uppercase transition-all flex items-center justify-center cursor-pointer"
+              >
+                <span>REGISTER</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
