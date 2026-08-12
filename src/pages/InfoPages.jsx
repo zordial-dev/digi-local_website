@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { api } from '../services/api';
 import {
   ShieldCheck,
   Lock,
@@ -104,9 +105,23 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
 
   const headerInfo = getBannerHeader();
 
-  const handleContactSubmit = (e) => {
+  const handleContactSubmit = async (e) => {
     e.preventDefault();
     if (!contactForm.name || !contactForm.message) return;
+    try {
+      await api.createSupportTicket({
+        user_type: 'user',
+        source: 'landing_website',
+        reporter_name: contactForm.name,
+        reporter_email: contactForm.email || '',
+        reporter_phone: contactForm.phone || '',
+        entity_name: contactForm.societyName || '',
+        subject: `${contactForm.category}: Complaint from ${contactForm.name}`,
+        description: contactForm.message,
+        category: 'general',
+        priority: 'medium'
+      });
+    } catch (_) {}
     setContactSubmitted(true);
     setTimeout(() => {
       setContactSubmitted(false);

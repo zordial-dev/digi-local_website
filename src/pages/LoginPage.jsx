@@ -4,6 +4,7 @@ import { gsap } from 'gsap';
 import { api } from '../services/api';
 import CountryCodePicker from '../components/CountryCodePicker';
 import { sendFirebasePhoneOtp, verifyFirebasePhoneOtp } from '../firebase';
+import { formatUserFacingError } from '../utils/errorFormatter';
 
 export default function LoginPage({ currentRoute, setRoute, setActiveVendor, setActiveUser }) {
   const [accountType, setAccountType] = useState(
@@ -190,9 +191,12 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         }
       } catch (err) {
         const msg = err.message || '';
-        if (msg.includes('account does not exist') || msg.includes('Invalid mobile number') || msg.includes('not found')) {
+        if (msg.includes('Password incorrect') || msg.includes('password incorrect') || msg.includes('Incorrect password')) {
+          setError('Password incorrect. Please check your password and try again.');
+          setShowRegisterPrompt(false);
+        } else if (msg.includes('account does not exist') || msg.includes('Invalid mobile number') || msg.includes('not found') || msg.includes('register')) {
           setError('No account found with this mobile number. Please register your account first.');
-          setShowRegisterPrompt(true);
+          setShowRegisterPrompt(false);
         } else {
           setError(msg || 'Invalid phone number or password. Please try again.');
         }
@@ -412,7 +416,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
       setOtpBoxes(Array(6).fill(''));
       setResendCountdown(30);
     } catch (err) {
-      setError(err.message || 'Failed to send verification code. Please try again.');
+      setError(formatUserFacingError(err, 'phone'));
     } finally {
       setLoading(false);
     }
@@ -609,21 +613,9 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
             {/* Notifications */}
             {error && (
-              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold space-y-2 shadow-xs">
-                <div className="flex items-center space-x-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{error}</span>
-                </div>
-                {showRegisterPrompt && (
-                  <button
-                    type="button"
-                    onClick={() => setRoute({ page: 'register' })}
-                    className="mt-1 w-full py-2 bg-[#1E3623] hover:bg-[#152718] text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-2 transition-all shadow-sm"
-                  >
-                    <span>Register New Account Now</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                )}
+              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-xs">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
@@ -705,7 +697,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword ? <Eye className="w-4 h-4 text-emerald-800" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   </div>
                   

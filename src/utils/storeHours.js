@@ -72,12 +72,10 @@ export const getStoreStatus = (opening_timing, closing_timing, vendor = null) =>
   } else {
     let minsUntilClose = closeMins > nowMins ? (closeMins - nowMins) : ((24 * 60 - nowMins) + closeMins);
     if (minsUntilClose <= 60 && minsUntilClose > 0) {
-      closingCountdown = `Closes in ${minsUntilClose} mins`;
-      statusText = `Closing Soon (${closingCountdown})`;
-    } else if (minsUntilClose <= 120 && minsUntilClose > 60) {
-      const hrs = Math.floor(minsUntilClose / 60);
-      closingCountdown = `Closes in ${hrs} ${hrs === 1 ? 'hour' : 'hours'}`;
-      statusText = `Open Now (${closingCountdown})`;
+      closingCountdown = minsUntilClose === 60 ? 'Closes in 1 hour' : `Closes in ${minsUntilClose} mins`;
+      statusText = closingCountdown;
+    } else {
+      statusText = 'Open Now';
     }
   }
 

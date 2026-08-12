@@ -98,6 +98,27 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
   const [notificationsSMS, setNotificationsSMS] = useState(true);
   const [settingsMsg, setSettingsMsg] = useState('');
 
+  // Delete User Account State & Handler
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  const handleDeleteUserAccount = async () => {
+    try {
+      setIsDeletingAccount(true);
+      const targetUserId = activeUser?.user_id || savedProfile.user_id || 'usr_guest';
+      await api.deleteUserAccount(targetUserId);
+
+      setShowDeleteAccountModal(false);
+      if (typeof setActiveUser === 'function') setActiveUser(null);
+      if (typeof onLogout === 'function') onLogout();
+      setRoute({ page: 'home' });
+    } catch (err) {
+      console.error('Delete account error:', err);
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   // Sync user profile & fetch REAL user orders from API / localStorage
   useEffect(() => {
     let userData = activeUser;
@@ -316,6 +337,20 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
     e.preventDefault();
     if (!newAddrFlat.trim()) return;
 
+    const targetSociety = (newAddrSociety || society).trim().toLowerCase();
+    const targetFlat = newAddrFlat.trim().toLowerCase();
+
+    // Prevent Duplicate Addresses (Con-01)
+    const isDuplicate = addresses.some(a =>
+      (a.society || '').trim().toLowerCase() === targetSociety &&
+      (a.flat || '').trim().toLowerCase() === targetFlat
+    );
+
+    if (isDuplicate) {
+      alert('This address (Flat & Society) already exists in your saved addresses list.');
+      return;
+    }
+
     const newEntry = {
       id: Date.now(),
       label: newAddrLabel || 'Other Residence',
@@ -376,6 +411,10 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
     }
     if (passwordNew !== passwordConfirm) {
       setSettingsMsg('New passwords do not match.');
+      return;
+    }
+    if (passwordNew === passwordCurrent) {
+      setSettingsMsg('New password should be different from previous password.');
       return;
     }
     setSettingsMsg('✓ Password updated successfully!');
@@ -1011,8 +1050,8 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
               <div className="bg-white rounded-3xl p-10 text-center border border-border space-y-3">
                 <p className="text-xs text-muted-foreground">No saved favorite stores yet.</p>
                 <button
-                  onClick={() => setRoute({ page: 'home' })}
-                  className="px-4 py-2 bg-[#18281F] text-white rounded-full text-xs font-bold"
+                  onClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
+                  className="px-4 py-2 bg-[#18281F] text-white rounded-full text-xs font-bold hover:bg-black transition-all cursor-pointer"
                 >
                   Explore Vendors
                 </button>
@@ -1158,10 +1197,31 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
               <div className="pt-4 border-t border-border">
                 <button
                   onClick={onLogout}
-                  className="w-full py-3 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Log Out of Account</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Danger Zone: Delete Resident Account */}
+            <div className="bg-rose-50/80 border border-rose-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4 md:col-span-2">
+              <div className="flex items-center gap-2 text-rose-950">
+                <Trash2 className="w-5 h-5 text-rose-600" />
+                <h3 className="text-lg font-serif font-bold text-rose-900">Danger Zone — Delete Account</h3>
+              </div>
+              <p className="text-xs text-rose-800 leading-relaxed font-medium">
+                Permanently delete your resident profile from DigiLocal. All saved delivery addresses, order history, and preferences will be permanently wiped out. This action cannot be undone.
+              </p>
+              <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteAccountModal(true)}
+                  className="w-full sm:w-auto px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete My Resident Account</span>
                 </button>
               </div>
             </div>
@@ -1281,6 +1341,44 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
             >
               Close Receipt
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 3: DELETE ACCOUNT CONFIRMATION MODAL                     */}
+      {/* ------------------------------------------------------------- */}
+      {showDeleteAccountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-rose-200 text-ink space-y-5">
+            <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-serif font-bold text-rose-950">Delete Account Permanently?</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Are you sure you want to delete your resident account <strong className="text-ink">{savedProfile.name || name || 'User'}</strong>? Your saved addresses, favorites, and profile data will be permanently removed.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteAccountModal(false)}
+                className="w-full sm:w-1/2 py-3 bg-secondary/80 hover:bg-secondary text-ink rounded-full text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={handleDeleteUserAccount}
+                className="w-full sm:w-1/2 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {isDeletingAccount ? 'Deleting Account...' : 'Yes, Delete Account'}
+              </button>
+            </div>
           </div>
         </div>
       )}

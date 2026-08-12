@@ -45,6 +45,9 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   const [phonePlaceholder, setPhonePlaceholder] = useState('e.g. 98765 43210');
   const [emailAddress, setEmailAddress] = useState('');
   
+  const [phoneError, setPhoneError] = useState('');
+  const [emailError, setEmailError] = useState('');
+
   const [isVendorContactVerified, setIsVendorContactVerified] = useState(false);
   const [verifiedContactValue, setVerifiedContactValue] = useState('');
   const [firebaseIdToken, setFirebaseIdToken] = useState(null);
@@ -394,13 +397,11 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
       setVerifiedContactValue(targetIdentifier);
       setShowVendorOtpModal(true);
     } catch (err) {
-      const errMsg = err?.message || String(err || '');
-      if (errMsg.includes('TOO_MANY_ATTEMPTS_TRY_LATER') || errMsg.includes('too-many-requests')) {
-        setError('Too many verification requests for this mobile number. Please wait a few minutes before trying again.');
-      } else if (errMsg.includes('INVALID_APP_CREDENTIAL') || errMsg.includes('invalid-app-credential')) {
-        setError('Security verification check failed. Please refresh the page and try again.');
+      const formatted = formatUserFacingError(err, verificationMethod);
+      if (verificationMethod === 'phone') {
+        setPhoneError(formatted);
       } else {
-        setError(err.message || 'Failed to send verification OTP via Firebase.');
+        setEmailError(formatted);
       }
     } finally {
       setLoading(false);
@@ -1010,11 +1011,22 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                             required
                             placeholder={phonePlaceholder}
                             value={mobileNumber}
-                            onChange={(e) => setMobileNumber(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                            onChange={(e) => {
+                              setMobileNumber(e.target.value);
+                              setPhoneError('');
+                            }}
+                            className={`w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border text-xs font-semibold focus:outline-none text-ink transition-all shadow-xs ${
+                              phoneError ? 'border-rose-400 focus:border-rose-600 bg-rose-50/20' : 'border-border/80 focus:border-[#1E3623]'
+                            }`}
                           />
                         </div>
                       </div>
+                      {phoneError && (
+                        <div className="mt-2 p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center space-x-2 shadow-xs animate-in fade-in">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                          <span>{phoneError}</span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div>
@@ -1028,10 +1040,21 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                           required
                           placeholder="e.g. lovelysethia753@gmail.com"
                           value={emailAddress}
-                          onChange={(e) => setEmailAddress(e.target.value)}
-                          className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                          onChange={(e) => {
+                            setEmailAddress(e.target.value);
+                            setEmailError('');
+                          }}
+                          className={`w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border text-xs font-semibold focus:outline-none text-ink transition-all shadow-xs ${
+                            emailError ? 'border-rose-400 focus:border-rose-600 bg-rose-50/20' : 'border-border/80 focus:border-[#1E3623]'
+                          }`}
                         />
                       </div>
+                      {emailError && (
+                        <div className="mt-2 p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center space-x-2 shadow-xs animate-in fade-in">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                          <span>{emailError}</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1332,7 +1355,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? <Eye className="w-4 h-4 text-emerald-800" /> : <EyeOff className="w-4 h-4" />}
                   </button>
                 </div>
               </div>

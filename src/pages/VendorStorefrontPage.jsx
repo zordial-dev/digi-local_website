@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api, getNormalizedImageUrl, getStoreTimeStatus } from '../services/api';
-import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn, Clock } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn, Clock, Heart } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import DummyPaymentModal from '../components/DummyPaymentModal';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
@@ -14,6 +14,52 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Favorite Vendor State (Con-04)
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  useEffect(() => {
+    if (vendorData?.vendor_id) {
+      try {
+        const saved = localStorage.getItem('digilocal_favorite_vendors');
+        if (saved) {
+          const list = JSON.parse(saved);
+          if (Array.isArray(list)) {
+            setIsFavorite(list.some(f => String(f.vendor_id) === String(vendorData.vendor_id)));
+          }
+        }
+      } catch (_) {}
+    }
+  }, [vendorData]);
+
+  const handleToggleFavorite = () => {
+    if (!vendorData?.vendor_id) return;
+    try {
+      const saved = localStorage.getItem('digilocal_favorite_vendors');
+      let list = saved ? JSON.parse(saved) : [];
+      if (!Array.isArray(list)) list = [];
+
+      const vIdStr = String(vendorData.vendor_id);
+      const exists = list.some(f => String(f.vendor_id) === vIdStr);
+
+      if (exists) {
+        list = list.filter(f => String(f.vendor_id) !== vIdStr);
+        setIsFavorite(false);
+      } else {
+        list.push({
+          vendor_id: vendorData.vendor_id,
+          store_name: vendorData.store_name,
+          category: vendorData.category || 'General Store',
+          logo: vendorData.logo || vendorData.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
+          rating: vendorData.rating || '4.9',
+          delivery_time: vendorData.delivery_time || '15 mins'
+        });
+        setIsFavorite(true);
+      }
+
+      localStorage.setItem('digilocal_favorite_vendors', JSON.stringify(list));
+    } catch (_) {}
+  };
 
   // Flat & Tower Location Entry State (Always re-asks on entering any cafe)
   const [flatNumber, setFlatNumber] = useState('');
@@ -438,10 +484,10 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
     <div className="min-h-screen bg-background text-foreground pb-28 px-3 sm:px-6">
       
       {/* Store Header Banner */}
-      <div className="max-w-7xl mx-auto pt-4 pb-6">
-        <div className="bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 shadow-sm">
+      <div className="max-w-6xl mx-auto pt-4 pb-6">
+        <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-sm">
           
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <button
               onClick={() => setRoute({ page: 'societyVendors', societyId })}
               className="inline-flex items-center space-x-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors"
@@ -452,7 +498,7 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
 
             {/* Flat Delivery Badge (Per Cafe Visit) */}
             {flatNumber ? (
-              <div className="flex items-center space-x-2 px-4 py-2 rounded-full bg-secondary border border-border shadow-sm self-start sm:self-auto">
+              <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-secondary border border-border shadow-sm self-start sm:self-auto">
                 <Home className="w-4 h-4 text-gold" />
                 <span className="text-xs font-bold text-ink">
                   Delivering to: <strong className="text-primary font-bold">Flat {flatNumber} ({buildingNumber || 'Tower A'})</strong>
@@ -486,7 +532,7 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
                   onError={(e) => {
                     e.target.src = 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=200&auto=format&fit=crop&q=80';
                   }}
-                  className="w-20 h-20 rounded-2xl object-cover border-2 border-border bg-secondary shadow-sm"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-border bg-secondary shadow-sm"
                 />
                 <div>
                   <div className="flex items-center space-x-1.5 text-xs font-bold text-primary mb-1 flex-wrap gap-2">
@@ -510,11 +556,26 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
                       );
                     })()}
                   </div>
-                  <h1 className="text-3xl font-serif font-black text-ink uppercase tracking-wide">
-                    {vendorData.store_name}
-                  </h1>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className="text-xl sm:text-2xl font-serif font-black text-ink uppercase tracking-normal">
+                      {vendorData.store_name}
+                    </h1>
+
+                    <button
+                      type="button"
+                      onClick={handleToggleFavorite}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs border cursor-pointer ${
+                        isFavorite 
+                          ? 'bg-rose-600 text-white border-rose-500 hover:bg-rose-700' 
+                          : 'bg-white text-ink border-border hover:border-rose-300 hover:text-rose-600'
+                      }`}
+                    >
+                      <Heart className={`w-3.5 h-3.5 ${isFavorite ? 'fill-current' : ''}`} />
+                      <span>{isFavorite ? 'Saved in Favorites' : 'Add to Favorite Stores'}</span>
+                    </button>
+                  </div>
                   {vendorData.description && vendorData.description.trim() && (
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-xl font-medium">
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2 max-w-xl font-medium">
                       {vendorData.description}
                     </p>
                   )}
@@ -558,147 +619,149 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
         </div>
       </div>
 
-      {/* Category Navigation Pills & Search Input */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-card border border-border p-4 rounded-[2rem] shadow-sm">
-        <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-5 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all uppercase tracking-wider ${
-                selectedCategory === cat
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-secondary text-muted-foreground hover:text-ink border border-border'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        <div className="w-full md:w-72">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-            <input
-              type="text"
-              placeholder="Search menu items..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 rounded-full bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Products Grid */}
-      {loading ? (
-        <ProductCardSkeleton count={6} />
-      ) : filteredItems.length === 0 ? (
-        <div className="text-center py-16 bg-card rounded-[2.5rem] border border-border p-8 shadow-sm">
-          <ShoppingBag className="w-12 h-12 text-gold mx-auto mb-3" />
-          <h3 className="text-base font-bold text-ink mb-1">No items found</h3>
-          <p className="text-muted-foreground text-xs font-medium">Try selecting a different category or search term.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredItems.map((item) => {
-            const timeStatus = getStoreTimeStatus(vendorData);
-            const isStoreClosed = !timeStatus.isOpen;
-            const inCart = cart.find(c => c.item_id === item.item_id);
-            const isAvailable = isStoreClosed ? false : (item.is_available !== undefined ? Boolean(item.is_available) : true);
-
-            return (
-              <div
-                key={item.item_id}
-                className={`rounded-[2rem] overflow-hidden flex flex-col justify-between transition-all duration-200 shadow-sm bento-card ${
-                  isStoreClosed
-                    ? 'border border-rose-200/80 bg-rose-50/20 opacity-80'
-                    : !isAvailable
-                    ? 'border border-amber-200/80 bg-amber-50/20 opacity-80'
-                    : 'border border-emerald-200/70 hover:border-emerald-500/60 hover:shadow-md bg-white'
+      <div className="max-w-6xl mx-auto">
+        {/* Category Navigation Pills & Search Input */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6 bg-card border border-border p-3 rounded-2xl shadow-sm">
+          <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all uppercase tracking-wider ${
+                  selectedCategory === cat
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-secondary text-muted-foreground hover:text-ink border border-border'
                 }`}
               >
-                <div className="p-5">
-                  <div className="relative mb-4 rounded-2xl overflow-hidden bg-secondary h-44">
-                    <img
-                      src={getNormalizedImageUrl(item)}
-                      alt={item.item_name}
-                      className="w-full h-full object-cover"
-                    />
-                    
-                    <div className="absolute top-3 left-3">
-                      {isAvailable ? (
-                        <span className="px-3 py-1 text-[10px] font-extrabold bg-emerald-600 text-white rounded-full shadow-sm flex items-center gap-1">
-                          <Check className="w-3 h-3 text-white" />
-                          In Stock ({item.unit})
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1 text-[10px] font-extrabold bg-amber-600 text-white rounded-full shadow-sm flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" />
-                          Out of Stock
-                        </span>
-                      )}
-                    </div>
+                {cat}
+              </button>
+            ))}
+          </div>
 
-                    <div className="absolute top-3 right-3">
-                      <span className="px-3 py-1 text-[10px] font-bold bg-card/90 text-ink border border-border rounded-full shadow-sm">
-                        {item.category || 'General'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <h3 className="text-lg font-serif font-extrabold text-ink mb-1">{item.item_name}</h3>
-                  <p className="text-muted-foreground text-xs line-clamp-2 mb-3 leading-relaxed font-medium">
-                    {item.description || 'Fresh quality item.'}
-                  </p>
-                </div>
-
-                <div className="p-4 bg-secondary/50 border-t border-border flex items-center justify-between">
-                  <div>
-                    <span className="text-lg font-extrabold text-emerald-800">₹{parseFloat(item.price).toFixed(2)}</span>
-                    <span className="text-[11px] text-muted-foreground ml-1 font-medium">/ {item.unit}</span>
-                  </div>
-
-                  {isStoreClosed ? (
-                    <span className="text-[11px] font-bold text-rose-700 px-3.5 py-1.5 rounded-full bg-rose-100 border border-rose-300 flex items-center gap-1">
-                      <Lock className="w-3 h-3 text-rose-600" />
-                      Store Closed
-                    </span>
-                  ) : !isAvailable ? (
-                    <span className="text-[11px] font-bold text-amber-800 px-3.5 py-1.5 rounded-full bg-amber-100 border border-amber-300">
-                      Out of Stock
-                    </span>
-                  ) : inCart ? (
-                    <div className="flex items-center space-x-2 bg-emerald-50 border border-emerald-300 rounded-full p-1 shadow-sm">
-                      <button
-                        onClick={() => updateQuantity(item.item_id, -1)}
-                        className="w-7 h-7 rounded-full bg-emerald-200 hover:bg-emerald-300 text-emerald-950 flex items-center justify-center font-bold"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-xs font-extrabold text-emerald-950 px-2">{inCart.quantity}</span>
-                      <button
-                        onClick={() => updateQuantity(item.item_id, 1)}
-                        className="w-7 h-7 rounded-full bg-emerald-700 text-white hover:bg-emerald-800 flex items-center justify-center font-bold"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => addToCart(item)}
-                      className="px-5 py-2 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-sm flex items-center space-x-1.5 transition-all uppercase tracking-wider text-[11px]"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-emerald-200" />
-                      <span>Add</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          <div className="w-full md:w-64">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+              <input
+                type="text"
+                placeholder="Search menu items..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-3.5 py-2 rounded-full bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink"
+              />
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* Products Grid (Responsive 4-Column Layout) */}
+        {loading ? (
+          <ProductCardSkeleton count={8} />
+        ) : filteredItems.length === 0 ? (
+          <div className="text-center py-16 bg-card rounded-2xl border border-border p-8 shadow-sm">
+            <ShoppingBag className="w-12 h-12 text-gold mx-auto mb-3" />
+            <h3 className="text-base font-bold text-ink mb-1">No items found</h3>
+            <p className="text-muted-foreground text-xs font-medium">Try selecting a different category or search term.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4">
+            {filteredItems.map((item) => {
+              const timeStatus = getStoreTimeStatus(vendorData);
+              const isStoreClosed = !timeStatus.isOpen;
+              const inCart = cart.find(c => c.item_id === item.item_id);
+              const isAvailable = isStoreClosed ? false : (item.is_available !== undefined ? Boolean(item.is_available) : true);
+
+              return (
+                <div
+                  key={item.item_id}
+                  className={`rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-200 shadow-xs bento-card ${
+                    isStoreClosed
+                      ? 'border border-rose-200/80 bg-rose-50/20 opacity-80'
+                      : !isAvailable
+                      ? 'border border-amber-200/80 bg-amber-50/20 opacity-80'
+                      : 'border border-emerald-200/70 hover:border-emerald-500/60 hover:shadow-md bg-white'
+                  }`}
+                >
+                  <div className="p-3.5">
+                    <div className="relative mb-2.5 rounded-xl overflow-hidden bg-secondary h-32 sm:h-36">
+                      <img
+                        src={getNormalizedImageUrl(item)}
+                        alt={item.item_name}
+                        className="w-full h-full object-cover"
+                      />
+                      
+                      <div className="absolute top-2 left-2">
+                        {isAvailable ? (
+                          <span className="px-2 py-0.5 text-[9px] font-extrabold bg-emerald-600 text-white rounded-full shadow-sm flex items-center gap-0.5">
+                            <Check className="w-2.5 h-2.5 text-white" />
+                            In Stock ({item.unit})
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-[9px] font-extrabold bg-amber-600 text-white rounded-full shadow-sm flex items-center gap-0.5">
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            Out of Stock
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="absolute top-2 right-2">
+                        <span className="px-2 py-0.5 text-[9px] font-bold bg-card/90 text-ink border border-border rounded-full shadow-sm">
+                          {item.category || 'General'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <h3 className="text-xs sm:text-sm font-bold text-ink mb-1 line-clamp-1">{item.item_name}</h3>
+                    <p className="text-muted-foreground text-[11px] line-clamp-1 mb-2 font-medium">
+                      {item.description || 'Fresh quality item.'}
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 sm:p-3 bg-secondary/40 border-t border-border flex items-center justify-between">
+                    <div>
+                      <span className="text-sm sm:text-base font-extrabold text-emerald-800">₹{parseFloat(item.price).toFixed(2)}</span>
+                      <span className="text-[10px] text-muted-foreground ml-0.5 font-medium">/ {item.unit}</span>
+                    </div>
+
+                    {isStoreClosed ? (
+                      <span className="text-[10px] font-bold text-rose-700 px-2.5 py-1 rounded-full bg-rose-100 border border-rose-300 flex items-center gap-1">
+                        <Lock className="w-3 h-3 text-rose-600" />
+                        Closed
+                      </span>
+                    ) : !isAvailable ? (
+                      <span className="text-[10px] font-bold text-amber-800 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300">
+                        Unavailable
+                      </span>
+                    ) : inCart ? (
+                      <div className="flex items-center space-x-1.5 bg-emerald-50 border border-emerald-300 rounded-full p-0.5 shadow-sm">
+                        <button
+                          onClick={() => updateQuantity(item.item_id, -1)}
+                          className="w-6 h-6 rounded-full bg-emerald-200 hover:bg-emerald-300 text-emerald-950 flex items-center justify-center font-bold"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-xs font-extrabold text-emerald-950 px-1">{inCart.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.item_id, 1)}
+                          className="w-6 h-6 rounded-full bg-emerald-700 text-white hover:bg-emerald-800 flex items-center justify-center font-bold"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => addToCart(item)}
+                        className="px-3.5 py-1.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-sm flex items-center space-x-1 transition-all uppercase tracking-wider text-[10px]"
+                      >
+                        <Plus className="w-3 h-3 text-emerald-200" />
+                        <span>Add</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Floating Bottom Cart Bar */}
       {cartItemCount > 0 && !showCartDrawer && (

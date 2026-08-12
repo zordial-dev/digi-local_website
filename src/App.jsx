@@ -11,8 +11,11 @@ import InfoPages from './pages/InfoPages';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import UserProfilePage from './pages/UserProfilePage';
+import ZordialPartnerPage from './pages/ZordialPartnerPage';
 import LoginModal from './components/LoginModal';
-import { ShieldCheck } from 'lucide-react';
+import SupportDeskModal from './components/SupportDeskModal';
+import { api } from './services/api';
+import { ShieldCheck, AlertTriangle } from 'lucide-react';
 
 function getRouteFromPath(path = window.location.pathname) {
   const cleanPath = path.toLowerCase().replace(/\/$/, '');
@@ -59,6 +62,9 @@ function getRouteFromPath(path = window.location.pathname) {
   }
   if (cleanPath === '/about-us' || cleanPath === '/about' || cleanPath === '/our-story') {
     return { page: 'info', tab: 'about-us' };
+  }
+  if (cleanPath === '/zordial' || cleanPath === '/zordial-technologies' || cleanPath === '/partner/zordial') {
+    return { page: 'zordial' };
   }
   if (cleanPath === '/safety-standards') {
     return { page: 'info', tab: 'safety-standards' };
@@ -114,6 +120,8 @@ function getPathFromRoute(route) {
       return `/vendorPanel/${route.vendorId}`;
     case 'admin':
       return '/admin';
+    case 'zordial':
+      return '/zordial';
     case 'info':
       return `/${route.tab || 'help-support'}`;
     default:
@@ -126,13 +134,20 @@ export default function App() {
   const [activeVendor, setActiveVendor] = useState(null);
   const [activeUser, setActiveUser] = useState(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isSupportDeskOpen, setIsSupportDeskOpen] = useState(false);
+  const [platformConfig, setPlatformConfig] = useState(null);
 
-  // Restore Active User & Vendor sessions on mount & sync route state in history
+  // Restore Active User & Vendor sessions on mount & check global platform config
   useEffect(() => {
     const initialRoute = getRouteFromPath();
     setRouteState(initialRoute);
     const path = getPathFromRoute(initialRoute);
     window.history.replaceState(initialRoute, '', path);
+
+    // Fetch Global Platform Config
+    api.getPlatformConfig().then(cfg => {
+      if (cfg) setPlatformConfig(cfg);
+    }).catch(() => {});
 
     try {
       const savedVendor = localStorage.getItem('digilocal_vendor_session');
@@ -211,6 +226,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
+      {/* Global Maintenance Mode Banner (Workflow 5) */}
+      {platformConfig?.maintenance_mode && (
+        <div className="bg-[#8C2323] text-white py-2.5 px-4 text-center text-xs font-bold flex items-center justify-center gap-2 shadow-md">
+          <AlertTriangle className="w-4 h-4 animate-bounce" />
+          <span>DigiLocal is currently undergoing scheduled platform maintenance. Services & orders are temporarily paused.</span>
+        </div>
+      )}
+
       {route.page !== 'login' && route.page !== 'vendorRegister' && route.page !== 'register' && (
         <Navbar 
           currentRoute={route} 
@@ -220,6 +243,7 @@ export default function App() {
           activeUser={activeUser}
           onUserLogout={handleUserLogout}
           onOpenLogin={() => setRoute({ page: 'login' })}
+          onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
         />
       )}
 
@@ -241,7 +265,8 @@ export default function App() {
             activeUser={activeUser} 
             setActiveUser={setActiveUser} 
             setRoute={setRoute} 
-            onLogout={handleUserLogout} 
+            onLogout={handleUserLogout}
+            onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
           />
         )}
 
@@ -267,19 +292,31 @@ export default function App() {
         )}
 
         {route.page === 'vendorDashboard' && (
-          <VendorDashboardPage vendorId={route.vendorId} setRoute={setRoute} />
+          <VendorDashboardPage 
+            vendorId={route.vendorId} 
+            setRoute={setRoute} 
+            setActiveVendor={setActiveVendor} 
+            onVendorLogout={handleVendorLogout} 
+            onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
+          />
         )}
 
         {route.page === 'admin' && (
           <AdminDashboardPage setRoute={setRoute} />
         )}
 
+        {route.page === 'zordial' && (
+          <ZordialPartnerPage setRoute={setRoute} />
+        )}
+
         {route.page === 'info' && (
-          <InfoPages tab={route.tab} setRoute={setRoute} />
+          <InfoPages tab={route.tab} setRoute={setRoute} onOpenSupportDesk={() => setIsSupportDeskOpen(true)} />
         )}
       </main>
 
-      {route.page !== 'login' && route.page !== 'vendorRegister' && route.page !== 'register' && <Footer setRoute={setRoute} />}
+      {route.page !== 'login' && route.page !== 'vendorRegister' && route.page !== 'register' && (
+        <Footer setRoute={setRoute} onOpenSupportDesk={() => setIsSupportDeskOpen(true)} />
+      )}
 
       <LoginModal 
         isOpen={isLoginModalOpen} 
@@ -287,6 +324,15 @@ export default function App() {
         setRoute={setRoute} 
         setActiveVendor={setActiveVendor}
         setActiveUser={setActiveUser}
+      />
+
+      <SupportDeskModal
+        isOpen={isSupportDeskOpen}
+        onClose={() => setIsSupportDeskOpen(false)}
+        userType={activeVendor ? 'vendor' : 'user'}
+        initialEmail={activeVendor?.email || activeUser?.email}
+        initialName={activeVendor?.vendor_name || activeUser?.name}
+        entityName={activeVendor?.store_name || activeUser?.flat}
       />
     </div>
   );

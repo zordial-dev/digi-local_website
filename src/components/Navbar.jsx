@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Store, ArrowLeft, LogOut, Building2, BookOpen, HelpCircle, ArrowUpRight, User } from 'lucide-react';
 
-export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorLogout, activeUser, onUserLogout, onOpenLogin }) {
+export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorLogout, activeUser, onUserLogout, onOpenLogin, onOpenSupportDesk }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isNearFooter, setIsNearFooter] = useState(false);
   const isHomePage = currentRoute?.page === 'home';

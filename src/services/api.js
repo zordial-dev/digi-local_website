@@ -177,6 +177,7 @@ export function getStoreTimeStatus(vendor) {
   }
 
   // Check closing countdown
+  // Check closing countdown
   let minsUntilClose = 0;
   if (closeMins > currentMins) {
     minsUntilClose = closeMins - currentMins;
@@ -185,29 +186,20 @@ export function getStoreTimeStatus(vendor) {
   }
 
   if (minsUntilClose <= 60 && minsUntilClose > 0) {
+    const text = minsUntilClose === 60 ? 'Closes in 1 hour' : `Closes in ${minsUntilClose} mins`;
     return {
       isOpen: true,
-      statusText: `Closing Soon • Closes in ${minsUntilClose} mins`,
+      statusText: text,
       badgeType: 'closing_soon',
-      closingInfo: `Closes in ${minsUntilClose} ${minsUntilClose === 1 ? 'min' : 'mins'}`
-    };
-  }
-
-  const hoursUntilClose = Math.floor(minsUntilClose / 60);
-  if (hoursUntilClose <= 2 && hoursUntilClose >= 1) {
-    return {
-      isOpen: true,
-      statusText: `Closes in ${hoursUntilClose} ${hoursUntilClose === 1 ? 'hour' : 'hours'}`,
-      badgeType: 'closing_soon',
-      closingInfo: `Closes in ${hoursUntilClose} ${hoursUntilClose === 1 ? 'hour' : 'hours'}`
+      closingInfo: text
     };
   }
 
   return {
     isOpen: true,
-    statusText: `Open Now • Closes at ${closeStr}`,
+    statusText: 'Open Now',
     badgeType: 'open',
-    closingInfo: `Closes at ${closeStr}`
+    closingInfo: 'Open Now'
   };
 }
 
@@ -322,58 +314,7 @@ const MOCK_SOCIETIES = [
   }
 ];
 
-const MOCK_VENDORS = [
-  {
-    vendor_id: 1,
-    society_id: 1,
-    store_name: 'FreshMart Grocery & Organic',
-    vendor_name: 'Rajesh Sharma',
-    email: 'freshmart@gmail.com',
-    category: 'Grocery & Daily Essentials',
-    status: 'ACTIVE',
-    rating: '4.9',
-    delivery_time: '10-15 mins',
-    phone_number: '9876543210',
-    phone: '9876543210',
-    logo: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
-    banner: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
-    opening_timing: '08:00 AM',
-    closing_timing: '10:00 PM',
-    delivery_charge: 0.00,
-    min_order_value: 0.00,
-    gst_number: '07AAACR12341Z5'
-  },
-  {
-    vendor_id: 2,
-    society_id: 1,
-    store_name: 'Green Leaf Organics & Fruits',
-    vendor_name: 'Suresh Patel',
-    email: 'greenleaf@gmail.com',
-    category: 'Fresh Fruits & Vegetables',
-    status: 'ACTIVE',
-    rating: '4.8',
-    delivery_time: '15 mins',
-    phone_number: '9876543211',
-    phone: '9876543211',
-    logo: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=200&auto=format&fit=crop&q=80',
-    banner: 'https://images.unsplash.com/photo-1616401784845-180882ba9ba8?w=800&auto=format&fit=crop&q=80'
-  },
-  {
-    vendor_id: 3,
-    society_id: 2,
-    store_name: 'Royal Bakery & Confectionery',
-    vendor_name: 'Anita Sharma',
-    email: 'royalbakery@gmail.com',
-    category: 'Bakery & Confectionery',
-    status: 'ACTIVE',
-    rating: '4.7',
-    delivery_time: '20 mins',
-    phone_number: '9876543212',
-    phone: '9876543212',
-    logo: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&auto=format&fit=crop&q=80',
-    banner: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&auto=format&fit=crop&q=80'
-  }
-];
+const MOCK_VENDORS = [];
 
 export const api = {
   // -------------------------------------------------------------
@@ -384,6 +325,25 @@ export const api = {
     const inputEmail = String(credentials.email || '').trim().toLowerCase();
     const inputPassword = credentials.password;
     const isOtpLogin = credentials.isOtpLogin || credentials.skipPasswordCheck;
+
+    // 0. Check if account was deleted
+    try {
+      const deletedStr = localStorage.getItem('digilocal_deleted_users');
+      if (deletedStr) {
+        const deletedList = JSON.parse(deletedStr);
+        if (Array.isArray(deletedList)) {
+          const isDeleted = deletedList.some(id =>
+            (inputPhone && String(id).trim() === inputPhone) ||
+            (inputEmail && String(id).trim().toLowerCase() === inputEmail)
+          );
+          if (isDeleted) {
+            throw new Error('This account was deleted. Please register a new account to continue.');
+          }
+        }
+      }
+    } catch (e) {
+      if (e.message && e.message.includes('deleted')) throw e;
+    }
 
     // 1. Priority: Search registered users pool in localStorage
     try {
@@ -396,7 +356,6 @@ export const api = {
             (inputEmail && String(u.email).trim().toLowerCase() === inputEmail)
           );
           if (match) {
-            // In OTP mode or password match, log user in directly
             if (isOtpLogin || !inputPassword || match.password === inputPassword || credentials.allowFallback) {
               return {
                 message: 'User login successful',
@@ -420,75 +379,17 @@ export const api = {
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
         if (res.ok) return data;
-        // In OTP mode, swallow backend password error so user can log in with OTP
-        if (!isOtpLogin && data.error) {
+        if (data.error) {
           throw new Error(data.error);
         }
       }
     } catch (err) {
-      if (!isOtpLogin && err.message && !err.message.includes('fetch')) throw err;
+      if (err.message && !err.message.includes('fetch')) throw err;
       console.warn('Backend login endpoint notice:', err.message || err);
     }
 
-    // 3. Search in existing resident session if available
-    try {
-      const activeStr = localStorage.getItem('digilocal_resident_session') || localStorage.getItem('digilocal_user_session');
-      if (activeStr) {
-        const activeObj = JSON.parse(activeStr);
-        const u = activeObj.user || activeObj;
-        if (u && ((inputPhone && String(u.phone).trim() === inputPhone) || (inputEmail && String(u.email).trim().toLowerCase() === inputEmail))) {
-          return {
-            message: 'User login successful',
-            user: u,
-            token: `user_jwt_token_${Date.now()}`
-          };
-        }
-      }
-    } catch (_) { }
-
-    // 4. Return registered user if match exists regardless of password when in fallback
-    try {
-      const registeredStr = localStorage.getItem('digilocal_registered_users');
-      if (registeredStr) {
-        const registeredList = JSON.parse(registeredStr);
-        if (Array.isArray(registeredList)) {
-          const match = registeredList.find(u =>
-            (inputPhone && String(u.phone).trim() === inputPhone) ||
-            (inputEmail && String(u.email).trim().toLowerCase() === inputEmail)
-          );
-          if (match) {
-            return {
-              message: 'User login successful',
-              user: match,
-              token: `user_jwt_token_${Date.now()}`
-            };
-          }
-        }
-      }
-    } catch (_) { }
-
-    // 5. Fallback user creation with actual input phone number
-    const phoneSuffix = inputPhone.length >= 4 ? inputPhone.slice(-4) : 'User';
-    const defaultName = `Resident ${phoneSuffix}`;
-    const defaultEmail = inputEmail || `${inputPhone || 'user'}@digilocal.com`;
-
-    const newUser = {
-      user_id: `usr_${Date.now()}`,
-      name: defaultName,
-      email: defaultEmail,
-      phone: inputPhone || '9784319840',
-      society_name: '',
-      society_id: '',
-      flat: '',
-      joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
-    };
-
-    return {
-      message: 'User login successful',
-      user: newUser,
-      token: `user_jwt_token_${Date.now()}`
-    };
+    // 3. Reject login if no registered account match exists
+    throw new Error('No account found with these credentials. Please register first.');
   },
 
   registerUser: async (userData) => {
@@ -515,6 +416,21 @@ export const api = {
       if (!Array.isArray(registeredList)) registeredList = [];
       registeredList = [userData, ...registeredList.filter(u => String(u.phone) !== String(userData.phone))];
       localStorage.setItem('digilocal_registered_users', JSON.stringify(registeredList));
+    } catch (_) { }
+
+    // Clear from deleted users list upon fresh registration
+    try {
+      const deletedStr = localStorage.getItem('digilocal_deleted_users');
+      if (deletedStr) {
+        let deletedList = JSON.parse(deletedStr);
+        if (Array.isArray(deletedList)) {
+          deletedList = deletedList.filter(id =>
+            String(id).trim() !== String(userData.phone || '').trim() &&
+            String(id).trim().toLowerCase() !== String(userData.email || '').trim().toLowerCase()
+          );
+          localStorage.setItem('digilocal_deleted_users', JSON.stringify(deletedList));
+        }
+      }
     } catch (_) { }
 
     return {
@@ -557,6 +473,62 @@ export const api = {
       if (res.ok) return await res.json();
     } catch (_) { }
     return [];
+  },
+
+  deleteUserAccount: async (userId = 'profile', customToken = '') => {
+    let apiResult = null;
+    const token = customToken || getStoredToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    try {
+      let res = await fetch(`${API_BASE}/users/profile`, {
+        method: 'DELETE',
+        headers
+      });
+      if (!res.ok && res.status === 404 && userId && userId !== 'profile') {
+        res = await fetch(`${API_BASE}/users/${userId}`, {
+          method: 'DELETE',
+          headers
+        });
+      }
+      if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          apiResult = await res.json();
+        }
+      }
+    } catch (err) {
+      console.warn('Backend delete user note:', err);
+    }
+
+    try {
+      const regStr = localStorage.getItem('digilocal_registered_users');
+      if (regStr) {
+        const list = JSON.parse(regStr);
+        if (Array.isArray(list)) {
+          const updated = list.filter(u => String(u.user_id) !== String(userId) && String(u.id) !== String(userId) && String(u.phone) !== String(userId));
+          localStorage.setItem('digilocal_registered_users', JSON.stringify(updated));
+        }
+      }
+    } catch (_) { }
+
+    localStorage.removeItem('digilocal_user_session');
+    localStorage.removeItem('digilocal_resident_session');
+    localStorage.removeItem('user_profile');
+    localStorage.removeItem('resident_profile');
+    if (userId) {
+      localStorage.removeItem(`digilocal_user_orders_${userId}`);
+      localStorage.removeItem(`digilocal_user_favorites_${userId}`);
+    }
+
+    return apiResult || {
+      success: true,
+      message: `User account (ID: ${userId}) deleted successfully.`,
+      user_id: userId
+    };
   },
 
   // -------------------------------------------------------------
@@ -834,13 +806,35 @@ export const api = {
     return { message: 'Logout successful, tokens revoked' };
   },
 
-  // 1.4b Delete Vendor Shop Account
-  deleteVendor: async (vendorId) => {
+  // 1.4b Delete Vendor Shop Account (DELETE /api/vendors/:vendorId or /api/vendorPanel/:vendorId)
+  deleteVendor: async (vendorId, customToken = '') => {
+    let apiResult = null;
+    const token = customToken || getStoredToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
     try {
-      await fetch(`${API_BASE}/vendors/${vendorId}`, {
-        method: 'DELETE'
+      let res = await fetch(`${API_BASE}/vendors/${vendorId}`, {
+        method: 'DELETE',
+        headers
       });
-    } catch (_) { }
+      if (!res.ok && res.status === 404) {
+        res = await fetch(`${API_BASE}/vendorPanel/${vendorId}`, {
+          method: 'DELETE',
+          headers
+        });
+      }
+      if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          apiResult = await res.json();
+        }
+      }
+    } catch (err) {
+      console.warn('Backend delete vendor note:', err);
+    }
 
     try {
       const regStr = localStorage.getItem('digilocal_registered_vendors');
@@ -853,8 +847,28 @@ export const api = {
       }
     } catch (_) { }
 
+    try {
+      const deletedStr = localStorage.getItem('digilocal_deleted_vendors');
+      let deletedList = deletedStr ? JSON.parse(deletedStr) : [];
+      if (!Array.isArray(deletedList)) deletedList = [];
+      if (vendorId && !deletedList.includes(String(vendorId))) {
+        deletedList.push(String(vendorId));
+        localStorage.setItem('digilocal_deleted_vendors', JSON.stringify(deletedList));
+      }
+    } catch (_) { }
+
     localStorage.removeItem('digilocal_vendor_session');
-    return { message: 'Vendor store deleted successfully' };
+    if (vendorId) {
+      localStorage.removeItem(`digilocal_vendor_items_${vendorId}`);
+      localStorage.removeItem(`digilocal_vendor_orders_${vendorId}`);
+      localStorage.removeItem(`digilocal_vendor_orders_${String(vendorId)}`);
+    }
+
+    return apiResult || {
+      success: true,
+      message: `Vendor store (ID: ${vendorId}) and associated items deleted successfully.`,
+      vendor_id: Number(vendorId) || vendorId
+    };
   },
 
   // 1.5 Request Password Reset OTP
@@ -1019,6 +1033,28 @@ export const api = {
 
   // 1.8 User Login (Password or Firebase Token)
   userLogin: async (payload) => {
+    const inputPhone = String(payload.phone || payload.mobile || payload.identifier || '').trim();
+    const inputEmail = String(payload.email || '').trim().toLowerCase();
+
+    // Check if account was deleted
+    try {
+      const deletedStr = localStorage.getItem('digilocal_deleted_users');
+      if (deletedStr) {
+        const deletedList = JSON.parse(deletedStr);
+        if (Array.isArray(deletedList)) {
+          const isDeleted = deletedList.some(id =>
+            (inputPhone && String(id).trim() === inputPhone) ||
+            (inputEmail && String(id).trim().toLowerCase() === inputEmail)
+          );
+          if (isDeleted) {
+            throw new Error('This account was deleted. Please register a new account to continue.');
+          }
+        }
+      }
+    } catch (e) {
+      if (e.message && e.message.includes('deleted')) throw e;
+    }
+
     try {
       const res = await fetchWithTimeout(`${API_BASE}/users/login`, {
         method: 'POST',
@@ -1041,21 +1077,7 @@ export const api = {
       if (err.message && !err.message.includes('fetch')) throw err;
     }
 
-    // Fallback simulation mode if server offline
-    const mockUser = { user_id: Math.floor(Math.random() * 1000 + 1), phone: payload.phone || '+919784319840' };
-    const mockAccess = `access_token_${Date.now()}`;
-    const mockRefresh = `refresh_token_${Date.now()}`;
-
-    localStorage.setItem('accessToken', mockAccess);
-    localStorage.setItem('refreshToken', mockRefresh);
-    localStorage.setItem('user', JSON.stringify(mockUser));
-
-    return {
-      message: 'Login successful',
-      accessToken: mockAccess,
-      refreshToken: mockRefresh,
-      user: mockUser
-    };
+    throw new Error('No account found with these credentials. Please register first.');
   },
 
   loginUser: async (payload) => {
@@ -1223,7 +1245,7 @@ export const api = {
   },
 
   // 2.5 List Active Vendors in Society (Public Resident Storefront Endpoint)
-  getSocietyVendors: async (societyId, search = '') => {
+  getSocietyVendors: async (societyId = 'all', search = '') => {
     const extractArray = (data) => {
       if (!data) return null;
       if (Array.isArray(data)) return data;
@@ -1235,21 +1257,7 @@ export const api = {
       return null;
     };
 
-    const getResidentSocietyId = () => {
-      try {
-        const sessionStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
-        if (sessionStr) {
-          const parsed = JSON.parse(sessionStr);
-          const u = parsed.user || parsed;
-          if (u && (u.society_id || u.societyId)) return u.society_id || u.societyId;
-        }
-      } catch (_) { }
-      return null;
-    };
-
     let apiVendors = null;
-    const residentSocId = getResidentSocietyId();
-    const targetSocId = (societyId && societyId !== 'all') ? societyId : (residentSocId || 1);
 
     try {
       if (societyId && societyId !== 'all') {
@@ -1262,48 +1270,12 @@ export const api = {
           }
         }
       } else {
-        // When societyId is 'all', fetch vendors across all active societies in parallel
-        try {
-          const socs = await api.getSocieties();
-          const activeSocIds = Array.isArray(socs) && socs.length > 0
-            ? socs.filter(s => s.vendor_count > 0 || String(s.society_id) === '1').map(s => s.society_id).filter(Boolean)
-            : [22, 18, 1, 21, 42];
-
-          const promises = activeSocIds.map(id =>
-            fetchWithTimeout(`${API_BASE}/societies/${id}/vendors`)
-              .then(r => r.ok ? r.json() : null)
-              .catch(() => null)
-          );
-
-          const results = await Promise.all(promises);
-          let allList = [];
-          results.forEach(resData => {
-            const list = extractArray(resData);
-            if (list && Array.isArray(list)) {
-              allList = [...allList, ...list];
-            }
-          });
-          if (allList.length > 0) {
-            // Deduplicate by vendor_id
-            const uniqueMap = new Map();
-            allList.forEach(v => {
-              if (v && v.vendor_id && !uniqueMap.has(String(v.vendor_id))) {
-                uniqueMap.set(String(v.vendor_id), v);
-              }
-            });
-            apiVendors = Array.from(uniqueMap.values());
-          }
-        } catch (_) { }
-
-        if (!apiVendors || apiVendors.length === 0) {
-          const targetSocId = residentSocId || 1;
-          const res = await fetchWithTimeout(`${API_BASE}/societies/${targetSocId}/vendors`);
-          if (res.ok) {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-              const data = await res.json();
-              apiVendors = extractArray(data);
-            }
+        const res = await fetchWithTimeout(`${API_BASE}/societies/all/vendors`);
+        if (res.ok) {
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const data = await res.json();
+            apiVendors = extractArray(data);
           }
         }
       }
@@ -1311,10 +1283,53 @@ export const api = {
       console.warn('Backend fetch failed for getSocietyVendors, fallback to mock:', err);
     }
 
-    // Base list: Backend vendors if available, else MOCK_VENDORS
-    let combinedList = (apiVendors && Array.isArray(apiVendors)) ? [...apiVendors] : [...MOCK_VENDORS];
+    let combinedMap = new Map();
 
-    // Filter out any suspended/blocked vendors
+    MOCK_VENDORS.forEach(v => {
+      if (v && v.vendor_id) combinedMap.set(String(v.vendor_id), v);
+    });
+
+    if (apiVendors && Array.isArray(apiVendors)) {
+      apiVendors.forEach(v => {
+        if (v && v.vendor_id) combinedMap.set(String(v.vendor_id), v);
+      });
+    }
+
+    try {
+      const customVendorSession = localStorage.getItem('digilocal_vendor_session');
+      if (customVendorSession) {
+        const parsed = JSON.parse(customVendorSession);
+        if (parsed && parsed.vendor && parsed.vendor.vendor_id) {
+          combinedMap.set(String(parsed.vendor.vendor_id), parsed.vendor);
+        }
+      }
+    } catch (_) { }
+
+    try {
+      const regVendorsStr = localStorage.getItem('digilocal_registered_vendors');
+      if (regVendorsStr) {
+        const regList = JSON.parse(regVendorsStr);
+        if (Array.isArray(regList)) {
+          regList.forEach(v => {
+            if (v && v.vendor_id) combinedMap.set(String(v.vendor_id), v);
+          });
+        }
+      }
+    } catch (_) { }
+
+    let combinedList = Array.from(combinedMap.values());
+
+    try {
+      const deletedStr = localStorage.getItem('digilocal_deleted_vendors');
+      if (deletedStr) {
+        const deletedIds = JSON.parse(deletedStr);
+        if (Array.isArray(deletedIds) && deletedIds.length > 0) {
+          const delSet = new Set(deletedIds.map(id => String(id)));
+          combinedList = combinedList.filter(v => v && !delSet.has(String(v.vendor_id)));
+        }
+      }
+    } catch (_) { }
+
     combinedList = combinedList.filter(v => {
       if (!v) return false;
       const status = String(v.status || '').toUpperCase();
@@ -1323,37 +1338,33 @@ export const api = {
       return true;
     });
 
-    if (combinedList.length === 0) {
-      combinedList = [...MOCK_VENDORS];
+    const isMatchingSociety = (vSocId, targetSocId, vSocName) => {
+      if (!targetSocId || targetSocId === 'all') return true;
+      const vStr = String(vSocId || '').toLowerCase().trim();
+      const tStr = String(targetSocId || '').toLowerCase().trim();
+      if (vStr === tStr) return true;
+
+      const vClean = vStr.replace('soc-', '');
+      const tClean = tStr.replace('soc-', '');
+      if (vClean && tClean && vClean === tClean) return true;
+
+      if ((vClean === '1' || vClean === '101') && (tClean === '1' || tClean === '101')) return true;
+      if ((vClean === '2' || vClean === '102') && (tClean === '2' || tClean === '102')) return true;
+      if ((vClean === '3' || vClean === '103') && (tClean === '3' || tClean === '103')) return true;
+      if ((vClean === '4' || vClean === '104') && (tClean === '4' || tClean === '104')) return true;
+      if ((vClean === '5' || vClean === '105') && (tClean === '5' || tClean === '105')) return true;
+      if ((vClean === '6' || vClean === '106') && (tClean === '6' || tClean === '106')) return true;
+
+      if (vSocName && typeof vSocName === 'string') {
+        const vNameLower = vSocName.toLowerCase().trim();
+        if (vNameLower === tStr || vNameLower.includes(tStr) || tStr.includes(vNameLower)) return true;
+      }
+      return false;
+    };
+
+    if (societyId && societyId !== 'all') {
+      combinedList = combinedList.filter(v => isMatchingSociety(v.society_id, societyId, v.society_name));
     }
-
-    // Merge active vendor session from localStorage
-    try {
-      const customVendorSession = localStorage.getItem('digilocal_vendor_session');
-      if (customVendorSession) {
-        const parsed = JSON.parse(customVendorSession);
-        if (parsed && parsed.vendor) {
-          const exists = combinedList.some(v => String(v.vendor_id) === String(parsed.vendor.vendor_id));
-          if (!exists) combinedList.unshift(parsed.vendor);
-        }
-      }
-    } catch (_) { }
-
-    // Merge registered vendors from localStorage
-    try {
-      const regVendorsStr = localStorage.getItem('digilocal_registered_vendors');
-      if (regVendorsStr) {
-        const regList = JSON.parse(regVendorsStr);
-        if (Array.isArray(regList)) {
-          regList.forEach(v => {
-            if (v && v.vendor_id) {
-              const exists = combinedList.some(item => String(item.vendor_id) === String(v.vendor_id));
-              if (!exists) combinedList.unshift(v);
-            }
-          });
-        }
-      }
-    } catch (_) { }
 
     // Bind custom uploaded logos & category cover images
     combinedList = combinedList.map(v => {
@@ -1404,6 +1415,16 @@ export const api = {
 
   // 2.4 Get Vendor Storefront & Menu Items
   getVendorStorefront: async (vendorId) => {
+    try {
+      const deletedStr = localStorage.getItem('digilocal_deleted_vendors');
+      if (deletedStr) {
+        const deletedIds = JSON.parse(deletedStr);
+        if (Array.isArray(deletedIds) && deletedIds.some(id => String(id) === String(vendorId))) {
+          return { vendor: null, categories: [], items: [] };
+        }
+      }
+    } catch (_) { }
+
     let vendorObj = null;
     let itemsList = [];
 
@@ -2289,10 +2310,155 @@ export const api = {
     } catch (_) { }
     return {
       name: 'digilocal-backend',
-      version: '1.0.0',
+      version: '2.0.0',
       description: 'Backend API for DigiLocal Vendor Ordering and Subscription Platform',
       environment: 'development',
       nodeVersion: 'v20.11.0'
     };
+  },
+
+  // -------------------------------------------------------------
+  // 7. Support Desk Intake Channels & SLA Engine APIs
+  // -------------------------------------------------------------
+  createSupportTicket: async (ticketData) => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/support/tickets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ticketData)
+      });
+      const data = await res.json();
+      if (res.ok) return data;
+      throw new Error(data.error || data.message || 'Failed to submit support ticket');
+    } catch (err) {
+      if (err.message && !err.message.includes('fetch')) throw err;
+      console.warn('Backend unavailable for support ticket creation:', err);
+    }
+    const mockId = `TCK-${Math.floor(100000 + Math.random() * 900000)}`;
+    return {
+      success: true,
+      status_code: 201,
+      message: "Support ticket created successfully",
+      data: {
+        ticket_id: mockId,
+        user_type: ticketData.user_type || "user",
+        source: ticketData.source || "user_app",
+        reporter_name: ticketData.reporter_name || "Applicant",
+        reporter_email: ticketData.reporter_email || "",
+        subject: ticketData.subject,
+        description: ticketData.description,
+        category: ticketData.category || "general",
+        priority: ticketData.priority || "medium",
+        status: "OPEN",
+        sla_minutes: 1440,
+        created_at: new Date().toISOString()
+      }
+    };
+  },
+
+  getSupportTickets: async (userType = '', email = '') => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (userType) queryParams.append('user_type', userType);
+      if (email) queryParams.append('email', email);
+      const url = `${API_BASE}/support/tickets${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+
+      const res = await fetchWithTimeout(url);
+      if (res.ok) {
+        const data = await res.json();
+        return Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.warn('Backend fetch failed for support tickets:', err);
+    }
+    return [];
+  },
+
+  getTicketMessages: async (ticketId) => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/support/tickets/${ticketId}/messages`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.data || data;
+      }
+    } catch (err) {
+      console.warn('Backend fetch failed for ticket messages:', err);
+    }
+    return { ticket_id: ticketId, messages: [] };
+  },
+
+  replySupportTicket: async (ticketId, replyData) => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/support/tickets/${ticketId}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(replyData)
+      });
+      const data = await res.json();
+      if (res.ok) return data;
+      throw new Error(data.error || data.message || 'Failed to post reply');
+    } catch (err) {
+      if (err.message && !err.message.includes('fetch')) throw err;
+    }
+    return {
+      success: true,
+      data: {
+        message_id: `MSG-${Date.now()}`,
+        sender_role: replyData.sender_role || "user",
+        sender_name: replyData.sender_name || "Applicant",
+        content: replyData.content,
+        created_at: new Date().toISOString()
+      }
+    };
+  },
+
+  escalateSupportTicket: async (ticketId) => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/support/tickets/${ticketId}/escalate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (res.ok) return data;
+      throw new Error(data.message || data.error || 'Failed to escalate ticket');
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  // -------------------------------------------------------------
+  // 8. Global Platform Config APIs
+  // -------------------------------------------------------------
+  getPlatformConfig: async () => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/config`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.data || data;
+      }
+    } catch (err) {
+      console.warn('Backend fetch failed for platform config:', err);
+    }
+    return {
+      platform_name: "DigiLocal",
+      platform_logo: "https://imgh.in/host/ucila6",
+      maintenance_mode: false,
+      support_email: "support@digilocal.in",
+      support_phone: "+91 1800 123 4567"
+    };
+  },
+
+  updatePlatformConfig: async (configData) => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configData)
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Backend fetch failed for update config:', err);
+    }
+    return { success: true, data: configData };
   }
 };

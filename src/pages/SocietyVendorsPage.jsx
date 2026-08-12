@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { api, getSocietyImage } from '../services/api';
-import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock, LogIn } from 'lucide-react';
+import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock, LogIn, Heart } from 'lucide-react';
 import { getStoreStatus } from '../utils/storeHours';
 import { VendorCardSkeleton } from '../components/Skeletons';
 
@@ -31,6 +31,49 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
   const [loading, setLoading] = useState(true);
   const [showLoginPromptModal, setShowLoginPromptModal] = useState(false);
   const [selectedVendorForPrompt, setSelectedVendorForPrompt] = useState(null);
+
+  // Favorite Vendors State (Con-04)
+  const [favoriteIds, setFavoriteIds] = useState([]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('digilocal_favorite_vendors');
+      if (saved) {
+        const list = JSON.parse(saved);
+        if (Array.isArray(list)) {
+          setFavoriteIds(list.map(f => String(f.vendor_id)));
+        }
+      }
+    } catch (_) {}
+  }, []);
+
+  const toggleFavorite = (e, vendor) => {
+    e.stopPropagation();
+    try {
+      const saved = localStorage.getItem('digilocal_favorite_vendors');
+      let list = saved ? JSON.parse(saved) : [];
+      if (!Array.isArray(list)) list = [];
+
+      const vIdStr = String(vendor.vendor_id);
+      const exists = list.some(f => String(f.vendor_id) === vIdStr);
+
+      if (exists) {
+        list = list.filter(f => String(f.vendor_id) !== vIdStr);
+      } else {
+        list.push({
+          vendor_id: vendor.vendor_id,
+          store_name: vendor.store_name,
+          category: vendor.category || 'General Store',
+          logo: vendor.logo || vendor.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
+          rating: vendor.rating || '4.9',
+          delivery_time: vendor.delivery_time || '15 mins'
+        });
+      }
+
+      localStorage.setItem('digilocal_favorite_vendors', JSON.stringify(list));
+      setFavoriteIds(list.map(f => String(f.vendor_id)));
+    } catch (_) {}
+  };
 
   // Custom Dropdown State
   const [isSocietyDropdownOpen, setIsSocietyDropdownOpen] = useState(false);
@@ -71,10 +114,25 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
   const loadData = async () => {
     try {
       setLoading(true);
+      let socList = allSocieties;
+      if (!socList || socList.length === 0) {
+        try {
+          const fetchedSocs = await api.getSocieties();
+          if (Array.isArray(fetchedSocs) && fetchedSocs.length > 0) {
+            socList = fetchedSocs;
+            setAllSocieties(fetchedSocs);
+          }
+        } catch (_) {}
+      }
+
       if (currentSocietyId && currentSocietyId !== 'all') {
         let socData = await api.getSociety(currentSocietyId);
-        if (!socData || !socData.society_name) {
-          const found = allSocieties.find(s => String(s.society_id) === String(currentSocietyId) || String(s.society_id).replace('SOC-', '') === String(currentSocietyId).replace('SOC-', ''));
+        if ((!socData || !socData.society_name) && Array.isArray(socList)) {
+          const cleanTarget = String(currentSocietyId).replace('SOC-', '').toLowerCase();
+          const found = socList.find(s =>
+            String(s.society_id).toLowerCase() === String(currentSocietyId).toLowerCase() ||
+            String(s.society_id).replace('SOC-', '').toLowerCase() === cleanTarget
+          );
           if (found) socData = found;
         }
         setSociety(socData);
@@ -398,19 +456,34 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                       <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
                         <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white shadow-sm">
                           <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span className="truncate max-w-[140px]">{vendor.society_name || 'Gated Society'}</span>
+                          <span className="truncate max-w-[140px]">{vendor.society_name || currentSocietyName || 'Gated Society'}</span>
                         </span>
 
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold flex items-center space-x-1.5 backdrop-blur-md shadow-sm border uppercase ${
-                          !status.isOpen 
-                            ? 'bg-rose-950/80 text-rose-300 border-rose-500/50' 
-                            : status.closingCountdown
-                            ? 'bg-amber-950/80 text-amber-300 border-amber-500/50'
-                            : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50'
-                        }`}>
-                          <span className={`w-2 h-2 rounded-full ${!status.isOpen ? 'bg-rose-400' : status.closingCountdown ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
-                          <span>{status.statusText}</span>
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => toggleFavorite(e, vendor)}
+                            className={`p-1.5 rounded-full backdrop-blur-md border transition-all z-20 cursor-pointer shadow-md ${
+                              favoriteIds.includes(String(vendor.vendor_id))
+                                ? 'bg-rose-600 text-white border-rose-500 scale-105'
+                                : 'bg-black/60 text-white/80 border-white/20 hover:text-rose-400 hover:bg-black/80'
+                            }`}
+                            title={favoriteIds.includes(String(vendor.vendor_id)) ? "Remove from Favorites" : "Add to Favorites"}
+                          >
+                            <Heart className={`w-3.5 h-3.5 ${favoriteIds.includes(String(vendor.vendor_id)) ? 'fill-current' : ''}`} />
+                          </button>
+
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold flex items-center space-x-1.5 backdrop-blur-md shadow-sm border uppercase ${
+                            !status.isOpen 
+                              ? 'bg-rose-950/80 text-rose-300 border-rose-500/50' 
+                              : status.closingCountdown
+                              ? 'bg-amber-950/80 text-amber-300 border-amber-500/50'
+                              : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50'
+                          }`}>
+                            <span className={`w-2 h-2 rounded-full ${!status.isOpen ? 'bg-rose-400' : status.closingCountdown ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+                            <span>{status.statusText}</span>
+                          </span>
+                        </div>
                       </div>
 
                       {/* Store Title & Verified Badge Overlaid on Bottom of Cover Image */}

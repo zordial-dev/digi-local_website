@@ -27,7 +27,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-export default function Footer({ setRoute }) {
+export default function Footer({ setRoute, onOpenSupportDesk }) {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -154,11 +154,11 @@ export default function Footer({ setRoute }) {
               <ul className="space-y-3.5 text-xs sm:text-sm text-emerald-100/80">
                 <li>
                   <button 
-                    onClick={() => navTo('help-support')}
-                    className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
+                    onClick={() => onOpenSupportDesk ? onOpenSupportDesk() : navTo('help-support')}
+                    className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group font-bold text-amber-200 cursor-pointer py-0.5"
                   >
-                    <Headphones className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
-                    <span>Help Center</span>
+                    <Headphones className="w-4 h-4 text-[#C4A066] group-hover:scale-110 transition-transform shrink-0" />
+                    <span className="whitespace-nowrap">Support Desk</span>
                   </button>
                 </li>
                 <li>
@@ -199,6 +199,15 @@ export default function Footer({ setRoute }) {
                   >
                     <Info className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
                     <span>About Us</span>
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => { setRoute({ page: 'zordial' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    className="hover:text-white transition-colors flex items-center space-x-2 text-left group font-bold text-[#C4A066]"
+                  >
+                    <Sparkles className="w-4 h-4 text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
+                    <span>Zordial Technologies ↗</span>
                   </button>
                 </li>
                 <li>
@@ -245,8 +254,16 @@ export default function Footer({ setRoute }) {
           
           {/* Copyright & Mission Subtitle */}
           <div className="text-center md:text-left space-y-0.5">
-            <p className="text-xs sm:text-sm font-semibold text-white">© {new Date().getFullYear()} DigiLocal Network</p>
-            <p className="text-xs text-emerald-400 font-medium">Built for safe, connected residential communities.</p>
+            <p className="text-xs sm:text-sm font-semibold text-white">
+              © {new Date().getFullYear()} DigiLocal Network • Engineered by{' '}
+              <button 
+                onClick={() => { setRoute({ page: 'zordial' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                className="text-[#C4A066] hover:underline font-bold"
+              >
+                Zordial Technologies
+              </button>
+            </p>
+            <p className="text-xs text-emerald-400 font-medium">Transforming Ideas Into Applications • Built for connected gated communities.</p>
           </div>
 
           {/* Back To Top Circle Button */}

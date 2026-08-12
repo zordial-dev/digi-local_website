@@ -5,7 +5,7 @@ import NotificationModal from '../components/NotificationModal';
 import { QRCodeSVG } from 'qrcode.react';
 import { DashboardSkeleton } from '../components/Skeletons';
 
-export default function VendorDashboardPage({ vendorId, setRoute }) {
+export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendor, onVendorLogout }) {
   const [activeTab, setActiveTab] = useState('orders');
   const [panelData, setPanelData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -272,9 +272,15 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
   const handleDeleteVendorStore = async () => {
     try {
       setDeletingStore(true);
-      await api.deleteVendor(vendorId || panelData?.vendor?.vendor_id || 1);
+      const targetId = vendorId || panelData?.vendor?.vendor_id || 1;
+      await api.deleteVendor(targetId);
+
+      // Perform immediate vendor logout in React state & local storage
+      if (typeof setActiveVendor === 'function') setActiveVendor(null);
+      if (typeof onVendorLogout === 'function') onVendorLogout();
+
       setShowDeleteConfirmModal(false);
-      
+
       setModalConfig({
         isOpen: true,
         title: 'Shop Account Deleted',
@@ -435,8 +441,8 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
     <div className="min-h-screen bg-background text-foreground pb-20 px-3 sm:px-6">
       
       {/* Top Banner */}
-      <div className="max-w-7xl mx-auto pt-4 pb-6">
-        <div className="bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 shadow-sm">
+      <div className="max-w-6xl mx-auto pt-4 pb-6">
+        <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center space-x-5 min-w-0 flex-1">
               <div className="w-20 h-20 rounded-2xl border-2 border-border bg-secondary flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm relative">
@@ -801,29 +807,29 @@ export default function VendorDashboardPage({ vendorId, setRoute }) {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4">
               {items.map((item, idx) => (
-                <div key={`item-${item.item_id || idx}-${idx}`} className="rounded-2xl bg-white border border-[#C5A880]/25 p-5 flex flex-col justify-between shadow-sm">
+                <div key={`item-${item.item_id || idx}-${idx}`} className="rounded-2xl bg-white border border-[#C5A880]/25 p-3.5 flex flex-col justify-between shadow-xs">
                   <div>
-                    <div className="relative mb-3 h-40 rounded-xl overflow-hidden bg-[#FAF9F6]">
+                    <div className="relative mb-2.5 h-32 sm:h-36 rounded-xl overflow-hidden bg-[#FAF9F6]">
                       <img
                         src={getNormalizedImageUrl(item)}
                         alt={item.item_name}
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute top-2 right-2">
-                        <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-white/90 text-[#0A1428] border border-[#C5A880]/30 shadow-sm">
+                        <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-white/90 text-[#0A1428] border border-[#C5A880]/30 shadow-xs">
                           {item.category || 'General'}
                         </span>
                       </div>
                     </div>
 
-                    <h3 className="font-bold text-[#0A1428] text-base">{item.item_name}</h3>
-                    <p className="text-xs text-[#787F8C] line-clamp-2 mt-1 mb-3 font-medium">{item.description}</p>
+                    <h3 className="font-bold text-[#0A1428] text-xs sm:text-sm line-clamp-1">{item.item_name}</h3>
+                    <p className="text-[11px] text-[#787F8C] line-clamp-1 mt-0.5 mb-2 font-medium">{item.description}</p>
                     
-                    <div className="flex items-center justify-between text-sm mb-4">
-                      <span className="text-base font-extrabold text-[#C5A880]">₹{parseFloat(item.price).toFixed(2)}</span>
-                      <span className="text-xs text-[#787F8C] font-medium">Stock: {item.stock} {item.unit}</span>
+                    <div className="flex items-center justify-between text-xs mb-3">
+                      <span className="text-sm sm:text-base font-extrabold text-[#C5A880]">₹{parseFloat(item.price).toFixed(2)}</span>
+                      <span className="text-[10px] text-[#787F8C] font-medium">Stock: {item.stock} {item.unit}</span>
                     </div>
                   </div>
 

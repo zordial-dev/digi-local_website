@@ -1,140 +1,54 @@
-import http from 'http';
-import url from 'url';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DB_FILE = path.join(__dirname, 'db.json');
 
 const PORT = 5001;
 
-// In-Memory Database Store (Initialized Empty for Users & Orders)
-const societies = [
-  {
-    society_id: "SOC-101",
-    society_name: "Omaxe Greenwood Residency",
-    location: "Sector Greenwood, Omega II, Greater Noida",
-    public_id: "GW-4K2",
-    pincode: "201310",
-    vendor_count: 14
-  },
-  {
-    society_id: "SOC-102",
-    society_name: "Palm Meadows Residency",
-    location: "Whitefield, Bengaluru",
-    public_id: "PM-981",
-    pincode: "560066",
-    vendor_count: 8
-  },
-  {
-    society_id: "SOC-103",
-    society_name: "DLF Phase 5 Enclave",
-    location: "Golf Course Road, Gurugram",
-    public_id: "DLF-55",
-    pincode: "122002",
-    vendor_count: 15
-  },
-  {
-    society_id: "SOC-104",
-    society_name: "Godrej Woods Community",
-    location: "Sector 43, Noida",
-    public_id: "GW-904",
-    pincode: "201303",
-    vendor_count: 6
-  },
-  {
-    society_id: "SOC-105",
-    society_name: "Jaypee Greens Wish Town",
-    location: "Sector 128, Noida",
-    public_id: "JPG-12",
-    pincode: "201304",
-    vendor_count: 18
-  },
-  {
-    society_id: "SOC-106",
-    society_name: "ATS Village Gated Complex",
-    location: "Sector 93A, Noida",
-    public_id: "ATS-93",
-    pincode: "201304",
-    vendor_count: 11
+// Load Persistent JSON Database
+function loadDB() {
+  try {
+    if (fs.existsSync(DB_FILE)) {
+      const raw = fs.readFileSync(DB_FILE, 'utf8');
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.error('Error reading db.json:', err);
   }
-];
+  return { societies: [], vendors: [], items: [], users: [], orders: [], pendingRequests: [], platformConfig: {} };
+}
 
-const vendors = [
-  {
-    vendor_id: 1,
-    society_id: 1,
-    vendor_name: "Rajesh Sharma",
-    store_name: "FreshMart Grocery & Organic",
-    email: "freshmart@gmail.com",
-    phone_number: "9876543210",
-    phone: "9876543210",
-    gst_number: "07AAACR12341Z5",
-    logo: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80",
-    status: "ACTIVE",
-    opening_timing: "08:00 AM",
-    closing_timing: "10:00 PM",
-    delivery_charge: 0.00,
-    min_order_value: 0.00,
-    society_name: "Omaxe Greenwood Residency"
-  },
-  {
-    vendor_id: 2,
-    society_id: 1,
-    vendor_name: "Suresh Patel",
-    store_name: "Green Leaf Organics & Fruits",
-    email: "greenleaf@gmail.com",
-    phone_number: "9876543211",
-    phone: "9876543211",
-    logo: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800&auto=format&fit=crop&q=80",
-    status: "ACTIVE",
-    opening_timing: "07:30 AM",
-    closing_timing: "09:30 PM",
-    delivery_charge: 0.00,
-    min_order_value: 0.00,
-    society_name: "Omaxe Greenwood Residency"
+// Persistent Auto-Save Database Helper
+function saveDB() {
+  try {
+    const dataToSave = { societies, vendors, items, users, orders, pendingRequests, tickets, platformConfig };
+    fs.writeFileSync(DB_FILE, JSON.stringify(dataToSave, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Error saving db.json:', err);
   }
-];
+}
 
-const items = [
-  {
-    item_id: 1,
-    vendor_id: 1,
-    item_name: "Farm Fresh Organic Milk (1L)",
-    price: 68.00,
-    stock: 50,
-    category: "Dairy",
-    unit: "1L",
-    is_available: 1,
-    image_url: "https://images.unsplash.com/photo-1528498033373-3c6c08e93d79?w=300&auto=format&fit=crop&q=80"
-  },
-  {
-    item_id: 2,
-    vendor_id: 1,
-    item_name: "Organic Whole Wheat Bread (400g)",
-    price: 45.00,
-    stock: 30,
-    category: "Snacks & Bakery",
-    unit: "400g",
-    is_available: 1,
-    image_url: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&auto=format&fit=crop&q=80"
-  },
-  {
-    item_id: 3,
-    vendor_id: 1,
-    item_name: "Pure Desi Cow Ghee (500ml)",
-    price: 420.00,
-    stock: 20,
-    category: "Dairy",
-    unit: "500ml",
-    is_available: 1,
-    image_url: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300&auto=format&fit=crop&q=80"
-  }
-];
-
-// REAL USERS & REAL ORDERS DATA STORES (No static dummy records)
-const users = [];
-const orders = [];
-const pendingRequests = [];
-
-let platformConfig = {
+// Initialize Active Database Collections from db.json
+const initialDb = loadDB();
+const societies = initialDb.societies || [];
+const vendors = initialDb.vendors || [];
+const items = initialDb.items || [];
+const users = initialDb.users || [];
+const orders = initialDb.orders || [];
+const pendingRequests = initialDb.pendingRequests || [];
+const tickets = initialDb.tickets || [];
+let platformConfig = initialDb.platformConfig || {
+  platform_name: "DigiLocal",
   platform_logo: "https://imgh.in/host/ucila6",
-  platform_name: "DigiLocal"
+  maintenance_mode: false,
+  support_email: "support@digilocal.in",
+  support_phone: "+91 1800 123 4567",
+  max_upload_size_mb: 10,
+  default_currency: "INR",
+  timezone: "Asia/Kolkata"
 };
 
 // Helper: Read Body JSON
@@ -253,19 +167,7 @@ const server = http.createServer(async (req, res) => {
     let user = users.find(u => (email && u.email.toLowerCase() === email) || (phone && u.phone === phone));
 
     if (!user) {
-      const userDisplayName = body.name ? body.name.trim() : (phone ? `User ${phone.slice(-4)}` : cleanNameFromEmail(email || 'User'));
-      user = {
-        user_id: `usr_${Math.floor(100000 + Math.random() * 900000)}`,
-        name: userDisplayName,
-        email: email || '',
-        phone: phone || '9876543210',
-        society_id: String(body.society_id || '1'),
-        society_name: body.society_name || 'Omaxe Greenwood Residency',
-        flat: body.flat || 'Tower A-402',
-        joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
-      };
-      users.push(user);
+      return sendJSON(res, 404, { error: "No account found with these credentials. The account may have been deleted or not registered. Please register first." });
     }
 
     const tokenStr = `user_jwt_access_${Date.now()}`;
@@ -301,6 +203,7 @@ const server = http.createServer(async (req, res) => {
     };
 
     users.push(newUser);
+    saveDB();
     const tokenStr = `user_jwt_access_${Date.now()}`;
     return sendJSON(res, 201, {
       message: "User registered successfully",
@@ -337,14 +240,52 @@ const server = http.createServer(async (req, res) => {
       if (body.society_name) user.society_name = body.society_name;
       if (body.flat) user.flat = body.flat;
       if (body.avatar) user.avatar = body.avatar;
+      saveDB();
     }
     return sendJSON(res, 200, { message: "User profile updated successfully", user });
   }
 
-  if (method === 'GET' && pathname.includes('/api/users/') && pathname.endsWith('/orders')) {
-    const userId = pathname.split('/')[3];
-    const userOrders = orders.filter(o => String(o.user_id) === String(userId));
-    return sendJSON(res, 200, userOrders);
+  if (method === 'DELETE' && pathname.startsWith('/api/users/')) {
+    const authHeader = req.headers.authorization || req.headers.Authorization || '';
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return sendJSON(res, 401, { success: false, error: "Unauthorized: Missing or invalid access token" });
+    }
+
+    const sub = pathname.split('/')[3] || 'profile';
+    let index = -1;
+
+    if (sub === 'profile' || sub === 'me') {
+      index = users.length > 0 ? users.length - 1 : -1;
+    } else {
+      index = users.findIndex(u => String(u.user_id) === String(sub) || String(u.phone) === String(sub) || String(u.email).toLowerCase() === String(sub).toLowerCase());
+    }
+
+    if (index === -1 && users.length > 0) {
+      index = 0;
+    }
+
+    if (index === -1) {
+      return sendJSON(res, 404, { success: false, error: "User account not found" });
+    }
+
+    const userObj = users[index];
+    const userName = userObj ? (userObj.name || 'Resident User') : 'Resident User';
+    const targetUserId = userObj ? userObj.user_id : (sub !== 'profile' && sub !== 'me' ? sub : 'usr_379378');
+
+    users.splice(index, 1);
+
+    for (let i = orders.length - 1; i >= 0; i--) {
+      if (String(orders[i].user_id) === String(targetUserId)) {
+        orders.splice(i, 1);
+      }
+    }
+    saveDB();
+
+    return sendJSON(res, 200, {
+      success: true,
+      message: `User account for "${userName}" (ID: ${targetUserId}) deleted successfully.`,
+      user_id: targetUserId
+    });
   }
 
   // 1. VENDOR AUTHENTICATION APIs
@@ -376,6 +317,7 @@ const server = http.createServer(async (req, res) => {
       status: "ACTIVE"
     };
     vendors.push(newVendor);
+    saveDB();
     return sendJSON(res, 201, {
       message: "Vendor registration submitted successfully!",
       vendor_id: newId,
@@ -443,6 +385,7 @@ const server = http.createServer(async (req, res) => {
       vendor_count: 0
     };
     societies.unshift(newSociety);
+    saveDB();
     return sendJSON(res, 201, { message: "Society created successfully", society_id: numericId, society: newSociety });
   }
 
@@ -454,25 +397,82 @@ const server = http.createServer(async (req, res) => {
 
   if (method === 'GET' && pathname.startsWith('/api/societies/')) {
     const parts = pathname.split('/');
-    const socId = Number(parts[3]);
+    const rawSocParam = parts[3];
     const isVendors = parts[4] === 'vendors';
 
     if (isVendors) {
       const q = parsedUrl.query.search ? parsedUrl.query.search.toLowerCase() : '';
-      const list = vendors.filter(v => Number(v.society_id) === socId || socId === 1);
-      const filtered = q ? list.filter(v => v.store_name.toLowerCase().includes(q) || v.category.toLowerCase().includes(q)) : list;
+      const list = vendors.filter(v => {
+        if (!v) return false;
+        if (rawSocParam === 'all') return true;
+
+        const vSocStr = String(v.society_id || '').toLowerCase().trim();
+        const tSocStr = String(rawSocParam || '').toLowerCase().trim();
+
+        if (vSocStr === tSocStr) return true;
+
+        const vClean = vSocStr.replace('soc-', '');
+        const tClean = tSocStr.replace('soc-', '');
+
+        if (vClean && tClean && vClean === tClean) return true;
+        if ((vClean === '1' || vClean === '101') && (tClean === '1' || tClean === '101')) return true;
+        if ((vClean === '2' || vClean === '102') && (tClean === '2' || tClean === '102')) return true;
+        if ((vClean === '3' || vClean === '103') && (tClean === '3' || tClean === '103')) return true;
+        if ((vClean === '4' || vClean === '104') && (tClean === '4' || tClean === '104')) return true;
+        if ((vClean === '5' || vClean === '105') && (tClean === '5' || tClean === '105')) return true;
+        if ((vClean === '6' || vClean === '106') && (tClean === '6' || tClean === '106')) return true;
+
+        if (v.society_name) {
+          const matchedSoc = societies.find(s => String(s.society_id).toLowerCase() === tSocStr || String(s.society_id).replace('SOC-', '').toLowerCase() === tClean);
+          if (matchedSoc && matchedSoc.society_name.toLowerCase() === v.society_name.toLowerCase()) return true;
+        }
+        return false;
+      });
+      const filtered = q ? list.filter(v => (v.store_name || '').toLowerCase().includes(q) || (v.category || '').toLowerCase().includes(q)) : list;
       return sendJSON(res, 200, filtered);
     } else {
-      const soc = societies.find(s => s.society_id === socId);
+      const cleanTargetSoc = String(rawSocParam).replace('SOC-', '').toLowerCase();
+      const soc = societies.find(s => String(s.society_id).toLowerCase() === String(rawSocParam).toLowerCase() || String(s.society_id).replace('SOC-', '').toLowerCase() === cleanTargetSoc);
       if (!soc) return sendJSON(res, 404, { error: "Society not found" });
       return sendJSON(res, 200, soc);
     }
   }
 
+  if (method === 'DELETE' && (pathname.startsWith('/api/vendors/') || pathname.startsWith('/api/vendorPanel/'))) {
+    const authHeader = req.headers.authorization || req.headers.Authorization || '';
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return sendJSON(res, 401, { success: false, error: "Unauthorized: Token missing or invalid" });
+    }
+
+    const targetVendorId = pathname.split('/')[3];
+    const index = vendors.findIndex(v => String(v.vendor_id) === String(targetVendorId) || String(v.vendor_id).replace('SOC-', '') === String(targetVendorId));
+    if (index === -1) {
+      return sendJSON(res, 404, { success: false, error: "Vendor store ID not found" });
+    }
+
+    const storeObj = vendors[index];
+    const storeTitle = storeObj ? (storeObj.store_name || storeObj.vendor_name || 'Vendor Store') : 'Vendor Store';
+    vendors.splice(index, 1);
+
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (String(items[i].vendor_id) === String(targetVendorId)) {
+        items.splice(i, 1);
+      }
+    }
+    saveDB();
+
+    return sendJSON(res, 200, {
+      success: true,
+      message: `Vendor store "${storeTitle}" (ID: ${targetVendorId}) and associated items deleted successfully.`,
+      vendor_id: Number(targetVendorId) || targetVendorId
+    });
+  }
+
   if (method === 'GET' && pathname.startsWith('/api/vendors/')) {
-    const vendorId = Number(pathname.split('/')[3]);
-    const vendor = vendors.find(v => v.vendor_id === vendorId) || vendors[0];
-    const vendorItems = items.filter(i => i.vendor_id === vendorId || vendorId === 1);
+    const targetVendorId = pathname.split('/')[3];
+    const vendor = vendors.find(v => String(v.vendor_id) === String(targetVendorId));
+    if (!vendor) return sendJSON(res, 404, { error: "Vendor store not found or has been deleted" });
+    const vendorItems = items.filter(i => String(i.vendor_id) === String(targetVendorId));
     return sendJSON(res, 200, { vendor, items: vendorItems });
   }
 
@@ -557,13 +557,176 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
+  // 5. GLOBAL CONFIG & MAINTENANCE APIs
+  if (method === 'GET' && (pathname === '/config' || pathname === '/api/config' || pathname === '/api/admin/config')) {
+    return sendJSON(res, 200, {
+      success: true,
+      status_code: 200,
+      message: "Platform configuration loaded successfully",
+      data: platformConfig
+    });
+  }
+
+  if (method === 'PUT' && (pathname === '/config' || pathname === '/api/config')) {
+    const body = await getRequestBody(req);
+    platformConfig = { ...platformConfig, ...body };
+    saveDB();
+    return sendJSON(res, 200, {
+      success: true,
+      status_code: 200,
+      message: "Platform configuration updated successfully",
+      data: platformConfig
+    });
+  }
+
+  // 6. SUPPORT DESK INTAKE & TICKET WORKFLOW APIs
+  if (method === 'POST' && (pathname === '/support/tickets' || pathname === '/api/support/tickets')) {
+    const body = await getRequestBody(req);
+    if (!body.subject || !body.description || !body.reporter_name) {
+      return sendJSON(res, 400, { success: false, status_code: 400, error: "Missing required fields: subject, description, and reporter_name" });
+    }
+    const ticketId = `TCK-${Math.floor(100000 + Math.random() * 900000)}`;
+    const newTicket = {
+      ticket_id: ticketId,
+      user_type: body.user_type || "user",
+      source: body.source || "user_app",
+      reporter_name: body.reporter_name,
+      reporter_email: body.reporter_email || "",
+      reporter_phone: body.reporter_phone || "",
+      entity_name: body.entity_name || "",
+      order_id: body.order_id || "",
+      subject: body.subject,
+      description: body.description,
+      category: body.category || "general",
+      priority: body.priority || "low",
+      status: "OPEN",
+      sla_minutes: 2880,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      messages: [
+        {
+          message_id: `MSG-${Date.now()}`,
+          sender_role: body.user_type || "user",
+          sender_name: body.reporter_name,
+          content: body.description,
+          created_at: new Date().toISOString()
+        }
+      ]
+    };
+    tickets.unshift(newTicket);
+    saveDB();
+    return sendJSON(res, 201, {
+      success: true,
+      status_code: 201,
+      message: "Support ticket created successfully",
+      data: newTicket
+    });
+  }
+
+  if (method === 'GET' && (pathname === '/support/tickets' || pathname === '/api/support/tickets')) {
+    const userType = parsedUrl.query.user_type;
+    const email = parsedUrl.query.email ? parsedUrl.query.email.toLowerCase() : '';
+    const status = parsedUrl.query.status;
+
+    let filtered = [...tickets];
+    if (userType) filtered = filtered.filter(t => t.user_type === userType);
+    if (email) filtered = filtered.filter(t => t.reporter_email && t.reporter_email.toLowerCase() === email);
+    if (status) filtered = filtered.filter(t => t.status === status);
+
+    return sendJSON(res, 200, {
+      success: true,
+      status_code: 200,
+      message: "Support tickets retrieved successfully",
+      data: filtered,
+      meta: { total_records: filtered.length }
+    });
+  }
+
+  if (method === 'GET' && (pathname.includes('/support/tickets/') && pathname.endsWith('/messages'))) {
+    const parts = pathname.split('/');
+    const ticketId = parts[parts.indexOf('tickets') + 1];
+    const ticket = tickets.find(t => String(t.ticket_id) === String(ticketId));
+    if (!ticket) {
+      return sendJSON(res, 404, { success: false, status_code: 404, error: "RESOURCE_NOT_FOUND", message: "Support ticket not found" });
+    }
+    return sendJSON(res, 200, {
+      success: true,
+      status_code: 200,
+      message: "Ticket thread retrieved successfully",
+      data: {
+        ticket_id: ticket.ticket_id,
+        subject: ticket.subject,
+        status: ticket.status,
+        messages: ticket.messages || []
+      }
+    });
+  }
+
+  if (method === 'POST' && (pathname.includes('/support/tickets/') && pathname.endsWith('/reply'))) {
+    const parts = pathname.split('/');
+    const ticketId = parts[parts.indexOf('tickets') + 1];
+    const body = await getRequestBody(req);
+    const ticket = tickets.find(t => String(t.ticket_id) === String(ticketId));
+    if (!ticket) {
+      return sendJSON(res, 404, { success: false, status_code: 404, error: "RESOURCE_NOT_FOUND", message: "Support ticket not found" });
+    }
+    const newMsg = {
+      message_id: `MSG-${Date.now()}`,
+      sender_role: body.sender_role || "user",
+      sender_name: body.sender_name || ticket.reporter_name || "Applicant",
+      content: body.content || "",
+      created_at: new Date().toISOString()
+    };
+    if (!ticket.messages) ticket.messages = [];
+    ticket.messages.push(newMsg);
+    if (body.sender_role === 'admin') {
+      ticket.status = 'IN_PROGRESS';
+    }
+    ticket.updated_at = new Date().toISOString();
+    saveDB();
+    return sendJSON(res, 200, {
+      success: true,
+      status_code: 200,
+      message: "Reply posted successfully",
+      data: newMsg
+    });
+  }
+
+  if (method === 'POST' && (pathname.includes('/support/tickets/') && pathname.endsWith('/escalate'))) {
+    const parts = pathname.split('/');
+    const ticketId = parts[parts.indexOf('tickets') + 1];
+    const ticket = tickets.find(t => String(t.ticket_id) === String(ticketId));
+    if (!ticket) {
+      return sendJSON(res, 404, { success: false, status_code: 404, error: "RESOURCE_NOT_FOUND", message: "Support ticket not found" });
+    }
+    if (ticket.priority === 'urgent') {
+      return sendJSON(res, 422, {
+        success: false,
+        status_code: 422,
+        error: "BUSINESS_RULE_BREACH",
+        message: "Ticket is already at maximum URGENT priority level and cannot be escalated further."
+      });
+    }
+    ticket.priority = 'urgent';
+    ticket.sla_minutes = 120;
+    ticket.updated_at = new Date().toISOString();
+    saveDB();
+    return sendJSON(res, 200, {
+      success: true,
+      status_code: 200,
+      message: "Ticket priority escalated successfully",
+      data: {
+        ticket_id: ticket.ticket_id,
+        priority: ticket.priority,
+        sla_minutes: ticket.sla_minutes,
+        updated_at: ticket.updated_at
+      }
+    });
+  }
+
   // Admin APIs
   if (method === 'GET' && pathname === '/api/admin/vendors') {
     return sendJSON(res, 200, vendors.map(v => ({ ...v, payments: [{ payment_id: 1, amount: 2999.00, status: "SUCCESS" }] })));
-  }
-
-  if (method === 'GET' && pathname === '/api/admin/config') {
-    return sendJSON(res, 200, platformConfig);
   }
 
   // Default 404
