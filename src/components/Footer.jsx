@@ -154,7 +154,7 @@ export default function Footer({ setRoute, onOpenSupportDesk }) {
               <ul className="space-y-3.5 text-xs sm:text-sm text-emerald-100/80">
                 <li>
                   <button 
-                    onClick={() => onOpenSupportDesk ? onOpenSupportDesk() : navTo('help-support')}
+                    onClick={() => onOpenSupportDesk ? onOpenSupportDesk() : navTo('contact-support')}
                     className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group font-bold text-amber-200 cursor-pointer py-0.5"
                   >
                     <Headphones className="w-4 h-4 text-[#C4A066] group-hover:scale-110 transition-transform shrink-0" />
@@ -163,17 +163,26 @@ export default function Footer({ setRoute, onOpenSupportDesk }) {
                 </li>
                 <li>
                   <button 
-                    onClick={() => navTo('contact-support')}
-                    className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
+                    onClick={() => onOpenSupportDesk ? onOpenSupportDesk() : navTo('contact-support')}
+                    className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
+                    <span>Contact Support (Create Ticket)</span>
+                  </button>
+                </li>
+                <li>
+                  <a 
+                    href="mailto:support@digilocal.network?subject=DigiLocal%20Support%20Desk%20Inquiry"
+                    className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group cursor-pointer"
                   >
                     <Mail className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
-                    <span>Contact Us</span>
-                  </button>
+                    <span>Email Support Desk</span>
+                  </a>
                 </li>
                 <li>
                   <button 
                     onClick={() => navTo('help-support')}
-                    className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group"
+                    className="hover:text-[#C4A066] transition-colors flex items-center space-x-2 text-left group cursor-pointer"
                   >
                     <HelpCircle className="w-4 h-4 text-emerald-100/80 group-hover:text-[#C4A066] shrink-0 group-hover:scale-110 transition-all" />
                     <span>Help & FAQs</span>

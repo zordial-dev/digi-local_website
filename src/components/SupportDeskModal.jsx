@@ -34,6 +34,7 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [submittedTicket, setSubmittedTicket] = useState(null);
 
   // Tickets List & Active Thread State
   const [ticketsList, setTicketsList] = useState([]);
@@ -84,12 +85,24 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
 
       const res = await api.createSupportTicket(payload);
       if (res && (res.success || res.data)) {
-        setSuccessMsg(`Support ticket ${res.data?.ticket_id || ''} logged successfully! Our support desk team will review your complaint shortly.`);
+        const generatedTicket = {
+          ticket_id: res.data?.ticket_id || `TCK-${Date.now()}`,
+          subject: payload.subject,
+          category: payload.category,
+          order_id: payload.order_id,
+          status: 'OPEN',
+          user_type: payload.user_type,
+          reporter_name: payload.reporter_name,
+          reporter_email: payload.reporter_email,
+          description: payload.description,
+          created_at: new Date().toISOString(),
+          ...res.data
+        };
+        setSubmittedTicket(generatedTicket);
         setSubject('');
         setDescription('');
         setOrderId('');
         loadTickets();
-        setTimeout(() => setSuccessMsg(''), 5000);
       } else {
         throw new Error(res?.error || 'Failed to submit ticket');
       }
@@ -220,7 +233,7 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
 
           <div className="flex items-center gap-2 text-xs font-bold ml-auto">
             <button
-              onClick={() => { setActiveTab('new'); setSelectedTicket(null); }}
+              onClick={() => { setActiveTab('new'); setSelectedTicket(null); setSubmittedTicket(null); }}
               className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${activeTab === 'new' ? 'bg-[#18281F] text-white border-[#18281F]' : 'bg-white text-ink border-border'}`}
             >
               + Submit Complaint
@@ -253,113 +266,191 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
           )}
 
           {/* ------------------------------------------------------------- */}
-          {/* VIEW 1: SUBMIT NEW SUPPORT COMPLAINT                           */}
+          {/* VIEW 1: SUBMIT NEW SUPPORT COMPLAINT / THANK YOU CONFIRMATION  */}
           {/* ------------------------------------------------------------- */}
           {activeTab === 'new' && (
-            <form onSubmit={handleTicketSubmit} className="space-y-3 text-xs font-semibold">
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-ink font-bold mb-1">Your Full Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={reporterName}
-                    onChange={(e) => setReporterName(e.target.value)}
-                    placeholder="e.g. Aarav Gupta / Rajesh Sharma"
-                    className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623]"
-                  />
+            submittedTicket ? (
+              <div className="bg-[#FAF9F6] border border-[#C5A880]/30 rounded-3xl p-6 sm:p-8 text-center space-y-5 animate-in fade-in zoom-in-95 duration-200 shadow-sm my-auto">
+                <div className="relative inline-flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center border border-emerald-300 shadow-sm">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-ink font-bold mb-1">Contact Email Address *</label>
-                  <input
-                    type="email"
-                    required
-                    value={reporterEmail}
-                    onChange={(e) => setReporterEmail(e.target.value)}
-                    placeholder="e.g. aarav@gmail.com"
-                    className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623]"
-                  />
+                  <span className="px-3.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider rounded-full border border-emerald-300">
+                    Ticket Generated Successfully
+                  </span>
+                  <h3 className="text-xl font-serif font-extrabold text-[#0A1428] mt-2">
+                    Thank You! Your Support Request Has Been Created
+                  </h3>
+                  <p className="text-xs text-[#787F8C] mt-1 max-w-md mx-auto leading-relaxed font-medium">
+                    Our support desk team has received your ticket and assigned it to a live support specialist. You can track real-time resolution updates in your ticket thread.
+                  </p>
                 </div>
-              </div>
 
-              {/* ------------------------------------------------------------- */}
-              {/* SECTION 2: ORDER ID FIELD & CATEGORY FIELD                    */}
-              {/* ------------------------------------------------------------- */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-ink font-bold mb-1">Category *</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623] cursor-pointer"
+                {/* Ticket Details Summary Card */}
+                <div className="bg-white rounded-2xl p-4 border border-[#C5A880]/30 text-left space-y-2.5 shadow-xs max-w-lg mx-auto">
+                  <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                    <span className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider">Ticket Reference ID</span>
+                    <span className="text-xs font-mono font-extrabold text-[#0A1428] bg-[#F6F3EC] px-2.5 py-0.5 rounded-md border border-[#C5A880]/30">
+                      #{submittedTicket.ticket_id}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground font-semibold">Subject / Summary:</span>
+                    <span className="font-bold text-ink truncate max-w-[240px]">{submittedTicket.subject}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground font-semibold">Category:</span>
+                    <span className="font-bold text-ink uppercase text-[10px] bg-secondary px-2 py-0.5 rounded-md border border-border">
+                      {submittedTicket.category || 'General'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground font-semibold">Current Status:</span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                      Open & Assigned
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('history');
+                      handleOpenTicketThread(submittedTicket);
+                    }}
+                    className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-[#1E3623] hover:bg-[#122218] text-[#E6C35C] font-extrabold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    {/* SECTION 3: RESIDENT vs VENDOR CATEGORY FILTERING */}
-                    {ticketUserType === 'vendor' ? (
-                      <>
-                        <option value="payouts">💰 Vendor Settlement & Payouts</option>
-                        <option value="catalog">📦 Shop Inventory & Product Catalog</option>
-                        <option value="billing">💳 Billing & Commission Queries</option>
-                        <option value="technical">🛠️ Vendor Portal Technical Issue</option>
-                        <option value="general">❓ General Store Assistance</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="billing">💳 Billing & Refund Queries</option>
-                        <option value="delivery">🚚 Order Delivery & Logistics</option>
-                        <option value="technical">🛠️ App Technical Issue</option>
-                        <option value="general">❓ General Platform Assistance</option>
-                      </>
-                    )}
-                  </select>
+                    <MessageSquare className="w-4 h-4 text-[#E6C35C]" />
+                    <span>Track Ticket & View Discussion Thread</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubmittedTicket(null);
+                      setSuccessMsg('');
+                    }}
+                    className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-white hover:bg-secondary text-ink font-bold text-xs border border-border uppercase tracking-wider transition-all cursor-pointer"
+                  >
+                    + Submit Another Complaint
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleTicketSubmit} className="space-y-3 text-xs font-semibold">
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-ink font-bold mb-1">Your Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={reporterName}
+                      onChange={(e) => setReporterName(e.target.value)}
+                      placeholder="e.g. Aarav Gupta / Rajesh Sharma"
+                      className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-ink font-bold mb-1">Contact Email Address *</label>
+                    <input
+                      type="email"
+                      required
+                      value={reporterEmail}
+                      onChange={(e) => setReporterEmail(e.target.value)}
+                      placeholder="e.g. aarav@gmail.com"
+                      className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623]"
+                    />
+                  </div>
+                </div>
+
+                {/* ------------------------------------------------------------- */}
+                {/* SECTION 2: ORDER ID FIELD & CATEGORY FIELD                    */}
+                {/* ------------------------------------------------------------- */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-ink font-bold mb-1">Category *</label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623] cursor-pointer"
+                    >
+                      {/* SECTION 3: RESIDENT vs VENDOR CATEGORY FILTERING */}
+                      {ticketUserType === 'vendor' ? (
+                        <>
+                          <option value="payouts">💰 Vendor Settlement & Payouts</option>
+                          <option value="catalog">📦 Shop Inventory & Product Catalog</option>
+                          <option value="billing">💳 Billing & Commission Queries</option>
+                          <option value="technical">🛠️ Vendor Portal Technical Issue</option>
+                          <option value="general">❓ General Store Assistance</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="billing">💳 Billing & Refund Queries</option>
+                          <option value="delivery">🚚 Order Delivery & Logistics</option>
+                          <option value="technical">🛠️ App Technical Issue</option>
+                          <option value="general">❓ General Platform Assistance</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-ink font-bold mb-1">Order ID (Optional)</label>
+                    <input
+                      type="text"
+                      value={orderId}
+                      onChange={(e) => setOrderId(e.target.value)}
+                      placeholder="e.g. ORD-984201"
+                      className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623]"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-ink font-bold mb-1">Order ID (Optional)</label>
+                  <label className="block text-ink font-bold mb-1">Subject / Summary *</label>
                   <input
                     type="text"
-                    value={orderId}
-                    onChange={(e) => setOrderId(e.target.value)}
-                    placeholder="e.g. ORD-984201"
+                    required
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="e.g. Order #ORD-984201 canceled but refund pending"
                     className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623]"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-ink font-bold mb-1">Subject / Summary *</label>
-                <input
-                  type="text"
-                  required
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder="e.g. Order #ORD-984201 canceled but refund pending"
-                  className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623]"
-                />
-              </div>
+                <div>
+                  <label className="block text-ink font-bold mb-1">Detailed Description of Complaint *</label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Provide complete details including transaction details, issue timeline, or relevant store information..."
+                    className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623] resize-none"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-ink font-bold mb-1">Detailed Description of Complaint *</label>
-                <textarea
-                  required
-                  rows={4}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Provide complete details including transaction details, issue timeline, or relevant store information..."
-                  className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623] resize-none"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 bg-[#1E3623] hover:bg-[#122218] text-[#E6C35C] rounded-2xl font-extrabold text-xs uppercase tracking-wider transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 cursor-pointer mt-3 group"
-              >
-                <Send className="w-4 h-4 text-[#E6C35C] group-hover:translate-x-0.5 transition-transform" />
-                <span>{loading ? 'Submitting Ticket...' : 'Submit Support Intake Complaint'}</span>
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3.5 bg-[#1E3623] hover:bg-[#122218] text-[#E6C35C] rounded-2xl font-extrabold text-xs uppercase tracking-wider transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 cursor-pointer mt-3 group"
+                >
+                  <Send className="w-4 h-4 text-[#E6C35C] group-hover:translate-x-0.5 transition-transform" />
+                  <span>{loading ? 'Submitting Ticket...' : 'Submit Support Intake Complaint'}</span>
+                </button>
+              </form>
+            )
           )}
 
           {/* ------------------------------------------------------------- */}

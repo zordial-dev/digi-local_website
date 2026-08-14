@@ -389,6 +389,21 @@ export default function VendorStorefrontPage({ societyId, vendorId, setRoute, on
       const savedOrder = saveOrderToUserProfile(backendRes?.order_id, subtotal, cart, true);
       setLastPlacedOrder({ order_id: savedOrder.order_id, total: subtotal });
 
+      // Dispatch Real-time New Order Event for Vendor Dashboard Notification Alert & Sound Chime
+      const newOrderPayload = {
+        vendor_id: vendorId,
+        order_id: backendRes?.order_id || savedOrder.order_id || Math.floor(1000 + Math.random() * 9000),
+        total_amount: subtotal,
+        resident_name: `${resName} (Flat ${flatNumber})`,
+        items_count: cart.length,
+        timestamp: Date.now()
+      };
+
+      try {
+        localStorage.setItem('digilocal_new_order_event', JSON.stringify(newOrderPayload));
+        window.dispatchEvent(new CustomEvent('digilocal_new_order', { detail: newOrderPayload }));
+      } catch (_) {}
+
       const encodedMsg = encodeURIComponent(msg);
       const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodedMsg}`;
       window.open(whatsappUrl, '_blank');

@@ -31,7 +31,7 @@ import CountryCodePicker from '../components/CountryCodePicker';
 import CategoryPicker from '../components/CategoryPicker';
 import { sendFirebasePhoneOtp, verifyFirebasePhoneOtp } from '../firebase';
 
-export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVendor }) {
+export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVendor, setActiveUser }) {
   // Stepper State (1: Society & Contact Verification, 2: Shop Details, 3: Password & Finish)
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -385,7 +385,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
       if (verificationMethod === 'phone') {
         await sendFirebasePhoneOtp(targetIdentifier, 'recaptcha-container');
-        setSuccessMsg(`6-Digit Verification SMS code sent to ${targetIdentifier} via Firebase! Check your mobile phone.`);
+        setSuccessMsg(`6-Digit Verification SMS code sent to ${targetIdentifier}! Check your mobile phone.`);
       } else {
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         setVendorGeneratedOtp(code);
@@ -408,7 +408,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     }
   };
 
-  // Vendor Resend 6-Digit OTP via Firebase
+  // Vendor Resend 6-Digit OTP
   const handleResendVendorOtp = async () => {
     if (vendorResendTimer > 0) return;
     setError('');
@@ -418,7 +418,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
       if (verificationMethod === 'phone') {
         await sendFirebasePhoneOtp(targetIdentifier, 'recaptcha-container');
-        setSuccessMsg(`6-digit verification SMS code resent to ${targetIdentifier} via Firebase!`);
+        setSuccessMsg(`6-digit verification SMS code resent to ${targetIdentifier}!`);
       } else {
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         setVendorGeneratedOtp(code);
@@ -427,13 +427,13 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
       setVendorResendTimer(30);
     } catch (err) {
-      setError(err.message || 'Failed to resend SMS via Firebase.');
+      setError(err.message || 'Failed to resend SMS verification code.');
     } finally {
       setLoading(false);
     }
   };
 
-  // STEP 1 VERIFICATION: Verify 6-Digit Firebase OTP Code & Advance to Step 2
+  // STEP 1 VERIFICATION: Verify 6-Digit Security OTP Code & Advance to Step 2
   const handleVerifyVendorOtpCode = async (e) => {
     e.preventDefault();
     setError('');
@@ -460,7 +460,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
       setIsVendorContactVerified(true);
       setShowVendorOtpModal(false);
-      setSuccessMsg(`Mobile number ${targetIdentifier} verified via Firebase! Now fill in your shop & owner details.`);
+      setSuccessMsg(`Mobile number ${targetIdentifier} verified successfully! Now fill in your shop & owner details.`);
       setCurrentStep(2);
     } catch (err) {
       setError(err.message || 'Invalid 6-digit OTP code. Please double check and try again.');
@@ -521,7 +521,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
       setLoading(true);
       const mainPhone = verificationMethod === 'phone' ? `${countryCode}${mobileNumber.trim()}` : (mobileNumber.trim() ? `${countryCode}${mobileNumber.trim()}` : '');
       const customLogo = (Array.isArray(shopImages) && shopImages.length > 0 ? shopImages[0] : (typeof shopImages === 'string' ? shopImages : ''));
-      const cleanEmail = mainEmail || (verificationMethod === 'email' ? verifiedContactValue : '');
+      const cleanEmail = emailAddress.trim() || (verificationMethod === 'email' ? verifiedContactValue : '');
 
       const payload = {
         owner_name: ownerName.trim(),
@@ -606,6 +606,11 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         token: accessToken || `jwt_vendor_${Date.now()}`,
         expiresAt: Date.now() + 86400000
       };
+
+      // Clear resident user session to enforce strict single-role session isolation
+      localStorage.removeItem('digilocal_user_session');
+      localStorage.removeItem('digilocal_resident_session');
+      if (typeof setActiveUser === 'function') setActiveUser(null);
 
       localStorage.setItem('digilocal_vendor_session', JSON.stringify(sessionObj));
       if (setActiveVendor) setActiveVendor(createdVendor);

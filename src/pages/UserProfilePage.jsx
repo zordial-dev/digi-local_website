@@ -1041,11 +1041,6 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         {/* ------------------------------------------------------------- */}
         {activeTab === 'favorites' && (
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-border">
-              <h2 className="text-xl font-serif font-bold text-[#1E3623]">Saved Favorite Vendors</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Quickly access local stores you love ordering from in your society.</p>
-            </div>
-
             {favorites.length === 0 ? (
               <div className="bg-white rounded-3xl p-10 text-center border border-border space-y-3">
                 <p className="text-xs text-muted-foreground">No saved favorite stores yet.</p>

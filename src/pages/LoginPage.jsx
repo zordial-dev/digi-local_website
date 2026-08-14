@@ -166,7 +166,12 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           session.user = userObj;
         }
 
-        // SAVE USER SESSIONS
+        // SAVE USER SESSIONS (Clear any vendor session to enforce single-role isolation)
+        localStorage.removeItem('digilocal_vendor_session');
+        localStorage.removeItem('vendor_access_token');
+        localStorage.removeItem('vendor_profile');
+        if (setActiveVendor) setActiveVendor(null);
+
         localStorage.setItem('digilocal_user_session', JSON.stringify(session));
         localStorage.setItem('digilocal_resident_session', JSON.stringify(userObj));
         if (setActiveUser) setActiveUser(userObj);
@@ -243,7 +248,11 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         const pendingSocietyId = currentRoute?.redirectSocietyId || sessionStorage.getItem('digilocal_pending_society_id');
         const pendingSocietyName = sessionStorage.getItem('digilocal_pending_society_name');
 
-        // SAVE VENDOR SESSIONS
+        // SAVE VENDOR SESSIONS (Clear any user session to enforce single-role isolation)
+        localStorage.removeItem('digilocal_user_session');
+        localStorage.removeItem('digilocal_resident_session');
+        if (setActiveUser) setActiveUser(null);
+
         localStorage.setItem('digilocal_vendor_session', JSON.stringify(session));
         if (setActiveVendor) setActiveVendor(vendorObj);
 
@@ -316,6 +325,12 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
             expiresAt: Date.now() + 86400000
           };
 
+          // Clear any vendor session to enforce single-role isolation
+          localStorage.removeItem('digilocal_vendor_session');
+          localStorage.removeItem('vendor_access_token');
+          localStorage.removeItem('vendor_profile');
+          if (setActiveVendor) setActiveVendor(null);
+
           localStorage.setItem('digilocal_user_session', JSON.stringify(session));
           localStorage.setItem('digilocal_resident_session', JSON.stringify(userObj));
           if (setActiveUser) setActiveUser(userObj);
@@ -356,6 +371,11 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
             token: accessToken || `vendor_jwt_${Date.now()}`,
             expiresAt: Date.now() + 86400000
           };
+
+          // Clear any user session to enforce single-role isolation
+          localStorage.removeItem('digilocal_user_session');
+          localStorage.removeItem('digilocal_resident_session');
+          if (setActiveUser) setActiveUser(null);
 
           localStorage.setItem('digilocal_vendor_session', JSON.stringify(session));
           if (setActiveVendor) setActiveVendor(vendorObj);
@@ -404,8 +424,18 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
       let sentOtp = '';
       if (!isEmail) {
-        await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-        setOtpSentMsg(`Verification SMS code sent to ${fullPhone} via Firebase! Check your mobile phone.`);
+        try {
+          await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
+          setOtpSentMsg(`Verification SMS code sent to ${fullPhone}! Check your mobile phone.`);
+        } catch (fbErr) {
+          console.warn('Firebase SMS failed/blocked, using simulation OTP fallback:', fbErr);
+          let devCode = '123456';
+          try {
+            const res = await api.sendOtp(fullPhone);
+            devCode = res?.simulationOtp || res?.otp || res?.code || '123456';
+          } catch (_) {}
+          setOtpSentMsg(`Verification OTP requested for ${fullPhone}. (Dev Test Code: ${devCode})`);
+        }
       } else {
         const res = await api.requestOtp(rawContact);
         sentOtp = res?.otp || res?.simulationOtp || res?.otpCode || '';
@@ -435,9 +465,12 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
           setOtpSentMsg(`Verification SMS code resent to ${fullPhone}. Check your mobile phone.`);
         } catch (_) {
-          const res = await api.requestOtp(fullPhone);
-          const code = res?.otp || res?.simulationOtp || res?.otpCode || '';
-          setOtpSentMsg(`Verification OTP resent to ${fullPhone}.${code ? ` Code: ${code}` : ''}`);
+          let devCode = '123456';
+          try {
+            const res = await api.sendOtp(fullPhone);
+            devCode = res?.simulationOtp || res?.otp || res?.code || '123456';
+          } catch (_) {}
+          setOtpSentMsg(`Verification OTP resent to ${fullPhone}. (Dev Test Code: ${devCode})`);
         }
       } else {
         const res = await api.requestOtp(rawContact);

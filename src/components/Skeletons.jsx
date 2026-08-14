@@ -26,19 +26,20 @@ export const SocietyCardSkeleton = () => (
 
 // 2. Vendor Card Skeleton (Society Vendors Page)
 export const VendorCardSkeleton = () => (
-  <div className="bg-white rounded-3xl p-6 border border-[#E4DCC9] shadow-sm space-y-4 relative overflow-hidden">
-    <div className="flex items-center space-x-4">
-      <ShimmerBlock className="w-16 h-16 rounded-2xl shrink-0" />
-      <div className="space-y-2 flex-1 min-w-0">
-        <ShimmerBlock className="w-3/4 h-5 rounded-md" />
-        <ShimmerBlock className="w-1/2 h-3.5 rounded-md" />
-        <ShimmerBlock className="w-1/3 h-3 rounded-md" />
+  <div className="bg-white rounded-3xl border border-[#E4DCC9] shadow-sm relative overflow-hidden flex flex-col justify-between h-[360px]">
+    <div>
+      <ShimmerBlock className="w-full h-48 sm:h-52 rounded-none mb-3" />
+      <div className="p-4 space-y-2">
+        <ShimmerBlock className="w-full h-4 rounded-md" />
+        <ShimmerBlock className="w-3/4 h-3.5 rounded-md" />
       </div>
     </div>
-    <ShimmerBlock className="w-full h-12 rounded-xl" />
-    <div className="pt-3 border-t border-[#E4DCC9]/60 flex items-center justify-between">
-      <ShimmerBlock className="w-20 h-4 rounded-md" />
-      <ShimmerBlock className="w-24 h-8 rounded-full" />
+    <div className="p-4 pt-0 space-y-3">
+      <div className="pt-2 border-t border-[#E4DCC9]/60 flex items-center justify-between">
+        <ShimmerBlock className="w-24 h-4 rounded-md" />
+        <ShimmerBlock className="w-20 h-4 rounded-md" />
+      </div>
+      <ShimmerBlock className="w-full h-10 rounded-xl" />
     </div>
   </div>
 );

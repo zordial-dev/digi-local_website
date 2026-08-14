@@ -64,35 +64,41 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
   const isHowItWorksActive = currentRoute?.page === 'info' && currentRoute?.tab === 'how-it-works';
   const isVendorPortalActive = currentRoute?.page === 'vendorRegister' || currentRoute?.page === 'vendorDashboard' || (currentRoute?.page === 'login' && (currentRoute?.tab === 'vendor' || currentRoute?.accountType === 'vendor'));
 
-  // Check active user session
+  // Context-aware session evaluation to enforce single-role session display
   let currentUser = activeUser;
-  if (!currentUser) {
-    try {
-      const saved = localStorage.getItem('digilocal_user_session');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && (parsed.user || parsed.name) && parsed.expiresAt > Date.now()) {
-          currentUser = parsed.user || parsed;
-        }
-      } else {
-        const savedRes = localStorage.getItem('digilocal_resident_session');
-        if (savedRes) currentUser = JSON.parse(savedRes);
-      }
-    } catch (_) {}
+  let currentVendor = activeVendor;
+
+  if (isDashboardOrAdmin || currentRoute?.page === 'vendorRegister') {
+    currentUser = null;
+  } else if (isProfilePage) {
+    currentVendor = null;
   }
 
-  // Check active vendor session
-  let currentVendor = activeVendor;
-  if (!currentVendor) {
+  if (!currentUser && !currentVendor) {
     try {
-      const saved = localStorage.getItem('digilocal_vendor_session');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.vendor && parsed.expiresAt > Date.now()) {
-          currentVendor = parsed.vendor;
+      const savedVendor = localStorage.getItem('digilocal_vendor_session');
+      if (savedVendor) {
+        const parsedV = JSON.parse(savedVendor);
+        if (parsedV && parsedV.vendor && parsedV.expiresAt > Date.now()) {
+          currentVendor = parsedV.vendor;
         }
       }
     } catch (_) {}
+
+    if (!currentVendor) {
+      try {
+        const savedUser = localStorage.getItem('digilocal_user_session');
+        if (savedUser) {
+          const parsedU = JSON.parse(savedUser);
+          if (parsedU && (parsedU.user || parsedU.name) && parsedU.expiresAt > Date.now()) {
+            currentUser = parsedU.user || parsedU;
+          }
+        } else {
+          const savedRes = localStorage.getItem('digilocal_resident_session');
+          if (savedRes) currentUser = JSON.parse(savedRes);
+        }
+      } catch (_) {}
+    }
   }
 
   return (
@@ -101,7 +107,7 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
       <header className="w-full bg-[#EDEDE4] pt-2 sm:pt-3 px-1.5 sm:px-3 lg:px-4 font-sans">
         {isHomePage ? (
           /* MAIN HOME PAGE HEADER: Curvy Clean Bento Header */
-          <div className="max-w-[1440px] mx-auto bg-[#34533C] text-white rounded-t-[2.5rem] sm:rounded-t-[2.8rem] lg:rounded-t-[3rem] relative pt-3 sm:pt-3.5 px-3 sm:px-4 lg:px-5 pb-0 shadow-md overflow-hidden">
+          <div className="max-w-7xl mx-auto bg-[#34533C] text-white rounded-t-[2.5rem] sm:rounded-t-[2.8rem] lg:rounded-t-[3rem] relative pt-3 sm:pt-3.5 px-3 sm:px-4 lg:px-5 pb-0 shadow-md overflow-hidden">
             <div className="flex items-center justify-between min-h-[56px] sm:min-h-[60px] relative">
               {/* LEFT: Curvy Off-White Logo Tab */}
               <div className="flex items-center space-x-3 self-stretch z-10 shrink-0">
@@ -173,27 +179,9 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                 </button>
               </nav>
 
-              {/* RIGHT: User Profile / Vendor Portal / Single Logout Button */}
+              {/* RIGHT: User Profile / Vendor Portal / Single Role Session Logout Button */}
               <div className="flex items-center space-x-1.5 sm:space-x-2 my-auto py-2 z-10 shrink-0">
-                {currentUser ? (
-                  <div className="flex items-center space-x-1.5 sm:space-x-2">
-                    <button
-                      onClick={() => setRoute({ page: 'profile' })}
-                      className="bg-[#E6C35C] hover:bg-[#d8b34c] text-[#0B150D] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full flex items-center space-x-1.5 text-xs font-black transition-all shadow-md hover:scale-105 shrink-0"
-                    >
-                      <User className="w-4 h-4 text-[#0B150D]" />
-                      <span className="truncate max-w-[100px] sm:max-w-[120px]">{currentUser.name || currentUser.userName || 'My Profile'}</span>
-                    </button>
-
-                    <button
-                      onClick={handleHeaderUserLogout}
-                      title="Log Out User"
-                      className="p-1.5 sm:p-2 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 transition-colors shrink-0"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : currentVendor ? (
+                {currentVendor ? (
                   <div className="flex items-center space-x-1.5 sm:space-x-2">
                     <button
                       onClick={() => setRoute({ page: 'vendorDashboard', vendorId: currentVendor.vendor_id })}
@@ -206,6 +194,24 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                     <button
                       onClick={handleHeaderVendorLogout}
                       title="Log Out Vendor"
+                      className="p-1.5 sm:p-2 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 transition-colors shrink-0"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : currentUser ? (
+                  <div className="flex items-center space-x-1.5 sm:space-x-2">
+                    <button
+                      onClick={() => setRoute({ page: 'profile' })}
+                      className="bg-[#E6C35C] hover:bg-[#d8b34c] text-[#0B150D] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full flex items-center space-x-1.5 text-xs font-black transition-all shadow-md hover:scale-105 shrink-0"
+                    >
+                      <User className="w-4 h-4 text-[#0B150D]" />
+                      <span className="truncate max-w-[100px] sm:max-w-[120px]">{currentUser.name || currentUser.userName || 'My Profile'}</span>
+                    </button>
+
+                    <button
+                      onClick={handleHeaderUserLogout}
+                      title="Log Out User"
                       className="p-1.5 sm:p-2 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 transition-colors shrink-0"
                     >
                       <LogOut className="w-3.5 h-3.5" />
@@ -235,7 +241,7 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
           </div>
         ) : (
           /* OTHER PAGES HEADER: Dedicated Clean Bento Bar Header */
-          <div className="max-w-[1440px] mx-auto bg-[#34533C] text-white rounded-[2rem] sm:rounded-[2.5rem] p-2.5 sm:p-3 shadow-md mb-6 flex items-center justify-between overflow-hidden">
+          <div className="max-w-7xl mx-auto bg-[#34533C] text-white rounded-[2rem] sm:rounded-[2.5rem] p-2.5 sm:p-3 shadow-md mb-6 flex items-center justify-between overflow-hidden">
             {/* Left: Back Button + Clean Logo Badge */}
             <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
               <button
@@ -311,9 +317,21 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
               </button>
             </nav>
 
-            {/* Right: Profile / Vendor Portal / Unified Single Logout Button */}
+            {/* Right: Profile / Vendor Portal / Single Logout Button */}
             <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
-              {currentUser ? (
+              {currentVendor ? (
+                <button
+                  onClick={() => setRoute({ page: 'vendorDashboard', vendorId: currentVendor.vendor_id })}
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/10 flex items-center space-x-1.5 text-xs sm:text-sm font-bold transition-all shadow-md shrink-0 ${
+                    isDashboardOrAdmin
+                      ? 'bg-[#EDEDE4] text-[#1E3623]'
+                      : 'bg-[#0B150D] text-white hover:bg-black'
+                  }`}
+                >
+                  <Store className={`w-3.5 h-3.5 shrink-0 ${isDashboardOrAdmin ? 'text-[#1E3623]' : 'text-[#E6C35C]'}`} />
+                  <span className="truncate max-w-[110px]">{currentVendor.store_name || 'My Store'}</span>
+                </button>
+              ) : currentUser ? (
                 <button
                   onClick={() => setRoute({ page: 'profile' })}
                   className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/10 flex items-center space-x-1.5 text-xs sm:text-sm font-bold transition-all shadow-md shrink-0 ${
@@ -346,7 +364,7 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
 
               {(currentUser || currentVendor || isDashboardOrAdmin) && (
                 <button
-                  onClick={currentUser ? handleHeaderUserLogout : handleHeaderVendorLogout}
+                  onClick={currentVendor || isDashboardOrAdmin ? handleHeaderVendorLogout : handleHeaderUserLogout}
                   className="px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs font-bold bg-rose-500/20 border border-rose-400/30 text-rose-200 hover:bg-rose-500 hover:text-white transition-all flex items-center space-x-1.5 shrink-0 whitespace-nowrap"
                 >
                   <LogOut className="w-3.5 h-3.5 shrink-0" />

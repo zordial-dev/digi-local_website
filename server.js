@@ -1,3 +1,5 @@
+import http from 'http';
+import url from 'url';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -92,6 +94,9 @@ function cleanNameFromEmail(inputStr) {
   return clean.replace(/\b\w/g, c => c.toUpperCase());
 }
 
+// In-Memory Active OTP Sessions
+const activeOtpSessions = new Map();
+
 const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
@@ -118,45 +123,89 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  // In-Memory Active OTP Sessions
-  const activeOtpSessions = new Map();
-
-  // 0.1 Send User OTP (POST /api/users/send-otp)
-  if (method === 'POST' && pathname === '/api/users/send-otp') {
+  // MSG91 SMS OTP Service - Send OTP (POST /api/otp/send-otp)
+  if (method === 'POST' && (pathname === '/api/otp/send-otp' || pathname === '/api/users/send-otp' || pathname === '/api/vendors/send-otp')) {
     const body = await getRequestBody(req);
-    const target = (body.phone || body.identifier || body.email || '').trim();
-    if (!target) {
-      return sendJSON(res, 400, { error: "Phone number or email is required to send OTP" });
+    const rawPhone = (body.phone || body.mobile || body.identifier || body.email || '').trim();
+    if (!rawPhone) {
+      return sendJSON(res, 400, {
+        success: false,
+        message: "Invalid phone number format. Provide a valid 10-digit mobile number."
+      });
     }
+
+    const cleanDigits = rawPhone.replace(/[^0-9]/g, '');
+    const mobileFormatted = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    activeOtpSessions.set(target.toLowerCase(), { otp: otpCode, expiresAt: Date.now() + 600000 });
+
+    const sessionData = { otp: otpCode, expiresAt: Date.now() + 600000 };
+    activeOtpSessions.set(rawPhone.toLowerCase(), sessionData);
+    if (cleanDigits) activeOtpSessions.set(cleanDigits.toLowerCase(), sessionData);
+    if (mobileFormatted) activeOtpSessions.set(mobileFormatted.toLowerCase(), sessionData);
+
     return sendJSON(res, 200, {
+      success: true,
       message: "OTP sent successfully",
-      target: target,
+      data: {
+        type: "success",
+        message: "OTP sent successfully",
+        mobile: mobileFormatted || rawPhone
+      },
+      target: rawPhone,
       simulationOtp: otpCode
     });
   }
 
-  // 0.2 Verify User OTP (POST /api/users/verify-otp)
-  if (method === 'POST' && pathname === '/api/users/verify-otp') {
+  // MSG91 SMS OTP Service - Verify OTP (POST /api/otp/verify-otp)
+  if (method === 'POST' && (pathname === '/api/otp/verify-otp' || pathname === '/api/users/verify-otp' || pathname === '/api/vendors/verify-otp')) {
     const body = await getRequestBody(req);
-    const target = (body.phone || body.identifier || body.email || '').trim().toLowerCase();
-    const enteredOtp = (body.otp || '').trim();
+    const rawPhone = (body.phone || body.mobile || body.identifier || body.email || '').trim().toLowerCase();
+    const enteredOtp = (body.otp || body.code || '').trim();
 
     if (body.firebase_token) {
-      return sendJSON(res, 200, { message: "OTP verified successfully", valid: true });
+      return sendJSON(res, 200, {
+        success: true,
+        message: "OTP verified successfully",
+        data: {
+          type: "success",
+          message: "OTP verified successfully",
+          mobile: rawPhone
+        },
+        valid: true
+      });
     }
 
-    if (!target && !enteredOtp) {
-      return sendJSON(res, 400, { error: "Phone number or email and OTP are required" });
+    if (!rawPhone || !enteredOtp) {
+      return sendJSON(res, 400, {
+        success: false,
+        message: "Invalid or expired OTP"
+      });
     }
 
-    const session = activeOtpSessions.get(target);
+    const cleanDigits = rawPhone.replace(/[^0-9]/g, '');
+    const mobileFormatted = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
+
+    const session = activeOtpSessions.get(rawPhone) || 
+                    (cleanDigits && activeOtpSessions.get(cleanDigits)) || 
+                    (mobileFormatted && activeOtpSessions.get(mobileFormatted));
+
     if (session && session.otp === enteredOtp) {
-      return sendJSON(res, 200, { message: "OTP verified successfully", valid: true });
+      return sendJSON(res, 200, {
+        success: true,
+        message: "OTP verified successfully",
+        data: {
+          type: "success",
+          message: "OTP verified successfully",
+          mobile: mobileFormatted || rawPhone
+        },
+        valid: true
+      });
     }
 
-    return sendJSON(res, 400, { error: "Invalid OTP code. Please enter the correct verification code." });
+    return sendJSON(res, 400, {
+      success: false,
+      message: "Invalid or expired OTP"
+    });
   }
 
   // 0.3 Resident User Login (POST /api/users/login)

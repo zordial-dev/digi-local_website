@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api, getNormalizedImageUrl } from '../services/api';
-import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle } from 'lucide-react';
+import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import { QRCodeSVG } from 'qrcode.react';
 import { DashboardSkeleton } from '../components/Skeletons';
@@ -60,6 +60,139 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   });
   const [savingSettings, setSavingSettings] = useState(false);
 
+  // New Incoming Order Alert & Audio Chime State
+  const [newOrderAlert, setNewOrderAlert] = useState(null);
+  const knownOrderIdsRef = useRef(new Set());
+  const isFirstLoadRef = useRef(true);
+
+  // Web Audio API Store Counter Bell Synthesizer (Realistic Metallic Bell Ring)
+  const playOrderAlertSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+
+      const playBellNote = (freq, startTime, duration = 0.8) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, startTime);
+        
+        // High frequency sparkle overtone for realistic metal bell ring
+        const overtone = ctx.createOscillator();
+        const overtoneGain = ctx.createGain();
+        overtone.type = 'sine';
+        overtone.frequency.setValueAtTime(freq * 2.76, startTime);
+
+        gain.gain.setValueAtTime(0.5, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+        overtoneGain.gain.setValueAtTime(0.2, startTime);
+        overtoneGain.gain.exponentialRampToValueAtTime(0.0001, startTime + (duration * 0.5));
+
+        osc.connect(gain);
+        overtone.connect(overtoneGain);
+        gain.connect(ctx.destination);
+        overtoneGain.connect(ctx.destination);
+
+        osc.start(startTime);
+        overtone.start(startTime);
+        osc.stop(startTime + duration);
+        overtone.stop(startTime + duration);
+      };
+
+      // Play double-ding store counter bell chime:
+      // Ding 1: 987.77 Hz (B5) at t=0
+      playBellNote(987.77, ctx.currentTime, 0.7);
+      // Ding 2: 1318.51 Hz (E6) at t=0.18s
+      playBellNote(1318.51, ctx.currentTime + 0.18, 1.0);
+      // Ding 3: High Accent 1760 Hz (A6) at t=0.36s
+      playBellNote(1760.00, ctx.currentTime + 0.36, 1.2);
+    } catch (err) {
+      console.warn('Audio bell playback error:', err);
+    }
+  };
+
+  // Real-time Order Alert Listener (Custom Events + Storage Sync + Fast Polling)
+  useEffect(() => {
+    const handleNewOrderSignal = (orderDetail) => {
+      const vId = Number(orderDetail?.vendor_id || orderDetail?.vendorId || 0);
+      const currentVId = Number(vendorId || panelData?.vendor?.vendor_id || 0);
+      
+      if (!vId || vId === currentVId || !currentVId) {
+        playOrderAlertSound();
+        setNewOrderAlert({
+          order_id: orderDetail?.order_id || orderDetail?.id || Math.floor(1000 + Math.random() * 9000),
+          total_amount: orderDetail?.total_amount || orderDetail?.total || 0,
+          resident_name: orderDetail?.resident_name || orderDetail?.customer_name || 'Resident',
+          items_count: orderDetail?.items_count || (orderDetail?.items || []).length || 1,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+        loadPanelData();
+      }
+    };
+
+    // 1. Custom window event (Same-window order placement)
+    const onCustomOrderEvent = (e) => {
+      if (e.detail) handleNewOrderSignal(e.detail);
+    };
+    window.addEventListener('digilocal_new_order', onCustomOrderEvent);
+
+    // 2. Cross-tab localStorage storage event
+    const onStorageEvent = (e) => {
+      if (e.key === 'digilocal_new_order_event' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed) handleNewOrderSignal(parsed);
+        } catch (_) {}
+      }
+    };
+    window.addEventListener('storage', onStorageEvent);
+
+    // 3. Fast Polling every 4 seconds for backend orders
+    let intervalId = null;
+    const checkForNewOrders = async () => {
+      try {
+        const data = await api.getVendorPanel(vendorId);
+        if (data && data.orders) {
+          const currentOrders = data.orders || [];
+          const currentIds = new Set(currentOrders.map((o) => o.order_id));
+
+          if (isFirstLoadRef.current) {
+            knownOrderIdsRef.current = currentIds;
+            isFirstLoadRef.current = false;
+          } else {
+            const newlyArrived = currentOrders.filter((o) => !knownOrderIdsRef.current.has(o.order_id));
+            if (newlyArrived.length > 0) {
+              const latestOrder = newlyArrived[0];
+              playOrderAlertSound();
+              setNewOrderAlert({
+                order_id: latestOrder.order_id,
+                total_amount: latestOrder.total_amount || latestOrder.total || 0,
+                resident_name: latestOrder.resident_name || latestOrder.customer_name || 'Resident',
+                items_count: (latestOrder.items || []).length || 1,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              });
+              knownOrderIdsRef.current = currentIds;
+              setPanelData(data);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Order polling check failed:', err);
+      }
+    };
+
+    checkForNewOrders();
+    intervalId = setInterval(checkForNewOrders, 4000);
+
+    return () => {
+      window.removeEventListener('digilocal_new_order', onCustomOrderEvent);
+      window.removeEventListener('storage', onStorageEvent);
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [vendorId]);
+
   useEffect(() => {
     loadPanelData();
   }, [vendorId]);
@@ -94,25 +227,41 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
   const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
 
+  const isItemAvailable = (item) => {
+    if (!item) return false;
+    const stockNum = parseInt(item.stock ?? 0);
+    if (stockNum <= 0) return false;
+    if (item.is_available === false || item.is_available === 0 || item.is_available === '0' || item.is_available === 'false') {
+      return false;
+    }
+    return true;
+  };
+
   const handleToggleAvailability = async (item, e) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
-    const newAvail = !item.is_available;
+    const currentAvail = isItemAvailable(item);
+    const newAvail = !currentAvail;
+    const stockNum = parseInt(item.stock ?? 0);
+    const newStock = newAvail ? (stockNum <= 0 ? 10 : stockNum) : stockNum;
+
     // Optimistic UI state update so page does not reload
     setPanelData((prev) => {
       if (!prev) return prev;
       const updatedItems = (prev.items || []).map((i) =>
-        i.item_id === item.item_id ? { ...i, is_available: newAvail } : i
+        i.item_id === item.item_id ? { ...i, is_available: newAvail ? 1 : 0, stock: newStock } : i
       );
       return { ...prev, items: updatedItems };
     });
 
     try {
-      await api.updateVendorItem(vendorId, item.item_id, { is_available: newAvail });
+      await api.updateVendorItem(vendorId, item.item_id, {
+        is_available: newAvail ? 1 : 0,
+        stock: newStock
+      });
     } catch (err) {
-      // Revert on error
       loadPanelData();
       setModalConfig({
         isOpen: true,
@@ -126,10 +275,18 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   const handleSaveItem = async (e) => {
     e.preventDefault();
     try {
+      const stockNum = parseInt(itemForm.stock || 0);
+      const isAvail = stockNum > 0 ? (itemForm.is_available !== false && itemForm.is_available !== 0) : false;
+      const payload = {
+        ...itemForm,
+        stock: stockNum,
+        is_available: isAvail ? 1 : 0
+      };
+
       if (editingItem) {
-        await api.updateVendorItem(vendorId, editingItem.item_id, itemForm);
+        await api.updateVendorItem(vendorId, editingItem.item_id, payload);
       } else {
-        await api.addVendorItem(vendorId, itemForm);
+        await api.addVendorItem(vendorId, payload);
       }
       setShowAddItemModal(false);
       setEditingItem(null);
@@ -171,14 +328,18 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
   const handleOpenEditItem = (item) => {
     setEditingItem(item);
+    const stockVal = item.stock !== undefined && item.stock !== null ? String(item.stock) : '10';
+    const stockNum = parseInt(stockVal || 0);
+    const availVal = stockNum > 0 ? (item.is_available !== false && item.is_available !== 0 && item.is_available !== '0' && item.is_available !== 'false') : false;
+
     setItemForm({
       item_name: item.item_name,
       description: item.description || '',
       price: item.price,
-      stock: item.stock !== undefined && item.stock !== null ? String(item.stock) : '10',
+      stock: stockVal,
       category: item.category || 'General',
       unit: item.unit || 'Piece',
-      is_available: Boolean(item.is_available),
+      is_available: availVal,
       image_url: item.image_url || ''
     });
     setShowAddItemModal(true);
@@ -438,10 +599,59 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   const items = deduplicateVendorItems(rawItems);
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20 px-3 sm:px-6">
+    <div className="min-h-screen bg-background text-foreground pb-20 relative">
       
-      {/* Top Banner */}
-      <div className="max-w-6xl mx-auto pt-4 pb-6">
+      {/* Thin Notification Alert Strip Banner for Real Incoming Orders (Left to Right Animation & Stays until closed) */}
+      {newOrderAlert && (
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-emerald-950 via-[#18281F] to-emerald-900 border-b border-emerald-500/30 text-white shadow-xl px-4 py-2.5 sm:px-6 flex items-center justify-between gap-3 animate-in slide-in-from-left duration-500 transform-gpu">
+          <div className="flex items-center space-x-3 min-w-0">
+            <span className="flex h-2.5 w-2.5 relative shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            
+            <div className="p-1 rounded-lg bg-emerald-500/20 text-[#E6C35C] shrink-0 border border-emerald-500/30">
+              <Bell className="w-4 h-4 animate-bounce" />
+            </div>
+
+            <div className="flex items-center space-x-2 text-xs font-semibold truncate">
+              <span className="font-extrabold text-[#E6C35C] uppercase tracking-wider text-[11px] shrink-0">
+                New Order Alert!
+              </span>
+              <span className="text-emerald-200/40 hidden sm:inline">•</span>
+              <span className="truncate">
+                Order <span className="font-mono font-bold text-white">#{newOrderAlert.order_id}</span> — <span className="font-extrabold text-white">₹{newOrderAlert.total_amount}</span> ({newOrderAlert.items_count} items) by <span className="text-emerald-200 font-bold">{newOrderAlert.resident_name}</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 shrink-0">
+            <button
+              onClick={() => {
+                setActiveTab('orders');
+                setNewOrderAlert(null);
+              }}
+              className="px-3 py-1 rounded-full bg-[#E6C35C] hover:bg-[#f0d277] text-[#18281F] font-extrabold text-[11px] flex items-center space-x-1.5 shadow-sm transition-all hover:scale-105 cursor-pointer"
+            >
+              <span>View Order</span>
+              <ArrowRight className="w-3 h-3 text-[#18281F]" />
+            </button>
+
+            <button
+              onClick={() => setNewOrderAlert(null)}
+              className="p-1.5 rounded-full text-emerald-300 hover:text-white hover:bg-emerald-800/50 transition-colors cursor-pointer"
+              title="Close Alert"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Container */}
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-4 pb-20 space-y-6">
+        
+        {/* Top Banner */}
         <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center space-x-5 min-w-0 flex-1">
@@ -449,29 +659,20 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 <img
                   src={getNormalizedImageUrl(vendor.logo || vendor.image_url || localStorage.getItem(`digilocal_vendor_logo_${vendor.vendor_id}`)) || 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=200&auto=format&fit=crop&q=80'}
                   alt={vendor.store_name || ''}
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                  }}
                   className="w-full h-full object-cover"
                 />
-                <div className="hidden absolute inset-0 bg-[#18281F] text-[#C4A066] items-center justify-center">
-                  <Store className="w-8 h-8" />
-                </div>
               </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center space-x-2 mb-1 flex-wrap gap-1">
-                  <span className={`px-3 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${
-                    vendor.status === 'ACTIVE'
-                      ? 'bg-primary/10 text-primary border-primary/20'
-                      : 'bg-gold/10 text-ink border-gold/30'
-                  }`}>
-                    Status: {vendor.status === 'ACTIVE' ? 'ACTIVE (STORE LIVE)' : 'PENDING ADMIN APPROVAL'}
+              <div className="min-w-0">
+                <div className="flex items-center space-x-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-secondary text-ink border border-border">
+                    {vendor.category || 'General Store'}
                   </span>
-                  <span className="text-xs text-muted-foreground font-medium">• {vendor.society_name}</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {vendor.status || 'ACTIVE'}
+                  </span>
                 </div>
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif font-black text-ink uppercase tracking-normal leading-tight break-words">
+                <h1 className="text-2xl sm:text-3xl font-serif font-black text-ink mt-1 truncate">
                   {vendor.store_name}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-1 font-medium truncate">
@@ -483,10 +684,10 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               </div>
             </div>
 
-            <div className="flex items-center space-x-2.5 self-start md:self-auto">
+            <div className="flex items-center space-x-2.5 self-start md:self-auto flex-wrap gap-y-2">
               <button
                 onClick={loadPanelData}
-                className="px-4 py-2.5 rounded-full bg-secondary hover:bg-border text-ink text-xs font-bold flex items-center space-x-2 border border-border shadow-sm uppercase tracking-wider"
+                className="px-4 py-2.5 rounded-full bg-secondary hover:bg-border text-ink text-xs font-bold flex items-center space-x-2 border border-border shadow-sm uppercase tracking-wider cursor-pointer"
               >
                 <RefreshCw className="w-4 h-4 text-gold" />
                 <span>Refresh Panel</span>
@@ -503,51 +704,49 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               </button>
             </div>
           </div>
-
-          {/* Pending Admin Approval Banner */}
-          {vendor.status === 'PENDING' && (
-            <div className="mt-6 p-4 rounded-2xl bg-secondary border border-border text-ink text-xs flex items-start space-x-3 shadow-sm font-medium">
-              <ShieldCheck className="w-5 h-5 text-gold flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-ink text-sm mb-0.5">Store Setup Active (Hidden From Residents Until Approved)</h4>
-                <p className="text-muted-foreground">
-                  Your payment is confirmed! You can add products, set prices, and configure store settings now. Your store will automatically become visible to community residents in <strong>{vendor.society_name}</strong> once DigiLocal Admin approves your subscription request.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Navigation Tabs */}
-          <div className="flex items-center space-x-2 mt-8 border-b border-border overflow-x-auto">
-            {[
-              { id: 'orders', label: `Orders (${orders.length})`, icon: ShoppingBag },
-              { id: 'items', label: `Items (${items.length})`, icon: Package },
-              { id: 'settings', label: 'Store Settings', icon: Settings },
-              { id: 'subscription', label: 'Subscription Plan', icon: CreditCard },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-5 py-3 rounded-t-2xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider ${
-                    activeTab === tab.id
-                      ? 'bg-secondary text-ink border-primary font-black'
-                      : 'text-muted-foreground hover:text-ink border-transparent'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-gold' : ''}`} />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
         </div>
-      </div>
 
+        {/* Pending Admin Approval Banner */}
+        {vendor.status === 'PENDING' && (
+          <div className="p-4 rounded-2xl bg-secondary border border-border text-ink text-xs flex items-start space-x-3 shadow-sm font-medium">
+            <ShieldCheck className="w-5 h-5 text-gold flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-bold text-ink text-sm mb-0.5">Store Setup Active (Hidden From Residents Until Approved)</h4>
+              <p className="text-muted-foreground">
+                Your payment is confirmed! You can add products, set prices, and configure store settings now. Your store will automatically become visible to community residents in <strong>{vendor.society_name}</strong> once DigiLocal Admin approves your subscription request.
+              </p>
+            </div>
+          </div>
+        )}
 
-      {/* Main Tab Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        {/* Navigation Tabs */}
+        <div className="flex items-center space-x-2 border-b border-border overflow-x-auto">
+          {[
+            { id: 'orders', label: `Orders (${orders.length})`, icon: ShoppingBag },
+            { id: 'items', label: `Items (${items.length})`, icon: Package },
+            { id: 'settings', label: 'Store Settings', icon: Settings },
+            { id: 'subscription', label: 'Subscription Plan', icon: CreditCard },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-5 py-3 rounded-t-2xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider ${
+                  activeTab === tab.id
+                    ? 'bg-secondary text-ink border-primary font-black'
+                    : 'text-muted-foreground hover:text-ink border-transparent'
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-gold' : ''}`} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Main Tab Content */}
+        <div className="pt-2">
 
         {/* 1. ORDERS TAB */}
         {activeTab === 'orders' && (
@@ -791,79 +990,89 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
         {/* 2. ITEMS / INVENTORY TAB */}
         {activeTab === 'items' && (
-          <div>
-            <div className="flex items-center justify-between mb-6">
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border/80 rounded-2xl p-5 shadow-xs">
               <div>
-                <h2 className="text-lg font-serif font-bold text-[#0A1428] uppercase tracking-wider">Store Inventory & Availability</h2>
-                <p className="text-xs text-[#787F8C] font-medium">Toggle availability switch to make any item temporarily available/unavailable for customer ordering.</p>
+                <h2 className="text-lg font-serif font-black text-ink uppercase tracking-wider">Store Inventory & Availability</h2>
+                <p className="text-xs text-muted-foreground font-medium mt-0.5">Toggle availability switch to make any item temporarily available/unavailable for customer ordering.</p>
               </div>
 
               <button
                 onClick={() => { resetItemForm(); setEditingItem(null); setShowAddItemModal(true); }}
-                className="px-4 py-2.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md flex items-center space-x-1.5 uppercase tracking-wider"
+                className="px-5 py-2.5 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs shadow-md flex items-center justify-center space-x-2 uppercase tracking-wider shrink-0 transition-all hover:scale-102 cursor-pointer"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4 text-[#E6C35C]" />
                 <span>Add New Item</span>
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4">
+            <div className={`grid gap-5 ${
+              items.length === 1 
+                ? 'grid-cols-1 max-w-md' 
+                : items.length === 2 
+                  ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl' 
+                  : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3'
+            }`}>
               {items.map((item, idx) => (
-                <div key={`item-${item.item_id || idx}-${idx}`} className="rounded-2xl bg-white border border-[#C5A880]/25 p-3.5 flex flex-col justify-between shadow-xs">
+                <div key={`item-${item.item_id || idx}-${idx}`} className="rounded-2xl bg-card border border-border/80 p-4 flex flex-col justify-between shadow-xs hover:shadow-md transition-all duration-200">
                   <div>
-                    <div className="relative mb-2.5 h-32 sm:h-36 rounded-xl overflow-hidden bg-[#FAF9F6]">
+                    <div className="relative mb-3.5 h-44 sm:h-48 w-full rounded-xl overflow-hidden bg-secondary border border-border/40">
                       <img
                         src={getNormalizedImageUrl(item)}
                         alt={item.item_name}
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute top-2 right-2">
-                        <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-white/90 text-[#0A1428] border border-[#C5A880]/30 shadow-xs">
+                      <div className="absolute top-2.5 right-2.5">
+                        <span className="px-2.5 py-1 text-[10px] font-black rounded-full bg-white/95 text-ink border border-border/50 shadow-xs backdrop-blur-xs">
                           {item.category || 'General'}
                         </span>
                       </div>
                     </div>
 
-                    <h3 className="font-bold text-[#0A1428] text-xs sm:text-sm line-clamp-1">{item.item_name}</h3>
-                    <p className="text-[11px] text-[#787F8C] line-clamp-1 mt-0.5 mb-2 font-medium">{item.description}</p>
+                    <h3 className="font-serif font-extrabold text-ink text-base line-clamp-1">{item.item_name}</h3>
+                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5 mb-3 font-medium">{item.description || 'Fresh store product'}</p>
                     
-                    <div className="flex items-center justify-between text-xs mb-3">
-                      <span className="text-sm sm:text-base font-extrabold text-[#C5A880]">₹{parseFloat(item.price).toFixed(2)}</span>
-                      <span className="text-[10px] text-[#787F8C] font-medium">Stock: {item.stock} {item.unit}</span>
+                    <div className="flex items-center justify-between text-xs mb-3.5 pt-2 border-t border-border/40">
+                      <span className="text-base sm:text-lg font-black text-primary">₹{parseFloat(item.price).toFixed(2)}</span>
+                      <span className="text-xs font-bold text-muted-foreground bg-secondary px-2.5 py-1 rounded-full border border-border/60">
+                        Stock: <strong className="text-ink">{item.stock}</strong> {item.unit}
+                      </span>
                     </div>
                   </div>
 
                   {/* ITEM AVAILABILITY TOGGLE SWITCH */}
-                  <div className="pt-3 border-t border-[#C5A880]/15 flex items-center justify-between">
+                  <div className="pt-3 border-t border-border/80 flex items-center justify-between gap-2">
                     <div className="flex items-center space-x-2">
                       <button
                         type="button"
                         onClick={(e) => handleToggleAvailability(item, e)}
                         className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                          item.is_available ? 'bg-[#2E7D32]' : 'bg-slate-300'
+                          isItemAvailable(item) ? 'bg-[#2E7D32]' : 'bg-slate-300'
                         }`}
                       >
                         <span
                           className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
-                            item.is_available ? 'translate-x-5' : 'translate-x-0'
+                            isItemAvailable(item) ? 'translate-x-5' : 'translate-x-0'
                           }`}
                         />
                       </button>
-                      <span className={`text-xs font-bold ${item.is_available ? 'text-[#2E7D32]' : 'text-[#787F8C]'}`}>
-                        {item.is_available ? 'Available' : 'Unavailable'}
+                      <span className={`text-xs font-bold ${isItemAvailable(item) ? 'text-[#2E7D32]' : 'text-slate-500'}`}>
+                        {isItemAvailable(item) ? 'Available' : 'Unavailable'}
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1.5">
                       <button
                         onClick={() => handleOpenEditItem(item)}
-                        className="p-2 rounded-lg bg-[#FAF9F6] hover:bg-[#F6F3EC] text-[#0A1428] transition-colors border border-[#C5A880]/20"
+                        className="p-2 rounded-xl bg-secondary hover:bg-border text-ink transition-colors border border-border/60 cursor-pointer"
+                        title="Edit item"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteItem(item.item_id)}
-                        className="p-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors border border-rose-200"
+                        className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors border border-rose-200 cursor-pointer"
+                        title="Delete item"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1281,6 +1490,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
         )}
 
       </div>
+    </div>
 
       {/* Add / Edit Product Modal (Compact, Sleek & Modern Design) */}
       {showAddItemModal && (

@@ -72,6 +72,11 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
         expiresAt: Date.now() + 86400000
       };
 
+      // Clear any resident user session to enforce single-role isolation
+      localStorage.removeItem('digilocal_user_session');
+      localStorage.removeItem('digilocal_resident_session');
+      if (typeof setActiveUser === 'function') setActiveUser(null);
+
       localStorage.setItem('digilocal_vendor_session', JSON.stringify(session));
       if (setActiveVendor) setActiveVendor(vendorObj);
 
@@ -148,6 +153,12 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
         token: `user_token_${Date.now()}`,
         expiresAt: Date.now() + 86400000
       };
+
+      // Clear any vendor session to enforce single-role isolation
+      localStorage.removeItem('digilocal_vendor_session');
+      localStorage.removeItem('vendor_access_token');
+      localStorage.removeItem('vendor_profile');
+      if (typeof setActiveVendor === 'function') setActiveVendor(null);
 
       localStorage.setItem('digilocal_user_session', JSON.stringify(session));
       localStorage.setItem('digilocal_resident_session', JSON.stringify(residentSession));

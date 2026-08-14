@@ -51,8 +51,8 @@ function getRouteFromPath(path = window.location.pathname) {
   if (cleanPath === '/child-security') {
     return { page: 'info', tab: 'child-security' };
   }
-  if (cleanPath === '/terms-and-conditions' || cleanPath === '/terms') {
-    return { page: 'info', tab: 'terms-and-conditions' };
+  if (cleanPath === '/terms-conditions' || cleanPath === '/terms-and-conditions' || cleanPath === '/terms') {
+    return { page: 'info', tab: 'terms-conditions' };
   }
   if (cleanPath === '/help-support' || cleanPath === '/help' || cleanPath === '/faqs' || cleanPath === '/faq') {
     return { page: 'info', tab: 'help-support' };
@@ -257,7 +257,7 @@ export default function App() {
         )}
 
         {route.page === 'register' && (
-          <RegisterPage currentRoute={route} setRoute={setRoute} setActiveUser={setActiveUser} />
+          <RegisterPage currentRoute={route} setRoute={setRoute} setActiveUser={setActiveUser} setActiveVendor={setActiveVendor} />
         )}
 
         {route.page === 'profile' && (
@@ -288,7 +288,7 @@ export default function App() {
         )}
 
         {route.page === 'vendorRegister' && (
-          <VendorRegisterPage currentRoute={route} setRoute={setRoute} setActiveVendor={setActiveVendor} />
+          <VendorRegisterPage currentRoute={route} setRoute={setRoute} setActiveVendor={setActiveVendor} setActiveUser={setActiveUser} />
         )}
 
         {route.page === 'vendorDashboard' && (
@@ -311,6 +311,10 @@ export default function App() {
 
         {route.page === 'info' && (
           <InfoPages tab={route.tab} setRoute={setRoute} onOpenSupportDesk={() => setIsSupportDeskOpen(true)} />
+        )}
+
+        {!['home', 'login', 'register', 'profile', 'societyVendors', 'vendorStorefront', 'vendorRegister', 'vendorDashboard', 'admin', 'zordial', 'info'].includes(route.page) && (
+          <HomePage currentRoute={route} setRoute={setRoute} onOpenLogin={() => setRoute({ page: 'login' })} />
         )}
       </main>
 

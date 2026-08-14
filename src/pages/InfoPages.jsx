@@ -44,10 +44,32 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
   });
   const [contactSubmitted, setContactSubmitted] = useState(false);
 
-  // Sync state if prop changes
+  // Dynamic CMS & Support Contacts State
+  const [cmsContacts, setCmsContacts] = useState({
+    phone: "+91 800-562-5999",
+    email: "support@digilocal.in",
+    toll_free: "1800-123-4567",
+    whatsapp: "+91 80056 25999",
+    address: "DigiLocal Tech Hub, Tower B, Sector 62, Noida, UP - 201309",
+    working_hours: "Monday to Saturday: 9:00 AM - 8:00 PM IST"
+  });
+  const [cmsPageData, setCmsPageData] = useState(null);
+
+  // Sync state if prop changes & fetch CMS data
   React.useEffect(() => {
     if (tab) setActiveTab(tab);
-  }, [tab]);
+    loadCmsContent(tab || activeTab);
+  }, [tab, activeTab]);
+
+  const loadCmsContent = async (targetTab) => {
+    try {
+      const contacts = await api.getCmsContacts();
+      if (contacts) setCmsContacts(contacts);
+
+      const page = await api.getCmsPage(targetTab);
+      if (page) setCmsPageData(page);
+    } catch (_) {}
+  };
 
   const navTabs = [
     { id: 'about-us', title: 'Our Story & Vision', icon: HeartHandshake, category: 'About DigiLocal' },
@@ -1044,45 +1066,66 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                           </button>
                         </form>
                       )}
-                    </div>
-
-                    {/* Direct Support Desk Cards */}
+                      {/* Direct Support Desk Cards */}
                     <div className="space-y-3">
                       <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center gap-2">
-                        <PhoneCall className="w-4 h-4 text-[#C4A066]" /> Direct Channels
+                        <PhoneCall className="w-4 h-4 text-[#C4A066]" /> Direct Contact Channels
                       </h3>
 
                       <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
                         <div className="flex items-center space-x-2 text-xs font-bold text-[#18281F]">
-                          <Mail className="w-4 h-4 text-[#C4A066]" />
-                          <span>Email Support Desk</span>
+                          <PhoneCall className="w-4 h-4 text-[#C4A066]" />
+                          <span>Customer Helpline Hotline</span>
                         </div>
-                        <p className="text-[11px] text-[#6B7C70]">For official inquiries, society onboarding, or vendor disputes:</p>
-                        <a href="mailto:support@digilocal.network" className="text-xs font-bold text-[#18281F] hover:text-[#C4A066] block">
-                          support@digilocal.network
+                        <a href={`tel:${cmsContacts.phone}`} className="text-xs font-bold text-[#18281F] hover:text-[#C4A066] block">
+                          {cmsContacts.phone || '+91 800-562-5999'}
                         </a>
+                        {cmsContacts.toll_free && (
+                          <p className="text-[11px] text-[#6B7C70]">Toll-Free: <strong className="text-ink">{cmsContacts.toll_free}</strong></p>
+                        )}
                       </div>
 
                       <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
                         <div className="flex items-center space-x-2 text-xs font-bold text-[#18281F]">
-                          <Clock className="w-4 h-4 text-[#C4A066]" />
-                          <span>Support Hours</span>
+                          <Mail className="w-4 h-4 text-[#C4A066]" />
+                          <span>Official Email Support Desk</span>
                         </div>
-                        <p className="text-[11px] text-[#6B7C70]">Monday – Sunday</p>
-                        <p className="text-xs font-bold text-[#18281F]">8:00 AM – 9:00 PM IST</p>
+                        <p className="text-[11px] text-[#6B7C70]">For official inquiries, society onboarding, or vendor dispute mediation:</p>
+                        <a href={`mailto:${cmsContacts.email}`} className="text-xs font-bold text-[#18281F] hover:text-[#C4A066] block">
+                          {cmsContacts.email || 'support@digilocal.in'}
+                        </a>
                       </div>
 
-                      <div className="p-4 rounded-2xl bg-emerald-900 text-[#F7F4EE] space-y-2">
-                        <div className="flex items-center space-x-2 text-xs font-bold text-[#C4A066]">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Quick Response Guarantee</span>
+                      {cmsContacts.whatsapp && (
+                        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-1">
+                          <div className="flex items-center space-x-2 text-xs font-bold text-emerald-900">
+                            <MessageSquare className="w-4 h-4 text-emerald-600" />
+                            <span>WhatsApp Support Desk</span>
+                          </div>
+                          <a href={`https://wa.me/${cmsContacts.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-emerald-800 hover:underline block">
+                            {cmsContacts.whatsapp}
+                          </a>
                         </div>
-                        <p className="text-[11px] text-emerald-200/80">Support ticket responses within 2 hours during active hours.</p>
-                        <span className="inline-block text-xs font-bold text-white bg-emerald-800/80 px-3 py-1 rounded-full border border-emerald-700/60">
-                          Fast Ticket Resolution
-                        </span>
+                      )}
+
+                      <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
+                        <div className="flex items-center space-x-2 text-xs font-bold text-[#18281F]">
+                          <Clock className="w-4 h-4 text-[#C4A066]" />
+                          <span>Working Hours</span>
+                        </div>
+                        <p className="text-xs font-bold text-[#18281F]">{cmsContacts.working_hours || 'Monday to Saturday | 9:00 AM - 8:00 PM IST'}</p>
                       </div>
-                    </div>
+
+                      {cmsContacts.address && (
+                        <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-1">
+                          <div className="flex items-center space-x-2 text-xs font-bold text-[#18281F]">
+                            <Building className="w-4 h-4 text-[#C4A066]" />
+                            <span>Corporate Headquarters</span>
+                          </div>
+                          <p className="text-[11px] text-[#6B7C70] leading-relaxed">{cmsContacts.address}</p>
+                        </div>
+                      )}
+                    </div>              </div>
 
                   </div>
 

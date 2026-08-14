@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api, getSocietyImage } from '../services/api';
-import { ShieldCheck, Search, Check, Store, Calendar, CreditCard, ChevronDown, ChevronUp, User, MapPin, Clock, RefreshCw, Building2, Plus, X, Image, LogOut } from 'lucide-react';
+import { ShieldCheck, Search, Check, Store, Calendar, CreditCard, ChevronDown, ChevronUp, User, MapPin, Clock, RefreshCw, Building2, Plus, X, Image, LogOut, FileText, Headphones, PhoneCall, Mail } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import { VendorCardSkeleton, TableRowSkeleton } from '../components/Skeletons';
 
@@ -23,6 +23,24 @@ export default function AdminDashboardPage({ setRoute }) {
   const [platformNameInput, setPlatformNameInput] = useState('DigiLocal');
   const [savingLogo, setSavingLogo] = useState(false);
 
+  // CMS & Support Contacts Manager State
+  const [supportContacts, setSupportContacts] = useState({
+    phone: "+91 800-562-5999",
+    email: "support@digilocal.in",
+    toll_free: "1800-123-4567",
+    whatsapp: "+91 80056 25999",
+    address: "DigiLocal Tech Hub, Tower B, Sector 62, Noida, UP - 201309",
+    working_hours: "Monday to Saturday: 9:00 AM - 8:00 PM IST"
+  });
+  const [selectedCmsSlug, setSelectedCmsSlug] = useState('help-support');
+  const [cmsForm, setCmsForm] = useState({
+    title: '',
+    meta_description: '',
+    content: ''
+  });
+  const [savingCms, setSavingCms] = useState(false);
+  const [savingContacts, setSavingContacts] = useState(false);
+
   useEffect(() => {
     loadLogoConfig();
   }, []);
@@ -34,10 +52,79 @@ export default function AdminDashboardPage({ setRoute }) {
       loadVendors(search);
     } else if (activeTab === 'societies') {
       loadSocieties(search);
+    } else if (activeTab === 'cms') {
+      loadCmsData();
     } else if (activeTab === 'branding') {
       setLoading(false);
     }
-  }, [activeTab, search]);
+  }, [activeTab, search, selectedCmsSlug]);
+
+  const loadCmsData = async () => {
+    try {
+      setLoading(true);
+      const contacts = await api.getCmsContacts();
+      if (contacts) setSupportContacts(contacts);
+
+      const page = await api.getCmsPage(selectedCmsSlug);
+      if (page) {
+        setCmsForm({
+          title: page.title || '',
+          meta_description: page.meta_description || '',
+          content: page.content || ''
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load CMS data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveSupportContacts = async (e) => {
+    e.preventDefault();
+    try {
+      setSavingContacts(true);
+      const res = await api.updateSupportContacts(supportContacts);
+      setModalConfig({
+        isOpen: true,
+        title: 'Support Contacts Saved!',
+        message: res.message || 'Support contact information updated successfully in database.',
+        type: 'success'
+      });
+    } catch (err) {
+      setModalConfig({
+        isOpen: true,
+        title: 'Save Contacts Error',
+        message: err.message || 'Failed to update support contact details.',
+        type: 'error'
+      });
+    } finally {
+      setSavingContacts(false);
+    }
+  };
+
+  const handleSaveCmsPage = async (e) => {
+    e.preventDefault();
+    try {
+      setSavingCms(true);
+      const res = await api.updateCmsPage(selectedCmsSlug, cmsForm);
+      setModalConfig({
+        isOpen: true,
+        title: 'CMS Page Saved!',
+        message: res.message || `CMS Page [${selectedCmsSlug}] updated successfully in database.`,
+        type: 'success'
+      });
+    } catch (err) {
+      setModalConfig({
+        isOpen: true,
+        title: 'CMS Page Save Error',
+        message: err.message || 'Failed to update CMS page content.',
+        type: 'error'
+      });
+    } finally {
+      setSavingCms(false);
+    }
+  };
 
   const loadLogoConfig = async () => {
     try {
@@ -282,6 +369,18 @@ export default function AdminDashboardPage({ setRoute }) {
             >
               <Image className="w-4 h-4 text-[#C5A880]" />
               <span>Platform Logo & Branding</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('cms')}
+              className={`px-5 py-3 rounded-t-xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider ${
+                activeTab === 'cms'
+                  ? 'bg-[#F6F3EC] text-[#0A1428] border-[#0A1428] font-extrabold'
+                  : 'text-[#787F8C] hover:text-[#0A1428] border-transparent'
+              }`}
+            >
+              <FileText className="w-4 h-4 text-[#C5A880]" />
+              <span>CMS & Support Contacts</span>
             </button>
           </div>
         </div>
@@ -689,6 +788,193 @@ export default function AdminDashboardPage({ setRoute }) {
                 {savingLogo ? 'Updating Platform Logo...' : 'Save Platform Logo'}
               </button>
             </form>
+          </div>
+        )}
+
+        {/* 5. CMS & SUPPORT CONTACTS MANAGEMENT */}
+        {activeTab === 'cms' && (
+          <div className="space-y-8">
+            <div className="mb-2">
+              <h2 className="text-lg font-serif font-bold text-[#0A1428] uppercase tracking-wider">CMS & Support Contacts Management</h2>
+              <p className="text-xs text-[#787F8C] font-medium">Manage legal pages content (Privacy Policy, Terms & Conditions, Help & Support, About Us) and customer support helpline contacts persisted in PostgreSQL database.</p>
+            </div>
+
+            {/* SECTION 1: SUPPORT CONTACT DETAILS EDITOR */}
+            <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="border-b border-[#C5A880]/15 pb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-serif font-bold text-[#0A1428] uppercase flex items-center gap-2">
+                    <PhoneCall className="w-4.5 h-4.5 text-[#C5A880]" />
+                    <span>Support Contact Details (PUT /api/cms/contacts)</span>
+                  </h3>
+                  <p className="text-xs text-[#787F8C] mt-0.5 font-medium">Phone helpline, email, toll-free number, WhatsApp support, working hours & corporate address.</p>
+                </div>
+                <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-[10px] font-black uppercase rounded-full border border-emerald-300">
+                  Database Persisted
+                </span>
+              </div>
+
+              <form onSubmit={handleSaveSupportContacts} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Helpline Phone *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="+91 800-562-5999"
+                      value={supportContacts.phone}
+                      onChange={(e) => setSupportContacts({ ...supportContacts, phone: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Official Support Email *</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="support@digilocal.in"
+                      value={supportContacts.email}
+                      onChange={(e) => setSupportContacts({ ...supportContacts, email: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Toll-Free Number</label>
+                    <input
+                      type="text"
+                      placeholder="1800-123-4567"
+                      value={supportContacts.toll_free}
+                      onChange={(e) => setSupportContacts({ ...supportContacts, toll_free: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">WhatsApp Support Number</label>
+                    <input
+                      type="text"
+                      placeholder="+91 80056 25999"
+                      value={supportContacts.whatsapp}
+                      onChange={(e) => setSupportContacts({ ...supportContacts, whatsapp: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Working Hours</label>
+                  <input
+                    type="text"
+                    placeholder="Monday to Saturday: 9:00 AM - 8:00 PM IST"
+                    value={supportContacts.working_hours}
+                    onChange={(e) => setSupportContacts({ ...supportContacts, working_hours: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Corporate Address</label>
+                  <textarea
+                    rows={2}
+                    placeholder="DigiLocal Tech Hub, Tower B, Sector 62, Noida, UP - 201309"
+                    value={supportContacts.address}
+                    onChange={(e) => setSupportContacts({ ...supportContacts, address: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingContacts}
+                  className="px-6 py-3 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  {savingContacts ? 'Saving Support Contacts...' : 'Save Support Contacts'}
+                </button>
+              </form>
+            </div>
+
+            {/* SECTION 2: CMS & LEGAL PAGES MARKDOWN EDITOR */}
+            <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="border-b border-[#C5A880]/15 pb-4">
+                <h3 className="text-base font-serif font-bold text-[#0A1428] uppercase flex items-center gap-2">
+                  <FileText className="w-4.5 h-4.5 text-[#C5A880]" />
+                  <span>CMS Page Content Editor (PUT /api/cms/pages/:slug)</span>
+                </h3>
+                <p className="text-xs text-[#787F8C] mt-0.5 font-medium">Select page slug and edit title, meta description, and markdown document content.</p>
+              </div>
+
+              {/* Page Slug Selector Tabs */}
+              <div className="flex items-center space-x-2 border-b border-[#C5A880]/20 overflow-x-auto pb-1">
+                {[
+                  { slug: 'help-support', label: 'Help & Support' },
+                  { slug: 'about-us', label: 'About Us' },
+                  { slug: 'privacy-policy', label: 'Privacy Policy' },
+                  { slug: 'terms-conditions', label: 'Terms & Conditions' },
+                ].map((tab) => (
+                  <button
+                    key={tab.slug}
+                    type="button"
+                    onClick={() => setSelectedCmsSlug(tab.slug)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-wider ${
+                      selectedCmsSlug === tab.slug
+                        ? 'bg-[#0A1428] text-white shadow-sm'
+                        : 'bg-[#F6F3EC] text-[#787F8C] hover:text-[#0A1428]'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={handleSaveCmsPage} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Page Title *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Help & Support Center"
+                    value={cmsForm.title}
+                    onChange={(e) => setCmsForm({ ...cmsForm, title: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Meta Description</label>
+                  <input
+                    type="text"
+                    placeholder="Meta description for SEO search engines..."
+                    value={cmsForm.meta_description}
+                    onChange={(e) => setCmsForm({ ...cmsForm, meta_description: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Page Content (Markdown / Text) *</label>
+                  <textarea
+                    rows={12}
+                    required
+                    placeholder="# Page Heading..."
+                    value={cmsForm.content}
+                    onChange={(e) => setCmsForm({ ...cmsForm, content: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-mono text-[#0A1428] focus:outline-none focus:border-[#C5A880] leading-relaxed"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingCms}
+                  className="px-6 py-3 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  {savingCms ? `Saving [${selectedCmsSlug}]...` : `Save Page Content [${selectedCmsSlug}]`}
+                </button>
+              </form>
+            </div>
           </div>
         )}
 

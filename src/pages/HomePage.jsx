@@ -245,14 +245,14 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
     <div className="w-full bg-[#EDEDE4] text-foreground pb-12 px-1.5 sm:px-3 lg:px-4 font-sans -mt-px">
 
       {/* Outer Dark Green Bento Container wrapping Hero section */}
-      <div className="max-w-[1440px] mx-auto bg-[#34533C] text-white rounded-b-[2.5rem] sm:rounded-b-[2.8rem] lg:rounded-b-[3rem] px-3 sm:px-4 lg:px-5 pb-3 sm:pb-4 mb-10 shadow-md">
+      <div className="max-w-7xl mx-auto bg-[#34533C] text-white rounded-b-[2.5rem] sm:rounded-b-[2.8rem] lg:rounded-b-[3rem] px-3 sm:px-4 lg:px-5 pb-3 sm:pb-4 mb-8 shadow-md">
 
         {/* Main Off-White Hero Section Container (Merged with Logo Tab) */}
         <div className="bg-[#EDEDE4] text-[#1E3623] rounded-tl-none rounded-tr-[2rem] sm:rounded-tr-[2.4rem] lg:rounded-tr-[2.6rem] rounded-b-[2rem] sm:rounded-b-[2.4rem] lg:rounded-b-[2.6rem] pt-6 sm:pt-8 pb-8 sm:pb-10 px-6 sm:px-10 lg:px-12 relative overflow-hidden shadow-xs">
 
 
           {/* Main 2-Column Hero Grid shifted slightly inner */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center max-w-[1360px] mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-center max-w-7xl mx-auto">
 
             {/* Left Column - Hero Copy & Action Buttons */}
             <div className="lg:col-span-6 space-y-6">
@@ -387,7 +387,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
 
 
       {/* 3-Column Bottom Bento Grid */}
-      <div className="max-w-[1440px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 mb-6">
 
         {/* Card 1: Verified Stores */}
         <div className="lg:col-span-4 bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 shadow-sm flex flex-col justify-between relative overflow-hidden group min-h-[220px]">
@@ -537,44 +537,44 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
       </div>
 
       {/* Bottom Trust Badges Bar */}
-      <div className="bg-card border border-border rounded-3xl p-5 shadow-sm grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="flex items-center space-x-3 border-r border-border/50 pr-4 last:border-none">
-          <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-foreground flex-shrink-0">
-            <ShieldCheck className="w-4.5 h-4.5 text-foreground" />
+      <div className="max-w-4xl mx-auto bg-card border border-border rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 shadow-sm grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 my-6">
+        <div className="flex items-center space-x-2.5 sm:space-x-3 border-r border-border/40 pr-2 sm:pr-4 justify-center">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-secondary flex items-center justify-center text-foreground flex-shrink-0">
+            <ShieldCheck className="w-4 h-4 text-foreground" />
           </div>
           <div>
-            <h5 className="text-xs font-bold text-ink">Verified Vendors</h5>
-            <p className="text-[10px] text-muted-foreground font-normal">100% Verified & Reliable</p>
+            <h5 className="text-[11px] sm:text-xs font-bold text-ink whitespace-nowrap">Verified Vendors</h5>
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground font-normal whitespace-nowrap">100% Verified & Reliable</p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3 border-r border-border/50 pr-4 last:border-none">
-          <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-foreground flex-shrink-0">
-            <Lock className="w-4.5 h-4.5 text-foreground" />
+        <div className="flex items-center space-x-2.5 sm:space-x-3 md:border-r border-border/40 pr-2 sm:pr-4 justify-center">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-secondary flex items-center justify-center text-foreground flex-shrink-0">
+            <Lock className="w-4 h-4 text-foreground" />
           </div>
           <div>
-            <h5 className="text-xs font-bold text-ink">Safe Payments</h5>
-            <p className="text-[10px] text-muted-foreground font-normal">Secure & Hassle-free</p>
+            <h5 className="text-[11px] sm:text-xs font-bold text-ink whitespace-nowrap">Safe Payments</h5>
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground font-normal whitespace-nowrap">Secure & Hassle-free</p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3 border-r border-border/50 pr-4 last:border-none">
-          <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-foreground flex-shrink-0">
-            <Headphones className="w-4.5 h-4.5 text-foreground" />
+        <div className="flex items-center space-x-2.5 sm:space-x-3 border-r border-border/40 pr-2 sm:pr-4 justify-center">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-secondary flex items-center justify-center text-foreground flex-shrink-0">
+            <Headphones className="w-4 h-4 text-foreground" />
           </div>
           <div>
-            <h5 className="text-xs font-bold text-ink">24/7 Support</h5>
-            <p className="text-[10px] text-muted-foreground font-normal">We're here to help</p>
+            <h5 className="text-[11px] sm:text-xs font-bold text-ink whitespace-nowrap">24/7 Support</h5>
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground font-normal whitespace-nowrap">We're here to help</p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-foreground flex-shrink-0">
-            <Star className="w-4.5 h-4.5 text-foreground" />
+        <div className="flex items-center space-x-2.5 sm:space-x-3 justify-center">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-secondary flex items-center justify-center text-foreground flex-shrink-0">
+            <Star className="w-4 h-4 text-foreground" />
           </div>
           <div>
-            <h5 className="text-xs font-bold text-ink">Best Quality</h5>
-            <p className="text-[10px] text-muted-foreground font-normal">Quality you can trust</p>
+            <h5 className="text-[11px] sm:text-xs font-bold text-ink whitespace-nowrap">Best Quality</h5>
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground font-normal whitespace-nowrap">Quality you can trust</p>
           </div>
         </div>
       </div>
@@ -734,7 +734,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
 
         {/* Skeleton Loading */}
         {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <SocietyCardSkeleton key={i} />
             ))}
@@ -774,7 +774,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
 
         {/* Societies Bento Grid */}
         {!loading && societies.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {societies.map((soc, idx) => {
               const socImg = getSocietyImage(soc, idx);
               const formattedId = typeof soc.society_id === 'number' 
