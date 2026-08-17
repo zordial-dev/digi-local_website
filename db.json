@@ -386,6 +386,17 @@
       "society_name": "Omaxe Greenwood Residency",
       "flat": "Tower A-402",
       "joined_date": "August 2026"
+    },
+    {
+      "user_id": "usr_475205",
+      "name": "Resident 0742",
+      "email": "",
+      "phone": "9571240742",
+      "society_id": "1",
+      "society_name": "Omaxe Greenwood Residency",
+      "flat": "Tower A-402",
+      "joined_date": "August 2026",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
     }
   ],
   "orders": [
@@ -681,5 +692,60 @@
     "max_upload_size_mb": 10,
     "default_currency": "INR",
     "timezone": "Asia/Kolkata"
+  },
+  "cmsPages": {
+    "help-support": {
+      "slug": "help-support",
+      "title": "Help & Support Center",
+      "meta_description": "Official DigiLocal Help & Support, FAQ, Order Assistance, and Customer Service Contacts.",
+      "content": "# DigiLocal Help & Support Center\n\nWelcome to the DigiLocal Help & Support Center. We are here to assist residents, apartment owners, and verified local merchants with instant support.\n\n## 📞 Quick Contact Information\n- **Support Hotline**: +91 800-562-5999\n- **Official Email**: support@digilocal.in\n- **Toll-Free Helpline**: 1800-123-4567\n- **WhatsApp Instant Support**: +91 80056 25999\n- **Working Hours**: Monday to Saturday: 9:00 AM - 8:00 PM IST\n- **Corporate Address**: DigiLocal Tech Hub, Tower B, Sector 62, Noida, UP - 201309\n\n## ❓ Frequently Asked Questions\n\n### 1. How does DigiLocal delivery work?\nDigiLocal connects residents with verified local merchants operating inside or near your residential housing society. Orders are delivered directly to your doorstep in 10-15 minutes.\n\n### 2. How can I contact a vendor directly?\nEach store storefront on DigiLocal includes a direct phone call button and instant WhatsApp order placement link for fast communication.\n\n### 3. What if my order has missing or damaged items?\nYou can raise an instant support ticket from your User Profile under \"Orders & Support\" or contact our helpline at +91 800-562-5999.\n\n### 4. How do local vendors register on DigiLocal?\nLocal store owners can click on \"Register as Vendor\", select their housing society, fill in GST & store details, choose a subscription plan, and submit for DigiLocal Admin approval.",
+      "phone": "+91 800-562-5999",
+      "email": "support@digilocal.in",
+      "updated_at": "2026-08-14T10:30:00.000Z"
+    },
+    "about-us": {
+      "slug": "about-us",
+      "title": "About DigiLocal",
+      "meta_description": "Learn about DigiLocal, India premier hyperlocal enclave e-commerce and residential merchant ecosystem.",
+      "content": "# About DigiLocal\n\nDigiLocal is India's premier Hyperlocal Enclave E-Commerce Platform built exclusively for gated residential societies, apartment enclaves, and neighborhood community ecosystems.\n\n## 🚀 Our Mission\nOur mission is to empower neighborhood micro-entrepreneurs, home bakers, local grocers, florists, and artisans by connecting them directly with residents living in nearby housing societies.\n\n## 🌟 Why DigiLocal?\n- **10-15 Min Hyperlocal Delivery**: Sourced from verified vendors within or adjacent to your gated enclave.\n- **Direct WhatsApp Ordering**: Connect directly with trusted shop owners.\n- **Zero Middleman Markup**: Transparent pricing directly set by verified local vendors.\n- **Community Trust**: Verified resident reviews and admin-approved store onboarding.",
+      "phone": "+91 800-562-5999",
+      "email": "support@digilocal.in",
+      "updated_at": "2026-08-14T10:30:00.000Z"
+    },
+    "privacy-policy": {
+      "slug": "privacy-policy",
+      "title": "Privacy Policy",
+      "meta_description": "DigiLocal Privacy Policy detailing data protection, encryption, user consent, and security standards.",
+      "content": "# DigiLocal Privacy Policy\n\n**Effective Date**: August 14, 2026\n\nAt DigiLocal, protecting customer and merchant data is our highest priority. This Privacy Policy outlines how we collect, process, encrypt, and safeguard your personal information when you use the DigiLocal web application and services.\n\n## 🔒 1. Information We Collect\n- **Resident Account Data**: Name, mobile phone number, email address, society name, tower & flat number.\n- **Vendor Store Data**: Store name, merchant owner name, business email, contact phone, GSTIN number, shop address.\n- **Order & Transaction Records**: Items ordered, payment method, transaction references, delivery instructions.\n\n## 🛡️ 2. How We Use Your Information\n- Facilitating hyperlocal order dispatch and delivery inside your residential society.\n- Enabling WhatsApp direct communication between residents and local vendors.\n- Sending real-time SMS order status alerts and subscription invoice receipts.\n- Preventing fraudulent store registrations and protecting community security.",
+      "phone": "+91 800-562-5999",
+      "email": "support@digilocal.in",
+      "updated_at": "2026-08-14T10:30:00.000Z"
+    },
+    "terms-conditions": {
+      "slug": "terms-conditions",
+      "title": "Terms & Conditions",
+      "meta_description": "DigiLocal Terms & Conditions of Service for residents, customers, and vendor merchants.",
+      "content": "# DigiLocal Terms & Conditions\n\n**Effective Date**: August 14, 2026\n\nWelcome to DigiLocal! These Terms and Conditions govern your access to and use of the DigiLocal website, resident ordering portal, vendor management dashboard, and admin control suite.\n\n## 📜 1. Acceptance of Terms\nBy registering an account, placing an order, or listing a store on DigiLocal, you agree to be bound by these Terms & Conditions and our Privacy Policy.\n\n## 🏘️ 2. Resident User Responsibilities\n- Residents must provide accurate society, tower, and flat address information for seamless delivery.\n- Orders placed via DigiLocal are subject to store availability and operating hours set by local vendors.\n\n## 🏪 3. Vendor Merchant Guidelines\n- Vendors must hold valid GST or local trade permits and maintain fresh product quality.\n- Subscription fees paid for DigiLocal vendor panel access are non-refundable once approved by Admin.",
+      "phone": "+91 800-562-5999",
+      "email": "support@digilocal.in",
+      "updated_at": "2026-08-14T10:30:00.000Z"
+    },
+    "how-it-works": {
+      "slug": "how-it-works",
+      "title": "How DigiLocal Works",
+      "meta_description": "Understand how DigiLocal connects housing society residents with verified local merchants.",
+      "content": "# How DigiLocal Works\n\nDigiLocal simplifies hyperlocal ordering within gated residential societies in 3 easy steps:\n\n1. **Select Your Housing Society**: Choose your residential complex to view approved local store vendors.\n2. **Browse Stores & Products**: Explore groceries, fresh produce, bakeries, pharmacy, services & daily essentials.\n3. **Order & Enjoy 10-15 Min Doorstep Delivery**: Order directly via WhatsApp or online checkout.",
+      "phone": "+91 800-562-5999",
+      "email": "support@digilocal.in",
+      "updated_at": "2026-08-14T10:30:00.000Z"
+    }
+  },
+  "supportContacts": {
+    "phone": "+91 800-562-5999",
+    "email": "support@digilocal.in",
+    "toll_free": "1800-123-4567",
+    "whatsapp": "+91 80056 25999",
+    "address": "DigiLocal Tech Hub, Tower B, Sector 62, Noida, UP - 201309",
+    "working_hours": "Monday to Saturday: 9:00 AM - 8:00 PM IST"
   }
 }

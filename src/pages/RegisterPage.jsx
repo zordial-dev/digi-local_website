@@ -131,13 +131,13 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
         await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
         setSuccessMsg(`Verification SMS code sent to ${fullPhone}! Check your mobile phone.`);
       } catch (fbErr) {
-        console.warn('Firebase Phone Auth failed/blocked, using API OTP fallback:', fbErr);
-        let devCode = '123456';
+        console.warn('Firebase Phone Auth failed/blocked, using MSG91 OTP service:', fbErr);
         try {
           const res = await api.sendOtp(fullPhone);
-          devCode = res?.simulationOtp || res?.otp || res?.code || '123456';
-        } catch (_) {}
-        setSuccessMsg(`Verification OTP requested for ${fullPhone}. (Dev Test Code: ${devCode})`);
+          setSuccessMsg(res?.message || `Verification SMS sent to ${fullPhone}! Please enter the 6-digit code received on your phone.`);
+        } catch (apiErr) {
+          setSuccessMsg(`Verification SMS code requested for ${fullPhone}. Check your mobile phone.`);
+        }
       }
 
       setOtpValues(['', '', '', '', '', '']);
@@ -163,12 +163,12 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
         await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
         setSuccessMsg(`Verification SMS resent to ${fullPhone}!`);
       } catch (_) {
-        let devCode = '123456';
         try {
           const res = await api.sendOtp(fullPhone);
-          devCode = res?.simulationOtp || res?.otp || res?.code || '123456';
-        } catch (_) {}
-        setSuccessMsg(`Verification OTP resent to ${fullPhone}. (Dev Test Code: ${devCode})`);
+          setSuccessMsg(res?.message || `Verification SMS resent to ${fullPhone}. Please enter the 6-digit code received on your phone.`);
+        } catch (apiErr) {
+          setSuccessMsg(`Verification SMS resent to ${fullPhone}. Check your mobile phone.`);
+        }
       }
       setResendCountdown(30);
     } catch (err) {

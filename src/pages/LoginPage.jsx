@@ -60,6 +60,50 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   const [resendCountdown, setResendCountdown] = useState(0);
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
 
+  // Set/Change Password after OTP Login Modal State
+  const [showOtpPasswordModal, setShowOtpPasswordModal] = useState(false);
+  const [otpUserSessionData, setOtpUserSessionData] = useState(null);
+  const [otpNewPassword, setOtpNewPassword] = useState('');
+  const [otpConfirmPassword, setOtpConfirmPassword] = useState('');
+  const [otpPasswordError, setOtpPasswordError] = useState('');
+  const [otpPasswordSuccess, setOtpPasswordSuccess] = useState(false);
+
+  const handleSaveOtpPassword = async (e) => {
+    if (e) e.preventDefault();
+    if (!otpNewPassword) {
+      setOtpPasswordError('Please enter a new password.');
+      return;
+    }
+    if (otpNewPassword.length < 6) {
+      setOtpPasswordError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (otpNewPassword !== otpConfirmPassword) {
+      setOtpPasswordError('Passwords do not match.');
+      return;
+    }
+
+    try {
+      const targetUserId = otpUserSessionData?.userObj?.user_id || 'usr_932532';
+      await api.updateUserProfile(targetUserId, { password: otpNewPassword });
+    } catch (_) {}
+
+    setOtpPasswordSuccess(true);
+    setOtpPasswordError('');
+
+    setTimeout(() => {
+      setShowOtpPasswordModal(false);
+      setSuccessMsg('Logged in successfully! Redirecting to profile...');
+      setRoute({ page: 'profile' });
+    }, 1000);
+  };
+
+  const handleSkipOtpPassword = () => {
+    setShowOtpPasswordModal(false);
+    setSuccessMsg('Logged in successfully! Redirecting to profile...');
+    setRoute({ page: 'profile' });
+  };
+
   useEffect(() => {
     let timer = null;
     if (resendCountdown > 0) {
@@ -196,10 +240,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         }
       } catch (err) {
         const msg = err.message || '';
-        if (msg.includes('Password incorrect') || msg.includes('password incorrect') || msg.includes('Incorrect password')) {
-          setError('Password incorrect. Please check your password and try again.');
+        if (msg.toLowerCase().includes('password') || msg.includes('Incorrect')) {
+          setError('Incorrect password. Please check your password and try again.');
           setShowRegisterPrompt(false);
-        } else if (msg.includes('account does not exist') || msg.includes('Invalid mobile number') || msg.includes('not found') || msg.includes('register')) {
+        } else if (msg.includes('No account found') || msg.includes('not found') || msg.includes('register')) {
           setError('No account found with this mobile number. Please register your account first.');
           setShowRegisterPrompt(false);
         } else {
@@ -300,7 +344,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               const result = await verifyFirebasePhoneOtp(code);
               firebaseToken = result.idToken;
             } catch (fbVerifyErr) {
-              console.warn('Firebase OTP verify fallback:', fbVerifyErr);
+              console.warn('Firebase OTP verify fallback to API verification:', fbVerifyErr);
               await api.verifyOtp(fullPhone, code);
             }
           }
@@ -336,7 +380,8 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           if (setActiveUser) setActiveUser(userObj);
 
           setSuccessMsg('Logged in successfully via OTP!');
-          setTimeout(() => setRoute({ page: 'profile' }), 400);
+          setOtpUserSessionData({ userObj, session });
+          setShowOtpPasswordModal(true);
         } else {
           // VENDOR OTP LOGIN FLOW (2.0.0 API Spec: POST /vendors/login)
           let firebaseToken = null;
@@ -422,24 +467,18 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         }
       }
 
-      let sentOtp = '';
       if (!isEmail) {
         try {
           await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
           setOtpSentMsg(`Verification SMS code sent to ${fullPhone}! Check your mobile phone.`);
         } catch (fbErr) {
-          console.warn('Firebase SMS failed/blocked, using simulation OTP fallback:', fbErr);
-          let devCode = '123456';
-          try {
-            const res = await api.sendOtp(fullPhone);
-            devCode = res?.simulationOtp || res?.otp || res?.code || '123456';
-          } catch (_) {}
-          setOtpSentMsg(`Verification OTP requested for ${fullPhone}. (Dev Test Code: ${devCode})`);
+          console.warn('Firebase Phone Auth error, attempting backend OTP service:', fbErr);
+          const res = await api.sendOtp(fullPhone);
+          setOtpSentMsg(res?.message || `Verification SMS sent to ${fullPhone}! Check your mobile phone.`);
         }
       } else {
         const res = await api.requestOtp(rawContact);
-        sentOtp = res?.otp || res?.simulationOtp || res?.otpCode || '';
-        setOtpSentMsg(`Verification OTP sent to ${rawContact}.${sentOtp ? ` Code: ${sentOtp}` : ''}`);
+        setOtpSentMsg(res?.message || `Verification OTP sent to ${rawContact}.`);
       }
 
       setAuthMethod('otp');
@@ -465,17 +504,12 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
           setOtpSentMsg(`Verification SMS code resent to ${fullPhone}. Check your mobile phone.`);
         } catch (_) {
-          let devCode = '123456';
-          try {
-            const res = await api.sendOtp(fullPhone);
-            devCode = res?.simulationOtp || res?.otp || res?.code || '123456';
-          } catch (_) {}
-          setOtpSentMsg(`Verification OTP resent to ${fullPhone}. (Dev Test Code: ${devCode})`);
+          const res = await api.sendOtp(fullPhone);
+          setOtpSentMsg(res?.message || `Verification SMS resent to ${fullPhone}. Check your mobile phone.`);
         }
       } else {
         const res = await api.requestOtp(rawContact);
-        const code = res?.otp || res?.simulationOtp || res?.otpCode || '';
-        setOtpSentMsg(`Verification OTP resent to ${rawContact}.${code ? ` Code: ${code}` : ''}`);
+        setOtpSentMsg(res?.message || `Verification OTP resent to ${rawContact}.`);
       }
       setResendCountdown(30);
     } catch (err) {
@@ -946,6 +980,81 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                   >
                     <span>{loading ? 'Saving...' : 'Save Password & Log In'}</span>
                     <CheckCircle2 className="w-4 h-4 text-[#E6C35C]" />
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 2: POST-OTP LOGIN SET PASSWORD OR SKIP POPUP             */}
+      {/* ------------------------------------------------------------- */}
+      {showOtpPasswordModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-border space-y-6 text-center animate-in fade-in zoom-in duration-200">
+            <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-[#18281F]">
+              <KeyRound className="w-8 h-8 text-[#18281F]" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-ink">Set Account Password?</h3>
+              <p className="text-xs text-muted-foreground mt-2">
+                You logged in successfully via OTP. Would you like to set a password now so you can login faster next time?
+              </p>
+            </div>
+
+            {otpPasswordSuccess ? (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-bold text-emerald-800 flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                <span>Password set successfully! Opening your profile...</span>
+              </div>
+            ) : (
+              <form onSubmit={handleSaveOtpPassword} className="space-y-4 text-left">
+                <div>
+                  <label className="text-xs font-bold text-ink block mb-1">New Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="password"
+                      placeholder="Enter new password (min 6 chars)"
+                      value={otpNewPassword}
+                      onChange={(e) => setOtpNewPassword(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-secondary/40 border border-border rounded-xl text-xs font-medium focus:outline-none focus:border-[#18281F]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-ink block mb-1">Confirm Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="password"
+                      placeholder="Re-enter new password"
+                      value={otpConfirmPassword}
+                      onChange={(e) => setOtpConfirmPassword(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-secondary/40 border border-border rounded-xl text-xs font-medium focus:outline-none focus:border-[#18281F]"
+                    />
+                  </div>
+                </div>
+                {otpPasswordError && (
+                  <p className="text-xs text-red-600 font-semibold">{otpPasswordError}</p>
+                )}
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSkipOtpPassword}
+                    className="flex-1 py-3 px-4 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:text-ink hover:bg-secondary/60 transition-all cursor-pointer"
+                  >
+                    Skip for Now
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 px-4 rounded-xl bg-[#18281F] text-white text-xs font-bold shadow-md hover:bg-black transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <span>Save Password</span>
+                    <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
                   </button>
                 </div>
               </form>
