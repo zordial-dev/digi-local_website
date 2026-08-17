@@ -1,6 +1,6 @@
 # 🛠️ Backend Developer API Specification: Pagination Support
 
-This specification document outlines the exact query parameters and response structure expected by the **DigiLocal Frontend** for 25-item pagination support across **Societies** and **Vendors** endpoints.
+This specification document outlines the exact query parameters and response structure expected by the **DigiLocal Frontend** for 24-item grid pagination support across **Societies** and **Vendors** endpoints.
 
 ---
 
@@ -8,9 +8,9 @@ This specification document outlines the exact query parameters and response str
 
 To support pagination, the backend API should accept `page` and `limit` as optional URL query parameters on the following GET endpoints:
 
-1. **Get Societies**: `GET /api/societies?page=1&limit=25&search=...`
-2. **Get All Vendors**: `GET /api/societies/all/vendors?page=1&limit=25&search=...`
-3. **Get Society Vendors**: `GET /api/societies/:societyId/vendors?page=1&limit=25&search=...`
+1. **Get Societies**: `GET /api/societies?page=1&limit=24&search=...`
+2. **Get All Vendors**: `GET /api/societies/all/vendors?page=1&limit=24&search=...`
+3. **Get Society Vendors**: `GET /api/societies/:societyId/vendors?page=1&limit=24&search=...`
 
 ---
 
@@ -20,7 +20,7 @@ To support pagination, the backend API should accept `page` and `limit` as optio
 | Parameter | Type | Required | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `page` | `integer` | No | `1` | Page number to retrieve (1-indexed) |
-| `limit` | `integer` | No | `25` | Number of items per page |
+| `limit` | `integer` | No | `24` | Number of items per page (24 grids) |
 | `search` | `string` | No | `""` | Search keyword (filters society name, location, or pincode) |
 
 ### Expected Output Payload Structure
@@ -59,7 +59,7 @@ To support pagination, the backend API should accept `page` and `limit` as optio
 | :--- | :--- | :--- | :--- | :--- |
 | `societyId` | `string` | Yes | - | Society ID (or `"all"` to retrieve all community vendors) |
 | `page` | `integer` | No | `1` | Page number to retrieve (1-indexed) |
-| `limit` | `integer` | No | `25` | Number of vendors per page |
+| `limit` | `integer` | No | `24` | Number of vendors per page (24 grids) |
 | `search` | `string` | No | `""` | Search keyword (filters store name, vendor name, category) |
 
 ### Expected Output Payload Structure

@@ -32,9 +32,9 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
   const [showLoginPromptModal, setShowLoginPromptModal] = useState(false);
   const [selectedVendorForPrompt, setSelectedVendorForPrompt] = useState(null);
 
-  // 25-Item Vendor Pagination State
+  // 24-Item Vendor Pagination State (24 grids per page)
   const [currentPage, setCurrentPage] = useState(1);
-  const VENDORS_PER_PAGE = 25;
+  const VENDORS_PER_PAGE = 24;
 
   // Favorite Vendors State (Con-04)
   const [favoriteIds, setFavoriteIds] = useState([]);

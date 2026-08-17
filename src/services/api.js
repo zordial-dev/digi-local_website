@@ -62,21 +62,57 @@ const getStoredToken = () => {
   return '';
 };
 
-// Smart Item Quantity & Unit Formatter (Dairy in Litres, Fruits/Veg in kg/g, Bakery in packs/g)
+// Smart Item Quantity & Unit Formatter (Supports Set, Pcs, Packet, Litre, Kg, Gram, Bouquet, Box, Plate, Pair)
 export function getItemUnitLabel(item) {
   if (!item) return '';
   const rawName = String(item.item_name || item.name || '').trim();
-  const explicitUnit = (item.unit || item.weight || item.volume || item.portion || item.unit_size || item.size || item.menuItem?.unit || '').trim();
+  const explicitUnit = (
+    item.unit || 
+    item.unit_type || 
+    item.unit_name || 
+    item.quantity_unit || 
+    item.quantity_type || 
+    item.measure || 
+    item.measurement || 
+    item.weight || 
+    item.volume || 
+    item.portion || 
+    item.unit_size || 
+    item.size || 
+    item.pack_type || 
+    item.menuItem?.unit || 
+    ''
+  ).trim();
   
-  if (explicitUnit) return explicitUnit;
+  if (explicitUnit) {
+    const lowerUnit = explicitUnit.toLowerCase();
+    if (lowerUnit === 'set' || lowerUnit === 'sets') return 'Set';
+    if (lowerUnit === 'pc' || lowerUnit === 'pcs' || lowerUnit === 'piece' || lowerUnit === 'pieces') return 'Pcs';
+    if (lowerUnit === 'pack' || lowerUnit === 'packet' || lowerUnit === 'packets') return 'Packet';
+    if (lowerUnit === 'box' || lowerUnit === 'boxes') return 'Box';
+    if (lowerUnit === 'plate' || lowerUnit === 'plates') return 'Plate';
+    if (lowerUnit === 'pair' || lowerUnit === 'pairs') return 'Pair';
+    if (lowerUnit === 'bottle' || lowerUnit === 'bottles') return 'Bottle';
+    if (lowerUnit === 'bunch' || lowerUnit === 'bunches') return 'Bunch';
+    return explicitUnit;
+  }
 
   const matchParen = rawName.match(/\(([^)]+)\)/);
-  if (matchParen && matchParen[1] && (matchParen[1].includes('L') || matchParen[1].includes('g') || matchParen[1].includes('kg') || matchParen[1].includes('ml') || matchParen[1].includes('Pack') || matchParen[1].includes('Pc') || matchParen[1].includes('Bouquet'))) {
-    return matchParen[1].trim();
+  if (matchParen && matchParen[1]) {
+    const pText = matchParen[1].trim();
+    if (pText.match(/L|g|kg|ml|pack|packet|pc|pcs|piece|set|box|plate|pair|bouquet|bunch|dozen/i)) {
+      return pText;
+    }
   }
 
   const nameLower = rawName.toLowerCase();
   
+  // Set & Piece & Pack & Combo Keywords
+  if (nameLower.includes(' set')) return 'Set';
+  if (nameLower.includes(' combo')) return 'Combo';
+  if (nameLower.includes(' pair')) return 'Pair';
+  if (nameLower.includes(' pc') || nameLower.includes(' piece')) return 'Pcs';
+
   // Dairy Category (Litres / Grams)
   if (nameLower.includes('milk') || nameLower.includes('doodh')) return '1L';
   if (nameLower.includes('curd') || nameLower.includes('dahi')) return '500g';
@@ -103,15 +139,17 @@ export function getItemUnitLabel(item) {
   if (nameLower.includes('biscuit') || nameLower.includes('cookie')) return '200g Pack';
   if (nameLower.includes('cake')) return '500g';
 
-  // Flowers & Bouquets
-  if (nameLower.includes('bouquet') || nameLower.includes('rose') || nameLower.includes('flower') || nameLower.includes('lily')) return '1 Bouquet';
+  // Flowers & Bouquets (Roses in Set, Lilies in Pcs)
+  if (nameLower.includes('rose')) return 'Set';
+  if (nameLower.includes('lily') || nameLower.includes('lilies')) return 'Pcs';
+  if (nameLower.includes('bouquet') || nameLower.includes('flower')) return 'Set';
 
   // Staples / Grocery
   if (nameLower.includes('atta') || nameLower.includes('flour') || nameLower.includes('rice') || nameLower.includes('chawal')) return '5 kg';
   if (nameLower.includes('sugar') || nameLower.includes('chini') || nameLower.includes('dal') || nameLower.includes('pulse')) return '1 kg';
   if (nameLower.includes('oil') || nameLower.includes('tel')) return '1L';
 
-  return '1 Unit';
+  return '1 Pcs';
 }
 
 export function formatItemQuantityBadge(item) {
@@ -120,12 +158,37 @@ export function formatItemQuantityBadge(item) {
   const unit = getItemUnitLabel(item);
   if (!unit) return '';
 
+  const unitLower = unit.toLowerCase();
+
+  if (unitLower === 'set' || unitLower === 'sets') {
+    return qty > 1 ? `${qty} Sets` : '1 Set';
+  }
+  if (unitLower === 'pcs' || unitLower === 'pc' || unitLower === 'piece' || unitLower === 'pieces') {
+    return qty > 1 ? `${qty} Pcs` : '1 Pc';
+  }
+  if (unitLower === 'packet' || unitLower === 'pack' || unitLower === 'packets') {
+    return qty > 1 ? `${qty} Packets` : '1 Packet';
+  }
+  if (unitLower === 'box' || unitLower === 'boxes') {
+    return qty > 1 ? `${qty} Boxes` : '1 Box';
+  }
+  if (unitLower === 'plate' || unitLower === 'plates') {
+    return qty > 1 ? `${qty} Plates` : '1 Plate';
+  }
+  if (unitLower === 'pair' || unitLower === 'pairs') {
+    return qty > 1 ? `${qty} Pairs` : '1 Pair';
+  }
+  if (unitLower === 'bunch' || unitLower === 'bunches') {
+    return qty > 1 ? `${qty} Bunches` : '1 Bunch';
+  }
+
   if (qty > 1) {
     if (unit === '1L') return `${unit}/unit (${qty}L total)`;
     if (unit === '1 kg') return `${unit}/unit (${qty} kg total)`;
     if (unit === '500g') return `${unit}/unit (${(qty * 0.5)} kg total)`;
     if (unit === '250g') return `${unit}/unit (${(qty * 250)}g total)`;
     if (unit === '500ml') return `${unit}/unit (${(qty * 0.5)}L total)`;
+    if (unit === '1 Bouquet') return `${unit}/unit (${qty} Bouquets total)`;
   }
   return unit;
 }

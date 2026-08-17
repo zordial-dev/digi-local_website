@@ -412,6 +412,7 @@
         {
           "item_id": 147,
           "item_name": "Pink Roses Bouquet",
+          "unit": "Set",
           "quantity": 1,
           "unit_price": 500
         }
@@ -440,6 +441,7 @@
         {
           "item_id": 148,
           "item_name": "Lily Bouquet",
+          "unit": "Pcs",
           "quantity": 1,
           "unit_price": 500
         }
@@ -468,6 +470,7 @@
         {
           "item_id": 178,
           "item_name": "Aaloo",
+          "unit": "1 kg",
           "quantity": 1,
           "unit_price": 20
         }
@@ -496,6 +499,7 @@
         {
           "item_id": 35,
           "item_name": "Milk",
+          "unit": "1L",
           "quantity": 1,
           "unit_price": 52
         }
@@ -524,12 +528,14 @@
         {
           "item_id": 147,
           "item_name": "Pink Roses Bouquet",
+          "unit": "Set",
           "quantity": 1,
           "unit_price": 500
         },
         {
           "item_id": 148,
           "item_name": "Lily Bouquet",
+          "unit": "Pcs",
           "quantity": 1,
           "unit_price": 500
         }

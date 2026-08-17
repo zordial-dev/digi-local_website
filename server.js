@@ -504,7 +504,7 @@ const server = http.createServer(async (req, res) => {
     
     if (parsedUrl.query.page || parsedUrl.query.limit) {
       const page = parseInt(parsedUrl.query.page || '1', 10);
-      const limit = parseInt(parsedUrl.query.limit || '25', 10);
+      const limit = parseInt(parsedUrl.query.limit || '24', 10);
       const totalRecords = filtered.length;
       const totalPages = Math.ceil(totalRecords / limit) || 1;
       const startIndex = (page - 1) * limit;
@@ -564,7 +564,7 @@ const server = http.createServer(async (req, res) => {
       
       if (parsedUrl.query.page || parsedUrl.query.limit) {
         const page = parseInt(parsedUrl.query.page || '1', 10);
-        const limit = parseInt(parsedUrl.query.limit || '25', 10);
+        const limit = parseInt(parsedUrl.query.limit || '24', 10);
         const totalRecords = filtered.length;
         const totalPages = Math.ceil(totalRecords / limit) || 1;
         const startIndex = (page - 1) * limit;

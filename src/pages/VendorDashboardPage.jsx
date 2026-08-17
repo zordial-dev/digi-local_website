@@ -857,16 +857,6 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                                   <Phone className="w-3 h-3 text-emerald-700" />
                                   <span>{customerPhone}</span>
                                 </a>
-
-                                <a
-                                  href={`https://wa.me/${customerPhone.replace(/[^0-9]/g, '')}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-xl border border-emerald-300 transition-colors"
-                                >
-                                  <MessageCircle className="w-3 h-3 text-emerald-800" />
-                                  <span>Chat</span>
-                                </a>
                               </div>
                             )}
                           </div>

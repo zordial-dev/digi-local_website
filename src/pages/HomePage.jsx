@@ -15,9 +15,9 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
   const [isLoginPromptOpen, setIsLoginPromptOpen] = useState(false);
   const [isResidentNoticeModalOpen, setIsResidentNoticeModalOpen] = useState(false);
 
-  // 25-Item Pagination State
+  // 24-Item Pagination State (24 grids per page)
   const [currentPage, setCurrentPage] = useState(1);
-  const SOCIETIES_PER_PAGE = 25;
+  const SOCIETIES_PER_PAGE = 24;
   const [activeResidentUser, setActiveResidentUser] = useState(null);
   const [selectedTargetSociety, setSelectedTargetSociety] = useState(null);
 
