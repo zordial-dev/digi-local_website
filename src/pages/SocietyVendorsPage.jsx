@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { api, getSocietyImage } from '../services/api';
-import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock, LogIn, Heart } from 'lucide-react';
+import { api, getSocietyImage, getNormalizedImageUrl } from '../services/api';
+import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, ChevronLeft, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock, LogIn, Heart } from 'lucide-react';
 import { getStoreStatus } from '../utils/storeHours';
 import { VendorCardSkeleton } from '../components/Skeletons';
 
@@ -31,6 +31,10 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
   const [loading, setLoading] = useState(true);
   const [showLoginPromptModal, setShowLoginPromptModal] = useState(false);
   const [selectedVendorForPrompt, setSelectedVendorForPrompt] = useState(null);
+
+  // 25-Item Vendor Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const VENDORS_PER_PAGE = 25;
 
   // Favorite Vendors State (Con-04)
   const [favoriteIds, setFavoriteIds] = useState([]);
@@ -109,7 +113,12 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
   // Load Active Society Details & Vendors (runs when societyId changes)
   useEffect(() => {
     loadData();
+    setCurrentPage(1);
   }, [currentSocietyId]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const loadData = async () => {
     try {
@@ -414,146 +423,209 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
           </div>
         )}
 
-        {!loading && vendors.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-7">
-            {vendors.map((vendor) => {
-              const vId = vendor.vendor_id;
-              const savedCustomLogo = (vId ? localStorage.getItem(`digilocal_vendor_logo_${vId}`) : null) ||
-                                      (vId ? localStorage.getItem(`digilocal_vendor_logo_${String(vId)}`) : null) ||
-                                      (vendor.store_name ? localStorage.getItem(`digilocal_vendor_logo_${vendor.store_name}`) : null);
+        {!loading && vendors.length > 0 && (() => {
+          const totalPages = Math.ceil(vendors.length / VENDORS_PER_PAGE);
+          const paginatedVendors = vendors.slice((currentPage - 1) * VENDORS_PER_PAGE, currentPage * VENDORS_PER_PAGE);
 
-              const storeImage = savedCustomLogo || vendor.logo || vendor.image_url || vendor.image || (Array.isArray(vendor.shop_images) && vendor.shop_images.length > 0 ? vendor.shop_images[0] : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80');
-              const status = getStoreStatus(
-                vendor.opening_timing || vendor.opening_time || '08:00 AM',
-                vendor.closing_timing || vendor.closing_time || '10:00 PM',
-                vendor
-              );
+          return (
+            <>
+              <div id="vendors-grid-container" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                {paginatedVendors.map((vendor) => {
+                  const vId = vendor.vendor_id;
+                  const savedCustomLogo = (vId ? localStorage.getItem(`digilocal_vendor_logo_${vId}`) : null) ||
+                                          (vId ? localStorage.getItem(`digilocal_vendor_logo_${String(vId)}`) : null) ||
+                                          (vendor.store_name ? localStorage.getItem(`digilocal_vendor_logo_${vendor.store_name}`) : null);
 
-              return (
-                <div
-                  key={vendor.vendor_id}
-                  onClick={() => {
-                    if (!checkUserLoggedIn()) {
-                      setSelectedVendorForPrompt(vendor);
-                      setShowLoginPromptModal(true);
-                      return;
-                    }
-                    setRoute({ page: 'vendorStorefront', societyId: vendor.society_id || currentSocietyId || 1, vendorId: vendor.vendor_id });
-                  }}
-                  className="group rounded-3xl bg-white border border-[#E8E2D5] hover:border-[#18281F]/40 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between relative shadow-sm"
-                >
-                  <div className="flex flex-col h-full justify-between">
-                    <div>
-                      {/* Prominent Store Image Header */}
-                      <div className="h-48 sm:h-52 w-full relative bg-gray-900 overflow-hidden">
-                        <img
-                          src={storeImage}
-                          alt={vendor.store_name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/25" />
+                  const rawImg = savedCustomLogo || vendor.logo || vendor.image_url || vendor.image || (Array.isArray(vendor.shop_images) && vendor.shop_images.length > 0 ? vendor.shop_images[0] : '');
+                  const storeImage = getNormalizedImageUrl(rawImg, 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800');
+                  const status = getStoreStatus(
+                    vendor.opening_timing || vendor.opening_time || '08:00 AM',
+                    vendor.closing_timing || vendor.closing_time || '10:00 PM',
+                    vendor
+                  );
 
-                        {/* Top Floating Badges Overlay */}
-                        <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
-                          <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white shadow-sm max-w-[55%]">
-                            <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span className="truncate">{vendor.society_name || currentSocietyName || 'Gated Society'}</span>
-                          </span>
+                  return (
+                    <div
+                      key={vendor.vendor_id}
+                      onClick={() => {
+                        if (!checkUserLoggedIn()) {
+                          setSelectedVendorForPrompt(vendor);
+                          setShowLoginPromptModal(true);
+                          return;
+                        }
+                        setRoute({ page: 'vendorStorefront', societyId: vendor.society_id || currentSocietyId || 1, vendorId: vendor.vendor_id });
+                      }}
+                      className="group rounded-3xl bg-white border border-[#E8E2D5] hover:border-[#18281F]/40 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between relative shadow-sm"
+                    >
+                      <div className="flex flex-col h-full justify-between">
+                        <div>
+                          {/* Prominent Store Image Header */}
+                          <div className="h-48 sm:h-52 w-full relative bg-gray-900 overflow-hidden">
+                            <img
+                              src={storeImage}
+                              alt={vendor.store_name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/25" />
 
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={(e) => toggleFavorite(e, vendor)}
-                              className={`p-1.5 rounded-full backdrop-blur-md border transition-all z-20 cursor-pointer shadow-md ${
-                                favoriteIds.includes(String(vendor.vendor_id))
-                                  ? 'bg-rose-600 text-white border-rose-500 scale-105'
-                                  : 'bg-black/60 text-white/80 border-white/20 hover:text-rose-400 hover:bg-black/80'
-                              }`}
-                              title={favoriteIds.includes(String(vendor.vendor_id)) ? "Remove from Favorites" : "Add to Favorites"}
-                            >
-                              <Heart className={`w-3.5 h-3.5 ${favoriteIds.includes(String(vendor.vendor_id)) ? 'fill-current' : ''}`} />
-                            </button>
+                            {/* Top Floating Badges Overlay */}
+                            <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
+                              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white shadow-sm max-w-[55%]">
+                                <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                <span className="truncate">{vendor.society_name || currentSocietyName || 'Gated Society'}</span>
+                              </span>
 
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center space-x-1.5 backdrop-blur-md shadow-sm border uppercase ${
-                              !status.isOpen 
-                                ? 'bg-rose-950/80 text-rose-300 border-rose-500/50' 
-                                : status.closingCountdown
-                                ? 'bg-amber-950/80 text-amber-300 border-amber-500/50'
-                                : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50'
-                            }`}>
-                              <span className={`w-2 h-2 rounded-full ${!status.isOpen ? 'bg-rose-400' : status.closingCountdown ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
-                              <span>{status.statusText}</span>
-                            </span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => toggleFavorite(e, vendor)}
+                                  className={`p-1.5 rounded-full backdrop-blur-md border transition-all z-20 cursor-pointer shadow-md ${
+                                    favoriteIds.includes(String(vendor.vendor_id))
+                                      ? 'bg-rose-600 text-white border-rose-500 scale-105'
+                                      : 'bg-black/60 text-white/80 border-white/20 hover:text-rose-400 hover:bg-black/80'
+                                  }`}
+                                  title={favoriteIds.includes(String(vendor.vendor_id)) ? "Remove from Favorites" : "Add to Favorites"}
+                                >
+                                  <Heart className={`w-3.5 h-3.5 ${favoriteIds.includes(String(vendor.vendor_id)) ? 'fill-current' : ''}`} />
+                                </button>
+
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center space-x-1.5 backdrop-blur-md shadow-sm border uppercase ${
+                                  !status.isOpen 
+                                    ? 'bg-rose-950/80 text-rose-300 border-rose-500/50' 
+                                    : status.closingCountdown
+                                    ? 'bg-amber-950/80 text-amber-300 border-amber-500/50'
+                                    : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50'
+                                }`}>
+                                  <span className={`w-2 h-2 rounded-full ${!status.isOpen ? 'bg-rose-400' : status.closingCountdown ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+                                  <span>{status.statusText}</span>
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Store Title & Verified Badge Overlaid on Bottom of Cover Image */}
+                            <div className="absolute bottom-3 left-4 right-4 z-10 text-white">
+                              <div className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-emerald-500/25 backdrop-blur-md border border-emerald-400/40 text-emerald-300 text-[10px] font-extrabold mb-1 shadow-sm">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                <span>Verified Store</span>
+                              </div>
+                              <h3 className="font-serif font-black text-xl text-white group-hover:text-emerald-300 transition-colors leading-tight truncate drop-shadow-md">
+                                {vendor.store_name}
+                              </h3>
+                              <p className="text-xs text-emerald-100/90 font-medium mt-0.5 truncate drop-shadow-sm">
+                                By {vendor.vendor_name}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Description Body */}
+                          <div className="p-4 pt-3.5">
+                            <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed font-normal min-h-[2.5rem]">
+                              {vendor.description || 'Quality goods & daily essentials delivered within society via WhatsApp.'}
+                            </p>
                           </div>
                         </div>
 
-                        {/* Store Title & Verified Badge Overlaid on Bottom of Cover Image */}
-                        <div className="absolute bottom-3 left-4 right-4 z-10 text-white">
-                          <div className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-emerald-500/25 backdrop-blur-md border border-emerald-400/40 text-emerald-300 text-[10px] font-extrabold mb-1 shadow-sm">
-                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span>Verified Store</span>
+                        {/* Timing, Contact & CTA Button */}
+                        <div className="px-4 pb-4 space-y-3">
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
+                            {checkUserLoggedIn() ? (
+                              <span className="flex items-center space-x-1.5 font-bold text-[#18281F]">
+                                <Phone className="w-3.5 h-3.5 text-[#C4A066]" />
+                                <span>{vendor.phone_number || 'Contact Available'}</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center space-x-1 text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/70 text-[11px] font-bold">
+                                <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>Login to view contact</span>
+                              </span>
+                            )}
+
+                            {vendor.opening_time && (
+                              <span className="flex items-center space-x-1 text-[11px] text-gray-500 font-semibold">
+                                <Clock className="w-3.5 h-3.5 text-[#C4A066]" />
+                                <span>{vendor.opening_time} – {vendor.closing_time}</span>
+                              </span>
+                            )}
                           </div>
-                          <h3 className="font-serif font-black text-xl text-white group-hover:text-emerald-300 transition-colors leading-tight truncate drop-shadow-md">
-                            {vendor.store_name}
-                          </h3>
-                          <p className="text-xs text-emerald-100/90 font-medium mt-0.5 truncate drop-shadow-sm">
-                            By {vendor.vendor_name}
-                          </p>
-                        </div>
-                      </div>
 
-                      {/* Description Body */}
-                      <div className="p-4 pt-3.5">
-                        <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed font-normal min-h-[2.5rem]">
-                          {vendor.description || 'Quality goods & daily essentials delivered within society via WhatsApp.'}
-                        </p>
+                          {!status.isOpen && status.nextOpenText ? (
+                            <div className="w-full py-2.5 bg-rose-50 border border-rose-200/80 rounded-xl text-rose-800 text-xs font-bold flex items-center justify-center space-x-2">
+                              <Clock className="w-4 h-4 text-rose-600 shrink-0" />
+                              <span>CLOSED • OPENS AT {vendor.opening_time} ({status.nextOpenText})</span>
+                            </div>
+                          ) : (
+                            <div className="w-full py-3 px-4 rounded-xl bg-[#18281F] text-[#C4A066] group-hover:bg-[#C4A066] group-hover:text-[#18281F] transition-all duration-300 flex items-center justify-between font-bold text-xs shadow-xs group-hover:shadow-md">
+                              <span className="flex items-center space-x-2">
+                                <ShoppingCart className="w-4 h-4 text-[#C4A066] group-hover:text-[#18281F] transition-colors" />
+                                <span>Visit Store & Order</span>
+                              </span>
+                              <ChevronRight className="w-4 h-4 text-[#C4A066] group-hover:text-[#18281F] group-hover:translate-x-1 transition-transform" />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
 
-                    {/* Timing, Contact & CTA Button */}
-                    <div className="px-4 pb-4 space-y-3">
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
-                        {checkUserLoggedIn() ? (
-                          <span className="flex items-center space-x-1.5 font-bold text-[#18281F]">
-                            <Phone className="w-3.5 h-3.5 text-[#C4A066]" />
-                            <span>{vendor.phone_number || 'Contact Available'}</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center space-x-1 text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/70 text-[11px] font-bold">
-                            <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                            <span>Login to view contact</span>
-                          </span>
-                        )}
+              {/* 25-Item Vendor Pagination Controls Bar */}
+              {vendors.length > VENDORS_PER_PAGE && (
+                <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-card border border-border p-4 px-6 rounded-2xl shadow-xs">
+                  <div className="text-xs font-semibold text-muted-foreground">
+                    Showing <span className="font-bold text-ink">{(currentPage - 1) * VENDORS_PER_PAGE + 1}</span>–<span className="font-bold text-ink">{Math.min(currentPage * VENDORS_PER_PAGE, vendors.length)}</span> of <span className="font-bold text-ink">{vendors.length}</span> Active Vendors
+                  </div>
 
-                        {vendor.opening_time && (
-                          <span className="flex items-center space-x-1 text-[11px] text-gray-500 font-semibold">
-                            <Clock className="w-3.5 h-3.5 text-[#C4A066]" />
-                            <span>{vendor.opening_time} – {vendor.closing_time}</span>
-                          </span>
-                        )}
-                      </div>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      disabled={currentPage === 1}
+                      onClick={() => {
+                        setCurrentPage(p => Math.max(p - 1, 1));
+                        document.getElementById('vendors-grid-container')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="px-3.5 py-2 rounded-xl border border-border bg-background hover:bg-secondary text-ink text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center space-x-1 cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Prev</span>
+                    </button>
 
-                      {!status.isOpen && status.nextOpenText ? (
-                        <div className="w-full py-2.5 bg-rose-50 border border-rose-200/80 rounded-xl text-rose-800 text-xs font-bold flex items-center justify-center space-x-2">
-                          <Clock className="w-4 h-4 text-rose-600 shrink-0" />
-                          <span>CLOSED • OPENS AT {vendor.opening_time} ({status.nextOpenText})</span>
-                        </div>
-                      ) : (
-                        <div className="w-full py-3 px-4 rounded-xl bg-[#18281F] text-[#C4A066] group-hover:bg-[#C4A066] group-hover:text-[#18281F] transition-all duration-300 flex items-center justify-between font-bold text-xs shadow-xs group-hover:shadow-md">
-                          <span className="flex items-center space-x-2">
-                            <ShoppingCart className="w-4 h-4 text-[#C4A066] group-hover:text-[#18281F] transition-colors" />
-                            <span>Visit Store & Order</span>
-                          </span>
-                          <ChevronRight className="w-4 h-4 text-[#C4A066] group-hover:text-[#18281F] group-hover:translate-x-1 transition-transform" />
-                        </div>
-                      )}
-                    </div>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                      <button
+                        type="button"
+                        key={pg}
+                        onClick={() => {
+                          setCurrentPage(pg);
+                          document.getElementById('vendors-grid-container')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className={`w-9 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          currentPage === pg
+                            ? 'bg-[#18281F] text-white shadow-xs'
+                            : 'bg-background hover:bg-secondary text-ink border border-border'
+                        }`}
+                      >
+                        {pg}
+                      </button>
+                    ))}
+
+                    <button
+                      type="button"
+                      disabled={currentPage === totalPages}
+                      onClick={() => {
+                        setCurrentPage(p => Math.min(p + 1, totalPages));
+                        document.getElementById('vendors-grid-container')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="px-3.5 py-2 rounded-xl border border-border bg-background hover:bg-secondary text-ink text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center space-x-1 cursor-pointer"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              )}
+            </>
+          );
+        })()}
       </div>
 
       {/* LOGIN REQUIRED POPUP MODAL (MATCHES USER DESIGN SPECIFICATION EXACTLY) */}

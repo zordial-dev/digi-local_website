@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { api, getNormalizedImageUrl } from '../services/api';
+import { api, getNormalizedImageUrl, getItemUnitLabel, formatItemQuantityBadge } from '../services/api';
 import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import { QRCodeSVG } from 'qrcode.react';
@@ -892,18 +892,25 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                                 const qty = item.quantity || 1;
                                 const unitPrice = parseFloat(item.unit_price || item.price || 0);
                                 const total = item.item_total ? parseFloat(item.item_total) : (qty * unitPrice);
+                                const unitLabel = getItemUnitLabel(item);
+                                const badgeText = formatItemQuantityBadge(item);
 
                                 return (
-                                  <div key={idx} className="flex justify-between items-center text-xs font-semibold">
+                                  <div key={idx} className="flex justify-between items-center text-xs font-semibold py-0.5">
                                     <div className="flex items-center gap-2 pr-2 min-w-0">
                                       <span className="w-5 h-5 rounded-md bg-[#E3EFE6] text-[#18281F] text-[10px] font-extrabold flex items-center justify-center shrink-0">
                                         ×{qty}
                                       </span>
-                                      <span className="text-[#18281F] truncate font-bold">
+                                      <span className="text-[#18281F] font-bold truncate">
                                         {item.item_name || item.name || 'Ordered Product'}
                                       </span>
+                                      {unitLabel && (
+                                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200/80 text-[10px] font-extrabold shrink-0 shadow-2xs">
+                                          {badgeText}
+                                        </span>
+                                      )}
                                     </div>
-                                    <span className="font-extrabold text-[#18281F] shrink-0">
+                                    <span className="font-extrabold text-[#18281F] shrink-0 font-mono">
                                       ₹{total.toFixed(2)}
                                     </span>
                                   </div>

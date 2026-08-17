@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api, getSocietyImage, DIVERSE_SOCIETY_IMAGES } from '../services/api';
-import { Search, MapPin, Building2, Store, PlusCircle, AlertCircle, ArrowRight, X, CheckCircle2, ArrowUpRight, Play, Sparkles, ChevronRight, ShieldCheck, Heart, Coffee, Clock, Lock, Smartphone, ShoppingBag, Cookie, Milk, Headphones, Star, Truck, MessageCircle, Filter, Zap, LogOut } from 'lucide-react';
+import { Search, MapPin, Building2, Store, PlusCircle, AlertCircle, ArrowRight, X, CheckCircle2, ArrowUpRight, Play, Sparkles, ChevronRight, ChevronLeft, ShieldCheck, Heart, Coffee, Clock, Lock, Smartphone, ShoppingBag, Cookie, Milk, Headphones, Star, Truck, MessageCircle, Filter, Zap, LogOut } from 'lucide-react';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
 import { SocietyCardSkeleton } from '../components/Skeletons';
 import MaskedHeading from '../components/MaskedHeading';
@@ -14,6 +14,10 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoginPromptOpen, setIsLoginPromptOpen] = useState(false);
   const [isResidentNoticeModalOpen, setIsResidentNoticeModalOpen] = useState(false);
+
+  // 25-Item Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const SOCIETIES_PER_PAGE = 25;
   const [activeResidentUser, setActiveResidentUser] = useState(null);
   const [selectedTargetSociety, setSelectedTargetSociety] = useState(null);
 
@@ -137,6 +141,10 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
 
   useEffect(() => {
     fetchSocieties(search);
+  }, [search]);
+
+  useEffect(() => {
+    setCurrentPage(1);
   }, [search]);
 
   // Load active order from storage for live order tracking widget
@@ -773,84 +781,147 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
         )}
 
         {/* Societies Bento Grid */}
-        {!loading && societies.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {societies.map((soc, idx) => {
-              const socImg = getSocietyImage(soc, idx);
-              const formattedId = typeof soc.society_id === 'number' 
-                ? `SOC-${soc.society_id}` 
-                : String(soc.society_id || '').startsWith('SOC-') 
-                  ? soc.society_id 
-                  : `SOC-${String(soc.society_id || idx).slice(-4)}`;
+        {!loading && societies.length > 0 && (() => {
+          const totalPages = Math.ceil(societies.length / SOCIETIES_PER_PAGE);
+          const paginatedSocieties = societies.slice((currentPage - 1) * SOCIETIES_PER_PAGE, currentPage * SOCIETIES_PER_PAGE);
 
-              return (
-                <div
-                  key={soc.society_id || idx}
-                  className="bg-card rounded-[2rem] border border-border hover:border-primary/40 transition-all duration-300 shadow-sm hover:shadow-md overflow-hidden flex flex-col justify-between group bento-card"
-                >
-                  <div>
-                    {/* Banner Image */}
-                    <div className="h-48 w-full relative overflow-hidden bg-secondary">
-                      <img
-                        src={socImg}
-                        alt={soc.society_name}
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = DIVERSE_SOCIETY_IMAGES[idx % DIVERSE_SOCIETY_IMAGES.length];
-                        }}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
+          return (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                {paginatedSocieties.map((soc, idx) => {
+                  const absoluteIdx = (currentPage - 1) * SOCIETIES_PER_PAGE + idx;
+                  const socImg = getSocietyImage(soc, absoluteIdx);
+                  const formattedId = typeof soc.society_id === 'number' 
+                    ? `SOC-${soc.society_id}` 
+                    : String(soc.society_id || '').startsWith('SOC-') 
+                      ? soc.society_id 
+                      : `SOC-${String(soc.society_id || absoluteIdx).slice(-4)}`;
 
-                      {/* Unique Society ID Badge */}
-                      <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-emerald-950/80 backdrop-blur-md border border-emerald-500/30 text-emerald-300 text-[10px] font-extrabold flex items-center space-x-1 shadow-sm">
-                        <Building2 className="w-3 h-3 text-gold" />
-                        <span>{formattedId}</span>
+                  return (
+                    <div
+                      key={soc.society_id || absoluteIdx}
+                      className="bg-card rounded-[2rem] border border-border hover:border-primary/40 transition-all duration-300 shadow-sm hover:shadow-md overflow-hidden flex flex-col justify-between group bento-card"
+                    >
+                      <div>
+                        {/* Banner Image */}
+                        <div className="h-48 w-full relative overflow-hidden bg-secondary">
+                          <img
+                            src={socImg}
+                            alt={soc.society_name}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = DIVERSE_SOCIETY_IMAGES[absoluteIdx % DIVERSE_SOCIETY_IMAGES.length];
+                            }}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+
+                          {/* Unique Society ID Badge */}
+                          <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-emerald-950/80 backdrop-blur-md border border-emerald-500/30 text-emerald-300 text-[10px] font-extrabold flex items-center space-x-1 shadow-sm">
+                            <Building2 className="w-3 h-3 text-gold" />
+                            <span>{formattedId}</span>
+                          </div>
+
+                          {/* Active Vendors Count Badge */}
+                          <div className="absolute top-3.5 right-3.5 px-3 py-1 rounded-full bg-ink/80 backdrop-blur-md border border-white/20 text-white text-[10px] font-extrabold flex items-center space-x-1.5">
+                            <Store className="w-3.5 h-3.5 text-gold" />
+                            <span>{soc.vendor_count || 0} Active Vendors</span>
+                          </div>
+                        </div>
+
+                      {/* Society Info */}
+                      <div className="p-6">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <h3 className="text-xl font-serif font-extrabold text-ink uppercase tracking-wide group-hover:text-primary transition-colors">
+                            {soc.society_name}
+                          </h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground flex items-center space-x-1.5 mt-1.5 font-medium">
+                          <MapPin className="w-4 h-4 text-gold shrink-0" />
+                          <span>{soc.location}</span>
+                        </p>
                       </div>
+                    </div>
 
-                      {/* Active Vendors Count Badge */}
-                      <div className="absolute top-3.5 right-3.5 px-3 py-1 rounded-full bg-ink/80 backdrop-blur-md border border-white/20 text-white text-[10px] font-extrabold flex items-center space-x-1.5">
+                    {/* 2 CTA Buttons */}
+                    <div className="p-6 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <button
+                        onClick={() => handleSocietySelect(soc)}
+                        className="w-full py-2.5 px-3 rounded-full bg-secondary text-ink hover:bg-border font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+                      >
+                        <span>Show Vendors</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-gold" />
+                      </button>
+
+                      <button
+                        onClick={() => setRoute({ page: 'vendorRegister', societyId: soc.society_id, societyName: soc.society_name, allowNewStore: true })}
+                        className="w-full py-2.5 px-3 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
+                      >
                         <Store className="w-3.5 h-3.5 text-gold" />
-                        <span>{soc.vendor_count || 0} Active Vendors</span>
-                      </div>
+                        <span>Become Vendor</span>
+                      </button>
                     </div>
+                  </div>
+                );
+              })}
+              </div>
 
-                  {/* Society Info */}
-                  <div className="p-6">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <h3 className="text-xl font-serif font-extrabold text-ink uppercase tracking-wide group-hover:text-primary transition-colors">
-                        {soc.society_name}
-                      </h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground flex items-center space-x-1.5 mt-1.5 font-medium">
-                      <MapPin className="w-4 h-4 text-gold shrink-0" />
-                      <span>{soc.location}</span>
-                    </p>
+              {/* 25-Item Pagination Controls Bar */}
+              {societies.length > SOCIETIES_PER_PAGE && (
+                <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-card border border-border p-4 px-6 rounded-2xl shadow-xs">
+                  <div className="text-xs font-semibold text-muted-foreground">
+                    Showing <span className="font-bold text-ink">{(currentPage - 1) * SOCIETIES_PER_PAGE + 1}</span>–<span className="font-bold text-ink">{Math.min(currentPage * SOCIETIES_PER_PAGE, societies.length)}</span> of <span className="font-bold text-ink">{societies.length}</span> Registered Societies
+                  </div>
+
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      disabled={currentPage === 1}
+                      onClick={() => {
+                        setCurrentPage(p => Math.max(p - 1, 1));
+                        document.getElementById('societies-section')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="px-3.5 py-2 rounded-xl border border-border bg-background hover:bg-secondary text-ink text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center space-x-1 cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Prev</span>
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                      <button
+                        type="button"
+                        key={pg}
+                        onClick={() => {
+                          setCurrentPage(pg);
+                          document.getElementById('societies-section')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className={`w-9 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          currentPage === pg
+                            ? 'bg-primary text-primary-foreground shadow-xs'
+                            : 'bg-background hover:bg-secondary text-ink border border-border'
+                        }`}
+                      >
+                        {pg}
+                      </button>
+                    ))}
+
+                    <button
+                      type="button"
+                      disabled={currentPage === totalPages}
+                      onClick={() => {
+                        setCurrentPage(p => Math.min(p + 1, totalPages));
+                        document.getElementById('societies-section')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="px-3.5 py-2 rounded-xl border border-border bg-background hover:bg-secondary text-ink text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center space-x-1 cursor-pointer"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-
-                {/* 2 CTA Buttons */}
-                <div className="p-6 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <button
-                    onClick={() => handleSocietySelect(soc)}
-                    className="w-full py-2.5 px-3 rounded-full bg-secondary text-ink hover:bg-border font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
-                  >
-                    <span>Show Vendors</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-gold" />
-                  </button>
-
-                  <button
-                    onClick={() => setRoute({ page: 'vendorRegister', societyId: soc.society_id, societyName: soc.society_name, allowNewStore: true })}
-                    className="w-full py-2.5 px-3 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
-                  >
-                    <Store className="w-3.5 h-3.5 text-gold" />
-                    <span>Become Vendor</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-          </div>
-        )}
+              )}
+            </>
+          );
+        })()}
 
       </div>
 

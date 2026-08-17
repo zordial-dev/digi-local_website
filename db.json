@@ -376,8 +376,240 @@
       "image_url": "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300&auto=format&fit=crop&q=80"
     }
   ],
-  "users": [],
-  "orders": [],
+  "users": [
+    {
+      "user_id": "usr_932532",
+      "name": "Aarushi",
+      "email": "aarushi@gmail.com",
+      "phone": "9784319840",
+      "society_id": "1",
+      "society_name": "Omaxe Greenwood Residency",
+      "flat": "Tower A-402",
+      "joined_date": "August 2026"
+    }
+  ],
+  "orders": [
+    {
+      "order_id": "ORD-7218",
+      "id": "ORD-7218",
+      "user_id": "usr_932532",
+      "customer_name": "Aarushi",
+      "phone": "+919784319840",
+      "user_phone": "+919784319840",
+      "vendor_id": 104,
+      "store_name": "Flower's Point",
+      "store_logo": "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
+      "society_name": "Omaxe Greenwood Residency",
+      "delivery_address": "Tower A-402, Omaxe Greenwood Residency",
+      "status": "COMPLETED",
+      "status_label": "Order Delivered",
+      "payment_status": "PAID",
+      "payment_method": "COD / WhatsApp",
+      "total_amount": 500,
+      "date": "2026-08-14T04:37:58.955Z",
+      "created_at": "2026-08-14T04:37:58.955Z",
+      "items": [
+        {
+          "item_id": 147,
+          "item_name": "Pink Roses Bouquet",
+          "quantity": 1,
+          "unit_price": 500
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-6407",
+      "id": "ORD-6407",
+      "user_id": "usr_932532",
+      "customer_name": "Aarushi",
+      "phone": "+919784319840",
+      "user_phone": "+919784319840",
+      "vendor_id": 104,
+      "store_name": "Flower's Point",
+      "store_logo": "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
+      "society_name": "Omaxe Greenwood Residency",
+      "delivery_address": "Tower A-402, Omaxe Greenwood Residency",
+      "status": "PENDING",
+      "status_label": "Order Paid & Out for Delivery",
+      "payment_status": "PAID",
+      "payment_method": "COD / WhatsApp",
+      "total_amount": 500,
+      "date": "2026-08-14T04:44:23.519Z",
+      "created_at": "2026-08-14T04:44:23.519Z",
+      "items": [
+        {
+          "item_id": 148,
+          "item_name": "Lily Bouquet",
+          "quantity": 1,
+          "unit_price": 500
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-5952",
+      "id": "ORD-5952",
+      "user_id": "usr_932532",
+      "customer_name": "Aarushi",
+      "phone": "+919784319840",
+      "user_phone": "+919784319840",
+      "vendor_id": 79,
+      "store_name": "FreshMart Grocery",
+      "store_logo": "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
+      "society_name": "Omaxe Greenwood Residency",
+      "delivery_address": "Tower A-402, Omaxe Greenwood Residency",
+      "status": "ACCEPTED",
+      "status_label": "Order Paid & Out for Delivery",
+      "payment_status": "PAID",
+      "payment_method": "COD / WhatsApp",
+      "total_amount": 20,
+      "date": "2026-08-14T06:56:02.582Z",
+      "created_at": "2026-08-14T06:56:02.582Z",
+      "items": [
+        {
+          "item_id": 178,
+          "item_name": "Aaloo",
+          "quantity": 1,
+          "unit_price": 20
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-5693",
+      "id": "ORD-5693",
+      "user_id": "usr_932532",
+      "customer_name": "Aarushi",
+      "phone": "+919784319840",
+      "user_phone": "+919784319840",
+      "vendor_id": 79,
+      "store_name": "FreshMart Grocery",
+      "store_logo": "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
+      "society_name": "Omaxe Greenwood Residency",
+      "delivery_address": "Tower A-402, Omaxe Greenwood Residency",
+      "status": "ACCEPTED",
+      "status_label": "Order Paid & Out for Delivery",
+      "payment_status": "PAID",
+      "payment_method": "COD / WhatsApp",
+      "total_amount": 52,
+      "date": "2026-08-13T03:41:03.391Z",
+      "created_at": "2026-08-13T03:41:03.391Z",
+      "items": [
+        {
+          "item_id": 35,
+          "item_name": "Milk",
+          "quantity": 1,
+          "unit_price": 52
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-4509",
+      "id": "ORD-4509",
+      "user_id": "usr_932532",
+      "customer_name": "Aarushi",
+      "phone": "+919784319840",
+      "user_phone": "+919784319840",
+      "vendor_id": 104,
+      "store_name": "Flower's Point",
+      "store_logo": "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
+      "society_name": "Omaxe Greenwood Residency",
+      "delivery_address": "Flat 603 (Block A), Society",
+      "status": "COMPLETED",
+      "status_label": "Order Delivered",
+      "payment_status": "PAID",
+      "payment_method": "COD / WhatsApp",
+      "total_amount": 1000,
+      "date": "2026-08-11T06:13:50.407Z",
+      "created_at": "2026-08-11T06:13:50.407Z",
+      "items": [
+        {
+          "item_id": 147,
+          "item_name": "Pink Roses Bouquet",
+          "quantity": 1,
+          "unit_price": 500
+        },
+        {
+          "item_id": 148,
+          "item_name": "Lily Bouquet",
+          "quantity": 1,
+          "unit_price": 500
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-4197",
+      "id": "ORD-4197",
+      "user_id": "usr_932532",
+      "customer_name": "Aarushi",
+      "phone": "+919784319840",
+      "user_phone": "+919784319840",
+      "vendor_id": 79,
+      "store_name": "FreshMart Grocery",
+      "store_logo": "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
+      "society_name": "Omaxe Greenwood Residency",
+      "delivery_address": "Tower A-402, Omaxe Greenwood Residency",
+      "status": "ACCEPTED",
+      "status_label": "Order Paid & Out for Delivery",
+      "payment_status": "PAID",
+      "payment_method": "COD / WhatsApp",
+      "total_amount": 544,
+      "date": "2026-08-14T05:49:43.981Z",
+      "created_at": "2026-08-14T05:49:43.981Z",
+      "items": [
+        {
+          "item_id": 35,
+          "item_name": "Milk",
+          "quantity": 2,
+          "unit_price": 52
+        },
+        {
+          "item_id": 36,
+          "item_name": "Apple",
+          "quantity": 2,
+          "unit_price": 150
+        },
+        {
+          "item_id": 178,
+          "item_name": "Aaloo",
+          "quantity": 2,
+          "unit_price": 20
+        },
+        {
+          "item_id": 179,
+          "item_name": "Bhindi",
+          "quantity": 2,
+          "unit_price": 50
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-2456",
+      "id": "ORD-2456",
+      "user_id": "usr_932532",
+      "customer_name": "Aarushi",
+      "phone": "+919784319840",
+      "user_phone": "+919784319840",
+      "vendor_id": 79,
+      "store_name": "FreshMart Grocery",
+      "store_logo": "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
+      "society_name": "Omaxe Greenwood Residency",
+      "delivery_address": "Tower A-402, Omaxe Greenwood Residency",
+      "status": "ACCEPTED",
+      "status_label": "Order Paid & Out for Delivery",
+      "payment_status": "PAID",
+      "payment_method": "COD / WhatsApp",
+      "total_amount": 52,
+      "date": "2026-08-13T03:41:44.155Z",
+      "created_at": "2026-08-13T03:41:44.155Z",
+      "items": [
+        {
+          "item_id": 35,
+          "item_name": "Milk",
+          "quantity": 1,
+          "unit_price": 52
+        }
+      ]
+    }
+  ],
   "pendingRequests": [],
   "tickets": [
     {

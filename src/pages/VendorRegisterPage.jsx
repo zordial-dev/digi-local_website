@@ -201,16 +201,11 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   // Fetch Housing Societies List
   useEffect(() => {
     api.getSocieties().then((data) => {
-      if (data && data.length > 0) {
+      if (Array.isArray(data) && data.length > 0) {
         setSocietiesList(data);
       }
     }).catch(() => {
-      setSocietiesList([
-        { society_id: 1, society_name: 'Omaxe Greenwood Residency', location: 'Greater Noida' },
-        { society_id: 2, society_name: 'Anupam Apartment', location: 'Jaipur' },
-        { society_id: 3, society_name: 'Palm Meadows Residency', location: 'Bengaluru' },
-        { society_id: 4, society_name: 'Godrej Woods Community', location: 'Noida' }
-      ]);
+      setSocietiesList([]);
     });
   }, []);
 

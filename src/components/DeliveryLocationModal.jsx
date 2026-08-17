@@ -1,26 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Search, Check, X, Building2, Navigation, Sparkles } from 'lucide-react';
-
-const POPULAR_LOCATIONS = [
-  { society_id: 'SOC-101', name: 'Omaxe Greenwood Residency', city: 'Greater Noida', pincode: '201310' },
-  { society_id: 'SOC-102', name: 'Palm Meadows Residency', city: 'Bengaluru', pincode: '560066' },
-  { society_id: 'SOC-103', name: 'DLF Phase 5 Enclave', city: 'Gurugram', pincode: '122002' },
-  { society_id: 'SOC-104', name: 'Godrej Woods Community', city: 'Noida', pincode: '201303' },
-  { society_id: 'SOC-105', name: 'Jaypee Greens Wish Town', city: 'Noida', pincode: '201304' },
-  { society_id: 'SOC-106', name: 'ATS Village Gated Complex', city: 'Noida', pincode: '201304' },
-];
+import { api } from '../services/api';
 
 export default function DeliveryLocationModal({ isOpen, onClose, selectedLocation, onSelectLocation, setRoute }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [flatNumber, setFlatNumber] = useState('');
   const [customAddress, setCustomAddress] = useState('');
+  const [societies, setSocieties] = useState([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      api.getSocieties().then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setSocieties(data.map(s => ({
+            society_id: s.society_id,
+            name: s.society_name || s.name || 'Society',
+            city: s.location || 'Local',
+            pincode: s.pincode || ''
+          })));
+        }
+      }).catch(() => {});
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const filteredLocations = POPULAR_LOCATIONS.filter(loc =>
+  const filteredLocations = societies.filter(loc =>
     loc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     loc.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    loc.pincode.includes(searchQuery)
+    (loc.pincode && loc.pincode.includes(searchQuery))
   );
 
   const handleSelect = (loc) => {

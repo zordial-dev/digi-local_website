@@ -26,12 +26,70 @@ function loadDB() {
 // Persistent Auto-Save Database Helper
 function saveDB() {
   try {
-    const dataToSave = { societies, vendors, items, users, orders, pendingRequests, tickets, platformConfig };
+    const dataToSave = { societies, vendors, items, users, orders, pendingRequests, tickets, platformConfig, cmsPages, supportContacts };
     fs.writeFileSync(DB_FILE, JSON.stringify(dataToSave, null, 2), 'utf8');
   } catch (err) {
     console.error('Error saving db.json:', err);
   }
 }
+
+// Default CMS Pages & Support Contacts Fallback Data
+const defaultSupportContacts = {
+  phone: "+91 800-562-5999",
+  email: "support@digilocal.in",
+  toll_free: "1800-123-4567",
+  whatsapp: "+91 80056 25999",
+  address: "DigiLocal Tech Hub, Tower B, Sector 62, Noida, UP - 201309",
+  working_hours: "Monday to Saturday: 9:00 AM - 8:00 PM IST"
+};
+
+const defaultCmsPages = {
+  'help-support': {
+    slug: "help-support",
+    title: "Help & Support Center",
+    meta_description: "Official DigiLocal Help & Support, FAQ, Order Assistance, and Customer Service Contacts.",
+    content: `# DigiLocal Help & Support Center\n\nWelcome to the DigiLocal Help & Support Center. We are here to assist residents, apartment owners, and verified local merchants with instant support.\n\n## 📞 Quick Contact Information\n- **Support Hotline**: +91 800-562-5999\n- **Official Email**: support@digilocal.in\n- **Toll-Free Helpline**: 1800-123-4567\n- **WhatsApp Instant Support**: +91 80056 25999\n- **Working Hours**: Monday to Saturday: 9:00 AM - 8:00 PM IST\n- **Corporate Address**: DigiLocal Tech Hub, Tower B, Sector 62, Noida, UP - 201309\n\n## ❓ Frequently Asked Questions\n\n### 1. How does DigiLocal delivery work?\nDigiLocal connects residents with verified local merchants operating inside or near your residential housing society. Orders are delivered directly to your doorstep in 10-15 minutes.\n\n### 2. How can I contact a vendor directly?\nEach store storefront on DigiLocal includes a direct phone call button and instant WhatsApp order placement link for fast communication.\n\n### 3. What if my order has missing or damaged items?\nYou can raise an instant support ticket from your User Profile under "Orders & Support" or contact our helpline at +91 800-562-5999.\n\n### 4. How do local vendors register on DigiLocal?\nLocal store owners can click on "Register as Vendor", select their housing society, fill in GST & store details, choose a subscription plan, and submit for DigiLocal Admin approval.`,
+    phone: "+91 800-562-5999",
+    email: "support@digilocal.in",
+    updated_at: "2026-08-14T10:30:00.000Z"
+  },
+  'about-us': {
+    slug: "about-us",
+    title: "About DigiLocal",
+    meta_description: "Learn about DigiLocal, India premier hyperlocal enclave e-commerce and residential merchant ecosystem.",
+    content: `# About DigiLocal\n\nDigiLocal is India's premier Hyperlocal Enclave E-Commerce Platform built exclusively for gated residential societies, apartment enclaves, and neighborhood community ecosystems.\n\n## 🚀 Our Mission\nOur mission is to empower neighborhood micro-entrepreneurs, home bakers, local grocers, florists, and artisans by connecting them directly with residents living in nearby housing societies.\n\n## 🌟 Why DigiLocal?\n- **10-15 Min Hyperlocal Delivery**: Sourced from verified vendors within or adjacent to your gated enclave.\n- **Direct WhatsApp Ordering**: Connect directly with trusted shop owners.\n- **Zero Middleman Markup**: Transparent pricing directly set by verified local vendors.\n- **Community Trust**: Verified resident reviews and admin-approved store onboarding.`,
+    phone: "+91 800-562-5999",
+    email: "support@digilocal.in",
+    updated_at: "2026-08-14T10:30:00.000Z"
+  },
+  'privacy-policy': {
+    slug: "privacy-policy",
+    title: "Privacy Policy",
+    meta_description: "DigiLocal Privacy Policy detailing data protection, encryption, user consent, and security standards.",
+    content: `# DigiLocal Privacy Policy\n\n**Effective Date**: August 14, 2026\n\nAt DigiLocal, protecting customer and merchant data is our highest priority. This Privacy Policy outlines how we collect, process, encrypt, and safeguard your personal information when you use the DigiLocal web application and services.\n\n## 🔒 1. Information We Collect\n- **Resident Account Data**: Name, mobile phone number, email address, society name, tower & flat number.\n- **Vendor Store Data**: Store name, merchant owner name, business email, contact phone, GSTIN number, shop address.\n- **Order & Transaction Records**: Items ordered, payment method, transaction references, delivery instructions.\n\n## 🛡️ 2. How We Use Your Information\n- Facilitating hyperlocal order dispatch and delivery inside your residential society.\n- Enabling WhatsApp direct communication between residents and local vendors.\n- Sending real-time SMS order status alerts and subscription invoice receipts.\n- Preventing fraudulent store registrations and protecting community security.`,
+    phone: "+91 800-562-5999",
+    email: "support@digilocal.in",
+    updated_at: "2026-08-14T10:30:00.000Z"
+  },
+  'terms-conditions': {
+    slug: "terms-conditions",
+    title: "Terms & Conditions",
+    meta_description: "DigiLocal Terms & Conditions of Service for residents, customers, and vendor merchants.",
+    content: `# DigiLocal Terms & Conditions\n\n**Effective Date**: August 14, 2026\n\nWelcome to DigiLocal! These Terms and Conditions govern your access to and use of the DigiLocal website, resident ordering portal, vendor management dashboard, and admin control suite.\n\n## 📜 1. Acceptance of Terms\nBy registering an account, placing an order, or listing a store on DigiLocal, you agree to be bound by these Terms & Conditions and our Privacy Policy.\n\n## 🏘️ 2. Resident User Responsibilities\n- Residents must provide accurate society, tower, and flat address information for seamless delivery.\n- Orders placed via DigiLocal are subject to store availability and operating hours set by local vendors.\n\n## 🏪 3. Vendor Merchant Guidelines\n- Vendors must hold valid GST or local trade permits and maintain fresh product quality.\n- Subscription fees paid for DigiLocal vendor panel access are non-refundable once approved by Admin.`,
+    phone: "+91 800-562-5999",
+    email: "support@digilocal.in",
+    updated_at: "2026-08-14T10:30:00.000Z"
+  },
+  'how-it-works': {
+    slug: "how-it-works",
+    title: "How DigiLocal Works",
+    meta_description: "Understand how DigiLocal connects housing society residents with verified local merchants.",
+    content: `# How DigiLocal Works\n\nDigiLocal simplifies hyperlocal ordering within gated residential societies in 3 easy steps:\n\n1. **Select Your Housing Society**: Choose your residential complex to view approved local store vendors.\n2. **Browse Stores & Products**: Explore groceries, fresh produce, bakeries, pharmacy, services & daily essentials.\n3. **Order & Enjoy 10-15 Min Doorstep Delivery**: Order directly via WhatsApp or online checkout.`,
+    phone: "+91 800-562-5999",
+    email: "support@digilocal.in",
+    updated_at: "2026-08-14T10:30:00.000Z"
+  }
+};
 
 // Initialize Active Database Collections from db.json
 const initialDb = loadDB();
@@ -42,6 +100,8 @@ const users = initialDb.users || [];
 const orders = initialDb.orders || [];
 const pendingRequests = initialDb.pendingRequests || [];
 const tickets = initialDb.tickets || [];
+let cmsPages = initialDb.cmsPages || defaultCmsPages;
+let supportContacts = initialDb.supportContacts || defaultSupportContacts;
 let platformConfig = initialDb.platformConfig || {
   platform_name: "DigiLocal",
   platform_logo: "https://imgh.in/host/ucila6",
@@ -441,6 +501,29 @@ const server = http.createServer(async (req, res) => {
   if (method === 'GET' && pathname === '/api/societies') {
     const q = parsedUrl.query.search ? parsedUrl.query.search.toLowerCase() : '';
     const filtered = q ? societies.filter(s => s.society_name.toLowerCase().includes(q) || s.location.toLowerCase().includes(q)) : societies;
+    
+    if (parsedUrl.query.page || parsedUrl.query.limit) {
+      const page = parseInt(parsedUrl.query.page || '1', 10);
+      const limit = parseInt(parsedUrl.query.limit || '25', 10);
+      const totalRecords = filtered.length;
+      const totalPages = Math.ceil(totalRecords / limit) || 1;
+      const startIndex = (page - 1) * limit;
+      const paginated = filtered.slice(startIndex, startIndex + limit);
+
+      return sendJSON(res, 200, {
+        success: true,
+        data: paginated,
+        meta: {
+          total_records: totalRecords,
+          total_pages: totalPages,
+          current_page: page,
+          page_size: limit,
+          has_next: page < totalPages,
+          has_prev: page > 1
+        }
+      });
+    }
+
     return sendJSON(res, 200, filtered);
   }
 
@@ -478,6 +561,29 @@ const server = http.createServer(async (req, res) => {
         return false;
       });
       const filtered = q ? list.filter(v => (v.store_name || '').toLowerCase().includes(q) || (v.category || '').toLowerCase().includes(q)) : list;
+      
+      if (parsedUrl.query.page || parsedUrl.query.limit) {
+        const page = parseInt(parsedUrl.query.page || '1', 10);
+        const limit = parseInt(parsedUrl.query.limit || '25', 10);
+        const totalRecords = filtered.length;
+        const totalPages = Math.ceil(totalRecords / limit) || 1;
+        const startIndex = (page - 1) * limit;
+        const paginated = filtered.slice(startIndex, startIndex + limit);
+
+        return sendJSON(res, 200, {
+          success: true,
+          data: paginated,
+          meta: {
+            total_records: totalRecords,
+            total_pages: totalPages,
+            current_page: page,
+            page_size: limit,
+            has_next: page < totalPages,
+            has_prev: page > 1
+          }
+        });
+      }
+
       return sendJSON(res, 200, filtered);
     } else {
       const cleanTargetSoc = String(rawSocParam).replace('SOC-', '').toLowerCase();
@@ -568,6 +674,41 @@ const server = http.createServer(async (req, res) => {
       status: "PLACED",
       order: newOrder
     });
+  }
+
+  if (method === 'GET' && pathname === '/api/orders') {
+    const qPhone = parsedUrl.query.phone || parsedUrl.query.phone_number || parsedUrl.query.mobile;
+    const qUser = parsedUrl.query.user_id || parsedUrl.query.userId;
+    let filtered = orders;
+
+    if (qPhone) {
+      const cleanPhone = String(qPhone).replace(/[^0-9]/g, '');
+      filtered = filtered.filter(o => {
+        const oPhone = String(o.phone_number || o.phone || '').replace(/[^0-9]/g, '');
+        return oPhone && (oPhone.includes(cleanPhone) || cleanPhone.includes(oPhone));
+      });
+    }
+
+    if (qUser) {
+      filtered = filtered.filter(o => String(o.user_id) === String(qUser));
+    }
+
+    return sendJSON(res, 200, { success: true, count: filtered.length, orders: filtered });
+  }
+
+  if (method === 'GET' && pathname.startsWith('/api/users/') && pathname.endsWith('/orders')) {
+    const parts = pathname.split('/');
+    const targetUser = parts[3]; // e.g. usr_123 or 9784319840
+    const cleanPhone = String(targetUser).replace(/[^0-9]/g, '');
+
+    const userOrders = orders.filter(o => {
+      if (String(o.user_id) === String(targetUser)) return true;
+      const oPhone = String(o.phone_number || o.phone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone && cleanPhone.length >= 7 && oPhone && (oPhone.includes(cleanPhone) || cleanPhone.includes(oPhone))) return true;
+      return false;
+    });
+
+    return sendJSON(res, 200, { success: true, count: userOrders.length, orders: userOrders });
   }
 
   if (method === 'GET' && pathname.startsWith('/api/orders/')) {
@@ -776,6 +917,71 @@ const server = http.createServer(async (req, res) => {
   // Admin APIs
   if (method === 'GET' && pathname === '/api/admin/vendors') {
     return sendJSON(res, 200, vendors.map(v => ({ ...v, payments: [{ payment_id: 1, amount: 2999.00, status: "SUCCESS" }] })));
+  }
+
+  // CMS & Support Contacts APIs
+  if (method === 'GET' && (pathname === '/api/cms/contacts' || pathname === '/api/contacts' || pathname === '/api/contact-info')) {
+    return sendJSON(res, 200, { success: true, data: supportContacts });
+  }
+
+  if (method === 'PUT' && pathname === '/api/cms/contacts') {
+    const body = await getRequestBody(req);
+    supportContacts = { ...supportContacts, ...body, updated_at: new Date().toISOString() };
+    saveDB();
+    return sendJSON(res, 200, { success: true, message: "Support contact details updated successfully", data: supportContacts });
+  }
+
+  if (method === 'GET' && pathname === '/api/cms/pages') {
+    const list = Object.values(cmsPages).map(p => ({
+      slug: p.slug,
+      title: p.title,
+      meta_description: p.meta_description,
+      updated_at: p.updated_at
+    }));
+    return sendJSON(res, 200, { success: true, data: list });
+  }
+
+  // Individual CMS Page or direct convenience route (e.g. /api/about-us, /api/privacy-policy, /api/terms-conditions, /api/how-it-works, /api/help-support)
+  const cmsDirectSlugs = ['about-us', 'privacy-policy', 'terms-conditions', 'terms-and-conditions', 'privacy', 'help-support', 'how-it-works', 'contacts', 'contact-info'];
+  let reqSlug = '';
+  if (pathname.startsWith('/api/cms/pages/')) {
+    reqSlug = pathname.replace('/api/cms/pages/', '').toLowerCase().trim();
+  } else if (pathname.startsWith('/api/')) {
+    const candidate = pathname.replace('/api/', '').toLowerCase().trim();
+    if (cmsDirectSlugs.includes(candidate)) {
+      reqSlug = candidate;
+    }
+  }
+
+  if (reqSlug) {
+    let cleanSlug = reqSlug;
+    if (cleanSlug === 'terms-and-conditions' || cleanSlug === 'terms') cleanSlug = 'terms-conditions';
+    if (cleanSlug === 'privacy') cleanSlug = 'privacy-policy';
+    if (cleanSlug === 'help' || cleanSlug === 'faqs' || cleanSlug === 'contact-support') cleanSlug = 'help-support';
+
+    if (method === 'GET') {
+      if (cleanSlug === 'contacts' || cleanSlug === 'contact-info') {
+        return sendJSON(res, 200, { success: true, data: supportContacts });
+      }
+      const page = cmsPages[cleanSlug] || defaultCmsPages[cleanSlug] || defaultCmsPages['help-support'];
+      return sendJSON(res, 200, { success: true, data: page });
+    }
+
+    if (method === 'PUT' && pathname.startsWith('/api/cms/pages/')) {
+      const body = await getRequestBody(req);
+      const existing = cmsPages[cleanSlug] || defaultCmsPages[cleanSlug] || {};
+      cmsPages[cleanSlug] = {
+        ...existing,
+        slug: cleanSlug,
+        title: body.title || existing.title,
+        content: body.content || existing.content,
+        meta_description: body.meta_description || existing.meta_description,
+        updated_at: new Date().toISOString()
+      };
+      cmsPages[cleanSlug] = cmsPages[cleanSlug];
+      saveDB();
+      return sendJSON(res, 200, { success: true, message: `CMS Page [${cleanSlug}] updated successfully`, data: cmsPages[cleanSlug] });
+    }
   }
 
   // Default 404

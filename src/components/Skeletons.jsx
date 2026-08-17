@@ -1,119 +1,159 @@
 import React from 'react';
 
-// Animated Shimmer Base Component
-const ShimmerBlock = ({ className = '' }) => (
-  <div className={`bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 dark:from-emerald-950/40 dark:via-emerald-900/20 dark:to-emerald-950/40 animate-pulse rounded-xl ${className}`} />
-);
+export function SocietyCardSkeleton({ count = 1 }) {
+  const items = Array.from({ length: count });
 
-// 1. Society Card Skeleton (Home Page)
-export const SocietyCardSkeleton = () => (
-  <div className="bg-white rounded-3xl p-5 border border-[#E4DCC9] shadow-sm flex flex-col justify-between h-[320px] relative overflow-hidden">
-    <div className="space-y-3">
-      <ShimmerBlock className="w-full h-36 rounded-2xl mb-4" />
-      <div className="flex items-center justify-between">
-        <ShimmerBlock className="w-20 h-4 rounded-full" />
-        <ShimmerBlock className="w-16 h-4 rounded-full" />
-      </div>
-      <ShimmerBlock className="w-3/4 h-6 rounded-lg" />
-      <ShimmerBlock className="w-full h-4 rounded-md" />
-    </div>
-    <div className="pt-4 border-t border-[#E4DCC9]/60 flex items-center justify-between">
-      <ShimmerBlock className="w-24 h-4 rounded-full" />
-      <ShimmerBlock className="w-8 h-8 rounded-full" />
-    </div>
-  </div>
-);
+  return (
+    <>
+      {items.map((_, i) => (
+        <div 
+          key={i} 
+          className="bento-card bg-white rounded-3xl border border-border/40 overflow-hidden shadow-xs animate-pulse flex flex-col justify-between"
+        >
+          <div>
+            <div className="h-44 bg-secondary/80 w-full relative">
+              <div className="absolute top-3 right-3 w-28 h-6 bg-border/60 rounded-full" />
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="h-6 bg-secondary/90 rounded-lg w-3/4" />
+              <div className="h-4 bg-secondary/70 rounded-md w-1/2" />
+              <div className="flex items-center gap-2 pt-2">
+                <div className="h-4 bg-secondary/60 rounded-md w-1/3" />
+                <div className="h-4 bg-secondary/60 rounded-md w-1/4" />
+              </div>
+            </div>
+          </div>
+          <div className="p-5 pt-0 grid grid-cols-2 gap-2">
+            <div className="h-10 bg-secondary/80 rounded-xl" />
+            <div className="h-10 bg-primary/20 rounded-xl" />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
 
-// 2. Vendor Card Skeleton (Society Vendors Page)
-export const VendorCardSkeleton = () => (
-  <div className="bg-white rounded-3xl border border-[#E4DCC9] shadow-sm relative overflow-hidden flex flex-col justify-between h-[360px]">
-    <div>
-      <ShimmerBlock className="w-full h-48 sm:h-52 rounded-none mb-3" />
-      <div className="p-4 space-y-2">
-        <ShimmerBlock className="w-full h-4 rounded-md" />
-        <ShimmerBlock className="w-3/4 h-3.5 rounded-md" />
-      </div>
-    </div>
-    <div className="p-4 pt-0 space-y-3">
-      <div className="pt-2 border-t border-[#E4DCC9]/60 flex items-center justify-between">
-        <ShimmerBlock className="w-24 h-4 rounded-md" />
-        <ShimmerBlock className="w-20 h-4 rounded-md" />
-      </div>
-      <ShimmerBlock className="w-full h-10 rounded-xl" />
-    </div>
-  </div>
-);
+export function ProductCardSkeleton({ count = 8 }) {
+  const items = Array.from({ length: count });
 
-// 3. Product Catalog Item Skeleton (Shop Menu Page)
-export const ProductCardSkeleton = () => (
-  <div className="bg-white rounded-2xl p-4 border border-[#E4DCC9] shadow-sm flex space-x-4 relative overflow-hidden">
-    <ShimmerBlock className="w-24 h-24 rounded-xl shrink-0" />
-    <div className="flex-1 space-y-2.5 min-w-0 py-1">
-      <div className="flex items-center justify-between">
-        <ShimmerBlock className="w-1/3 h-3.5 rounded-full" />
-        <ShimmerBlock className="w-12 h-3.5 rounded-full" />
-      </div>
-      <ShimmerBlock className="w-3/4 h-5 rounded-md" />
-      <ShimmerBlock className="w-full h-3.5 rounded-md" />
-      <div className="flex items-center justify-between pt-1">
-        <ShimmerBlock className="w-16 h-5 rounded-md" />
-        <ShimmerBlock className="w-20 h-8 rounded-full" />
-      </div>
-    </div>
-  </div>
-);
-
-// 4. Vendor Dashboard Stats & Catalog Skeleton
-export const DashboardSkeleton = () => (
-  <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto py-6 px-4">
-    {/* Header Skeleton */}
-    <div className="bg-[#18281F] rounded-3xl p-8 text-white space-y-4">
-      <ShimmerBlock className="w-32 h-6 rounded-full bg-white/20" />
-      <ShimmerBlock className="w-2/3 h-10 rounded-xl bg-white/20" />
-      <ShimmerBlock className="w-1/2 h-4 rounded-md bg-white/20" />
-    </div>
-
-    {/* Metric Cards Grid */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="bg-white p-6 rounded-2xl border border-[#E4DCC9] space-y-3">
-          <ShimmerBlock className="w-10 h-10 rounded-xl" />
-          <ShimmerBlock className="w-1/2 h-4 rounded-md" />
-          <ShimmerBlock className="w-3/4 h-8 rounded-lg" />
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {items.map((_, i) => (
+        <div 
+          key={i} 
+          className="bg-white rounded-2xl border border-border/40 p-4 shadow-xs animate-pulse space-y-3 flex flex-col justify-between"
+        >
+          <div className="space-y-3">
+            <div className="h-40 bg-secondary/80 rounded-xl w-full" />
+            <div className="h-4 bg-secondary/90 rounded-md w-3/4" />
+            <div className="h-3 bg-secondary/70 rounded-md w-1/2" />
+          </div>
+          <div className="pt-3 border-t border-border/30 flex items-center justify-between">
+            <div className="h-6 bg-secondary/90 rounded-md w-1/3" />
+            <div className="h-9 bg-primary/20 rounded-xl w-24" />
+          </div>
         </div>
       ))}
     </div>
+  );
+}
 
-    {/* Content Table Skeleton */}
-    <div className="bg-white p-6 rounded-3xl border border-[#E4DCC9] space-y-4">
-      <div className="flex justify-between items-center pb-4 border-b border-[#E4DCC9]">
-        <ShimmerBlock className="w-48 h-6 rounded-lg" />
-        <ShimmerBlock className="w-28 h-9 rounded-full" />
-      </div>
-      <div className="space-y-3">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-[#F7F4EE]">
-            <div className="flex items-center space-x-3 w-1/3">
-              <ShimmerBlock className="w-10 h-10 rounded-lg shrink-0" />
-              <ShimmerBlock className="w-full h-4 rounded-md" />
+export function VendorCardSkeleton({ count = 1 }) {
+  const items = Array.from({ length: count });
+
+  return (
+    <>
+      {items.map((_, i) => (
+        <div 
+          key={i} 
+          className="bg-white rounded-2xl border border-border/40 p-5 shadow-xs animate-pulse space-y-4"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-secondary/80 rounded-2xl shrink-0" />
+            <div className="space-y-2 flex-1">
+              <div className="h-5 bg-secondary/90 rounded-md w-2/3" />
+              <div className="h-3 bg-secondary/70 rounded-md w-1/3" />
             </div>
-            <ShimmerBlock className="w-20 h-4 rounded-md" />
-            <ShimmerBlock className="w-20 h-4 rounded-md" />
-            <ShimmerBlock className="w-16 h-7 rounded-full" />
+          </div>
+          <div className="h-12 bg-secondary/50 rounded-xl w-full" />
+          <div className="flex justify-between items-center pt-2">
+            <div className="h-4 bg-secondary/70 rounded-md w-1/4" />
+            <div className="h-8 bg-primary/20 rounded-lg w-20" />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+export function TableRowSkeleton({ rows = 5, cols = 4 }) {
+  const rowItems = Array.from({ length: rows });
+  const colItems = Array.from({ length: cols });
+
+  return (
+    <>
+      {rowItems.map((_, r) => (
+        <tr key={r} className="border-b border-border/30 animate-pulse">
+          {colItems.map((_, c) => (
+            <td key={c} className="p-4">
+              <div className="h-4 bg-secondary/80 rounded-md w-3/4" />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+}
+
+export function DashboardSkeleton() {
+  return (
+    <div className="min-h-screen bg-background p-6 space-y-6 animate-pulse">
+      {/* Header Skeleton */}
+      <div className="flex justify-between items-center bg-white p-6 rounded-3xl border border-border/40 shadow-xs">
+        <div className="space-y-2">
+          <div className="h-7 bg-secondary/90 rounded-xl w-48" />
+          <div className="h-4 bg-secondary/60 rounded-lg w-32" />
+        </div>
+        <div className="flex gap-3">
+          <div className="h-10 bg-secondary/80 rounded-full w-28" />
+          <div className="h-10 bg-primary/20 rounded-full w-28" />
+        </div>
+      </div>
+
+      {/* Metrics Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white p-5 rounded-2xl border border-border/40 space-y-3">
+            <div className="h-4 bg-secondary/70 rounded-md w-1/2" />
+            <div className="h-8 bg-secondary/90 rounded-lg w-3/4" />
+            <div className="h-3 bg-secondary/50 rounded-md w-1/3" />
           </div>
         ))}
       </div>
-    </div>
-  </div>
-);
 
-// 5. Table Row Skeleton
-export const TableRowSkeleton = ({ columns = 5 }) => (
-  <tr className="border-b border-[#E4DCC9]/60">
-    {Array.from({ length: columns }).map((_, idx) => (
-      <td key={idx} className="p-4">
-        <ShimmerBlock className="w-full h-4 rounded-md" />
-      </td>
-    ))}
-  </tr>
-);
+      {/* Main Content Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-border/40 space-y-4">
+          <div className="h-6 bg-secondary/90 rounded-lg w-1/3" />
+          <div className="h-64 bg-secondary/40 rounded-2xl w-full" />
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-border/40 space-y-4">
+          <div className="h-6 bg-secondary/90 rounded-lg w-1/2" />
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-12 bg-secondary/50 rounded-xl w-full" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default {
+  SocietyCardSkeleton,
+  ProductCardSkeleton,
+  VendorCardSkeleton,
+  TableRowSkeleton,
+  DashboardSkeleton
+};
