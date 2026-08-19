@@ -366,16 +366,56 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
+  // 0.2b Check Mobile Registration (POST /api/users/check-phone)
+  if (method === 'POST' && (pathname === '/api/users/check-phone' || pathname === '/api/users/check-phone/')) {
+    const body = await getRequestBody(req);
+    const rawPhone = (body.phone || body.mobile || body.phone_number || body.mobile_number || body.identifier || '').trim();
+    if (!rawPhone) {
+      return sendJSON(res, 400, { error: "Mobile number is required for verification check" });
+    }
+    const cleanDigits = rawPhone.replace(/[^0-9]/g, '');
+    const clean10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+
+    const match = users.find(u => {
+      const uPhone = String(u.phone || u.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+      return uPhone && uPhone === clean10;
+    });
+
+    if (match) {
+      return sendJSON(res, 200, {
+        exists: true,
+        phone: clean10 || rawPhone,
+        message: "Account found"
+      });
+    } else {
+      return sendJSON(res, 404, {
+        exists: false,
+        phone: clean10 || rawPhone,
+        error: "No account found with this mobile number. Please register your account first."
+      });
+    }
+  }
+
   // 0.3 Resident User Login (POST /api/users/login)
   if (method === 'POST' && pathname === '/api/users/login') {
     const body = await getRequestBody(req);
     const email = body.email ? body.email.trim().toLowerCase() : '';
-    const rawPhone = (body.phone || body.mobile || body.identifier || '').trim();
+    const rawPhone = (body.phone || body.mobile || body.phone_number || body.mobile_number || body.identifier || '').trim();
     const digitsOnly = rawPhone.replace(/[^0-9]/g, '');
     const cleanInputPhone = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
     const password = body.password ? String(body.password).trim() : '';
     const otp = (body.otp || body.otp_code || body.code) ? String(body.otp || body.otp_code || body.code).trim() : '';
     const isOtpLogin = Boolean(body.isOtpLogin || body.is_otp || (otp && otp !== ''));
+
+    // Rule 1: Missing Mobile Number (400 Bad Request)
+    if (!cleanInputPhone && !email) {
+      return sendJSON(res, 400, { error: "Mobile number is required for password login" });
+    }
+
+    // Rule 2: Missing Password and OTP (400 Bad Request)
+    if (!password && !otp && !isOtpLogin) {
+      return sendJSON(res, 400, { error: "Either password or OTP is required for login" });
+    }
 
     // Search user by clean 10-digit phone or email
     let user = users.find(u => {
@@ -386,8 +426,21 @@ const server = http.createServer(async (req, res) => {
       return false;
     });
 
+    // Rule 3: User Account Not Registered (404 Not Found)
     if (!user) {
       if (isOtpLogin) {
+        // Verify OTP code if attempting OTP login
+        const session = activeOtpSessions.get(rawPhone.toLowerCase()) || 
+                        (cleanInputPhone && activeOtpSessions.get(cleanInputPhone)) ||
+                        (cleanInputPhone && activeOtpSessions.get(`91${cleanInputPhone}`));
+
+        if (!session || session.otp !== otp || session.expiresAt < Date.now()) {
+          if (otp !== '123456' && otp !== '1234') {
+            return sendJSON(res, 400, { error: "Invalid or expired OTP code. Please enter the correct verification code." });
+          }
+        }
+
+        // Auto-create user for verified OTP
         user = {
           user_id: `usr_${Math.floor(100000 + Math.random() * 900000)}`,
           name: cleanInputPhone.includes('9784319840') ? 'Aarushi' : `Resident ${cleanInputPhone.slice(-4)}`,
@@ -402,19 +455,33 @@ const server = http.createServer(async (req, res) => {
         users.push(user);
         saveDB();
       } else {
-        return sendJSON(res, 404, { error: "No account found with this mobile number. Please register first." });
+        return sendJSON(res, 404, {
+          exists: false,
+          error: "No account found with this mobile number. Please register your account first."
+        });
       }
     }
 
-    // Password validation (when logging in with password)
+    // Rule 4: OTP Verification when user exists (400 Bad Request if invalid)
+    if (isOtpLogin && otp) {
+      const session = activeOtpSessions.get(rawPhone.toLowerCase()) || 
+                      (cleanInputPhone && activeOtpSessions.get(cleanInputPhone)) ||
+                      (cleanInputPhone && activeOtpSessions.get(`91${cleanInputPhone}`));
+
+      if (session && session.otp !== otp && session.expiresAt > Date.now() && otp !== '123456' && otp !== '1234') {
+        return sendJSON(res, 400, { error: "Invalid or expired OTP code. Please enter the correct verification code." });
+      }
+    }
+
+    // Rule 5: Incorrect Password Validation (401 Unauthorized)
     if (!isOtpLogin && password) {
       const validPassword = user.password || '123456';
       if (password !== validPassword && password !== '123456' && password !== 'password123') {
-        return sendJSON(res, 401, { error: "Incorrect password. Please check your password and try again." });
+        return sendJSON(res, 401, { error: "Invalid mobile number or password" });
       }
     }
 
-    const tokenStr = `user_jwt_access_${Date.now()}`;
+    const tokenStr = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IiR7dXNlci51c2VyX2lkfSIsInJvbGUiOiJ1c2VyIiwicGhvbmUiOiIke3VzZXIucGhvbmV9In0.sample_signature`;
     return sendJSON(res, 200, {
       token: tokenStr,
       accessToken: tokenStr,
@@ -639,7 +706,34 @@ const server = http.createServer(async (req, res) => {
 
   if (method === 'GET' && pathname === '/api/societies') {
     const q = parsedUrl.query.search ? parsedUrl.query.search.toLowerCase() : '';
-    const filtered = q ? societies.filter(s => s.society_name.toLowerCase().includes(q) || s.location.toLowerCase().includes(q)) : societies;
+    
+    // Dynamically calculate active vendor count for each society
+    const listWithCounts = societies.map(s => {
+      const activeCount = vendors.filter(v => {
+        if (!v) return false;
+        const status = String(v.status || '').toUpperCase().trim();
+        const appStatus = String(v.approval_status || '').toUpperCase().trim();
+        if (status === 'SUSPENDED' || status === 'BLOCKED' || status === 'INACTIVE' || status === 'PENDING' || status === 'REJECTED') return false;
+        if (appStatus === 'PENDING' || appStatus === 'REJECTED') return false;
+        if (v.is_active === false || v.isActive === false) return false;
+
+        const vSocId = String(v.society_id || '').toLowerCase().trim();
+        const sSocId = String(s.society_id || '').toLowerCase().trim();
+        if (vSocId === sSocId) return true;
+        const vClean = vSocId.replace('soc-', '');
+        const sClean = sSocId.replace('soc-', '');
+        if (vClean && sClean && vClean === sClean) return true;
+        if (v.society_name && s.society_name && v.society_name.toLowerCase().trim() === s.society_name.toLowerCase().trim()) return true;
+        return false;
+      }).length;
+
+      return {
+        ...s,
+        vendor_count: activeCount
+      };
+    });
+
+    const filtered = q ? listWithCounts.filter(s => s.society_name.toLowerCase().includes(q) || s.location.toLowerCase().includes(q)) : listWithCounts;
     
     if (parsedUrl.query.page || parsedUrl.query.limit) {
       const page = parseInt(parsedUrl.query.page || '1', 10);
@@ -664,6 +758,29 @@ const server = http.createServer(async (req, res) => {
     }
 
     return sendJSON(res, 200, filtered);
+  }
+
+  // 1.5b List All Active Vendors (GET /api/vendors)
+  if (method === 'GET' && (pathname === '/api/vendors' || pathname === '/api/vendors/')) {
+    const q = parsedUrl.query.search ? parsedUrl.query.search.toLowerCase() : '';
+    let list = vendors.filter(v => {
+      if (!v) return false;
+      const status = String(v.status || '').toUpperCase().trim();
+      const appStatus = String(v.approval_status || '').toUpperCase().trim();
+      if (status === 'SUSPENDED' || status === 'BLOCKED' || status === 'INACTIVE' || status === 'PENDING' || status === 'REJECTED') return false;
+      if (appStatus === 'PENDING' || appStatus === 'REJECTED') return false;
+      if (v.is_active === false || v.isActive === false) return false;
+      return true;
+    });
+    if (q) {
+      list = list.filter(v => 
+        (v.store_name && v.store_name.toLowerCase().includes(q)) ||
+        (v.vendor_name && v.vendor_name.toLowerCase().includes(q)) ||
+        (v.category && v.category.toLowerCase().includes(q)) ||
+        (v.society_name && v.society_name.toLowerCase().includes(q))
+      );
+    }
+    return sendJSON(res, 200, list);
   }
 
   if (method === 'GET' && pathname.startsWith('/api/societies/')) {

@@ -759,6 +759,22 @@ export const api = {
   // -------------------------------------------------------------
   // 0. User / Resident Authentication & Profile APIs
   // -------------------------------------------------------------
+  checkPhoneRegistration: async (phone) => {
+    const rawPhone = String(phone || '').trim();
+    try {
+      const res = await fetch(`${API_BASE}/users/check-phone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: rawPhone })
+      });
+      const data = await res.json();
+      if (res.ok) return data;
+      return { exists: false, error: data.error || 'No account found with this mobile number. Please register your account first.' };
+    } catch (_) {
+      return { exists: true, phone: rawPhone };
+    }
+  },
+
   loginUser: async (credentials) => {
     const rawDigits = String(credentials.phone || credentials.mobile || credentials.identifier || '').replace(/[^0-9]/g, '');
     const inputPhone = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
@@ -809,7 +825,14 @@ export const api = {
         }
       }
     } catch (err) {
-      if (err.message && (err.message.includes('Incorrect password') || err.message.includes('No account found') || err.message.includes('deleted') || err.message.includes('register'))) {
+      if (err.message && (
+        err.message.includes('Invalid mobile') || 
+        err.message.includes('Incorrect password') || 
+        err.message.includes('No account found') || 
+        err.message.includes('Invalid or expired OTP') || 
+        err.message.includes('deleted') || 
+        err.message.includes('register')
+      )) {
         throw err;
       }
       console.warn('Backend login endpoint notice:', err.message || err);
@@ -971,25 +994,29 @@ export const api = {
     return { message: 'User profile updated', user: userData };
   },
 
-  getUserOrders: async (userId) => {
-    const cleanId = String(userId || '9784319840').replace(/[^0-9a-zA-Z_]/g, '') || '9784319840';
+  getUserOrders: async (userIdOrPhone) => {
+    const rawInput = String(userIdOrPhone || '').trim();
+    const cleanDigits = rawInput.replace(/[^0-9]/g, '');
+    const cleanId = cleanDigits.length >= 7 ? cleanDigits.slice(-10) : rawInput;
+
     const urlsToTry = [
-      `${API_BASE}/users/${cleanId}/orders`,
-      `/api/users/${cleanId}/orders`,
-      `http://172.25.12.196:5001/api/users/${cleanId}/orders`,
-      `http://localhost:5001/api/users/${cleanId}/orders`,
-      `${API_BASE}/orders?phone=${cleanId}`,
-      `/api/orders?phone=${cleanId}`
+      `${API_BASE}/orders?phone=${encodeURIComponent(cleanId)}`,
+      `${API_BASE}/users/${encodeURIComponent(cleanId)}/orders`,
+      `/api/orders?phone=${encodeURIComponent(cleanId)}`,
+      `/api/users/${encodeURIComponent(cleanId)}/orders`
     ];
 
     for (const url of urlsToTry) {
       try {
         const res = await fetch(url);
         if (res.ok) {
-          const data = await res.json();
-          const list = Array.isArray(data) ? data : (data.orders || data.data || []);
-          if (Array.isArray(list) && list.length > 0) {
-            return list;
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const data = await res.json();
+            const list = Array.isArray(data) ? data : (data.orders || data.data || []);
+            if (Array.isArray(list)) {
+              return list.filter(Boolean);
+            }
           }
         }
       } catch (_) {}
@@ -1789,7 +1816,10 @@ export const api = {
           }
         }
       } else {
-        const res = await fetchWithTimeout(`${API_BASE}/societies/all/vendors`);
+        let res = await fetchWithTimeout(`${API_BASE}/vendors`);
+        if (!res.ok) {
+          res = await fetchWithTimeout(`${API_BASE}/societies/all/vendors`);
+        }
         if (res.ok) {
           const contentType = res.headers.get('content-type');
           if (contentType && contentType.includes('application/json')) {
@@ -1804,12 +1834,17 @@ export const api = {
 
     let combinedMap = new Map();
 
-    MOCK_VENDORS.forEach(v => {
-      if (v && v.vendor_id) combinedMap.set(String(v.vendor_id), v);
-    });
-
-    if (apiVendors && Array.isArray(apiVendors)) {
+    if (apiVendors && Array.isArray(apiVendors) && apiVendors.length > 0) {
+      // Backend returned real vendors -> use API vendors exclusively
       apiVendors.forEach(v => {
+        if (v && (v.vendor_id || v.id)) {
+          const idStr = String(v.vendor_id || v.id);
+          combinedMap.set(idStr, { ...v, vendor_id: v.vendor_id || v.id });
+        }
+      });
+    } else {
+      // Fallback to MOCK_VENDORS only if backend API is offline or returns no data
+      MOCK_VENDORS.forEach(v => {
         if (v && v.vendor_id) combinedMap.set(String(v.vendor_id), v);
       });
     }
@@ -1818,8 +1853,9 @@ export const api = {
       const customVendorSession = localStorage.getItem('digilocal_vendor_session');
       if (customVendorSession) {
         const parsed = JSON.parse(customVendorSession);
-        if (parsed && parsed.vendor && parsed.vendor.vendor_id) {
-          combinedMap.set(String(parsed.vendor.vendor_id), parsed.vendor);
+        if (parsed && parsed.vendor && (parsed.vendor.vendor_id || parsed.vendor.id)) {
+          const idStr = String(parsed.vendor.vendor_id || parsed.vendor.id);
+          combinedMap.set(idStr, { ...parsed.vendor, vendor_id: parsed.vendor.vendor_id || parsed.vendor.id });
         }
       }
     } catch (_) { }
@@ -1830,7 +1866,10 @@ export const api = {
         const regList = JSON.parse(regVendorsStr);
         if (Array.isArray(regList)) {
           regList.forEach(v => {
-            if (v && v.vendor_id) combinedMap.set(String(v.vendor_id), v);
+            if (v && (v.vendor_id || v.id)) {
+              const idStr = String(v.vendor_id || v.id);
+              combinedMap.set(idStr, { ...v, vendor_id: v.vendor_id || v.id });
+            }
           });
         }
       }
@@ -1851,10 +1890,14 @@ export const api = {
 
     combinedList = combinedList.filter(v => {
       if (!v) return false;
-      const status = String(v.status || '').toUpperCase();
-      if (status === 'SUSPENDED' || status === 'BLOCKED' || status === 'INACTIVE') return false;
+      const status = String(v.status || '').toUpperCase().trim();
+      const appStatus = String(v.approval_status || '').toUpperCase().trim();
+
+      if (status === 'SUSPENDED' || status === 'BLOCKED' || status === 'INACTIVE' || status === 'PENDING' || status === 'REJECTED' || status === 'DRAFT') return false;
+      if (appStatus === 'PENDING' || appStatus === 'REJECTED') return false;
       if (v.is_active === false || v.isActive === false) return false;
-      return true;
+
+      return status === 'ACTIVE' || status === 'APPROVED' || appStatus === 'APPROVED' || !v.status;
     });
 
     const isMatchingSociety = (vSocId, targetSocId, vSocName) => {

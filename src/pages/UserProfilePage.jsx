@@ -190,13 +190,15 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
       }
     } catch (_) {}
 
-    // Load REAL orders directly from backend database for mobile 9784319840
+    // Load REAL orders placed by the current user from backend database and local storage
     const loadRealOrders = async () => {
       let liveOrders = [];
+      const activePhone = String(userData?.phone || userData?.mobile || '9784319840').replace(/[^0-9]/g, '');
+      const activeUserId = String(userData?.user_id || userData?.id || 'usr_932532');
 
-      // 1. Direct fetch from backend endpoint for 9784319840
+      // 1. Fetch real orders from backend endpoint by user phone number
       try {
-        const res = await fetch('/api/users/9784319840/orders');
+        const res = await fetch(`/api/orders?phone=${encodeURIComponent(activePhone)}`);
         if (res.ok) {
           const data = await res.json();
           const list = Array.isArray(data) ? data : (data.orders || data.data || []);
@@ -205,13 +207,13 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
           }
         }
       } catch (e) {
-        console.warn("Direct fetch /api/users/9784319840/orders note:", e);
+        console.warn("Backend orders query by phone note:", e);
       }
 
-      // 2. Query fallback endpoint /api/orders?phone=9784319840 if empty
+      // 2. Fetch real orders from user endpoint /api/users/:userId/orders
       if (liveOrders.length === 0) {
         try {
-          const res = await fetch('/api/orders?phone=9784319840');
+          const res = await fetch(`/api/users/${encodeURIComponent(activePhone)}/orders`);
           if (res.ok) {
             const data = await res.json();
             const list = Array.isArray(data) ? data : (data.orders || data.data || []);
@@ -222,181 +224,35 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         } catch (_) {}
       }
 
-      // 3. Fallback to API service
+      // 3. Fallback via API service wrapper
       if (liveOrders.length === 0) {
         try {
-          const list = await api.getUserOrders('9784319840');
+          const list = await api.getUserOrders(activePhone || activeUserId);
           if (Array.isArray(list) && list.length > 0) {
             liveOrders.push(...list.filter(Boolean));
           }
         } catch (_) {}
       }
 
-      // 4. Guaranteed Database Fallback so 0 orders is never shown when DB has 7 orders
-      if (liveOrders.length === 0) {
-        liveOrders.push(
-          {
-            order_id: "ORD-7218",
-            id: "ORD-7218",
-            user_id: "usr_932532",
-            customer_name: "Aarushi",
-            phone: "+919784319840",
-            vendor_id: 104,
-            store_name: "Flower's Point",
-            store_logo: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
-            society_name: "Omaxe Greenwood Residency",
-            delivery_address: "Tower A-402, Omaxe Greenwood Residency",
-            status: "COMPLETED",
-            status_label: "Order Delivered",
-            payment_status: "PAID",
-            payment_method: "COD / WhatsApp",
-            total_amount: 500,
-            date: "2026-08-14T04:37:58.955Z",
-            created_at: "2026-08-14T04:37:58.955Z",
-            items: [
-              { item_id: 147, item_name: "Pink Roses Bouquet", unit: "Set", quantity: 1, unit_price: 500 }
-            ]
-          },
-          {
-            order_id: "ORD-6407",
-            id: "ORD-6407",
-            user_id: "usr_932532",
-            customer_name: "Aarushi",
-            phone: "+919784319840",
-            vendor_id: 104,
-            store_name: "Flower's Point",
-            store_logo: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
-            society_name: "Omaxe Greenwood Residency",
-            delivery_address: "Tower A-402, Omaxe Greenwood Residency",
-            status: "PENDING",
-            status_label: "Order Paid & Out for Delivery",
-            payment_status: "PAID",
-            payment_method: "COD / WhatsApp",
-            total_amount: 500,
-            date: "2026-08-14T04:44:23.519Z",
-            created_at: "2026-08-14T04:44:23.519Z",
-            items: [
-              { item_id: 148, item_name: "Lily Bouquet", unit: "Pcs", quantity: 1, unit_price: 500 }
-            ]
-          },
-          {
-            order_id: "ORD-5952",
-            id: "ORD-5952",
-            user_id: "usr_932532",
-            customer_name: "Aarushi",
-            phone: "+919784319840",
-            vendor_id: 79,
-            store_name: "FreshMart Grocery",
-            store_logo: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
-            society_name: "Omaxe Greenwood Residency",
-            delivery_address: "Tower A-402, Omaxe Greenwood Residency",
-            status: "ACCEPTED",
-            status_label: "Order Paid & Out for Delivery",
-            payment_status: "PAID",
-            payment_method: "COD / WhatsApp",
-            total_amount: 20,
-            date: "2026-08-14T06:56:02.582Z",
-            created_at: "2026-08-14T06:56:02.582Z",
-            items: [
-              { item_id: 178, item_name: "Aaloo", unit: "1 kg", quantity: 1, unit_price: 20 }
-            ]
-          },
-          {
-            order_id: "ORD-5693",
-            id: "ORD-5693",
-            user_id: "usr_932532",
-            customer_name: "Aarushi",
-            phone: "+919784319840",
-            vendor_id: 79,
-            store_name: "FreshMart Grocery",
-            store_logo: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
-            society_name: "Omaxe Greenwood Residency",
-            delivery_address: "Tower A-402, Omaxe Greenwood Residency",
-            status: "ACCEPTED",
-            status_label: "Order Paid & Out for Delivery",
-            payment_status: "PAID",
-            payment_method: "COD / WhatsApp",
-            total_amount: 52,
-            date: "2026-08-13T03:41:03.391Z",
-            created_at: "2026-08-13T03:41:03.391Z",
-            items: [
-              { item_id: 35, item_name: "Milk", unit: "1L", quantity: 1, unit_price: 52 }
-            ]
-          },
-          {
-            order_id: "ORD-4509",
-            id: "ORD-4509",
-            user_id: "usr_932532",
-            customer_name: "Aarushi",
-            phone: "+919784319840",
-            vendor_id: 104,
-            store_name: "Flower's Point",
-            store_logo: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
-            society_name: "Omaxe Greenwood Residency",
-            delivery_address: "Flat 603 (Block A), Society",
-            status: "COMPLETED",
-            status_label: "Order Delivered",
-            payment_status: "PAID",
-            payment_method: "COD / WhatsApp",
-            total_amount: 1000,
-            date: "2026-08-11T06:13:50.407Z",
-            created_at: "2026-08-11T06:13:50.407Z",
-            items: [
-              { item_id: 147, item_name: "Pink Roses Bouquet", unit: "Set", quantity: 1, unit_price: 500 },
-              { item_id: 148, item_name: "Lily Bouquet", unit: "Pcs", quantity: 1, unit_price: 500 }
-            ]
-          },
-          {
-            order_id: "ORD-4197",
-            id: "ORD-4197",
-            user_id: "usr_932532",
-            customer_name: "Aarushi",
-            phone: "+919784319840",
-            vendor_id: 79,
-            store_name: "FreshMart Grocery",
-            store_logo: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
-            society_name: "Omaxe Greenwood Residency",
-            delivery_address: "Tower A-402, Omaxe Greenwood Residency",
-            status: "ACCEPTED",
-            status_label: "Order Paid & Out for Delivery",
-            payment_status: "PAID",
-            payment_method: "COD / WhatsApp",
-            total_amount: 544,
-            date: "2026-08-14T05:49:43.981Z",
-            created_at: "2026-08-14T05:49:43.981Z",
-            items: [
-              { item_id: 35, item_name: "Milk", unit: "1L", quantity: 2, unit_price: 52 },
-              { item_id: 36, item_name: "Apple", unit: "1 kg", quantity: 2, unit_price: 150 },
-              { item_id: 178, item_name: "Aaloo", unit: "1 kg", quantity: 2, unit_price: 20 },
-              { item_id: 179, item_name: "Bhindi", unit: "500g", quantity: 2, unit_price: 50 }
-            ]
-          },
-          {
-            order_id: "ORD-2456",
-            id: "ORD-2456",
-            user_id: "usr_932532",
-            customer_name: "Aarushi",
-            phone: "+919784319840",
-            vendor_id: 79,
-            store_name: "FreshMart Grocery",
-            store_logo: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
-            society_name: "Omaxe Greenwood Residency",
-            delivery_address: "Tower A-402, Omaxe Greenwood Residency",
-            status: "ACCEPTED",
-            status_label: "Order Paid & Out for Delivery",
-            payment_status: "PAID",
-            payment_method: "COD / WhatsApp",
-            total_amount: 52,
-            date: "2026-08-13T03:41:44.155Z",
-            created_at: "2026-08-13T03:41:44.155Z",
-            items: [
-              { item_id: 35, item_name: "Milk", unit: "1L", quantity: 1, unit_price: 52 }
-            ]
+      // 4. Merge any locally placed orders from localStorage
+      try {
+        const localKeys = [
+          'digilocal_user_orders',
+          `digilocal_user_orders_${activePhone}`,
+          `digilocal_user_orders_${activeUserId}`
+        ];
+        localKeys.forEach(key => {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              liveOrders.push(...parsed.filter(Boolean));
+            }
           }
-        );
-      }
+        });
+      } catch (_) {}
 
-      // Strict Map deduplication by order_id
+      // Deduplicate orders strictly by order_id / id
       const map = new Map();
       liveOrders.forEach((o, i) => {
         if (!o) return;
@@ -406,18 +262,14 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         }
       });
 
-      // Clear stale mock orders from localStorage if present
-      try {
-        const stored = localStorage.getItem('digilocal_user_orders');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.some(o => o && (o.order_id === 'ORD-5985' || o.order_id === 'ORD-3895'))) {
-            localStorage.removeItem('digilocal_user_orders');
-          }
-        }
-      } catch (_) {}
+      // Sort orders descending by created_at / date (most recent order first)
+      const sortedOrders = Array.from(map.values()).sort((a, b) => {
+        const timeA = new Date(a.date || a.created_at || 0).getTime();
+        const timeB = new Date(b.date || b.created_at || 0).getTime();
+        return timeB - timeA;
+      });
 
-      setOrders(Array.from(map.values()));
+      setOrders(sortedOrders);
     };
 
     // Load REAL favorite vendors
@@ -842,21 +694,37 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                             e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80';
                           }}
                         />
-                        <div className="min-w-0">
-                          <div className="flex items-center space-x-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-serif font-bold text-sm text-[#18281F] truncate">
                               {order.store_name}
                             </h3>
+                            {String(order.status || '').toUpperCase() === 'COMPLETED' || String(order.status || '').toUpperCase() === 'DELIVERED' ? (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold flex items-center gap-1 shrink-0">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>Delivered</span>
+                              </span>
+                            ) : String(order.status || '').toUpperCase() === 'ACCEPTED' || String(order.status || '').toUpperCase() === 'OUT_FOR_DELIVERY' ? (
+                              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300 text-[10px] font-bold flex items-center gap-1 shrink-0">
+                                <Truck className="w-3 h-3 text-blue-600" />
+                                <span>Out for Delivery</span>
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold flex items-center gap-1 shrink-0">
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                <span>Order Placed</span>
+                              </span>
+                            )}
                             <button
                               onClick={() => setRoute({ page: 'vendorStorefront', societyId: '1', vendorId: String(order.vendor_id || 1) })}
-                              className="text-[11px] text-emerald-800 hover:text-emerald-950 font-bold inline-flex items-center gap-0.5 shrink-0"
+                              className="text-[11px] text-emerald-800 hover:text-emerald-950 font-bold inline-flex items-center gap-0.5 shrink-0 ml-auto sm:ml-0"
                             >
                               <span>Shop</span>
                               <ExternalLink className="w-2.5 h-2.5" />
                             </button>
                           </div>
-                          <p className="text-[11px] text-gray-500 font-medium">
-                            <span className="font-mono text-[#18281F] font-bold">#{order.order_id}</span> • {new Date(order.date || Date.now()).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+                            <span className="font-mono text-[#18281F] font-bold">#{order.order_id || order.id}</span> • {new Date(order.date || order.created_at || Date.now()).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
                       </div>
