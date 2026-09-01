@@ -6,7 +6,9 @@
       "location": "Sector Greenwood, Omega II, Greater Noida",
       "public_id": "GW-4K2",
       "pincode": "201310",
-      "vendor_count": 14
+      "vendor_count": 14,
+      "latitude": 28.617,
+      "longitude": 77.362
     },
     {
       "society_id": "SOC-102",
@@ -14,7 +16,9 @@
       "location": "Whitefield, Bengaluru",
       "public_id": "PM-981",
       "pincode": "560066",
-      "vendor_count": 8
+      "vendor_count": 8,
+      "latitude": 28.625,
+      "longitude": 77.362
     },
     {
       "society_id": "SOC-103",
@@ -22,7 +26,9 @@
       "location": "Golf Course Road, Gurugram",
       "public_id": "DLF-55",
       "pincode": "122002",
-      "vendor_count": 15
+      "vendor_count": 15,
+      "latitude": 28.633,
+      "longitude": 77.362
     },
     {
       "society_id": "SOC-104",
@@ -30,7 +36,9 @@
       "location": "Sector 43, Noida",
       "public_id": "GW-904",
       "pincode": "201303",
-      "vendor_count": 6
+      "vendor_count": 6,
+      "latitude": 28.641,
+      "longitude": 77.362
     },
     {
       "society_id": "SOC-105",
@@ -38,7 +46,9 @@
       "location": "Sector 128, Noida",
       "public_id": "JPG-12",
       "pincode": "201304",
-      "vendor_count": 18
+      "vendor_count": 18,
+      "latitude": 28.649,
+      "longitude": 77.362
     },
     {
       "society_id": "SOC-106",
@@ -46,7 +56,9 @@
       "location": "Sector 93A, Noida",
       "public_id": "ATS-93",
       "pincode": "201304",
-      "vendor_count": 11
+      "vendor_count": 11,
+      "latitude": 28.617,
+      "longitude": 77.37
     }
   ],
   "vendors": [
@@ -66,7 +78,74 @@
       "closing_timing": "10:00 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "Omaxe Greenwood Residency"
+      "society_name": "Omaxe Greenwood Residency",
+      "latitude": 28.627,
+      "longitude": 77.372,
+      "location_type": "area_sector",
+      "is_global_coverage": true,
+      "delivery_radius_km": 3,
+      "selected_zones": [
+        {
+          "zone_id": "SOC-101",
+          "name": "Omaxe Greenwood Residency",
+          "type": "society",
+          "location": "Sector Greenwood, Omega II, Greater Noida",
+          "latitude": 28.617,
+          "longitude": 77.362,
+          "distance_km": 1.48,
+          "is_inside_circle": true,
+          "is_auto_selected": true,
+          "is_active": true
+        },
+        {
+          "zone_id": "SOC-102",
+          "name": "Palm Meadows Residency",
+          "type": "society",
+          "location": "Whitefield, Bengaluru",
+          "latitude": 28.625,
+          "longitude": 77.362,
+          "distance_km": 1,
+          "is_inside_circle": true,
+          "is_auto_selected": true,
+          "is_active": true
+        },
+        {
+          "zone_id": "SOC-103",
+          "name": "DLF Phase 5 Enclave",
+          "type": "society",
+          "location": "Golf Course Road, Gurugram",
+          "latitude": 28.633,
+          "longitude": 77.362,
+          "distance_km": 1.18,
+          "is_inside_circle": true,
+          "is_auto_selected": true,
+          "is_active": true
+        },
+        {
+          "zone_id": "SOC-104",
+          "name": "Godrej Woods Community",
+          "type": "society",
+          "location": "Sector 43, Noida",
+          "latitude": 28.641,
+          "longitude": 77.362,
+          "distance_km": 1.84,
+          "is_inside_circle": true,
+          "is_auto_selected": true,
+          "is_active": true
+        },
+        {
+          "zone_id": "SOC-105",
+          "name": "Jaypee Greens Wish Town",
+          "type": "society",
+          "location": "Sector 128, Noida",
+          "latitude": 28.649,
+          "longitude": 77.362,
+          "distance_km": 2.63,
+          "is_inside_circle": true,
+          "is_auto_selected": true,
+          "is_active": true
+        }
+      ]
     },
     {
       "vendor_id": 2,
@@ -83,7 +162,9 @@
       "closing_timing": "09:30 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "Omaxe Greenwood Residency"
+      "society_name": "Omaxe Greenwood Residency",
+      "latitude": 28.618,
+      "longitude": 77.357
     },
     {
       "vendor_id": 3,
@@ -100,7 +181,9 @@
       "closing_timing": "10:00 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "Palm Meadows Residency"
+      "society_name": "Palm Meadows Residency",
+      "latitude": 28.624,
+      "longitude": 77.357
     },
     {
       "vendor_id": 4,
@@ -117,7 +200,9 @@
       "closing_timing": "10:30 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "Palm Meadows Residency"
+      "society_name": "Palm Meadows Residency",
+      "latitude": 28.63,
+      "longitude": 77.357
     },
     {
       "vendor_id": 5,
@@ -134,7 +219,9 @@
       "closing_timing": "09:30 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "DLF Phase 5 Enclave"
+      "society_name": "DLF Phase 5 Enclave",
+      "latitude": 28.636,
+      "longitude": 77.357
     },
     {
       "vendor_id": 6,
@@ -151,7 +238,9 @@
       "closing_timing": "08:00 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "DLF Phase 5 Enclave"
+      "society_name": "DLF Phase 5 Enclave",
+      "latitude": 28.642,
+      "longitude": 77.357
     },
     {
       "vendor_id": 7,
@@ -168,7 +257,9 @@
       "closing_timing": "09:00 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "Godrej Woods Community"
+      "society_name": "Godrej Woods Community",
+      "latitude": 28.648,
+      "longitude": 77.357
     },
     {
       "vendor_id": 8,
@@ -185,7 +276,9 @@
       "closing_timing": "10:00 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "Jaypee Greens Wish Town"
+      "society_name": "Jaypee Greens Wish Town",
+      "latitude": 28.612,
+      "longitude": 77.363
     },
     {
       "vendor_id": 9,
@@ -202,7 +295,9 @@
       "closing_timing": "09:00 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "ATS Village Gated Complex"
+      "society_name": "ATS Village Gated Complex",
+      "latitude": 28.618,
+      "longitude": 77.363
     },
     {
       "vendor_id": 10,
@@ -219,7 +314,9 @@
       "closing_timing": "08:00 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "Omaxe Greenwood Residency"
+      "society_name": "Omaxe Greenwood Residency",
+      "latitude": 28.624,
+      "longitude": 77.363
     },
     {
       "vendor_id": 11,
@@ -236,7 +333,9 @@
       "closing_timing": "08:30 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "Omaxe Greenwood Residency"
+      "society_name": "Omaxe Greenwood Residency",
+      "latitude": 28.63,
+      "longitude": 77.363
     },
     {
       "vendor_id": 12,
@@ -253,7 +352,9 @@
       "closing_timing": "09:00 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "Palm Meadows Residency"
+      "society_name": "Palm Meadows Residency",
+      "latitude": 28.636,
+      "longitude": 77.363
     },
     {
       "vendor_id": 13,
@@ -270,7 +371,9 @@
       "closing_timing": "08:30 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "DLF Phase 5 Enclave"
+      "society_name": "DLF Phase 5 Enclave",
+      "latitude": 28.642,
+      "longitude": 77.363
     },
     {
       "vendor_id": 14,
@@ -287,7 +390,9 @@
       "closing_timing": "10:00 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "Godrej Woods Community"
+      "society_name": "Godrej Woods Community",
+      "latitude": 28.648,
+      "longitude": 77.363
     },
     {
       "vendor_id": 15,
@@ -304,7 +409,9 @@
       "closing_timing": "11:00 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "Godrej Woods Community"
+      "society_name": "Godrej Woods Community",
+      "latitude": 28.612,
+      "longitude": 77.369
     },
     {
       "vendor_id": 16,
@@ -321,7 +428,9 @@
       "closing_timing": "09:00 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "Jaypee Greens Wish Town"
+      "society_name": "Jaypee Greens Wish Town",
+      "latitude": 28.618,
+      "longitude": 77.369
     },
     {
       "vendor_id": 17,
@@ -338,7 +447,42 @@
       "closing_timing": "08:00 PM",
       "delivery_charge": 0,
       "min_order_value": 0,
-      "society_name": "ATS Village Gated Complex"
+      "society_name": "ATS Village Gated Complex",
+      "latitude": 28.624,
+      "longitude": 77.369
+    },
+    {
+      "vendor_id": 18,
+      "society_id": 1,
+      "society_name": "",
+      "vendor_name": "Test Electrician",
+      "store_name": "Test Electrical Services",
+      "shop_number": "",
+      "shop_address": "",
+      "city": "",
+      "pincode": "",
+      "business_category": "General",
+      "email": "service_vendor_1787725261666@test.com",
+      "phone_number": "",
+      "gst_number": "",
+      "shop_images": [],
+      "vendor_type": "service",
+      "can_add_items": false,
+      "location_type": "area_sector",
+      "area_name": "Sector 62 Noida",
+      "is_global_coverage": true,
+      "delivery_radius_km": 5,
+      "selected_zones": [
+        {
+          "zone_id": "SOC-101",
+          "name": "Greenwood Residency",
+          "type": "society",
+          "is_active": true
+        }
+      ],
+      "status": "ACTIVE",
+      "latitude": 28.63,
+      "longitude": 77.369
     }
   ],
   "items": [
@@ -747,5 +891,20 @@
     "whatsapp": "+91 80056 25999",
     "address": "DigiLocal Tech Hub, Tower B, Sector 62, Noida, UP - 201309",
     "working_hours": "Monday to Saturday: 9:00 AM - 8:00 PM IST"
-  }
+  },
+  "enquiries": [
+    {
+      "enquiry_id": "ENQ-285240",
+      "vendor_id": 18,
+      "resident_name": "Aarushi",
+      "resident_phone": "9784319840",
+      "society_name": "Greenwood Residency",
+      "flat_number": "",
+      "service_title": "AC Servicing",
+      "description": "AC Gas leak repair",
+      "preferred_time": "ASAP",
+      "status": "CONTACTED",
+      "created_at": "2026-08-26T06:21:01.686Z"
+    }
+  ]
 }

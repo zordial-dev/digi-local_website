@@ -277,15 +277,15 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
   };
 
   return (
-    <div className="min-h-screen bg-[#EDEDE4] flex items-center justify-center p-3 sm:p-6 lg:p-8 font-sans text-foreground">
+    <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center p-3 sm:p-6 lg:p-8 font-sans text-[#211A19]">
       {/* Hidden Container required for Firebase reCAPTCHA */}
       <div id="recaptcha-container"></div>
 
       {/* 50/50 Balanced Bento Card matching LoginPage & Reference Screenshot */}
-      <div className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/40 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[640px]">
+      <div className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/60 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[640px]">
         
-        {/* LEFT COLUMN: Pastel Green Decorative Panel (50% equal width, md:col-span-6) */}
-        <div className="md:col-span-6 bg-[#E3EFE6] p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px]">
+        {/* LEFT COLUMN: Clean Branded Panel (50% equal width, md:col-span-6) */}
+        <div className="md:col-span-6 bg-[#FAF8F5] md:border-r border-border/50 p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px]">
           <div className="w-full flex items-center space-x-3 z-10">
             {/* Back Button */}
             <button
@@ -296,10 +296,10 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                   setRoute({ page: 'home' });
                 }
               }}
-              className="px-3.5 py-2 rounded-full bg-white/80 hover:bg-white text-[#1E3623] text-xs font-bold flex items-center space-x-1.5 border border-emerald-900/10 shadow-xs transition-all group shrink-0 cursor-pointer"
+              className="px-3.5 py-2 rounded-full bg-white hover:bg-gray-50 text-[#211A19] text-xs font-bold flex items-center space-x-1.5 border border-[#C8A878]/30 shadow-xs transition-all group shrink-0 cursor-pointer"
               title="Go Back"
             >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#1E3623] group-hover:-translate-x-0.5 transition-transform" />
+              <ArrowLeft className="w-3.5 h-3.5 text-[#541D26] group-hover:-translate-x-0.5 transition-transform" />
               <span>Back</span>
             </button>
 
@@ -327,10 +327,10 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
           </div>
 
           <div className="text-center z-10 space-y-1">
-            <span className="text-[11px] font-black uppercase tracking-widest text-[#2E4A35]">
+            <span className="text-[11px] font-black uppercase tracking-widest text-[#541D26]">
               Hyperlocal Community Network
             </span>
-            <p className="text-[11px] text-[#4A5D4E] font-medium">
+            <p className="text-[11px] text-[#211A19]/70 font-medium">
               Connecting gated societies with trusted local vendors.
             </p>
           </div>
@@ -344,11 +344,11 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
             <button
               type="button"
               onClick={() => setRoute({ page: 'vendorRegister' })}
-              className="bg-[#18281F] hover:bg-black text-white text-xs font-bold px-4 py-2 rounded-full flex items-center space-x-2 shadow-sm hover:scale-[1.02] transition-all group cursor-pointer"
+              className="bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold px-4 py-2 rounded-full flex items-center space-x-2 shadow-sm hover:scale-[1.02] transition-all group cursor-pointer border border-[#C8A878]/30"
             >
-              <Store className="w-3.5 h-3.5 text-[#E6C35C]" />
-              <span>Become a Vendor</span>
-              <ArrowRight className="w-3.5 h-3.5 text-[#E6C35C] group-hover:translate-x-0.5 transition-transform" />
+              <Store className="w-3.5 h-3.5 text-[#C8A878]" />
+              <span>Register Vendor</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#C8A878] group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
 
@@ -356,14 +356,14 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
             {/* Header Title & Step Indicator */}
             <div>
               <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="px-3 py-1 bg-emerald-500/10 text-emerald-800 text-[10px] font-black uppercase tracking-wider rounded-full border border-emerald-500/20">
+                <span className="px-3 py-1 bg-[#541D26]/10 text-[#541D26] text-[10px] font-black uppercase tracking-wider rounded-full border border-[#541D26]/20">
                   {registerStep === 'phone' && 'Step 1 of 3: Mobile Identity'}
                   {registerStep === 'otp' && 'Step 2 of 3: Verification Code'}
                   {registerStep === 'password' && 'Step 3 of 3: Secure Account'}
                 </span>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1E3623]">
+              <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#211A19]">
                 Create Account
               </h1>
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed font-medium">
@@ -375,8 +375,8 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
 
             {/* Notifications */}
             {successMsg && (
-              <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-xs">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+              <div className="p-3.5 bg-[#EEE5DA] border border-[#C8A878]/40 text-[#541D26] rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-xs">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-[#541D26]" />
                 <span>{successMsg}</span>
               </div>
             )}
@@ -392,7 +392,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
             {registerStep === 'phone' && (
               <form onSubmit={handleSendRegisterOtp} className="space-y-4 font-sans animate-in fade-in duration-300">
                 <div>
-                  <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
+                  <label className="block text-xs font-bold text-[#211A19] mb-1.5">
                     Full Name *
                   </label>
                   <div className="relative">
@@ -406,10 +406,10 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                         setName(e.target.value);
                         setNameError('');
                       }}
-                      className={`w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border text-xs font-semibold focus:outline-none text-ink transition-all shadow-xs ${
+                      className={`w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border text-xs font-semibold focus:outline-none text-[#211A19] transition-all shadow-xs ${
                         nameError 
                           ? 'border-rose-400 focus:border-rose-600 focus:ring-2 focus:ring-rose-500/20 bg-rose-50/20' 
-                          : 'border-border/80 focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15'
+                          : 'border-border/80 focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15'
                       }`}
                     />
                   </div>
@@ -422,7 +422,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
+                  <label className="block text-xs font-bold text-[#211A19] mb-1.5">
                     Mobile Phone Number *
                   </label>
                   <div className="flex items-center gap-2">
@@ -444,10 +444,10 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                           setPhoneNumber(e.target.value);
                           setPhoneError('');
                         }}
-                        className={`w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border text-xs font-semibold focus:outline-none text-ink transition-all shadow-xs ${
+                        className={`w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border text-xs font-semibold focus:outline-none text-[#211A19] transition-all shadow-xs ${
                           phoneError 
                             ? 'border-rose-400 focus:border-rose-600 focus:ring-2 focus:ring-rose-500/20 bg-rose-50/20' 
-                            : 'border-border/80 focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15'
+                            : 'border-border/80 focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15'
                         }`}
                       />
                     </div>
@@ -464,10 +464,10 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                     <button
                       type="button"
                       onClick={() => setRoute({ page: 'login' })}
-                      className="mt-2 w-full py-2.5 bg-[#1E3623] hover:bg-[#152718] text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-2 transition-all shadow-sm cursor-pointer"
+                      className="mt-2 w-full py-2.5 bg-[#541D26] hover:bg-[#6B2732] text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-2 transition-all shadow-sm cursor-pointer border border-[#C8A878]/30"
                     >
                       <span>Log In to Existing Account</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <ArrowRight className="w-3.5 h-3.5 text-[#C8A878]" />
                     </button>
                   )}
                 </div>
@@ -475,10 +475,10 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 mt-4 cursor-pointer"
+                  className="w-full py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 mt-4 cursor-pointer border border-[#C8A878]/30"
                 >
-                  <span>{loading ? 'Sending Verification OTP...' : 'Send Verification OTP'}</span>
-                  <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
+                  <span>{loading ? 'Sending Code...' : 'Send Verification OTP'}</span>
+                  <ArrowRight className="w-4 h-4 text-[#C8A878]" />
                 </button>
               </form>
             )}
@@ -487,7 +487,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
             {registerStep === 'otp' && (
               <form onSubmit={handleVerifyOtpCode} className="space-y-5 font-sans animate-in fade-in duration-300">
                 <div className="py-2">
-                  <label className="block text-xs font-bold text-center text-[#1E3623] mb-3">
+                  <label className="block text-xs font-bold text-center text-[#211A19] mb-3">
                     Enter 6-Digit Security Code
                   </label>
 
@@ -503,8 +503,8 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                         onChange={(e) => handleOtpChange(idx, e.target.value)}
                         onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                         onPaste={idx === 0 ? handleOtpPaste : undefined}
-                        className={`w-10 h-12 sm:w-11 sm:h-13 text-center text-lg font-bold rounded-2xl bg-[#FAF9F6] border-2 text-[#1E3623] focus:outline-none transition-all shadow-xs ${
-                          otpError ? 'border-rose-400 focus:border-rose-600 bg-rose-50/20' : 'border-border/80 focus:border-[#1E3623]'
+                        className={`w-10 h-12 sm:w-11 sm:h-13 text-center text-lg font-bold rounded-2xl bg-[#FAF9F6] border-2 text-[#211A19] focus:outline-none transition-all shadow-xs ${
+                          otpError ? 'border-rose-400 focus:border-rose-600 bg-rose-50/20' : 'border-border/80 focus:border-[#541D26]'
                         }`}
                       />
                     ))}
@@ -533,7 +533,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                     disabled={resendCountdown > 0 || loading}
                     onClick={handleResendOtp}
                     className={`font-bold transition-colors ${
-                      resendCountdown > 0 ? 'text-muted-foreground cursor-not-allowed' : 'text-emerald-800 hover:text-emerald-950 cursor-pointer'
+                      resendCountdown > 0 ? 'text-muted-foreground cursor-not-allowed' : 'text-[#541D26] hover:text-[#6B2732] cursor-pointer'
                     }`}
                   >
                     {resendCountdown > 0 ? `Resend Code in ${resendCountdown}s` : 'Resend Code'}
@@ -543,10 +543,10 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 cursor-pointer"
+                  className="w-full py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer border border-[#C8A878]/30"
                 >
-                  <span>{loading ? 'Verifying Code...' : 'Verify OTP & Proceed'}</span>
-                  <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
+                  <span>{loading ? 'Verifying OTP...' : 'Verify OTP Code'}</span>
+                  <ArrowRight className="w-4 h-4 text-[#C8A878]" />
                 </button>
               </form>
             )}
@@ -555,7 +555,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
             {registerStep === 'password' && (
               <form onSubmit={handleCompleteRegistrationWithPassword} className="space-y-4 font-sans animate-in fade-in duration-300">
                 <div>
-                  <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
+                  <label className="block text-xs font-bold text-[#211A19] mb-1.5">
                     Create Account Password *
                   </label>
                   <div className="relative">
@@ -566,8 +566,8 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
-                      className={`w-full pl-11 pr-11 py-3 rounded-2xl bg-[#FAF9F6] border text-xs font-semibold focus:outline-none text-ink transition-all shadow-xs ${
-                        passwordError ? 'border-rose-400 focus:border-rose-600 bg-rose-50/20' : 'border-border/80 focus:border-[#1E3623]'
+                      className={`w-full pl-11 pr-11 py-3 rounded-2xl bg-[#FAF9F6] border text-xs font-semibold focus:outline-none text-[#211A19] transition-all shadow-xs ${
+                        passwordError ? 'border-rose-400 focus:border-rose-600 bg-rose-50/20' : 'border-border/80 focus:border-[#541D26]'
                       }`}
                     />
                     <button
@@ -575,13 +575,13 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
                     >
-                      {showPassword ? <Eye className="w-4 h-4 text-emerald-800" /> : <EyeOff className="w-4 h-4" />}
+                      {showPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
+                  <label className="block text-xs font-bold text-[#211A19] mb-1.5">
                     Re-enter Password *
                   </label>
                   <div className="relative">
@@ -592,8 +592,8 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                       placeholder="••••••••"
                       value={confirmPassword}
                       onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(''); }}
-                      className={`w-full pl-11 pr-11 py-3 rounded-2xl bg-[#FAF9F6] border text-xs font-semibold focus:outline-none text-ink transition-all shadow-xs ${
-                        passwordError ? 'border-rose-400 focus:border-rose-600 bg-rose-50/20' : 'border-border/80 focus:border-[#1E3623]'
+                      className={`w-full pl-11 pr-11 py-3 rounded-2xl bg-[#FAF9F6] border text-xs font-semibold focus:outline-none text-[#211A19] transition-all shadow-xs ${
+                        passwordError ? 'border-rose-400 focus:border-rose-600 bg-rose-50/20' : 'border-border/80 focus:border-[#541D26]'
                       }`}
                     />
                     <button
@@ -601,7 +601,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
                     >
-                      {showConfirmPassword ? <Eye className="w-4 h-4 text-emerald-800" /> : <EyeOff className="w-4 h-4" />}
+                      {showConfirmPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -616,10 +616,10 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-[#E6C35C] font-extrabold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 cursor-pointer"
+                  className="w-full py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer border border-[#C8A878]/30"
                 >
-                  <span>{loading ? 'Creating Account...' : 'Complete & Finish Registration'}</span>
-                  <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
+                  <span>{loading ? 'Completing Registration...' : 'Complete Registration'}</span>
+                  <ArrowRight className="w-4 h-4 text-[#C8A878]" />
                 </button>
               </form>
             )}
@@ -630,7 +630,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
             <span>Already have an account? </span>
             <button
               onClick={() => setRoute({ page: 'login' })}
-              className="font-bold text-emerald-800 hover:text-emerald-950 underline transition-colors cursor-pointer"
+              className="font-bold text-[#541D26] hover:text-[#6B2732] underline transition-colors cursor-pointer"
             >
               Log In Here
             </button>

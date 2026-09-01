@@ -18,7 +18,7 @@ const checkUserLoggedIn = () => {
       const v = parsedV.vendor || parsedV;
       if (v && (v.vendor_id || v.email || v.vendor_name || v.store_name)) return true;
     }
-  } catch (_) {}
+  } catch (_) { }
   return false;
 };
 
@@ -48,7 +48,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
           setFavoriteIds(list.map(f => String(f.vendor_id)));
         }
       }
-    } catch (_) {}
+    } catch (_) { }
   }, []);
 
   const toggleFavorite = (e, vendor) => {
@@ -76,13 +76,31 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
 
       localStorage.setItem('digilocal_favorite_vendors', JSON.stringify(list));
       setFavoriteIds(list.map(f => String(f.vendor_id)));
-    } catch (_) {}
+    } catch (_) { }
   };
 
   // Custom Dropdown State
   const [isSocietyDropdownOpen, setIsSocietyDropdownOpen] = useState(false);
   const [societyFilterSearch, setSocietyFilterSearch] = useState('');
   const dropdownRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  // Global Keyboard Listener for '/' shortcut to focus search input
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === '/' && document.activeElement !== searchInputRef.current) {
+        const activeTag = document.activeElement?.tagName?.toLowerCase();
+        if (activeTag !== 'input' && activeTag !== 'textarea') {
+          e.preventDefault();
+          if (searchInputRef.current) {
+            searchInputRef.current.focus();
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Click outside listener for dropdown
   useEffect(() => {
@@ -107,7 +125,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
   useEffect(() => {
     api.getSocieties().then(data => {
       if (Array.isArray(data)) setAllSocieties(data);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   // Load Active Society Details & Vendors (runs when societyId changes)
@@ -120,6 +138,27 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
     setCurrentPage(1);
   }, [search]);
 
+  const [activeUserLocation, setActiveUserLocation] = useState(null);
+
+  // Load active user location on mount and listen for location changes
+  useEffect(() => {
+    const handleLocUpdate = () => {
+      try {
+        const saved = localStorage.getItem('digilocal_user_location');
+        if (saved) {
+          setActiveUserLocation(JSON.parse(saved));
+        } else {
+          setActiveUserLocation(null);
+        }
+      } catch (_) {
+        setActiveUserLocation(null);
+      }
+    };
+    handleLocUpdate();
+    window.addEventListener('digilocal_location_changed', handleLocUpdate);
+    return () => window.removeEventListener('digilocal_location_changed', handleLocUpdate);
+  }, []);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -131,9 +170,16 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
             socList = fetchedSocs;
             setAllSocieties(fetchedSocs);
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
+      let userLoc = null;
+      try {
+        const saved = localStorage.getItem('digilocal_user_location');
+        if (saved) userLoc = JSON.parse(saved);
+      } catch (_) { }
+
+      let venData = [];
       if (currentSocietyId && currentSocietyId !== 'all') {
         let socData = await api.getSociety(currentSocietyId);
         if ((!socData || !socData.society_name) && Array.isArray(socList)) {
@@ -145,13 +191,13 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
           if (found) socData = found;
         }
         setSociety(socData);
-        const venData = await api.getSocietyVendors(currentSocietyId, '');
-        setAllMasterVendors(Array.isArray(venData) ? venData : []);
+        venData = await api.getSocietyVendors(currentSocietyId, '');
       } else {
         setSociety(null);
-        const venData = await api.getSocietyVendors('all', '');
-        setAllMasterVendors(Array.isArray(venData) ? venData : []);
+        venData = await api.getSocietyVendors('all', '');
       }
+
+      setAllMasterVendors(Array.isArray(venData) ? venData : []);
     } catch (err) {
       console.error('Failed to load vendors:', err);
     } finally {
@@ -159,24 +205,40 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
     }
   };
 
-  // Synchronous client-side filtered vendors - Guarantees all vendors show instantly when search is empty
+  // Synchronous client-side filtered vendors - Supports searching by society, area, sector, vendor name, address, pincode, store name & category!
   const vendors = useMemo(() => {
-    if (!search || !search.trim()) return allMasterVendors;
-    const term = search.toLowerCase().trim();
-    return allMasterVendors.filter(v =>
-      v.store_name?.toLowerCase().includes(term) ||
-      v.vendor_name?.toLowerCase().includes(term) ||
-      v.category?.toLowerCase().includes(term) ||
-      v.society_name?.toLowerCase().includes(term) ||
-      v.description?.toLowerCase().includes(term)
-    );
-  }, [allMasterVendors, search]);
+    let list = allMasterVendors;
+
+    if (search && search.trim()) {
+      const term = search.toLowerCase().trim();
+      const terms = term.split(/\s+/).filter(Boolean);
+
+      return list.filter(v => {
+        if (!v) return false;
+        // Dynamically inspect all values of the vendor object
+        const allVendorText = Object.values(v)
+          .map(val => {
+            if (!val) return '';
+            if (typeof val === 'string' || typeof val === 'number') return String(val);
+            if (Array.isArray(val)) return val.join(' ');
+            if (typeof val === 'object') return Object.values(val).join(' ');
+            return '';
+          })
+          .join(' ')
+          .toLowerCase();
+
+        return terms.every(t => allVendorText.includes(t));
+      });
+    }
+
+    return list;
+  }, [allMasterVendors, search, currentSocietyId]);
 
   const currentSocietyName = society?.society_name || (currentSocietyId !== 'all' ? (allSocieties.find(s => String(s.society_id) === String(currentSocietyId))?.society_name || 'Society') : '');
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 px-3 sm:px-6 font-sans">
-      
+
       {/* Header Banner */}
       <div className="max-w-7xl mx-auto pt-4 pb-6">
         <button
@@ -198,26 +260,21 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
                 <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-border shadow-sm shrink-0">
-                  <img 
-                    src={getSocietyImage(society || { society_name: currentSocietyName })} 
-                    alt={currentSocietyName} 
+                  <img
+                    src={getSocietyImage(society, 0)}
+                    alt={currentSocietyName}
                     className="w-full h-full object-cover"
                   />
                 </div>
                 <div>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="px-3.5 py-1 text-[11px] font-bold bg-[#18281F] text-white rounded-full inline-block border border-emerald-900/40">
-                      Approved Residential Society
-                    </span>
-                    <span className="px-3 py-1 text-[11px] font-extrabold bg-emerald-500/15 text-emerald-800 rounded-full inline-block border border-emerald-500/20">
-                      {vendors.length} Active Vendors
-                    </span>
-                  </div>
-                  <h1 className="text-2xl sm:text-3xl font-serif font-bold text-ink">
-                    {currentSocietyName} Vendors
+                  <span className="px-3.5 py-1 text-[11px] font-bold bg-[#541D26] text-white rounded-full inline-block mb-1.5">
+                    {society?.is_area ? '📍 Servicing Area' : '🏢 Housing Society'}
+                  </span>
+                  <h1 className="text-2xl sm:text-3xl font-serif font-black text-ink">
+                    {currentSocietyName}
                   </h1>
-                  <div className="flex items-center space-x-1.5 text-muted-foreground text-xs mt-1.5 font-medium">
-                    <MapPin className="w-4 h-4 text-gold shrink-0" />
+                  <div className="flex items-center space-x-2 text-xs text-muted-foreground font-medium mt-1">
+                    <MapPin className="w-3.5 h-3.5 text-[#C8A878] shrink-0" />
                     <span>{society?.location || 'Gated Residential Community'}</span>
                   </div>
                 </div>
@@ -226,48 +283,64 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
               {/* Vendor Search Input for this specific society */}
               <div className="w-full md:w-80">
                 <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#541D26]" />
                   <input
                     type="text"
                     placeholder={`Search stores in ${currentSocietyName}...`}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 rounded-full bg-background border border-border text-ink text-xs font-semibold focus:outline-none focus:border-primary shadow-xs"
+                    className="w-full pl-11 pr-4 py-3 rounded-full bg-white border border-[#E5DAD0] text-[#211A19] text-xs font-semibold focus:outline-none focus:border-[#541D26] shadow-xs"
                   />
                 </div>
               </div>
             </div>
           ) : (
-            /* 2. GLOBAL ALL VENDORS HEADER */
+            /* 2. LOCATION-SPECIFIC / ALL VENDORS HEADER */
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div>
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className="px-3.5 py-1 text-[11px] font-bold bg-[#18281F] text-white rounded-full inline-block border border-emerald-900/40">
+                <div className="flex items-center space-x-2 mb-2 flex-wrap gap-y-1">
+                  <span className="px-3.5 py-1 text-[11px] font-bold bg-[#541D26] text-white rounded-full inline-block">
                     Hyperlocal Marketplace
                   </span>
-                  <span className="px-3 py-1 text-[11px] font-extrabold bg-emerald-500/15 text-emerald-800 rounded-full inline-block border border-emerald-500/20">
-                    {vendors.length} Active Vendors
+                  <span className="px-3 py-1 text-[11px] font-extrabold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 rounded-full inline-block border border-emerald-500/20">
+                    {vendors.length} Serviceable Vendors
                   </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-serif font-bold text-ink">
-                  Explore All Community Vendors
+                  {search.trim()
+                    ? `Vendors Matching "${search}"`
+                    : 'Explore All Community Vendors'}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-1.5 font-medium max-w-xl leading-relaxed">
-                  Discover verified local vendors, groceries, bakeries, and daily essentials serving residential communities across DigiLocal.
+                  {search.trim()
+                    ? `Showing verified local vendors matching location, society, pincode or store name "${search}".`
+                    : 'Discover verified local vendors, groceries, bakeries, and daily essentials serving residential communities across DigiLocal.'}
                 </p>
               </div>
 
-              {/* Vendor Search Input */}
-              <div className="w-full md:w-80">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+              {/* Single Main Vendor Search Input Matching Design Spec */}
+              <div className="w-full md:w-96">
+                <div className="w-full relative bg-white border-2 border-[#E5DAD0] rounded-full px-4 py-2.5 flex items-center justify-between shadow-xs transition-all focus-within:border-[#541D26] focus-within:ring-2 focus-within:ring-[#541D26]/15">
+                  <Search className="w-4 h-4 text-[#541D26] shrink-0 mr-2.5 stroke-[2.5]" />
                   <input
+                    ref={searchInputRef}
                     type="text"
-                    placeholder="Search vendor, category or store..."
+                    placeholder="Search by society, area, sector, vendor name..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 rounded-full bg-background border border-border text-ink text-xs font-semibold focus:outline-none focus:border-primary shadow-xs"
+                    className="flex-1 bg-transparent text-xs font-semibold text-[#211A19] placeholder:text-[#211A19]/50 focus:outline-none"
                   />
+                  {search && (
+                    <button
+                      onClick={() => setSearch('')}
+                      className="text-xs font-bold text-[#211A19]/60 hover:text-[#541D26] mr-2 p-1"
+                    >
+                      ✕
+                    </button>
+                  )}
+                  <span className="px-2.5 py-0.5 rounded-lg bg-[#EEE5DA] text-[10px] font-bold text-[#541D26] shrink-0 select-none border border-[#E5DAD0]">
+                    Press /
+                  </span>
                 </div>
               </div>
             </div>
@@ -277,14 +350,14 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
 
       {/* Vendors Bento Grid Container */}
       <div className="max-w-7xl mx-auto mt-2">
-        
+
         {/* Society Filter Selector Bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6 bg-card border border-border rounded-2xl p-3.5 sm:px-5 shadow-xs">
           <div className="flex items-center space-x-2 text-xs font-bold text-ink">
-            <Building2 className="w-4 h-4 text-[#C4A066]" />
+            <Building2 className="w-4 h-4 text-[#151415]" />
             <span>Filter Vendors by Society:</span>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             {/* Custom Styled React Dropdown */}
             <div className="relative w-full sm:w-80 z-30" ref={dropdownRef}>
@@ -319,7 +392,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                         type="text"
                         value={societyFilterSearch}
                         onChange={(e) => setSocietyFilterSearch(e.target.value)}
-                        placeholder="Search society by name or location..."
+                        placeholder="Search society or area by name or location..."
                         className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#E4DCC9] bg-white text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
                       />
                     </div>
@@ -334,15 +407,13 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                         setRoute({ page: 'societyVendors', societyId: 'all' });
                         setIsSocietyDropdownOpen(false);
                       }}
-                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                        currentSocietyId === 'all' ? 'bg-[#18281F] text-white shadow-xs' : 'hover:bg-[#F7F4EE] text-[#18281F]'
-                      }`}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${currentSocietyId === 'all' ? 'bg-[#541D26] text-white shadow-xs' : 'hover:bg-[#EEE5DA] text-[#211A19]'}`}
                     >
                       <div className="flex items-center space-x-2 truncate">
-                        <Sparkles className="w-3.5 h-3.5 text-[#C4A066] shrink-0" />
-                        <span>All Societies (Show All Vendors)</span>
+                        <Sparkles className="w-3.5 h-3.5 text-[#C8A878] shrink-0" />
+                        <span>All Partnered Societies & Local Areas</span>
                       </div>
-                      {currentSocietyId === 'all' && <Check className="w-4 h-4 text-[#C4A066]" />}
+                      {currentSocietyId === 'all' && <Check className="w-4 h-4 text-[#C8A878]" />}
                     </button>
 
                     {allSocieties
@@ -362,14 +433,23 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                               setRoute({ page: 'societyVendors', societyId: soc.society_id });
                               setIsSocietyDropdownOpen(false);
                             }}
-                            className={`w-full text-left p-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer ${
-                              isSelected ? 'bg-[#18281F] text-white font-bold shadow-xs' : 'hover:bg-[#F7F4EE] text-[#18281F]'
-                            }`}
+                            className={`w-full text-left p-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer ${isSelected ? 'bg-[#315C45] text-white font-bold shadow-xs' : 'hover:bg-[#F7F3E8] text-[#202622]'}`}
                           >
                             <div className="flex items-center space-x-2.5 min-w-0">
-                              <Building2 className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-[#C4A066]' : 'text-emerald-700'}`} />
+                              {soc.is_area ? (
+                                <MapPin className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-[#C4A066]' : 'text-amber-600'}`} />
+                              ) : (
+                                <Building2 className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-[#C4A066]' : 'text-emerald-700'}`} />
+                              )}
                               <div className="truncate">
-                                <span className="block truncate font-bold">{soc.society_name}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="block truncate font-bold">{soc.society_name}</span>
+                                  {soc.is_area ? (
+                                    <span className="px-1.5 py-0.2 text-[8px] font-extrabold bg-amber-100 text-amber-900 rounded shrink-0">📍 Area</span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.2 text-[8px] font-extrabold bg-emerald-100 text-emerald-900 rounded shrink-0">🏢 Society</span>
+                                  )}
+                                </div>
                                 <span className={`text-[10px] block truncate ${isSelected ? 'text-emerald-200' : 'text-[#6B7C70]'}`}>
                                   {soc.location}
                                 </span>
@@ -398,7 +478,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
             )}
           </div>
         </div>
-        
+
         {loading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-7">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -433,8 +513,8 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                 {paginatedVendors.map((vendor) => {
                   const vId = vendor.vendor_id;
                   const savedCustomLogo = (vId ? localStorage.getItem(`digilocal_vendor_logo_${vId}`) : null) ||
-                                          (vId ? localStorage.getItem(`digilocal_vendor_logo_${String(vId)}`) : null) ||
-                                          (vendor.store_name ? localStorage.getItem(`digilocal_vendor_logo_${vendor.store_name}`) : null);
+                    (vId ? localStorage.getItem(`digilocal_vendor_logo_${String(vId)}`) : null) ||
+                    (vendor.store_name ? localStorage.getItem(`digilocal_vendor_logo_${vendor.store_name}`) : null);
 
                   const rawImg = savedCustomLogo || vendor.logo || vendor.image_url || vendor.image || (Array.isArray(vendor.shop_images) && vendor.shop_images.length > 0 ? vendor.shop_images[0] : '');
                   const storeImage = getNormalizedImageUrl(rawImg, 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800');
@@ -470,32 +550,30 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
 
                             {/* Top Floating Badges Overlay */}
                             <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
-                              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white shadow-sm max-w-[55%]">
-                                <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                <span className="truncate">{vendor.society_name || currentSocietyName || 'Gated Society'}</span>
-                              </span>
+                              <div className="flex items-center gap-1.5 max-w-[65%]">
+                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md border border-white/20 text-[10px] font-bold text-white shadow-sm truncate">
+                                  <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
+                                  <span className="truncate">{vendor.coverage_badge || (vendor.location ? `Location: ${vendor.location}` : vendor.society_name || 'Local Area')}</span>
+                                </span>
+                                {(vendor.vendor_type === 'service' || vendor.can_add_items === false) ? (
+                                  <span className="px-2 py-0.5 rounded-full bg-purple-900/80 text-purple-200 border border-purple-400/40 text-[9px] font-extrabold backdrop-blur-md shrink-0">
+                                    🛠️ Service
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-900/80 text-emerald-200 border border-emerald-400/40 text-[9px] font-extrabold backdrop-blur-md shrink-0">
+                                    🛍️ Product
+                                  </span>
+                                )}
+                              </div>
 
                               <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={(e) => toggleFavorite(e, vendor)}
-                                  className={`p-1.5 rounded-full backdrop-blur-md border transition-all z-20 cursor-pointer shadow-md ${
-                                    favoriteIds.includes(String(vendor.vendor_id))
-                                      ? 'bg-rose-600 text-white border-rose-500 scale-105'
-                                      : 'bg-black/60 text-white/80 border-white/20 hover:text-rose-400 hover:bg-black/80'
-                                  }`}
-                                  title={favoriteIds.includes(String(vendor.vendor_id)) ? "Remove from Favorites" : "Add to Favorites"}
-                                >
-                                  <Heart className={`w-3.5 h-3.5 ${favoriteIds.includes(String(vendor.vendor_id)) ? 'fill-current' : ''}`} />
-                                </button>
 
-                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center space-x-1.5 backdrop-blur-md shadow-sm border uppercase ${
-                                  !status.isOpen 
-                                    ? 'bg-rose-950/80 text-rose-300 border-rose-500/50' 
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center space-x-1.5 backdrop-blur-md shadow-sm border uppercase ${!status.isOpen
+                                    ? 'bg-rose-950/80 text-rose-300 border-rose-500/50'
                                     : status.closingCountdown
-                                    ? 'bg-amber-950/80 text-amber-300 border-amber-500/50'
-                                    : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50'
-                                }`}>
+                                      ? 'bg-amber-950/80 text-amber-300 border-amber-500/50'
+                                      : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50'
+                                  }`}>
                                   <span className={`w-2 h-2 rounded-full ${!status.isOpen ? 'bg-rose-400' : status.closingCountdown ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
                                   <span>{status.statusText}</span>
                                 </span>
@@ -554,12 +632,12 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                               <span>CLOSED • OPENS AT {vendor.opening_time} ({status.nextOpenText})</span>
                             </div>
                           ) : (
-                            <div className="w-full py-3 px-4 rounded-xl bg-[#18281F] text-[#C4A066] group-hover:bg-[#C4A066] group-hover:text-[#18281F] transition-all duration-300 flex items-center justify-between font-bold text-xs shadow-xs group-hover:shadow-md">
-                              <span className="flex items-center space-x-2">
-                                <ShoppingCart className="w-4 h-4 text-[#C4A066] group-hover:text-[#18281F] transition-colors" />
-                                <span>Visit Store & Order</span>
-                              </span>
-                              <ChevronRight className="w-4 h-4 text-[#C4A066] group-hover:text-[#18281F] group-hover:translate-x-1 transition-transform" />
+                            <div className="w-full py-3 px-4 rounded-xl bg-[#541D26] text-white group-hover:bg-[#6B2732] transition-all duration-300 flex items-center justify-between font-bold text-xs shadow-xs group-hover:shadow-md">
+                              <div className="flex items-center space-x-2">
+                                <ShoppingCart className="w-4 h-4 text-[#C8A878] group-hover:text-white transition-colors" />
+                                <span className="uppercase tracking-wider">Explore Storefront</span>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-[#C8A878] group-hover:text-white group-hover:translate-x-1 transition-transform" />
                             </div>
                           )}
                         </div>
@@ -598,11 +676,10 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                           setCurrentPage(pg);
                           document.getElementById('vendors-grid-container')?.scrollIntoView({ behavior: 'smooth' });
                         }}
-                        className={`w-9 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          currentPage === pg
+                        className={`w-9 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentPage === pg
                             ? 'bg-[#18281F] text-white shadow-xs'
                             : 'bg-background hover:bg-secondary text-ink border border-border'
-                        }`}
+                          }`}
                       >
                         {pg}
                       </button>
@@ -632,7 +709,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
       {showLoginPromptModal && !checkUserLoggedIn() && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="relative w-full max-w-md bg-white rounded-[2.2rem] p-7 sm:p-8 shadow-2xl border border-[#E8E2D5] text-center space-y-5 animate-in zoom-in-95 duration-200">
-            
+
             {/* Top Right Close Button */}
             <button
               onClick={() => setShowLoginPromptModal(false)}
@@ -653,39 +730,27 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                 LOGIN REQUIRED
               </span>
 
-              <h2 className="text-2xl sm:text-3xl font-serif font-black text-[#18281F] leading-tight">
-                Explore {selectedVendorForPrompt?.store_name || society?.society_name || 'Community Vendors'}
+              <h2 className="text-2xl sm:text-3xl font-serif font-black text-[#202622] leading-tight">
+                Log In to Access Your Gated Community Marketplace
               </h2>
-
-              <p className="text-xs sm:text-sm text-gray-600 font-medium leading-relaxed max-w-xs mx-auto pt-1">
-                Please log in to your account to view approved local stores, products, and daily essentials for {selectedVendorForPrompt?.store_name || society?.society_name || 'your residential complex'}.
+              <p className="text-xs text-muted-foreground mt-2 font-medium leading-relaxed max-w-sm mx-auto">
+                Please log in as a resident user to order from verified local stores, organic farms, and artisan bakeries in your residential area.
               </p>
             </div>
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <button
-                onClick={() => {
-                  setShowLoginPromptModal(false);
-                  setRoute({
-                    page: 'login',
-                    accountType: 'resident',
-                    redirectVendorId: selectedVendorForPrompt?.vendor_id,
-                    redirectSocietyId: currentSocietyId
-                  });
-                }}
-                className="w-full sm:w-1/2 py-3.5 px-5 rounded-full bg-[#18281F] hover:bg-[#233A2E] text-white font-extrabold text-xs shadow-md tracking-wider uppercase transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                onClick={() => setRoute({ page: 'login', accountType: 'resident', redirectSocietyId: currentSocietyId })}
+                className="w-full sm:w-1/2 py-3.5 px-5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs shadow-md tracking-wider uppercase transition-all flex items-center justify-center space-x-2 cursor-pointer"
               >
-                <LogIn className="w-4 h-4 text-[#C4A066]" />
+                <LogIn className="w-4 h-4 text-white" />
                 <span>LOG IN NOW</span>
               </button>
 
               <button
-                onClick={() => {
-                  setShowLoginPromptModal(false);
-                  setRoute({ page: 'register' });
-                }}
-                className="w-full sm:w-1/2 py-3.5 px-5 rounded-full bg-[#F5EFE0] hover:bg-[#EBE2CC] text-[#18281F] font-extrabold text-xs border border-[#E3D9C3] tracking-wider uppercase transition-all flex items-center justify-center cursor-pointer"
+                onClick={() => setRoute({ page: 'register' })}
+                className="w-full sm:w-1/2 py-3.5 px-5 rounded-full bg-transparent border border-[#541D26] text-[#541D26] hover:bg-[#541D26] hover:text-white font-extrabold text-xs tracking-wider uppercase transition-all flex items-center justify-center cursor-pointer"
               >
                 <span>REGISTER</span>
               </button>

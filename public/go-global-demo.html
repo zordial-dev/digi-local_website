@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DigiLocal Go Global Vendor Coverage & User Location Engine Interactive Demo</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 p-4 sm:p-8 min-h-screen">
+  <div className="max-w-6xl mx-auto space-y-8">
+    
+    <!-- Top Banner -->
+    <header class="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <span class="bg-emerald-500/20 text-emerald-300 text-xs font-extrabold uppercase tracking-widest px-3 py-1 rounded-full border border-emerald-500/30">
+            Interactive Frontend Developer Reference
+          </span>
+          <h1 class="text-2xl sm:text-4xl font-black mt-2">DigiLocal Go Global Coverage & Location Engine Demo</h1>
+          <p class="text-sm text-slate-300 mt-1 max-w-2xl">
+            Demonstrates both user storefront discovery (no map) and vendor panel interactive coverage map with square check box markers (<span class="text-emerald-400 font-bold">[✓]</span>).
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <!-- SECTION 1: USER STOREFRONT DISCOVERY -->
+    <section class="bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-slate-200 space-y-6">
+      <div class="border-b border-slate-100 pb-4">
+        <h2 class="text-xl font-black text-slate-900 flex items-center gap-2">
+          <span>1. User / Resident Location Engine & Storefront Access</span>
+        </h2>
+        <p class="text-xs text-slate-500 mt-1">Users select their location via Live GPS or Autocomplete. Vendors servicing their location are returned.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- User Location Controls -->
+        <div class="space-y-4 bg-slate-50 p-5 rounded-2xl border border-slate-200">
+          <h3 class="text-sm font-bold text-slate-800">Set User Location</h3>
+          
+          <button id="gpsBtn" onclick="triggerGPS()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-all text-xs">
+            📍 Detect Current GPS Location
+          </button>
+
+          <div class="text-center text-xs font-bold text-slate-400">OR MANUALLY ENTER LAT/LNG</div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600">User Latitude</label>
+              <input id="userLat" type="number" step="0.0001" value="28.6270" class="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600">User Longitude</label>
+              <input id="userLng" type="number" step="0.0001" value="77.3720" class="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold" />
+            </div>
+          </div>
+
+          <button onclick="fetchUserVendors()" class="w-full py-3 bg-slate-900 hover:bg-black text-white font-bold rounded-xl shadow-md transition-all text-xs">
+            🔍 GET /api/vendors/search (Fetch Servicing Stores)
+          </button>
+
+          <div id="userLocDisplay" class="text-xs font-bold text-emerald-800 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+            Current Location: Sector 62, Noida (28.6270, 77.3720)
+          </div>
+        </div>
+
+        <!-- Servicing Store Results Grid -->
+        <div class="space-y-3">
+          <h3 class="text-sm font-bold text-slate-800 flex items-center justify-between">
+            <span>Servicing Stores Near User</span>
+            <span id="storeCount" class="text-xs font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">0 found</span>
+          </h3>
+          <div id="storeList" class="max-h-72 overflow-y-auto space-y-2 pr-1">
+            <div class="text-center py-8 text-xs text-slate-400">Click "Fetch Servicing Stores" to query backend API.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: VENDOR ADMIN PANEL COVERAGE MAP -->
+    <section class="bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-slate-200 space-y-6">
+      <div class="border-b border-slate-100 pb-4 flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 class="text-xl font-black text-slate-900">2. Vendor Panel Interactive Coverage Map & Square Checkpoints</h2>
+          <p class="text-xs text-slate-500 mt-1">Vendor selects radius circle and toggles square tick box markers ([✓]) on the map or checklist view.</p>
+        </div>
+        <button onclick="saveVendorCoverage()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all">
+          💾 Save Vendor Coverage (PUT /api/vendors/1/coverage)
+        </button>
+      </div>
+
+      <!-- Radius Selector -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="text-xs font-bold text-slate-700">Delivery Radius:</span>
+        <button onclick="setRadius(1.0)" class="px-4 py-2 bg-slate-100 hover:bg-emerald-100 text-slate-800 text-xs font-bold rounded-xl radius-pill">1 km</button>
+        <button onclick="setRadius(3.0)" class="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl radius-pill">3 km</button>
+        <button onclick="setRadius(5.0)" class="px-4 py-2 bg-slate-100 hover:bg-emerald-100 text-slate-800 text-xs font-bold rounded-xl radius-pill">5 km</button>
+        <button onclick="setRadius(10.0)" class="px-4 py-2 bg-slate-100 hover:bg-emerald-100 text-slate-800 text-xs font-bold rounded-xl radius-pill">10 km (Max Cutoff)</button>
+      </div>
+
+      <!-- Map Container -->
+      <div id="map" class="w-full h-96 rounded-2xl border border-slate-200 shadow-inner"></div>
+
+      <!-- Checklist -->
+      <div class="space-y-3">
+        <h3 class="text-sm font-bold text-slate-800">2-Way Synchronized Zone Checklist</h3>
+        <div id="zoneChecklist" class="max-h-60 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    let map, circleOverlay, vendorMarker;
+    let currentRadius = 3.0;
+    let vendorLat = 28.6270, vendorLng = 77.3720;
+    let currentZones = [];
+    let markersMap = {};
+
+    window.onload = function() {
+      initMap();
+      fetchCoverage();
+      fetchUserVendors();
+    };
+
+    function initMap() {
+      map = L.map('map').setView([vendorLat, vendorLng], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      const storeIcon = L.divIcon({
+        className: 'custom-store-icon',
+        html: `<div style="background-color: #065f46; color: white; padding: 6px 10px; border-radius: 20px; font-weight: bold; font-size: 11px; border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">🏪 Vendor Store Center</div>`,
+        iconSize: [140, 30],
+        iconAnchor: [70, 15]
+      });
+      vendorMarker = L.marker([vendorLat, vendorLng], { icon: storeIcon }).addTo(map);
+    }
+
+    function setRadius(r) {
+      currentRadius = r;
+      fetchCoverage();
+    }
+
+    async function fetchCoverage() {
+      try {
+        const res = await fetch('/api/vendors/check-coverage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ latitude: vendorLat, longitude: vendorLng, radius_km: currentRadius })
+        });
+        const data = await res.json();
+        if (data && data.zones) {
+          currentZones = data.zones;
+          renderMapMarkers();
+          renderChecklist();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderMapMarkers() {
+      if (circleOverlay) map.removeLayer(circleOverlay);
+      circleOverlay = L.circle([vendorLat, vendorLng], {
+        color: '#10b981',
+        fillColor: '#10b981',
+        fillOpacity: 0.15,
+        radius: currentRadius * 1000
+      }).addTo(map);
+
+      Object.values(markersMap).forEach(m => map.removeLayer(m));
+      markersMap = {};
+
+      currentZones.forEach(z => {
+        const isActive = z.is_active !== false;
+        const iconHtml = isActive
+          ? `<div style="background:#10b981; color:white; width:26px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px; border:2px solid white; box-shadow:0 2px 4px rgba(0,0,0,0.2); cursor:pointer;">✓</div>`
+          : `<div style="background:#f3f4f6; color:#9ca3af; width:26px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px; border:2px solid #d1d5db; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;"></div>`;
+
+        const icon = L.divIcon({
+          className: 'zone-marker',
+          html: iconHtml,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13]
+        });
+
+        const m = L.marker([z.latitude, z.longitude], { icon }).addTo(map);
+        m.on('click', () => toggleZone(z.zone_id));
+        m.bindTooltip(`<b>${z.name}</b><br/>Dist: ${z.distance_km} km`, { direction: 'top' });
+        markersMap[z.zone_id] = m;
+      });
+    }
+
+    function toggleZone(zoneId) {
+      currentZones = currentZones.map(z => {
+        if (String(z.zone_id) === String(zoneId)) {
+          return { ...z, is_active: !z.is_active };
+        }
+        return z;
+      });
+      renderMapMarkers();
+      renderChecklist();
+    }
+
+    function renderChecklist() {
+      const container = document.getElementById('zoneChecklist');
+      container.innerHTML = currentZones.map(z => {
+        const isActive = z.is_active !== false;
+        return `
+          <div onclick="toggleZone('${z.zone_id}')" class="p-2.5 rounded-xl border text-xs cursor-pointer flex items-center justify-between ${isActive ? 'bg-emerald-50 border-emerald-300 font-bold text-emerald-950' : 'bg-slate-50 border-slate-200 text-slate-600'}">
+            <div class="flex items-center gap-2 truncate">
+              <span class="${isActive ? 'text-emerald-600 font-bold' : 'text-slate-400'}">${isActive ? '[✓]' : '[ ]'}</span>
+              <span class="truncate">${z.name}</span>
+            </div>
+            <span class="text-[10px] text-slate-500 shrink-0">${z.distance_km} km</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function saveVendorCoverage() {
+      try {
+        const activeZones = currentZones.filter(z => z.is_active !== false);
+        const res = await fetch('/api/vendors/1/coverage', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location_type: 'area_sector',
+            is_global_coverage: true,
+            delivery_radius_km: currentRadius,
+            selected_zones: activeZones
+          })
+        });
+        const data = await res.json();
+        alert('✅ Vendor coverage saved successfully to database!');
+      } catch (err) {
+        alert('Failed to save vendor coverage');
+      }
+    }
+
+    async function fetchUserVendors() {
+      const uLat = document.getElementById('userLat').value;
+      const uLng = document.getElementById('userLng').value;
+
+      document.getElementById('userLocDisplay').innerText = `Current Location: Lat ${uLat}, Lng ${uLng}`;
+
+      try {
+        const res = await fetch(`/api/vendors/search?user_lat=${uLat}&user_lng=${uLng}&type=product`);
+        const vendors = await res.json();
+
+        document.getElementById('storeCount').innerText = `${vendors.length} found`;
+        const list = document.getElementById('storeList');
+
+        if (!Array.isArray(vendors) || vendors.length === 0) {
+          list.innerHTML = `<div class="p-4 bg-rose-50 text-rose-800 rounded-xl text-xs font-bold">No servicing stores found for this location.</div>`;
+          return;
+        }
+
+        list.innerHTML = vendors.map(v => `
+          <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-extrabold text-slate-900">${v.store_name}</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">${v.badge || 'Available'}</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">${v.category || 'General Store'} • ${v.vendor_name}</p>
+            </div>
+            <button onclick="tryAccessStore('${v.vendor_id}')" class="px-3 py-1.5 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-lg">
+              View Store
+            </button>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function tryAccessStore(vId) {
+      const uLat = document.getElementById('userLat').value;
+      const uLng = document.getElementById('userLng').value;
+
+      const res = await fetch(`/api/vendors/${vId}?user_lat=${uLat}&user_lng=${uLng}`);
+      if (res.status === 403) {
+        const data = await res.json();
+        alert(`❌ HTTP 403 Forbidden: ${data.error} (Your distance: ${data.user_distance_km} km, Vendor radius: ${data.vendor_radius_km} km)`);
+      } else if (res.ok) {
+        alert('✅ HTTP 200 OK: Access granted! Store catalog loaded successfully.');
+      }
+    }
+
+    function triggerGPS() {
+      if (!navigator.geolocation) return alert('GPS not supported');
+      navigator.geolocation.getCurrentPosition(pos => {
+        document.getElementById('userLat').value = pos.coords.latitude.toFixed(4);
+        document.getElementById('userLng').value = pos.coords.longitude.toFixed(4);
+        fetchUserVendors();
+      }, err => {
+        alert('GPS Permission denied');
+      });
+    }
+  </script>
+</body>
+</html>

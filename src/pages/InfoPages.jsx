@@ -1,390 +1,275 @@
-import React, { useState } from 'react';
-import { api } from '../services/api';
-import {
-  ShieldCheck,
-  Lock,
-  FileText,
-  HelpCircle,
-  ShieldAlert,
-  Headphones,
-  MessageSquare,
-  Search,
-  ChevronDown,
-  ChevronRight,
-  Send,
-  CheckCircle2,
-  AlertTriangle,
-  HeartHandshake,
-  UserCheck,
-  Building,
-  PhoneCall,
-  Mail,
-  Clock,
-  Sparkles,
+import React, { useState, useEffect } from 'react';
+import { 
+  HeartHandshake, 
+  Sparkles, 
+  Lock, 
+  RefreshCw, 
+  ShieldCheck, 
+  FileText, 
+  ShieldAlert, 
+  HelpCircle, 
+  Headphones, 
+  Mail, 
+  ChevronRight, 
+  ChevronDown, 
+  Search, 
+  CheckCircle2, 
+  Building, 
+  Clock, 
+  UserCheck, 
+  AlertTriangle, 
+  Send, 
+  PhoneCall, 
   ArrowRight,
-  Code,
-  ExternalLink,
-  RefreshCw
+  MessageSquare,
+  Building2,
+  Store,
+  MapPin,
+  Users
 } from 'lucide-react';
+import { api } from '../services/api';
 
-export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
-  const [activeTab, setActiveTab] = useState(tab || 'privacy-policy');
+const DEFAULT_NAV_TABS = [
+  { id: 'about-us', title: 'Our Story & Vision', icon: HeartHandshake },
+  { id: 'how-it-works', title: 'How It Works', icon: Sparkles },
+  { id: 'privacy-policy', title: 'Privacy Policy', icon: Lock },
+  { id: 'refund-policy', title: 'Refund & Cancellation Policy', icon: RefreshCw },
+  { id: 'child-security', title: 'Child Security Policy', icon: ShieldCheck },
+  { id: 'terms-and-conditions', title: 'Terms & Conditions', icon: FileText },
+  { id: 'safety-standards', title: 'Safety & Quality Standards', icon: ShieldAlert },
+  { id: 'help-support', title: 'Help & Support Center (with FAQs)', icon: HelpCircle },
+  { id: 'contact-support', title: 'Contact Support', icon: Headphones }
+];
+
+const FAQS_DATA = [
+  { q: 'How does ordering work on DigiLocal?', a: 'You select your residential society, browse verified local vendors, build your cart, and click "Order via WhatsApp". A structured receipt is generated directly in your app ready to send to the vendor.', cat: 'Ordering' },
+  { q: 'Are there any hidden delivery charges or platform fees?', a: 'No! DigiLocal operates with 100% transparent pricing. Vendors list their fair prices, and you pay them directly with zero platform markup.', cat: 'Pricing' },
+  { q: 'How fast will my order arrive at my society door?', a: 'Because vendors are located directly inside or beside your gated community, average delivery time is under 15 minutes.', cat: 'Delivery' },
+  { q: 'How do I pay for my orders?', a: 'You pay the vendor directly upon delivery or via direct UPI QR transfer / Cash on Delivery.', cat: 'Payments' },
+  { q: 'What if an item is damaged or out of stock?', a: 'You can immediately inform the vendor over WhatsApp. Since they are your neighborhood store, replacements or instant refunds are processed right away.', cat: 'Refunds' },
+  { q: 'How can I register my store as a vendor on DigiLocal?', a: 'Click "Become a Vendor" in the header menu, fill in your shop name, phone number, catalog items, and select your target residential societies. Registration takes under 2 minutes.', cat: 'Vendors' }
+];
+
+export default function InfoPages({ currentRoute, tab, setRoute }) {
+  const activeTab = currentRoute?.tab || tab || 'about-us';
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [openFaqIndex, setOpenFaqIndex] = useState(null);
-  const [howItWorksSection, setHowItWorksSection] = useState('residents'); // 'residents' | 'vendors'
-
-  // Contact form state
-  const [contactForm, setContactForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    societyName: '',
-    category: 'General Query',
-    message: ''
-  });
+  const [openFaqIndex, setOpenFaqIndex] = useState(0);
   const [contactSubmitted, setContactSubmitted] = useState(false);
+  const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', category: 'General Query', message: '', societyName: '' });
+  const [howItWorksSection, setHowItWorksSection] = useState('all');
+  const [cmsContacts, setCmsContacts] = useState({ email: 'support@digilocal.network', phone: '+91 800-562-5999', working_hours: 'Mon-Sun: 7:00 AM - 11:00 PM' });
+  const [navTabs, setNavTabs] = useState(DEFAULT_NAV_TABS);
 
-  // Dynamic CMS & Support Contacts State
-  const [cmsContacts, setCmsContacts] = useState({
-    phone: "+91 800-562-5999",
-    email: "support@digilocal.in",
-    toll_free: "1800-123-4567",
-    whatsapp: "+91 80056 25999",
-    address: "DigiLocal Tech Hub, Tower B, Sector 62, Noida, UP - 201309",
-    working_hours: "Monday to Saturday: 9:00 AM - 8:00 PM IST"
-  });
-  const [cmsPageData, setCmsPageData] = useState(null);
-
-  // Sync state if prop changes & fetch CMS data
-  React.useEffect(() => {
-    if (tab) setActiveTab(tab);
-    loadCmsContent(tab || activeTab);
-  }, [tab, activeTab]);
-
-  const loadCmsContent = async (targetTab) => {
-    try {
-      const contacts = await api.getCmsContacts();
-      if (contacts) setCmsContacts(contacts);
-
-      const page = await api.getCmsPage(targetTab);
-      if (page) setCmsPageData(page);
-    } catch (_) {}
-  };
-
-  const navTabs = [
-    { id: 'about-us', title: 'Our Story & Vision', icon: HeartHandshake, category: 'About DigiLocal' },
-    { id: 'how-it-works', title: 'How It Works', icon: Sparkles, category: 'About DigiLocal' },
-    { id: 'privacy-policy', title: 'Privacy Policy', icon: Lock, category: 'Legal & Policy' },
-    { id: 'refund-policy', title: 'Refund & Cancellation Policy', icon: RefreshCw, category: 'Legal & Policy' },
-    { id: 'child-security', title: 'Child Security Policy', icon: ShieldCheck, category: 'Legal & Policy' },
-    { id: 'terms-and-conditions', title: 'Terms & Conditions', icon: FileText, category: 'Legal & Policy' },
-    { id: 'safety-standards', title: 'Safety & Quality Standards', icon: ShieldAlert, category: 'Safety & Trust' },
-    { id: 'help-support', title: 'Help & Support Center (with FAQs)', icon: HelpCircle, category: 'Support' },
-    { id: 'contact-support', title: 'Contact Support', icon: Headphones, category: 'Support' },
-  ];
-
-  const handleTabChange = (id) => {
-    setActiveTab(id);
-    setRoute({ page: 'info', tab: id });
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
+
+  useEffect(() => {
+    const fetchCmsData = async () => {
+      try {
+        const res = await api.getCmsContent();
+        if (res?.data?.contacts) setCmsContacts(res.data.contacts);
+      } catch (_) {}
+    };
+    fetchCmsData();
+  }, []);
+
+  const handleTabChange = (tabId) => {
+    setRoute({ page: 'info', tab: tabId });
   };
 
-  const getBannerHeader = () => {
-    switch (activeTab) {
-      case 'about-us':
-        return {
-          badge: 'Our Story & Mission',
-          title: 'Connecting Neighborhoods, Empowering Local Commerce',
-          subtitle: 'DigiLocal was built to bring authentic local bakes, fresh produce, florists, and craftspeople directly to gated residential societies.'
-        };
-      case 'how-it-works':
-        return {
-          badge: 'How DigiLocal Works',
-          title: 'Simple 10–15 Min Hyperlocal Delivery',
-          subtitle: 'Discover how DigiLocal connects residents directly with verified vendors serving your residential society.'
-        };
-      case 'refund-policy':
-        return {
-          badge: 'Refund & Cancellation Guarantee',
-          title: 'Hyperlocal Refund & Cancellation Policy',
-          subtitle: 'Transparent, hassle-free returns, order cancellations, and instant resolution guidelines for residential society orders.'
-        };
-      case 'help-support':
-      case 'faqs':
-        return {
-          badge: 'Help, Support & FAQs Hub',
-          title: 'Help & Support Center',
-          subtitle: 'Find quick guides, answers to frequently asked questions, and direct support assistance for residents and local vendors.'
-        };
-      default:
-        return {
-          badge: 'Trust & Compliance Hub',
-          title: 'Legal, Safety & Support Center',
-          subtitle: 'We are committed to building a secure, transparent, and trusted hyperlocal network for residential societies, local vendors, and families.'
-        };
-    }
-  };
-
-  const headerInfo = getBannerHeader();
-
-  const handleContactSubmit = async (e) => {
+  const handleContactSubmit = (e) => {
     e.preventDefault();
-    if (!contactForm.name || !contactForm.message) return;
-    try {
-      await api.createSupportTicket({
-        user_type: 'user',
-        source: 'landing_website',
-        reporter_name: contactForm.name,
-        reporter_email: contactForm.email || '',
-        reporter_phone: contactForm.phone || '',
-        entity_name: contactForm.societyName || '',
-        subject: `${contactForm.category}: Complaint from ${contactForm.name}`,
-        description: contactForm.message,
-        category: 'general',
-        priority: 'medium'
-      });
-    } catch (_) {}
     setContactSubmitted(true);
-    setTimeout(() => {
-      setContactSubmitted(false);
-      setContactForm({
-        name: '',
-        email: '',
-        phone: '',
-        societyName: '',
-        category: 'General Query',
-        message: ''
-      });
-    }, 4000);
   };
 
-  const faqsList = [
-    {
-      q: "How does ordering work on DigiLocal Network?",
-      a: "DigiLocal connects you directly with verified neighborhood vendors serving your specific residential society. When you select items and click 'Place Order via WhatsApp', a pre-formatted message is automatically generated in WhatsApp with your cart details. You send it directly to the vendor for fulfillment without any middleman markup or service fees.",
-      cat: "Residents"
-    },
-    {
-      q: "Are there any service charges or hidden fees for residents?",
-      a: "No! DigiLocal Network is 100% free for residential buyers. You pay the exact price set by the local vendor with zero platform commissions or extra service charges.",
-      cat: "Residents"
-    },
-    {
-      q: "How are local vendors verified before listing?",
-      a: "Every vendor on DigiLocal undergoes a strict multi-step vetting process including identity verification, business proof, local residential society approval, and compliance with our food & service safety standards.",
-      cat: "Safety & Verification"
-    },
-    {
-      q: "How can a vendor register on DigiLocal?",
-      a: "Click on 'Register as Vendor' in the navigation header or footer. You can submit your shop name, contact number, catalog items, and select the residential societies you serve. The admin team reviews and activates your digital storefront within 24 hours.",
-      cat: "Vendors"
-    },
-    {
-      q: "How does DigiLocal ensure Child Security and minor safety?",
-      a: "DigiLocal operates under strict zero-tolerance child protection protocols. All delivery personnel and vendors entering gated residential societies must be background-checked and identity-verified. No communication with minors is permitted without parent/guardian consent.",
-      cat: "Safety & Verification"
-    },
-    {
-      q: "What if my residential society is not listed on DigiLocal?",
-      a: "You can click 'Request Society Addition' on the homepage to submit your society name and location. Our team will coordinate with your Resident Welfare Association (RWA) or managing committee to onboard your neighborhood vendors.",
-      cat: "Residents"
-    },
-    {
-      q: "Who handles payment processing and delivery refunds?",
-      a: "Since DigiLocal facilitates direct commerce over WhatsApp, payments are handled directly between you and the vendor (via UPI, cash on delivery, or direct QR pay). For order issues or refunds, you communicate directly with the vendor via WhatsApp, or reach out to our Support team for mediation.",
-      cat: "Residents"
-    },
-    {
-      q: "Can vendors edit their prices and catalog items later?",
-      a: "Yes! Registered vendors have access to their own Vendor Dashboard panel where they can update product pricing, add new items, toggle stock availability, and manage society service coverage in real-time.",
-      cat: "Vendors"
-    }
-  ];
-
-  const filteredFaqs = faqsList.filter(item =>
+  const filteredFaqs = FAQS_DATA.filter((item) =>
     item.q.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.a.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.cat.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="min-h-screen bg-[#F7F4EE] text-[#18281F] py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-
-        {/* Top Header Banner */}
-        <div className="bg-gradient-to-r from-[#18281F] via-[#243A2D] to-[#18281F] text-[#F7F4EE] rounded-3xl p-8 md:p-12 mb-10 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#C4A066]/10 rounded-full blur-3xl pointer-events-none"></div>
-          <div className="relative z-10 max-w-3xl">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C4A066]/20 border border-[#C4A066]/40 text-[#C4A066] text-xs font-semibold uppercase tracking-wider mb-4">
-              <Sparkles className="w-3.5 h-3.5" /> {headerInfo.badge}
+    <div className="min-h-screen bg-[#F6F0E8] text-[#211A19] py-8 px-4 sm:px-6 lg:px-8 font-sans">
+      <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* Top Header Banner in Dark Espresso #211A19 */}
+        <div className="bg-[#211A19] text-white rounded-3xl p-8 md:p-12 shadow-xl relative overflow-hidden border border-white/10">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-[#D6B7A5]/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative z-10 max-w-3xl space-y-3">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#541D26] text-white text-xs font-extrabold uppercase tracking-wider">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#C8A878]" />
+              Official DigiLocal Center
             </span>
-            <h1 className="text-3xl md:text-5xl font-serif font-bold text-white mb-4">
-              {headerInfo.title}
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-black tracking-tight text-white">
+              {navTabs.find((t) => t.id === activeTab)?.title || 'Information & Support'}
             </h1>
-            <p className="text-emerald-100/80 text-sm md:text-base leading-relaxed">
-              {headerInfo.subtitle}
+            <p className="text-xs sm:text-sm md:text-base text-[#D6B7A5] font-medium leading-relaxed">
+              Transparent policies, operational guidelines, and 24/7 help desk for residents, gated communities, and local merchants across India.
             </p>
           </div>
         </div>
 
-        {/* Layout Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Main Content 12-Column Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Left Sidebar Navigation (3 columns) */}
+          <div className="lg:col-span-4 xl:col-span-3 bg-white rounded-3xl p-4 shadow-sm border border-[#E5DAD0] sticky top-24 space-y-3">
+            <div className="px-3 pt-2 pb-1">
+              <h3 className="text-xs font-extrabold text-[#211A19] uppercase tracking-wider">Navigation Menu</h3>
+            </div>
+            
+            <nav className="space-y-1">
+              {navTabs.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleTabChange(item.id)}
+                    className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                      isActive
+                        ? 'bg-[#541D26] text-white shadow-md'
+                        : 'text-[#211A19] hover:bg-[#EEE5DA] hover:text-[#541D26]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#C8A878]' : 'text-[#541D26]'}`} />
+                      <span className="truncate">{item.title}</span>
+                    </div>
+                    <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[#C8A878]' : 'text-gray-400'}`} />
+                  </button>
+                );
+              })}
+            </nav>
 
-          {/* Sidebar Navigation */}
-          <div className="lg:col-span-1 space-y-2">
-            <div className="bg-white rounded-2xl p-4 border border-[#E4DCC9] shadow-sm sticky top-24">
-              <h3 className="text-xs font-bold text-[#6B7C70] uppercase tracking-wider px-3 mb-3">
-                Information Sections
-              </h3>
-              <nav className="space-y-1">
-                {navTabs.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleTabChange(item.id)}
-                      className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-medium transition-all ${isActive
-                          ? 'bg-[#18281F] text-[#F7F4EE] shadow-md font-semibold'
-                          : 'text-[#18281F] hover:bg-[#EFE8D8] hover:text-[#18281F]'
-                        }`}
-                    >
-                      <div className="flex items-center space-x-2.5 min-w-0">
-                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#C4A066]' : 'text-[#6B7C70]'}`} />
-                        <span className="truncate">{item.title}</span>
-                      </div>
-                      <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[#C4A066]' : 'text-gray-300'}`} />
-                    </button>
-                  );
-                })}
-              </nav>
-
-              {/* Quick Contact Card */}
-              <div className="mt-6 pt-6 border-t border-[#E4DCC9] px-2 text-center space-y-2">
-                <p className="text-xs text-[#6B7C70] font-medium">Need Support?</p>
-                <a
-                  href="mailto:support@digilocal.network"
-                  className="w-full py-2.5 px-4 rounded-xl bg-[#EFE8D8] hover:bg-[#C4A066] hover:text-[#18281F] text-[#18281F] text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-[#E4DCC9]"
-                >
-                  <Mail className="w-3.5 h-3.5 text-[#C4A066]" />
-                  <span>Email Support Desk</span>
-                </a>
+            <div className="pt-3 border-t border-[#E5DAD0] px-2 space-y-2">
+              <div className="text-[11px] font-medium text-[#211A19]/70 px-1">
+                Need direct assistance?
               </div>
+              <button
+                onClick={() => handleTabChange('contact-support')}
+                className="w-full py-2.5 px-4 rounded-xl bg-transparent hover:bg-[#541D26] hover:text-white text-[#541D26] text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-[#541D26] cursor-pointer"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>Contact Support</span>
+              </button>
             </div>
           </div>
 
-          {/* Main Content Area */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-3xl p-6 sm:p-10 border border-[#E4DCC9] shadow-sm min-h-[600px]">
+          {/* Main Content Area (9 columns out of 12 for full responsive layout) */}
+          <div className="lg:col-span-8 xl:col-span-9">
+            <div className="bg-white rounded-3xl p-6 sm:p-10 border border-[#E5DAD0] shadow-sm min-h-[600px]">
               
-              {/* TAB: OUR STORY & VISION */}
+              {/* TAB 1: OUR STORY & VISION */}
               {activeTab === 'about-us' && (
                 <div className="space-y-8 animate-fadeIn">
-                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E4DCC9]">
-                    <div className="w-12 h-12 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
-                      <HeartHandshake className="w-6 h-6 text-[#C4A066]" />
+                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E5DAD0]">
+                    <div className="w-12 h-12 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26]">
+                      <HeartHandshake className="w-6 h-6 text-[#541D26]" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-serif font-bold text-[#18281F]">Our Story — Empowering Hyperlocal Neighborhoods</h2>
-                      <p className="text-xs text-[#6B7C70]">Building thriving communities, one doorstep at a time.</p>
+                      <h2 className="text-2xl font-serif font-bold text-[#211A19]">Our Story — Empowering Hyperlocal Neighborhoods</h2>
+                      <p className="text-xs text-[#211A19]/70">Building thriving communities, one doorstep at a time.</p>
                     </div>
                   </div>
 
-                  {/* Origin & Mission Banner */}
-                  <div className="bg-[#18281F] text-[#F7F4EE] p-6 sm:p-8 rounded-3xl space-y-4 relative overflow-hidden shadow-md">
-                    <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-[#C4A066]/15 rounded-full blur-2xl"></div>
-                    <span className="text-xs font-bold text-[#C4A066] uppercase tracking-widest block">The Genesis</span>
+                  {/* Origin & Mission Banner in Dark Espresso #211A19 */}
+                  <div className="bg-[#211A19] text-white p-6 sm:p-8 rounded-3xl space-y-4 relative overflow-hidden shadow-md border border-white/10">
+                    <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-[#C8A878]/15 rounded-full blur-2xl pointer-events-none" />
+                    <span className="text-xs font-extrabold text-[#C8A878] uppercase tracking-widest block">The Genesis</span>
                     <h3 className="text-xl sm:text-2xl font-serif font-bold text-white">Why We Created DigiLocal</h3>
-                    <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed max-w-2xl">
+                    <p className="text-xs sm:text-sm text-[#D6B7A5] leading-relaxed max-w-2xl">
                       Every gated housing society is home to incredible talent — passionate home bakers, organic micro-growers, expert craftspeople, and florists. Yet residents often ended up ordering mass-produced goods from distant warehouses. DigiLocal bridges this gap by creating an instant, direct hyperlocal marketplace inside your residential community.
                     </p>
                   </div>
 
-                  {/* 4 Pillars Grid */}
+                  {/* 4 Pillars Grid (Pure White Cards with Oxblood Badge Icons) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                      <div className="w-9 h-9 rounded-xl bg-[#18281F] flex items-center justify-center text-[#C4A066] mb-1">
-                        <Building className="w-4 h-4" />
+                    <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-2 shadow-xs hover:border-[#541D26]/30 transition-all">
+                      <div className="w-9 h-9 rounded-xl bg-[#541D26] flex items-center justify-center text-white mb-1 shadow-xs">
+                        <Building className="w-4 h-4 text-white" />
                       </div>
-                      <h4 className="font-serif font-bold text-base text-[#18281F]">Hyperlocal First</h4>
-                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                      <h4 className="font-serif font-bold text-base text-[#211A19]">Hyperlocal First</h4>
+                      <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
                         Vendors are located directly within or right beside your registered residential society.
                       </p>
                     </div>
 
-                    <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                      <div className="w-9 h-9 rounded-xl bg-[#18281F] flex items-center justify-center text-[#C4A066] mb-1">
-                        <Clock className="w-4 h-4" />
+                    <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-2 shadow-xs hover:border-[#541D26]/30 transition-all">
+                      <div className="w-9 h-9 rounded-xl bg-[#541D26] flex items-center justify-center text-white mb-1 shadow-xs">
+                        <Clock className="w-4 h-4 text-white" />
                       </div>
-                      <h4 className="font-serif font-bold text-base text-[#18281F]">10–15 Min Delivery</h4>
-                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                      <h4 className="font-serif font-bold text-base text-[#211A19]">10–15 Min Delivery</h4>
+                      <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
                         Lightning-fast fulfillment from neighborhood vendors without long transport delays.
                       </p>
                     </div>
 
-                    <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                      <div className="w-9 h-9 rounded-xl bg-[#18281F] flex items-center justify-center text-[#C4A066] mb-1">
-                        <UserCheck className="w-4 h-4" />
+                    <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-2 shadow-xs hover:border-[#541D26]/30 transition-all">
+                      <div className="w-9 h-9 rounded-xl bg-[#541D26] flex items-center justify-center text-white mb-1 shadow-xs">
+                        <UserCheck className="w-4 h-4 text-white" />
                       </div>
-                      <h4 className="font-serif font-bold text-base text-[#18281F]">Society Verified</h4>
-                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                      <h4 className="font-serif font-bold text-base text-[#211A19]">Society Verified</h4>
+                      <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
                         Every listed vendor undergoes identity verification and society compliance checks.
                       </p>
                     </div>
 
-                    <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                      <div className="w-9 h-9 rounded-xl bg-[#18281F] flex items-center justify-center text-[#C4A066] mb-1">
-                        <Sparkles className="w-4 h-4" />
+                    <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-2 shadow-xs hover:border-[#541D26]/30 transition-all">
+                      <div className="w-9 h-9 rounded-xl bg-[#541D26] flex items-center justify-center text-white mb-1 shadow-xs">
+                        <Sparkles className="w-4 h-4 text-[#C8A878]" />
                       </div>
-                      <h4 className="font-serif font-bold text-base text-[#18281F]">Zero Markup & Fair Trade</h4>
-                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                      <h4 className="font-serif font-bold text-base text-[#211A19]">Zero Markup & Fair Trade</h4>
+                      <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
                         Direct WhatsApp commerce with zero platform commissions, supporting local families.
                       </p>
                     </div>
                   </div>
 
                   {/* Impact Stats Row */}
-                  <div className="p-6 rounded-3xl bg-[#EFE8D8] border border-[#E4DCC9] grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                  <div className="p-6 rounded-3xl bg-[#EEE5DA] border border-[#E5DAD0] grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                     <div>
-                      <span className="text-2xl sm:text-3xl font-serif font-black text-[#18281F] block">100+</span>
-                      <span className="text-[11px] font-bold text-[#6B7C70] uppercase">Societies</span>
+                      <span className="text-2xl sm:text-3xl font-serif font-black text-[#541D26] block">100+</span>
+                      <span className="text-[11px] font-bold text-[#211A19] uppercase">Societies</span>
                     </div>
                     <div>
-                      <span className="text-2xl sm:text-3xl font-serif font-black text-[#18281F] block">500+</span>
-                      <span className="text-[11px] font-bold text-[#6B7C70] uppercase">Vendors</span>
+                      <span className="text-2xl sm:text-3xl font-serif font-black text-[#541D26] block">500+</span>
+                      <span className="text-[11px] font-bold text-[#211A19] uppercase">Vendors</span>
                     </div>
                     <div>
-                      <span className="text-2xl sm:text-3xl font-serif font-black text-[#18281F] block">15k+</span>
-                      <span className="text-[11px] font-bold text-[#6B7C70] uppercase">Orders</span>
+                      <span className="text-2xl sm:text-3xl font-serif font-black text-[#541D26] block">15k+</span>
+                      <span className="text-[11px] font-bold text-[#211A19] uppercase">Orders</span>
                     </div>
                     <div>
-                      <span className="text-2xl sm:text-3xl font-serif font-black text-[#18281F] block">12 Mins</span>
-                      <span className="text-[11px] font-bold text-[#6B7C70] uppercase">Avg Delivery</span>
+                      <span className="text-2xl sm:text-3xl font-serif font-black text-[#541D26] block">12 Mins</span>
+                      <span className="text-[11px] font-bold text-[#211A19] uppercase">Avg Delivery</span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* TAB: HOW IT WORKS (DUAL SECTIONS FOR USERS & VENDORS) */}
+              {/* TAB 2: HOW IT WORKS */}
               {activeTab === 'how-it-works' && (
-                <div className="space-y-10 animate-fadeIn font-sans">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E4DCC9]">
+                <div className="space-y-8 animate-fadeIn">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5DAD0]">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
-                        <Sparkles className="w-6 h-6 text-[#C4A066]" />
+                      <div className="w-12 h-12 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26]">
+                        <Sparkles className="w-6 h-6 text-[#541D26]" />
                       </div>
                       <div>
-                        <h2 className="text-2xl font-serif font-bold text-[#18281F]">How DigiLocal Works</h2>
-                        <p className="text-xs text-[#6B7C70]">Hyperlocal commerce simplified for residents and local businesses.</p>
+                        <h2 className="text-2xl font-serif font-bold text-[#211A19]">How DigiLocal Works</h2>
+                        <p className="text-xs text-[#211A19]/70">Hyperlocal commerce simplified for residents and local businesses.</p>
                       </div>
                     </div>
 
                     {/* Filter Pills */}
-                    <div className="flex items-center space-x-1.5 bg-[#EFE8D8] p-1 rounded-full text-xs font-bold shrink-0 self-start sm:self-auto">
+                    <div className="flex items-center space-x-1.5 bg-[#EEE5DA] p-1 rounded-full text-xs font-bold shrink-0">
                       <button
                         onClick={() => setHowItWorksSection('residents')}
                         className={`px-4 py-2 rounded-full transition-all cursor-pointer ${
-                          howItWorksSection === 'residents' ? 'bg-[#18281F] text-white shadow-xs font-extrabold' : 'text-[#6B7C70] hover:text-[#18281F]'
+                          howItWorksSection === 'residents' ? 'bg-[#541D26] text-white shadow-xs font-extrabold' : 'text-[#211A19] hover:text-[#541D26]'
                         }`}
                       >
                         For Residents
@@ -392,7 +277,7 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                       <button
                         onClick={() => setHowItWorksSection('vendors')}
                         className={`px-4 py-2 rounded-full transition-all cursor-pointer ${
-                          howItWorksSection === 'vendors' ? 'bg-[#18281F] text-white shadow-xs font-extrabold' : 'text-[#6B7C70] hover:text-[#18281F]'
+                          howItWorksSection === 'vendors' ? 'bg-[#541D26] text-white shadow-xs font-extrabold' : 'text-[#211A19] hover:text-[#541D26]'
                         }`}
                       >
                         For Vendors
@@ -400,162 +285,136 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                     </div>
                   </div>
 
-                  {/* SECTION 1: FOR RESIDENTS & BUYERS */}
+                  {/* SECTION 1: FOR RESIDENTS */}
                   {(howItWorksSection === 'all' || howItWorksSection === 'residents') && (
                     <div className="space-y-5">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-emerald-900 text-white flex items-center justify-center font-bold text-xs">
+                        <div className="w-8 h-8 rounded-full bg-[#541D26] text-white flex items-center justify-center font-bold text-xs">
                           🏡
                         </div>
                         <div>
-                          <h3 className="font-serif font-extrabold text-lg text-[#18281F]">1. For Residents & Society Families</h3>
-                          <p className="text-xs text-[#6B7C70]">Order fresh essentials & local services directly to your doorstep in 4 steps.</p>
+                          <h3 className="font-serif font-extrabold text-lg text-[#211A19]">1. For Residents & Society Families</h3>
+                          <p className="text-xs text-[#211A19]/70">Order fresh essentials & local services directly to your doorstep in 4 steps.</p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-3 relative overflow-hidden group hover:border-[#C4A066] transition-colors">
-                          <span className="w-7 h-7 rounded-full bg-[#18281F] text-[#C4A066] font-bold text-xs flex items-center justify-center">1</span>
-                          <h4 className="font-serif font-bold text-base text-[#18281F]">Select Society</h4>
-                          <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-3 relative overflow-hidden group hover:border-[#541D26] transition-colors shadow-xs">
+                          <span className="w-7 h-7 rounded-full bg-[#541D26] text-white font-bold text-xs flex items-center justify-center">1</span>
+                          <h4 className="font-serif font-bold text-base text-[#211A19]">Select Society</h4>
+                          <p className="text-xs text-[#211A19]/75 leading-relaxed">
                             Search & choose your registered residential apartment complex to discover approved local vendors serving your gate.
                           </p>
                         </div>
 
-                        <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-3 relative overflow-hidden group hover:border-[#C4A066] transition-colors">
-                          <span className="w-7 h-7 rounded-full bg-[#18281F] text-[#C4A066] font-bold text-xs flex items-center justify-center">2</span>
-                          <h4 className="font-serif font-bold text-base text-[#18281F]">Browse Stores</h4>
-                          <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-3 relative overflow-hidden group hover:border-[#541D26] transition-colors shadow-xs">
+                          <span className="w-7 h-7 rounded-full bg-[#541D26] text-white font-bold text-xs flex items-center justify-center">2</span>
+                          <h4 className="font-serif font-bold text-base text-[#211A19]">Browse Stores</h4>
+                          <p className="text-xs text-[#211A19]/75 leading-relaxed">
                             Explore fresh bakery goods, organic dairy, flowers, laundry, and home services operating in your neighborhood block.
                           </p>
                         </div>
 
-                        <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-3 relative overflow-hidden group hover:border-[#C4A066] transition-colors">
-                          <span className="w-7 h-7 rounded-full bg-[#18281F] text-[#C4A066] font-bold text-xs flex items-center justify-center">3</span>
-                          <h4 className="font-serif font-bold text-base text-[#18281F]">Instant WhatsApp Order</h4>
-                          <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-3 relative overflow-hidden group hover:border-[#541D26] transition-colors shadow-xs">
+                          <span className="w-7 h-7 rounded-full bg-[#541D26] text-white font-bold text-xs flex items-center justify-center">3</span>
+                          <h4 className="font-serif font-bold text-base text-[#211A19]">Instant Order</h4>
+                          <p className="text-xs text-[#211A19]/75 leading-relaxed">
                             Build your cart and click 'Order via WhatsApp'. A structured receipt is generated directly in your app with zero extra fees.
                           </p>
                         </div>
 
-                        <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-3 relative overflow-hidden group hover:border-[#C4A066] transition-colors">
-                          <span className="w-7 h-7 rounded-full bg-[#18281F] text-[#C4A066] font-bold text-xs flex items-center justify-center">4</span>
-                          <h4 className="font-serif font-bold text-base text-[#18281F]">10–15 Min Delivery</h4>
-                          <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-3 relative overflow-hidden group hover:border-[#541D26] transition-colors shadow-xs">
+                          <span className="w-7 h-7 rounded-full bg-[#541D26] text-white font-bold text-xs flex items-center justify-center">4</span>
+                          <h4 className="font-serif font-bold text-base text-[#211A19]">10–15 Min Delivery</h4>
+                          <p className="text-xs text-[#211A19]/75 leading-relaxed">
                             Your neighborhood shop or society runner delivers fresh items directly to your flat door with safe gate verification.
                           </p>
                         </div>
                       </div>
-
-                      <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                        <div className="space-y-0.5">
-                          <span className="font-bold text-emerald-900 block">Ready to order from your society stores?</span>
-                          <span className="text-emerald-700 text-[11px]">Select your residential society on the homepage to start shopping.</span>
-                        </div>
-                        <button
-                          onClick={() => setRoute({ page: 'home' })}
-                          className="px-4 py-2 rounded-xl bg-[#18281F] hover:bg-black text-[#F7F4EE] text-xs font-bold transition-all shrink-0 cursor-pointer"
-                        >
-                          Explore Societies
-                        </button>
-                      </div>
                     </div>
                   )}
 
-                  {/* SECTION 2: FOR LOCAL VENDORS & STORE OWNERS */}
+                  {/* SECTION 2: FOR VENDORS */}
                   {(howItWorksSection === 'all' || howItWorksSection === 'vendors') && (
-                    <div className="space-y-5 pt-4 border-t border-[#E4DCC9]/60">
+                    <div className="space-y-5 pt-4 border-t border-[#E5DAD0]">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-[#C4A066] text-[#18281F] flex items-center justify-center font-bold text-xs">
+                        <div className="w-8 h-8 rounded-full bg-[#541D26] text-white flex items-center justify-center font-bold text-xs">
                           🏪
                         </div>
                         <div>
-                          <h3 className="font-serif font-extrabold text-lg text-[#18281F]">2. For Local Vendors & Shop Owners</h3>
-                          <p className="text-xs text-[#6B7C70]">Digitize your neighborhood store and serve nearby gated communities with zero commission.</p>
+                          <h3 className="font-serif font-extrabold text-lg text-[#211A19]">2. For Local Vendors & Shop Owners</h3>
+                          <p className="text-xs text-[#211A19]/70">Digitize your neighborhood store and serve nearby gated communities with zero commission.</p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-3 relative overflow-hidden group hover:border-[#C4A066] transition-colors">
-                          <span className="w-7 h-7 rounded-full bg-[#C4A066] text-[#18281F] font-bold text-xs flex items-center justify-center">1</span>
-                          <h4 className="font-serif font-bold text-base text-[#18281F]">Register Your Store</h4>
-                          <p className="text-xs text-[#6B7C70] leading-relaxed">
-                            Create your vendor profile in 2 minutes. Add your shop name, contact details, and select the residential societies you serve.
+                        <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-3 relative overflow-hidden shadow-xs">
+                          <span className="w-7 h-7 rounded-full bg-[#541D26] text-white font-bold text-xs flex items-center justify-center">1</span>
+                          <h4 className="font-serif font-bold text-base text-[#211A19]">Register Store</h4>
+                          <p className="text-xs text-[#211A19]/75 leading-relaxed">
+                            Create your vendor profile in 2 minutes. Add shop name, phone number, and select the residential societies you service.
                           </p>
                         </div>
 
-                        <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-3 relative overflow-hidden group hover:border-[#C4A066] transition-colors">
-                          <span className="w-7 h-7 rounded-full bg-[#C4A066] text-[#18281F] font-bold text-xs flex items-center justify-center">2</span>
-                          <h4 className="font-serif font-bold text-base text-[#18281F]">Add Products & Pricing</h4>
-                          <p className="text-xs text-[#6B7C70] leading-relaxed">
-                            Upload catalog items, photos, item prices, and stock status using your easy Vendor Panel dashboard.
+                        <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-3 relative overflow-hidden shadow-xs">
+                          <span className="w-7 h-7 rounded-full bg-[#541D26] text-white font-bold text-xs flex items-center justify-center">2</span>
+                          <h4 className="font-serif font-bold text-base text-[#211A19]">Add Products</h4>
+                          <p className="text-xs text-[#211A19]/75 leading-relaxed">
+                            Upload catalog items, item prices, photos, and stock status using your easy Vendor Panel dashboard.
                           </p>
                         </div>
 
-                        <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-3 relative overflow-hidden group hover:border-[#C4A066] transition-colors">
-                          <span className="w-7 h-7 rounded-full bg-[#C4A066] text-[#18281F] font-bold text-xs flex items-center justify-center">3</span>
-                          <h4 className="font-serif font-bold text-base text-[#18281F]">Receive WhatsApp Orders</h4>
-                          <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-3 relative overflow-hidden shadow-xs">
+                          <span className="w-7 h-7 rounded-full bg-[#541D26] text-white font-bold text-xs flex items-center justify-center">3</span>
+                          <h4 className="font-serif font-bold text-base text-[#211A19]">WhatsApp Orders</h4>
+                          <p className="text-xs text-[#211A19]/75 leading-relaxed">
                             Incoming orders arrive instantly on your WhatsApp with customer flat/tower numbers and clear cart items.
                           </p>
                         </div>
 
-                        <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-3 relative overflow-hidden group hover:border-[#C4A066] transition-colors">
-                          <span className="w-7 h-7 rounded-full bg-[#C4A066] text-[#18281F] font-bold text-xs flex items-center justify-center">4</span>
-                          <h4 className="font-serif font-bold text-base text-[#18281F]">Direct 0% Commission</h4>
-                          <p className="text-xs text-[#6B7C70] leading-relaxed">
+                        <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-3 relative overflow-hidden shadow-xs">
+                          <span className="w-7 h-7 rounded-full bg-[#541D26] text-white font-bold text-xs flex items-center justify-center">4</span>
+                          <h4 className="font-serif font-bold text-base text-[#211A19]">0% Commission</h4>
+                          <p className="text-xs text-[#211A19]/75 leading-relaxed">
                             Collect 100% of your payment directly via UPI or cash with zero platform commissions or middleman deductions.
                           </p>
                         </div>
-                      </div>
-
-                      <div className="p-5 rounded-2xl bg-[#18281F] text-[#F7F4EE] space-y-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div>
-                          <h4 className="font-serif font-bold text-base text-white">Want to list your shop on DigiLocal?</h4>
-                          <p className="text-xs text-emerald-200/80 mt-0.5">Start serving hundreds of residential society families near you today.</p>
-                        </div>
-                        <button
-                          onClick={() => setRoute({ page: 'vendorRegister' })}
-                          className="px-5 py-2.5 rounded-xl bg-[#C4A066] hover:bg-amber-400 text-[#18281F] font-bold text-xs transition-colors inline-flex items-center gap-2 shrink-0 cursor-pointer"
-                        >
-                          Register Store as Vendor <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
                       </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* TAB 1: PRIVACY POLICY */}
+              {/* TAB 3: PRIVACY POLICY */}
               {activeTab === 'privacy-policy' && (
                 <div className="space-y-6 animate-fadeIn">
-                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E4DCC9]">
-                    <div className="w-10 h-10 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
-                      <Lock className="w-5 h-5 text-[#C4A066]" />
+                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E5DAD0]">
+                    <div className="w-10 h-10 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26]">
+                      <Lock className="w-5 h-5 text-[#541D26]" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-serif font-bold text-[#18281F]">Privacy Policy</h2>
-                      <p className="text-xs text-[#6B7C70]">Last updated: July 2026</p>
+                      <h2 className="text-2xl font-serif font-bold text-[#211A19]">Privacy Policy</h2>
+                      <p className="text-xs text-[#211A19]/70">Last updated: July 2026</p>
                     </div>
                   </div>
 
-                  <div className="prose text-xs sm:text-sm text-[#18281F]/80 space-y-4 leading-relaxed">
+                  <div className="text-xs sm:text-sm text-[#211A19]/90 space-y-4 leading-relaxed">
                     <p>
                       At <strong>DigiLocal Network</strong>, we respect your privacy and are committed to protecting the personal data of all residential buyers, local vendors, and society members using our platform.
                     </p>
 
-                    <div className="bg-[#F7F4EE] p-4 rounded-2xl border border-[#E4DCC9] space-y-2">
-                      <h4 className="font-bold text-[#18281F] text-sm flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Key Data Protection Commitments:
+                    <div className="bg-[#EEE5DA] p-5 rounded-2xl border border-[#E5DAD0] space-y-2">
+                      <h4 className="font-bold text-[#541D26] text-sm flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-[#541D26]" /> Key Data Protection Commitments:
                       </h4>
-                      <ul className="list-disc pl-5 space-y-1 text-xs text-[#6B7C70]">
+                      <ul className="list-disc pl-5 space-y-1 text-xs text-[#211A19]/80">
                         <li>We do NOT sell or monetize your personal details to third-party advertisers.</li>
                         <li>We only store essential data required to match you with your residential society vendors.</li>
                         <li>All order interactions take place directly between your phone and vendor WhatsApp.</li>
                       </ul>
                     </div>
 
-                    <h3 className="font-serif font-bold text-base text-[#18281F] pt-2">1. Information We Collect</h3>
+                    <h3 className="font-serif font-bold text-base text-[#211A19] pt-2">1. Information We Collect</h3>
                     <p>
                       We collect minimal information necessary to facilitate direct WhatsApp orders:
                     </p>
@@ -565,52 +424,51 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                       <li><strong>Contact Submissions:</strong> Information provided when filling support requests or society addition forms.</li>
                     </ul>
 
-                    <h3 className="font-serif font-bold text-base text-[#18281F] pt-2">2. Direct WhatsApp Communications</h3>
+                    <h3 className="font-serif font-bold text-base text-[#211A19] pt-2">2. Direct WhatsApp Communications</h3>
                     <p>
                       When you initiate an order, DigiLocal constructs a structured WhatsApp message containing your selected items. When sent, communications are end-to-end encrypted by WhatsApp according to Meta's privacy protocols.
                     </p>
 
-                    <h3 className="font-serif font-bold text-base text-[#18281F] pt-2">3. Cookies & Local Browser Storage</h3>
+                    <h3 className="font-serif font-bold text-base text-[#211A19] pt-2">3. Cookies & Local Browser Storage</h3>
                     <p>
                       We use local browser storage strictly to remember your active society preference and session cart items so you don't lose your selection when navigating between pages.
                     </p>
 
-                    <h3 className="font-serif font-bold text-base text-[#18281F] pt-2">4. Your Data Rights</h3>
+                    <h3 className="font-serif font-bold text-base text-[#211A19] pt-2">4. Your Data Rights</h3>
                     <p>
-                      You have the right to request deletion of any stored vendor profile or support record at any time by contacting our privacy compliance desk at <span className="text-[#C4A066] font-semibold">privacy@digilocal.network</span>.
+                      You have the right to request deletion of any stored vendor profile or support record at any time by contacting our privacy compliance desk at <span className="text-[#541D26] font-semibold">support@digilocal.in</span>.
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* TAB: REFUND & CANCELLATION POLICY */}
+              {/* TAB 4: REFUND & CANCELLATION POLICY */}
               {activeTab === 'refund-policy' && (
                 <div className="space-y-6 animate-fadeIn">
-                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E4DCC9]">
-                    <div className="w-10 h-10 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
-                      <RefreshCw className="w-5 h-5 text-[#C4A066]" />
+                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E5DAD0]">
+                    <div className="w-10 h-10 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26]">
+                      <RefreshCw className="w-5 h-5 text-[#541D26]" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-serif font-bold text-[#18281F]">Refund & Cancellation Policy</h2>
-                      <p className="text-xs text-[#6B7C70]">100% Resident Satisfaction & Protection Protocol</p>
+                      <h2 className="text-2xl font-serif font-bold text-[#211A19]">Refund & Cancellation Policy</h2>
+                      <p className="text-xs text-[#211A19]/70">100% Resident Satisfaction & Protection Protocol</p>
                     </div>
                   </div>
 
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-emerald-950 text-xs sm:text-sm space-y-2">
-                    <div className="flex items-center space-x-2 font-bold text-emerald-900">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="bg-[#EEE5DA] border border-[#E5DAD0] rounded-2xl p-5 text-[#211A19] text-xs sm:text-sm space-y-2">
+                    <div className="flex items-center space-x-2 font-bold text-[#541D26]">
+                      <CheckCircle2 className="w-4 h-4 text-[#541D26] shrink-0" />
                       <span>Zero Hassle Protection Commitment</span>
                     </div>
-                    <p className="leading-relaxed text-emerald-800">
+                    <p className="leading-relaxed text-[#211A19]/80">
                       DigiLocal Network is dedicated to ensuring a reliable, fresh, and delightful neighborhood shopping experience. Because you deal directly with trusted local vendors serving your society, refunds and replacements are processed swiftly with zero unnecessary paperwork.
                     </p>
                   </div>
 
-                  <div className="space-y-6 text-xs sm:text-sm text-[#18281F]/80 leading-relaxed">
-                    
+                  <div className="space-y-6 text-xs sm:text-sm text-[#211A19]/90 leading-relaxed">
                     <div>
-                      <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center space-x-2 mb-2">
-                        <span className="w-6 h-6 rounded-full bg-[#18281F] text-white text-[11px] font-sans font-bold flex items-center justify-center shrink-0">1</span>
+                      <h3 className="font-serif font-bold text-base text-[#211A19] flex items-center space-x-2 mb-2">
+                        <span className="w-6 h-6 rounded-full bg-[#541D26] text-white text-[11px] font-sans font-bold flex items-center justify-center shrink-0">1</span>
                         <span>Order Cancellation Guidelines</span>
                       </h3>
                       <div className="pl-8 space-y-2">
@@ -624,13 +482,13 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                     </div>
 
                     <div>
-                      <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center space-x-2 mb-2">
-                        <span className="w-6 h-6 rounded-full bg-[#18281F] text-white text-[11px] font-sans font-bold flex items-center justify-center shrink-0">2</span>
+                      <h3 className="font-serif font-bold text-base text-[#211A19] flex items-center space-x-2 mb-2">
+                        <span className="w-6 h-6 rounded-full bg-[#541D26] text-white text-[11px] font-sans font-bold flex items-center justify-center shrink-0">2</span>
                         <span>Eligibility for Instant Refund or Free Replacement</span>
                       </h3>
                       <div className="pl-8 space-y-2">
                         <p>You are eligible for a 100% full refund or immediate free replacement under the following conditions:</p>
-                        <ul className="list-disc pl-5 space-y-1.5 text-xs sm:text-sm text-[#18281F]/80">
+                        <ul className="list-disc pl-5 space-y-1.5 text-xs sm:text-sm text-[#211A19]/80">
                           <li><strong>Damaged, Defective, or Spoiled Goods:</strong> Perishable items (fresh milk, bakery products, fruits, vegetables, paneer) received damaged or past expiry date.</li>
                           <li><strong>Incorrect or Missing Items:</strong> Delivered items do not match what you ordered in your WhatsApp cart receipt.</li>
                           <li><strong>Significant Delivery Delay:</strong> Order was delayed beyond reasonable society delivery timeframe without prior notification.</li>
@@ -640,196 +498,156 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                     </div>
 
                     <div>
-                      <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center space-x-2 mb-2">
-                        <span className="w-6 h-6 rounded-full bg-[#18281F] text-white text-[11px] font-sans font-bold flex items-center justify-center shrink-0">3</span>
+                      <h3 className="font-serif font-bold text-base text-[#211A19] flex items-center space-x-2 mb-2">
+                        <span className="w-6 h-6 rounded-full bg-[#541D26] text-white text-[11px] font-sans font-bold flex items-center justify-center shrink-0">3</span>
                         <span>Refund Turnaround Time & Modes</span>
                       </h3>
                       <div className="pl-8 space-y-2">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                          <div className="bg-[#FAF9F6] border border-[#E4DCC9] rounded-xl p-4 space-y-1">
-                            <h4 className="font-bold text-xs text-[#18281F]">UPI / Online Payments</h4>
-                            <p className="text-[11px] text-[#6B7C70] leading-relaxed">Refunds credited directly to your original GPay / PhonePe / Paytm / BHIM UPI VPA account within <strong>2 to 24 hours</strong>.</p>
+                          <div className="bg-white border border-[#E5DAD0] rounded-xl p-4 space-y-1 shadow-xs">
+                            <h4 className="font-bold text-xs text-[#541D26]">UPI / Online Payments</h4>
+                            <p className="text-[11px] text-[#211A19]/80 leading-relaxed">Refunds credited directly to your original GPay / PhonePe / Paytm / BHIM UPI VPA account within <strong>2 to 24 hours</strong>.</p>
                           </div>
-                          <div className="bg-[#FAF9F6] border border-[#E4DCC9] rounded-xl p-4 space-y-1">
-                            <h4 className="font-bold text-xs text-[#18281F]">Cash on Delivery (COD)</h4>
-                            <p className="text-[11px] text-[#6B7C70] leading-relaxed">Refund issued as instant UPI transfer or credited towards your next society store delivery.</p>
+                          <div className="bg-white border border-[#E5DAD0] rounded-xl p-4 space-y-1 shadow-xs">
+                            <h4 className="font-bold text-xs text-[#541D26]">Cash on Delivery (COD)</h4>
+                            <p className="text-[11px] text-[#211A19]/80 leading-relaxed">Refund issued as instant UPI transfer or credited towards your next society store delivery.</p>
                           </div>
                         </div>
                       </div>
                     </div>
-
-                    <div>
-                      <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center space-x-2 mb-2">
-                        <span className="w-6 h-6 rounded-full bg-[#18281F] text-white text-[11px] font-sans font-bold flex items-center justify-center shrink-0">4</span>
-                        <span>How to Claim a Refund or Report an Issue</span>
-                      </h3>
-                      <div className="pl-8 space-y-2">
-                        <ol className="list-decimal pl-5 space-y-2">
-                          <li><strong>Direct WhatsApp Resolution:</strong> Open your WhatsApp order chat with the local vendor and share a quick description (or photo for damaged items). Most neighborhood vendors resolve issues within 30 minutes.</li>
-                          <li><strong>DigiLocal Escalation Support:</strong> If a vendor fails to resolve your refund request within 24 hours, contact DigiLocal Escalation Desk at <span className="text-[#C4A066] font-bold">refunds@digilocal.network</span> or call <span className="text-[#C4A066] font-bold">+91 98765 43210</span>. Our team will mediate and issue resolution immediately.</li>
-                        </ol>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center space-x-2 mb-2">
-                        <span className="w-6 h-6 rounded-full bg-[#18281F] text-white text-[11px] font-sans font-bold flex items-center justify-center shrink-0">5</span>
-                        <span>Non-Refundable Scenarios</span>
-                      </h3>
-                      <div className="pl-8 space-y-1 text-xs text-[#6B7C70]">
-                        <p>Refunds may be declined if:</p>
-                        <ul className="list-disc pl-5 space-y-1">
-                          <li>Claim is made after 48 hours of order receipt for non-perishable items (or after 6 hours for fresh milk/daily perishables).</li>
-                          <li>Items are used, consumed, or tampered with intentionally.</li>
-                          <li>Incorrect residential flat or society address was provided by the resident.</li>
-                        </ul>
-                      </div>
-                    </div>
-
                   </div>
                 </div>
               )}
 
-              {/* TAB 2: CHILD SECURITY */}
+              {/* TAB 5: CHILD SECURITY POLICY */}
               {activeTab === 'child-security' && (
                 <div className="space-y-6 animate-fadeIn">
-                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E4DCC9]">
-                    <div className="w-10 h-10 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
-                      <ShieldCheck className="w-5 h-5 text-[#C4A066]" />
+                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E5DAD0]">
+                    <div className="w-10 h-10 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26]">
+                      <ShieldCheck className="w-5 h-5 text-[#541D26]" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-serif font-bold text-[#18281F]">Child Security & Protection Policy</h2>
-                      <p className="text-xs text-[#6B7C70]">Zero-Tolerance Safe Neighborhood Environment</p>
+                      <h2 className="text-2xl font-serif font-bold text-[#211A19]">Child Security & Protection Policy</h2>
+                      <p className="text-xs text-[#211A19]/70">Zero-Tolerance Safe Neighborhood Environment</p>
                     </div>
                   </div>
 
-                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-amber-900 text-xs sm:text-sm space-y-2">
-                    <div className="flex items-center space-x-2 font-bold text-amber-900">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <div className="bg-[#EEE5DA] border border-[#E5DAD0] rounded-2xl p-5 text-[#211A19] text-xs sm:text-sm space-y-2">
+                    <div className="flex items-center space-x-2 font-bold text-[#541D26]">
+                      <AlertTriangle className="w-4 h-4 text-[#541D26] shrink-0" />
                       <span>Zero Tolerance Commitment</span>
                     </div>
-                    <p className="leading-relaxed text-amber-800">
+                    <p className="leading-relaxed text-[#211A19]/80">
                       DigiLocal Network enforces mandatory safety standards for all vendors operating within residential societies. Safeguarding children and youth inside gated communities is our highest operational mandate.
                     </p>
                   </div>
 
-                  <div className="space-y-4 text-xs sm:text-sm text-[#18281F]/80 leading-relaxed">
-                    <h3 className="font-serif font-bold text-base text-[#18281F]">1. Verified Vendor & Staff Entry</h3>
+                  <div className="space-y-4 text-xs sm:text-sm text-[#211A19]/90 leading-relaxed">
+                    <h3 className="font-serif font-bold text-base text-[#211A19]">1. Verified Vendor & Staff Entry</h3>
                     <p>
                       All neighborhood vendors and delivery partners registered on DigiLocal Network serving residential complexes must hold verified government photo identification and comply with resident welfare association (RWA) gate security approvals.
                     </p>
 
-                    <h3 className="font-serif font-bold text-base text-[#18281F]">2. Protection of Minors</h3>
+                    <h3 className="font-serif font-bold text-base text-[#211A19]">2. Protection of Minors</h3>
                     <p>
                       Vendor storefronts listing alcohol, tobacco, adult products, or age-restricted items are strictly prohibited on DigiLocal Network. All catalogs are regularly audited by system administrators.
                     </p>
 
-                    <h3 className="font-serif font-bold text-base text-[#18281F]">3. Safe Delivery Protocols</h3>
+                    <h3 className="font-serif font-bold text-base text-[#211A19]">3. Safe Delivery Protocols</h3>
                     <ul className="list-disc pl-5 space-y-1">
                       <li>Deliveries to homes must be handed directly to an adult resident or left at gate security.</li>
                       <li>Delivery staff are strictly prohibited from entering residences where only minors are present without explicit parental authorization.</li>
-                      <li>Any inappropriate conduct towards children will result in immediate permanent expulsion, blacklisting, and referral to law enforcement.</li>
                     </ul>
-
-                    <h3 className="font-serif font-bold text-base text-[#18281F]">4. Reporting Safety Incidents</h3>
-                    <p>
-                      If you observe any suspicious behavior or policy violation within your society involving a registered vendor, contact our 24/7 Safety Desk immediately at <span className="text-[#C4A066] font-semibold">safety@digilocal.network</span> or notify local society security.
-                    </p>
                   </div>
                 </div>
               )}
 
-              {/* TAB 3: TERMS & CONDITIONS */}
+              {/* TAB 6: TERMS & CONDITIONS */}
               {activeTab === 'terms-and-conditions' && (
                 <div className="space-y-6 animate-fadeIn">
-                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E4DCC9]">
-                    <div className="w-10 h-10 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
-                      <FileText className="w-5 h-5 text-[#C4A066]" />
+                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E5DAD0]">
+                    <div className="w-10 h-10 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26]">
+                      <FileText className="w-5 h-5 text-[#541D26]" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-serif font-bold text-[#18281F]">Terms & Conditions</h2>
-                      <p className="text-xs text-[#6B7C70]">User Agreement & Platform Guidelines</p>
+                      <h2 className="text-2xl font-serif font-bold text-[#211A19]">Terms & Conditions</h2>
+                      <p className="text-xs text-[#211A19]/70">User Agreement & Platform Guidelines</p>
                     </div>
                   </div>
 
-                  <div className="space-y-4 text-xs sm:text-sm text-[#18281F]/80 leading-relaxed">
+                  <div className="space-y-4 text-xs sm:text-sm text-[#211A19]/90 leading-relaxed">
                     <p>
                       Welcome to <strong>DigiLocal Network</strong>. By accessing or using our platform, website, and services, you agree to comply with and be bound by the following Terms & Conditions.
                     </p>
 
-                    <h3 className="font-serif font-bold text-base text-[#18281F]">1. Platform Scope & Facilitation</h3>
+                    <h3 className="font-serif font-bold text-base text-[#211A19]">1. Platform Scope & Facilitation</h3>
                     <p>
                       DigiLocal Network acts as an information directory and order-formatting technology connecting residential buyers with local independent vendors. DigiLocal does not own, manufacture, store, or directly deliver goods.
                     </p>
 
-                    <h3 className="font-serif font-bold text-base text-[#18281F]">2. Vendor Obligations</h3>
+                    <h3 className="font-serif font-bold text-base text-[#211A19]">2. Vendor Obligations</h3>
                     <p>
                       Vendors registering on DigiLocal agree to provide accurate item descriptions, honor displayed pricing, maintain hygiene and safety standards, and adhere to local commerce laws and society entry regulations.
                     </p>
 
-                    <h3 className="font-serif font-bold text-base text-[#18281F]">3. Pricing & Direct Payments</h3>
+                    <h3 className="font-serif font-bold text-base text-[#211A19]">3. Pricing & Direct Payments</h3>
                     <p>
                       Item prices displayed on vendor pages are set independently by vendors. Payments are settled directly between buyer and vendor via UPI, Cash, or Direct QR transfer. DigiLocal charges zero commission on resident transactions.
-                    </p>
-
-                    <h3 className="font-serif font-bold text-base text-[#18281F]">4. Limitation of Liability</h3>
-                    <p>
-                      While DigiLocal vets vendors, we are not responsible for product quality defects, delivery delays caused by external factors, or commercial disputes between buyers and vendors. However, our support team actively mediates unresolved issues.
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* TAB 4: SAFETY STANDARDS */}
+              {/* TAB 7: SAFETY STANDARDS */}
               {activeTab === 'safety-standards' && (
                 <div className="space-y-6 animate-fadeIn">
-                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E4DCC9]">
-                    <div className="w-10 h-10 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
-                      <ShieldAlert className="w-5 h-5 text-[#C4A066]" />
+                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E5DAD0]">
+                    <div className="w-10 h-10 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26]">
+                      <ShieldAlert className="w-5 h-5 text-[#541D26]" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-serif font-bold text-[#18281F]">Safety & Quality Standards</h2>
-                      <p className="text-xs text-[#6B7C70]">Hyperlocal Trust & Verification Pillars</p>
+                      <h2 className="text-2xl font-serif font-bold text-[#211A19]">Safety & Quality Standards</h2>
+                      <p className="text-xs text-[#211A19]/70">Hyperlocal Trust & Verification Pillars</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                      <div className="w-8 h-8 rounded-xl bg-[#18281F] text-[#C4A066] flex items-center justify-center font-bold text-xs">
+                    <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-2 shadow-xs">
+                      <div className="w-8 h-8 rounded-xl bg-[#541D26] text-white flex items-center justify-center font-bold text-xs">
                         1
                       </div>
-                      <h4 className="font-bold text-[#18281F] text-sm">Identity & Location Vetting</h4>
-                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                      <h4 className="font-bold text-[#211A19] text-sm">Identity & Location Vetting</h4>
+                      <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
                         Every vendor profile is verified against valid government identity and physical shop location to prevent unauthorized listings.
                       </p>
                     </div>
 
-                    <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                      <div className="w-8 h-8 rounded-xl bg-[#18281F] text-[#C4A066] flex items-center justify-center font-bold text-xs">
+                    <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-2 shadow-xs">
+                      <div className="w-8 h-8 rounded-xl bg-[#541D26] text-white flex items-center justify-center font-bold text-xs">
                         2
                       </div>
-                      <h4 className="font-bold text-[#18281F] text-sm">Freshness & Hygiene Protocol</h4>
-                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                      <h4 className="font-bold text-[#211A19] text-sm">Freshness & Hygiene Protocol</h4>
+                      <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
                         Food and grocery vendors adhere to strict food safety guidelines, clean packaging, and hygienic handling for residential deliveries.
                       </p>
                     </div>
 
-                    <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                      <div className="w-8 h-8 rounded-xl bg-[#18281F] text-[#C4A066] flex items-center justify-center font-bold text-xs">
+                    <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-2 shadow-xs">
+                      <div className="w-8 h-8 rounded-xl bg-[#541D26] text-white flex items-center justify-center font-bold text-xs">
                         3
                       </div>
-                      <h4 className="font-bold text-[#18281F] text-sm">Transparent WhatsApp Ordering</h4>
-                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                      <h4 className="font-bold text-[#211A19] text-sm">Transparent WhatsApp Ordering</h4>
+                      <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
                         Orders are placed openly over WhatsApp, creating a permanent timestamped chat record for both buyer and seller.
                       </p>
                     </div>
 
-                    <div className="p-5 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                      <div className="w-8 h-8 rounded-xl bg-[#18281F] text-[#C4A066] flex items-center justify-center font-bold text-xs">
+                    <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-2 shadow-xs">
+                      <div className="w-8 h-8 rounded-xl bg-[#541D26] text-white flex items-center justify-center font-bold text-xs">
                         4
                       </div>
-                      <h4 className="font-bold text-[#18281F] text-sm">Community Feedback & Blacklisting</h4>
-                      <p className="text-xs text-[#6B7C70] leading-relaxed">
+                      <h4 className="font-bold text-[#211A19] text-sm">Community Feedback & Blacklisting</h4>
+                      <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
                         Vendors receiving repeated complaints regarding quality, pricing, or gate security breaches face suspension and removal.
                       </p>
                     </div>
@@ -837,50 +655,50 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                 </div>
               )}
 
-              {/* TAB 5: HELP & SUPPORT HUB (FAQS & HOW-TO GUIDES) */}
+              {/* TAB 8: HELP & SUPPORT HUB (FAQS) */}
               {(activeTab === 'help-support' || activeTab === 'faqs') && (
                 <div className="space-y-8 animate-fadeIn">
-                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E4DCC9]">
-                    <div className="w-10 h-10 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
-                      <HelpCircle className="w-5 h-5 text-[#C4A066]" />
+                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E5DAD0]">
+                    <div className="w-10 h-10 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26]">
+                      <HelpCircle className="w-5 h-5 text-[#541D26]" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-serif font-bold text-[#18281F]">Help & Support Center</h2>
-                      <p className="text-xs text-[#6B7C70]">Interactive FAQs, How-To Guides & Quick Knowledgebase</p>
+                      <h2 className="text-2xl font-serif font-bold text-[#211A19]">Help & Support Center</h2>
+                      <p className="text-xs text-[#211A19]/70">Interactive FAQs, How-To Guides & Quick Knowledgebase</p>
                     </div>
                   </div>
 
                   {/* Section 1: How to Place an Order */}
                   <div className="space-y-4">
-                    <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-[#C4A066]" /> How to Place an Order in 3 Simple Steps
+                    <h3 className="font-serif font-bold text-base text-[#211A19] flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-[#541D26]" /> How to Place an Order in 3 Simple Steps
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9]">
-                        <span className="text-xs font-bold text-[#C4A066] uppercase tracking-wider block mb-1">Step 1</span>
-                        <h4 className="font-bold text-xs text-[#18281F] mb-1">Select Your Society</h4>
-                        <p className="text-xs text-[#6B7C70]">Search for your residential building or apartment complex on the home screen.</p>
+                      <div className="p-4 rounded-2xl bg-white border border-[#E5DAD0] shadow-xs">
+                        <span className="text-xs font-bold text-[#541D26] uppercase tracking-wider block mb-1">Step 1</span>
+                        <h4 className="font-bold text-xs text-[#211A19] mb-1">Select Your Society</h4>
+                        <p className="text-xs text-[#211A19]/75">Search for your residential building or apartment complex on the home screen.</p>
                       </div>
-                      <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9]">
-                        <span className="text-xs font-bold text-[#C4A066] uppercase tracking-wider block mb-1">Step 2</span>
-                        <h4 className="font-bold text-xs text-[#18281F] mb-1">Browse & Build Cart</h4>
-                        <p className="text-xs text-[#6B7C70]">Pick local vendors (groceries, dairy, services, food) and select your items.</p>
+                      <div className="p-4 rounded-2xl bg-white border border-[#E5DAD0] shadow-xs">
+                        <span className="text-xs font-bold text-[#541D26] uppercase tracking-wider block mb-1">Step 2</span>
+                        <h4 className="font-bold text-xs text-[#211A19] mb-1">Browse & Build Cart</h4>
+                        <p className="text-xs text-[#211A19]/75">Pick local vendors (groceries, dairy, services, food) and select your items.</p>
                       </div>
-                      <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9]">
-                        <span className="text-xs font-bold text-[#C4A066] uppercase tracking-wider block mb-1">Step 3</span>
-                        <h4 className="font-bold text-xs text-[#18281F] mb-1">Send via WhatsApp</h4>
-                        <p className="text-xs text-[#6B7C70]">Click 'Order via WhatsApp'. A formatted message opens in your app ready to send!</p>
+                      <div className="p-4 rounded-2xl bg-white border border-[#E5DAD0] shadow-xs">
+                        <span className="text-xs font-bold text-[#541D26] uppercase tracking-wider block mb-1">Step 3</span>
+                        <h4 className="font-bold text-xs text-[#211A19] mb-1">Send via WhatsApp</h4>
+                        <p className="text-xs text-[#211A19]/75">Click 'Order via WhatsApp'. A formatted message opens in your app ready to send!</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Section 2: Frequently Asked Questions (FAQs) */}
-                  <div className="space-y-4 pt-2 border-t border-[#E4DCC9]/60">
+                  {/* Section 2: FAQs */}
+                  <div className="space-y-4 pt-2 border-t border-[#E5DAD0]">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center gap-2">
-                        <MessageSquare className="w-4 h-4 text-[#C4A066]" /> Frequently Asked Questions (FAQs)
+                      <h3 className="font-serif font-bold text-base text-[#211A19] flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4 text-[#541D26]" /> Frequently Asked Questions (FAQs)
                       </h3>
-                      <span className="text-xs text-[#6B7C70]">Instant answers for residents and vendors</span>
+                      <span className="text-xs text-[#211A19]/70">Instant answers for residents and vendors</span>
                     </div>
 
                     {/* Search Filter Input */}
@@ -891,14 +709,14 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search questions (e.g., ordering, fees, vendor verification)..."
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#E5DAD0] bg-white text-xs text-[#211A19] focus:outline-none focus:ring-2 focus:ring-[#541D26]"
                       />
                     </div>
 
                     {/* FAQ Accordion List */}
                     <div className="space-y-3 pt-1">
                       {filteredFaqs.length === 0 ? (
-                        <div className="py-8 text-center text-xs text-[#6B7C70]">
+                        <div className="py-8 text-center text-xs text-[#211A19]/70 font-medium">
                           No matching questions found for "{searchQuery}". Click below to send a message to our Support Team.
                         </div>
                       ) : (
@@ -907,22 +725,22 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                           return (
                             <div
                               key={idx}
-                              className="border border-[#E4DCC9] rounded-2xl overflow-hidden transition-all bg-[#F7F4EE]/50 hover:bg-[#F7F4EE]"
+                              className="border border-[#E5DAD0] rounded-2xl overflow-hidden transition-all bg-white hover:border-[#541D26]/30 shadow-xs"
                             >
                               <button
                                 onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
                                 className="w-full p-4 text-left flex items-center justify-between gap-4 focus:outline-none cursor-pointer"
                               >
                                 <div className="flex items-center space-x-3">
-                                  <span className="px-2.5 py-0.5 rounded-full bg-[#EFE8D8] text-[10px] font-bold text-[#18281F] uppercase tracking-wider shrink-0">
+                                  <span className="px-2.5 py-0.5 rounded-full bg-[#541D26]/10 text-[10px] font-bold text-[#541D26] uppercase tracking-wider shrink-0">
                                     {faq.cat}
                                   </span>
-                                  <span className="font-bold text-xs sm:text-sm text-[#18281F]">{faq.q}</span>
+                                  <span className="font-bold text-xs sm:text-sm text-[#211A19]">{faq.q}</span>
                                 </div>
-                                <ChevronDown className={`w-4 h-4 text-[#6B7C70] transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-[#C4A066]' : ''}`} />
+                                <ChevronDown className={`w-4 h-4 text-[#211A19]/60 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-[#541D26]' : ''}`} />
                               </button>
                               {isOpen && (
-                                <div className="px-4 pb-4 pt-1 border-t border-[#E4DCC9]/60 text-xs text-[#18281F]/80 leading-relaxed bg-white">
+                                <div className="px-4 pb-4 pt-1 border-t border-[#E5DAD0] text-xs text-[#211A19]/80 leading-relaxed bg-[#F6F0E8]/40">
                                   {faq.a}
                                 </div>
                               )}
@@ -934,45 +752,45 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                   </div>
 
                   {/* Callout to Contact Support */}
-                  <div className="p-6 rounded-2xl bg-[#18281F] text-[#F7F4EE] flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="p-6 rounded-2xl bg-[#211A19] text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md border border-white/10">
                     <div className="space-y-1 text-center sm:text-left">
                       <h4 className="font-serif font-bold text-base text-white flex items-center justify-center sm:justify-start gap-2">
-                        <Headphones className="w-4.5 h-4.5 text-[#C4A066]" /> Need Direct Assistance?
+                        <Headphones className="w-4.5 h-4.5 text-[#C8A878]" /> Need Direct Assistance?
                       </h4>
-                      <p className="text-xs text-emerald-200/80">
+                      <p className="text-xs text-[#D6B7A5]">
                         Can't find what you're looking for? Submit a ticket or chat directly with our customer desk.
                       </p>
                     </div>
                     <button
                       onClick={() => handleTabChange('contact-support')}
-                      className="px-5 py-3 rounded-xl bg-[#C4A066] hover:bg-amber-400 text-[#18281F] font-bold text-xs transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer shadow-md"
+                      className="px-5 py-3 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer shadow-md"
                     >
                       <span>Contact Support Team</span>
-                      <ArrowRight className="w-4 h-4" />
+                      <ArrowRight className="w-4 h-4 text-white" />
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* TAB 6: CONTACT SUPPORT PAGE */}
+              {/* TAB 9: CONTACT SUPPORT PAGE */}
               {activeTab === 'contact-support' && (
                 <div className="space-y-8 animate-fadeIn">
-                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E4DCC9]">
-                    <div className="w-10 h-10 rounded-2xl bg-[#EFE8D8] flex items-center justify-center text-[#18281F]">
-                      <Headphones className="w-5 h-5 text-[#C4A066]" />
+                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E5DAD0]">
+                    <div className="w-10 h-10 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26]">
+                      <Headphones className="w-5 h-5 text-[#541D26]" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-serif font-bold text-[#18281F]">Contact Support</h2>
-                      <p className="text-xs text-[#6B7C70]">24/7 Assistance, Support Form & Direct Helpdesk Channels</p>
+                      <h2 className="text-2xl font-serif font-bold text-[#211A19]">Contact Support</h2>
+                      <p className="text-xs text-[#211A19]/70">24/7 Assistance, Support Form & Direct Helpdesk Channels</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    {/* Contact Form */}
+                    {/* Contact Form (2 cols) */}
                     <div className="lg:col-span-2 space-y-4">
-                      <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center gap-2">
-                        <Send className="w-4 h-4 text-[#C4A066]" /> Submit a Support Request
+                      <h3 className="font-serif font-bold text-base text-[#211A19] flex items-center gap-2">
+                        <Send className="w-4 h-4 text-[#541D26]" /> Submit a Support Request
                       </h3>
                       {contactSubmitted ? (
                         <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-3">
@@ -983,48 +801,48 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                           </p>
                         </div>
                       ) : (
-                        <form onSubmit={handleContactSubmit} className="space-y-4">
+                        <form onSubmit={handleContactSubmit} className="space-y-4 font-sans">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                              <label className="block text-xs font-bold text-[#18281F] mb-1">Your Full Name *</label>
+                              <label className="block text-xs font-bold text-[#211A19] mb-1">Your Full Name *</label>
                               <input
                                 type="text"
                                 required
                                 value={contactForm.name}
                                 onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
                                 placeholder="e.g. Ramesh Kumar"
-                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5DAD0] bg-white text-xs text-[#211A19] focus:outline-none focus:ring-2 focus:ring-[#541D26]"
                               />
                             </div>
                             <div>
-                              <label className="block text-xs font-bold text-[#18281F] mb-1">Email Address</label>
+                              <label className="block text-xs font-bold text-[#211A19] mb-1">Email Address</label>
                               <input
                                 type="email"
                                 value={contactForm.email}
                                 onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
                                 placeholder="e.g. ramesh@gmail.com"
-                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5DAD0] bg-white text-xs text-[#211A19] focus:outline-none focus:ring-2 focus:ring-[#541D26]"
                               />
                             </div>
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                              <label className="block text-xs font-bold text-[#18281F] mb-1">Phone Number</label>
+                              <label className="block text-xs font-bold text-[#211A19] mb-1">Phone Number</label>
                               <input
                                 type="tel"
                                 value={contactForm.phone}
                                 onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
                                 placeholder="e.g. +91 9876543210"
-                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5DAD0] bg-white text-xs text-[#211A19] focus:outline-none focus:ring-2 focus:ring-[#541D26]"
                               />
                             </div>
                             <div>
-                              <label className="block text-xs font-bold text-[#18281F] mb-1">Query Category</label>
+                              <label className="block text-xs font-bold text-[#211A19] mb-1">Query Category</label>
                               <select
                                 value={contactForm.category}
                                 onChange={(e) => setContactForm({ ...contactForm, category: e.target.value })}
-                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5DAD0] bg-white text-xs text-[#211A19] focus:outline-none focus:ring-2 focus:ring-[#541D26]"
                               >
                                 <option>General Query</option>
                                 <option>Order Issue / Vendor Dispute</option>
@@ -1036,110 +854,87 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
                           </div>
 
                           <div>
-                            <label className="block text-xs font-bold text-[#18281F] mb-1">Society Name (Optional)</label>
+                            <label className="block text-xs font-bold text-[#211A19] mb-1">Society Name (Optional)</label>
                             <input
                               type="text"
                               value={contactForm.societyName}
                               onChange={(e) => setContactForm({ ...contactForm, societyName: e.target.value })}
                               placeholder="e.g. Green Meadows Apartments, Phase 2"
-                              className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5DAD0] bg-white text-xs text-[#211A19] focus:outline-none focus:ring-2 focus:ring-[#541D26]"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-xs font-bold text-[#18281F] mb-1">Your Message / Detail *</label>
+                            <label className="block text-xs font-bold text-[#211A19] mb-1">Your Message / Detail *</label>
                             <textarea
                               rows={3}
                               required
                               value={contactForm.message}
                               onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
                               placeholder="Describe your question or issue in detail..."
-                              className="w-full px-3.5 py-2.5 rounded-xl border border-[#E4DCC9] bg-[#F7F4EE] text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5DAD0] bg-white text-xs text-[#211A19] focus:outline-none focus:ring-2 focus:ring-[#541D26]"
                             />
                           </div>
 
                           <button
                             type="submit"
-                            className="w-full py-3 rounded-xl bg-[#18281F] hover:bg-[#243A2D] text-[#F7F4EE] text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                            className="w-full py-3.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-extrabold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
                           >
-                            <Send className="w-4 h-4 text-[#C4A066]" /> Send Message to Support
+                            <Send className="w-4 h-4 text-white" /> Send Message to Support
                           </button>
                         </form>
                       )}
-                      {/* Direct Support Desk Cards */}
+                    </div>
+
+                    {/* Direct Contact Cards (1 col) */}
                     <div className="space-y-3">
-                      <h3 className="font-serif font-bold text-base text-[#18281F] flex items-center gap-2">
-                        <PhoneCall className="w-4 h-4 text-[#C4A066]" /> Direct Contact Channels
+                      <h3 className="font-serif font-bold text-base text-[#211A19] flex items-center gap-2">
+                        <PhoneCall className="w-4 h-4 text-[#541D26]" /> Direct Contact Channels
                       </h3>
 
-                      <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                        <div className="flex items-center space-x-2 text-xs font-bold text-[#18281F]">
-                          <PhoneCall className="w-4 h-4 text-[#C4A066]" />
+                      <div className="p-4 rounded-2xl bg-white border border-[#E5DAD0] space-y-2 shadow-xs">
+                        <div className="flex items-center space-x-2 text-xs font-bold text-[#541D26]">
+                          <PhoneCall className="w-4 h-4 text-[#541D26]" />
                           <span>Customer Helpline Hotline</span>
                         </div>
-                        <a href={`tel:${cmsContacts.phone}`} className="text-xs font-bold text-[#18281F] hover:text-[#C4A066] block">
+                        <a href={`tel:${cmsContacts.phone}`} className="text-xs font-bold text-[#211A19] hover:underline block">
                           {cmsContacts.phone || '+91 800-562-5999'}
                         </a>
-                        {cmsContacts.toll_free && (
-                          <p className="text-[11px] text-[#6B7C70]">Toll-Free: <strong className="text-ink">{cmsContacts.toll_free}</strong></p>
-                        )}
                       </div>
 
-                      <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                        <div className="flex items-center space-x-2 text-xs font-bold text-[#18281F]">
-                          <Mail className="w-4 h-4 text-[#C4A066]" />
+                      <div className="p-4 rounded-2xl bg-white border border-[#E5DAD0] space-y-2 shadow-xs">
+                        <div className="flex items-center space-x-2 text-xs font-bold text-[#541D26]">
+                          <Mail className="w-4 h-4 text-[#541D26]" />
                           <span>Official Email Support Desk</span>
                         </div>
-                        <p className="text-[11px] text-[#6B7C70]">For official inquiries, society onboarding, or vendor dispute mediation:</p>
-                        <a href={`mailto:${cmsContacts.email}`} className="text-xs font-bold text-[#18281F] hover:text-[#C4A066] block">
+                        <a href={`mailto:${cmsContacts.email}`} className="text-xs font-bold text-[#211A19] hover:underline block">
                           {cmsContacts.email || 'support@digilocal.in'}
                         </a>
                       </div>
 
-                      {cmsContacts.whatsapp && (
-                        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-1">
-                          <div className="flex items-center space-x-2 text-xs font-bold text-emerald-900">
-                            <MessageSquare className="w-4 h-4 text-emerald-600" />
-                            <span>WhatsApp Support Desk</span>
-                          </div>
-                          <a href={`https://wa.me/${cmsContacts.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-emerald-800 hover:underline block">
-                            {cmsContacts.whatsapp}
-                          </a>
-                        </div>
-                      )}
-
-                      <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-2">
-                        <div className="flex items-center space-x-2 text-xs font-bold text-[#18281F]">
-                          <Clock className="w-4 h-4 text-[#C4A066]" />
+                      <div className="p-4 rounded-2xl bg-white border border-[#E5DAD0] space-y-2 shadow-xs">
+                        <div className="flex items-center space-x-2 text-xs font-bold text-[#541D26]">
+                          <Clock className="w-4 h-4 text-[#541D26]" />
                           <span>Working Hours</span>
                         </div>
-                        <p className="text-xs font-bold text-[#18281F]">{cmsContacts.working_hours || 'Monday to Saturday | 9:00 AM - 8:00 PM IST'}</p>
+                        <p className="text-xs font-bold text-[#211A19]">{cmsContacts.working_hours}</p>
                       </div>
-
-                      {cmsContacts.address && (
-                        <div className="p-4 rounded-2xl bg-[#F7F4EE] border border-[#E4DCC9] space-y-1">
-                          <div className="flex items-center space-x-2 text-xs font-bold text-[#18281F]">
-                            <Building className="w-4 h-4 text-[#C4A066]" />
-                            <span>Corporate Headquarters</span>
-                          </div>
-                          <p className="text-[11px] text-[#6B7C70] leading-relaxed">{cmsContacts.address}</p>
-                        </div>
-                      )}
-                    </div>              </div>
+                    </div>
 
                   </div>
 
-                  {/* Vendor Registration CTA */}
-                  <div className="p-5 rounded-2xl bg-[#18281F] text-[#F7F4EE] space-y-3">
+                  {/* Vendor Registration Banner */}
+                  <div className="p-5 rounded-2xl bg-[#211A19] text-white space-y-3 shadow-md border border-white/10">
                     <h4 className="font-serif font-bold text-lg text-white">Are you a Local Vendor?</h4>
-                    <p className="text-xs text-emerald-200/80 leading-relaxed">
+                    <p className="text-xs text-[#D6B7A5] leading-relaxed">
                       Grow your sales inside nearby gated residential societies. Create your free digital catalog today with zero commission fees!
                     </p>
                     <button
                       onClick={() => setRoute({ page: 'vendorRegister' })}
-                      className="px-5 py-2.5 rounded-xl bg-[#C4A066] hover:bg-amber-400 text-[#18281F] font-bold text-xs transition-colors inline-flex items-center gap-2 cursor-pointer"
+                      className="px-5 py-2.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs transition-colors inline-flex items-center gap-2 cursor-pointer shadow-xs"
                     >
-                      Register Vendor Shop <ArrowRight className="w-3.5 h-3.5" />
+                      <span>Register Store as Vendor</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-white" />
                     </button>
                   </div>
                 </div>
@@ -1154,4 +949,3 @@ export default function InfoPages({ tab = 'privacy-policy', setRoute }) {
     </div>
   );
 }
-

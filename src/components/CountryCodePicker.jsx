@@ -107,15 +107,15 @@ export default function CountryCodePicker({ value = '+91', onChange, disabled = 
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`flex items-center justify-between gap-1.5 px-3 py-3.5 bg-[#FAF9F6] border border-border/80 rounded-2xl text-xs font-bold text-[#18281F] hover:bg-[#F3EFE6] transition-all shadow-xs min-w-[95px] whitespace-nowrap cursor-pointer ${
+        className={`flex items-center justify-between gap-1.5 px-3 py-3.5 bg-[#FAF9F6] border border-border/80 rounded-2xl text-xs font-bold text-[#211A19] hover:bg-[#F3EFE6] transition-all shadow-xs min-w-[95px] whitespace-nowrap cursor-pointer ${
           disabled ? 'opacity-60 cursor-not-allowed bg-secondary/40' : ''
         } ${className}`}
       >
         <span className="flex items-center gap-1.5">
           <span className="text-base leading-none">{selectedCountry.flag}</span>
-          <span className="font-extrabold text-[#18281F]">{selectedCountry.dialCode}</span>
+          <span className="font-extrabold text-[#211A19]">{selectedCountry.dialCode}</span>
         </span>
-        <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-[#18281F]' : ''}`} />
+        <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-[#541D26]' : ''}`} />
       </button>
 
       {/* Animated Dropdown Menu */}
@@ -131,7 +131,7 @@ export default function CountryCodePicker({ value = '+91', onChange, disabled = 
               placeholder="Search country or code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-[#FAF8F5] border border-[#E8E2D5] rounded-xl text-xs font-medium text-[#18281F] focus:outline-none focus:border-[#18281F] transition-colors"
+              className="w-full pl-9 pr-3 py-2 bg-[#FAF8F5] border border-[#E8E2D5] rounded-xl text-xs font-medium text-[#211A19] focus:outline-none focus:border-[#541D26] transition-colors"
             />
           </div>
 
@@ -151,8 +151,8 @@ export default function CountryCodePicker({ value = '+91', onChange, disabled = 
                     }}
                     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-left cursor-pointer ${
                       isSelected 
-                        ? 'bg-[#18281F] text-white' 
-                        : 'hover:bg-[#FAF8F5] text-[#18281F]'
+                        ? 'bg-[#541D26] text-white' 
+                        : 'hover:bg-[#FAF8F5] text-[#211A19]'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0 pr-2">
@@ -160,10 +160,10 @@ export default function CountryCodePicker({ value = '+91', onChange, disabled = 
                       <span className="truncate">{country.name}</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className={`font-bold ${isSelected ? 'text-[#C4A066]' : 'text-gray-500'}`}>
+                      <span className={`font-bold ${isSelected ? 'text-[#C8A878]' : 'text-gray-500'}`}>
                         {country.dialCode}
                       </span>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-[#C4A066]" />}
+                      {isSelected && <Check className="w-3.5 h-3.5 text-[#C8A878]" />}
                     </div>
                   </button>
                 );

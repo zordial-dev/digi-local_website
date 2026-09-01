@@ -3,6 +3,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Store, User, Phone, Che
 import { gsap } from 'gsap';
 import { api } from '../services/api';
 import CountryCodePicker from '../components/CountryCodePicker';
+import BlockedAccountModal from '../components/BlockedAccountModal';
 import { sendFirebasePhoneOtp, verifyFirebasePhoneOtp } from '../firebase';
 import { formatUserFacingError } from '../utils/errorFormatter';
 
@@ -10,12 +11,24 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   const [accountType, setAccountType] = useState(
     currentRoute?.tab === 'vendor' || currentRoute?.accountType === 'vendor' ? 'vendor' : 'resident'
   ); // 'resident' (default user) | 'vendor'
+  const [blockedModalInfo, setBlockedModalInfo] = useState(null);
 
   useEffect(() => {
     if (currentRoute?.tab === 'vendor' || currentRoute?.accountType === 'vendor') {
       setAccountType('vendor');
     } else {
       setAccountType('resident');
+    }
+
+    if (currentRoute?.blocked || window.location.search.includes('blocked=true')) {
+      setBlockedModalInfo({
+        accountType: currentRoute?.accountType || 'resident',
+        code: currentRoute?.accountType === 'vendor' ? 'VENDOR_BLOCKED' : 'USER_BLOCKED',
+        title: currentRoute?.accountType === 'vendor' ? 'Vendor Account Blocked' : 'Resident Account Blocked',
+        error: currentRoute?.error || 'Your account has been blocked by administrator.',
+        message: 'Your account has been blocked. Please contact customer support for assistance.',
+        blockReason: currentRoute?.blockReason || 'Violation of community rules'
+      });
     }
   }, [currentRoute]);
   
@@ -51,6 +64,8 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   const [altOtp, setAltOtp] = useState('');
   const [altNewPassword, setAltNewPassword] = useState('');
   const [altConfirmPassword, setAltConfirmPassword] = useState('');
+  const [showAltNewPassword, setShowAltNewPassword] = useState(false);
+  const [showAltConfirmPassword, setShowAltConfirmPassword] = useState(false);
   const [altStep, setAltStep] = useState(3); // 3: Password Update Choice, 4: Enter New Password
   const [altMsg, setAltMsg] = useState('');
   const [altMsgType, setAltMsgType] = useState('info'); // 'info' | 'success' | 'error'
@@ -65,6 +80,8 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   const [otpUserSessionData, setOtpUserSessionData] = useState(null);
   const [otpNewPassword, setOtpNewPassword] = useState('');
   const [otpConfirmPassword, setOtpConfirmPassword] = useState('');
+  const [showOtpNewPassword, setShowOtpNewPassword] = useState(false);
+  const [showOtpConfirmPassword, setShowOtpConfirmPassword] = useState(false);
   const [otpPasswordError, setOtpPasswordError] = useState('');
   const [otpPasswordSuccess, setOtpPasswordSuccess] = useState(false);
 
@@ -239,16 +256,18 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           }, 400);
         }
       } catch (err) {
-        const msg = err.message || '';
-        if (msg.toLowerCase().includes('password') || msg.includes('Incorrect')) {
-          setError('Incorrect password. Please check your password and try again.');
-          setShowRegisterPrompt(false);
-        } else if (msg.includes('No account found') || msg.includes('not found') || msg.includes('register')) {
-          setError('No account found with this mobile number. Please register your account first.');
-          setShowRegisterPrompt(false);
-        } else {
-          setError(msg || 'Invalid phone number or password. Please try again.');
+        if (err.isBlocked || err.code === 'USER_BLOCKED' || err.message?.includes('blocked')) {
+          setBlockedModalInfo({
+            accountType: 'resident',
+            code: err.code || 'USER_BLOCKED',
+            title: 'Resident Account Blocked by Admin',
+            error: err.message || 'Your resident user account has been blocked by administrator.',
+            message: 'Your resident account has been blocked. Access to DigiLocal services is restricted.',
+            blockReason: err.blockReason || err.data?.block_reason || 'Violation of community rules'
+          });
+          return;
         }
+        setError(formatUserFacingError(err));
       } finally {
         setLoading(false);
       }
@@ -273,14 +292,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         } catch (_) {}
 
         if (!vendorObj) {
-          vendorObj = {
-            vendor_id: 1,
-            vendor_name: rawContact.split('@')[0],
-            store_name: `${rawContact.split('@')[0]}'s Store`,
-            email: rawContact,
-            phone_number: rawContact,
-            status: 'ACTIVE'
-          };
+          throw new Error('No registered vendor store found with this phone / email. Please register your vendor store first.');
         }
 
         const session = {
@@ -314,7 +326,18 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           }, 400);
         }
       } catch (err) {
-        setError(err.message || 'Invalid email/phone or password. Please try again.');
+        if (err.isBlocked || err.code === 'VENDOR_BLOCKED' || err.message?.includes('blocked')) {
+          setBlockedModalInfo({
+            accountType: 'vendor',
+            code: err.code || 'VENDOR_BLOCKED',
+            title: 'Vendor Store Account Blocked by Admin',
+            error: err.message || 'Your vendor store account has been blocked by administrator.',
+            message: 'Your vendor store account has been blocked. Access to DigiLocal services is restricted.',
+            blockReason: err.blockReason || err.data?.block_reason || 'Policy violation'
+          });
+          return;
+        }
+        setError(formatUserFacingError(err));
       } finally {
         setLoading(false);
       }
@@ -352,7 +375,8 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           const res = await api.userLogin({
             phone: fullPhone,
             firebase_token: firebaseToken || undefined,
-            otp: !firebaseToken ? code : undefined
+            otp: code,
+            isOtpLogin: true
           });
 
           const accessToken = res.accessToken || res.data?.accessToken || res.token;
@@ -402,7 +426,16 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
           const accessToken = res.accessToken || res.data?.accessToken || res.token;
           const refreshToken = res.refreshToken || res.data?.refreshToken;
-          const vendorObj = res.vendor || res.data?.vendor || { phone_number: fullPhone, store_name: `Store ${fullPhone.slice(-4)}` };
+          let vendorObj = res.vendor || res.data?.vendor;
+          try {
+            const pool = JSON.parse(localStorage.getItem('digilocal_registered_vendors') || '[]');
+            const match = pool.find(v => String(v.phone_number).trim().includes(fullPhone) || String(v.phone).trim().includes(fullPhone));
+            if (match) vendorObj = match;
+          } catch (_) {}
+
+          if (!vendorObj) {
+            throw new Error('No registered vendor store found with this phone number. Please register your store first.');
+          }
 
           if (accessToken) {
             localStorage.setItem('vendor_access_token', accessToken);
@@ -581,19 +614,19 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   };
 
   return (
-    <div className="min-h-screen bg-[#EDEDE4] flex items-center justify-center p-3 sm:p-6 lg:p-8 font-sans text-foreground">
+    <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center p-3 sm:p-6 lg:p-8 font-sans text-[#211A19]">
       <div id="recaptcha-container"></div>
       
       {/* 50/50 Balanced Bento Card with GSAP Hardware-Accelerated 3D Zoom-Out & Panel Crossover Swap */}
       <div 
         ref={cardRef}
-        className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/40 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[640px]"
+        className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/60 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[640px]"
       >
 
-        {/* LEFT COLUMN: Pastel Illustration (50% equal width, md:col-span-6) */}
+        {/* LEFT COLUMN: Clean Branded Panel (50% equal width, md:col-span-6) */}
         <div 
           ref={leftPanelRef}
-          className="md:col-span-6 bg-[#E3EFE6] p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px]"
+          className="md:col-span-6 bg-[#FAF8F5] md:border-r border-border/50 p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px]"
         >
           <div className="w-full flex items-center space-x-3 z-10">
             <button
@@ -604,10 +637,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                   setRoute({ page: 'home' });
                 }
               }}
-              className="px-3.5 py-2 rounded-full bg-white/80 hover:bg-white text-[#1E3623] text-xs font-bold flex items-center space-x-1.5 border border-emerald-900/10 shadow-xs transition-all group shrink-0 cursor-pointer"
+              className="px-3.5 py-2 rounded-full bg-white hover:bg-gray-50 text-[#211A19] text-xs font-bold flex items-center space-x-1.5 border border-[#C8A878]/30 shadow-xs transition-all group shrink-0 cursor-pointer"
               title="Go Back"
             >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#1E3623] group-hover:-translate-x-0.5 transition-transform" />
+              <ArrowLeft className="w-3.5 h-3.5 text-[#541D26] group-hover:-translate-x-0.5 transition-transform" />
               <span>Back</span>
             </button>
 
@@ -615,10 +648,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               onClick={() => setRoute({ page: 'home' })}
               className="flex items-center space-x-2 cursor-pointer group transition-all"
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#18281F]/10 border border-[#18281F]/15 flex items-center justify-center p-1 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 flex items-center justify-center p-1 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
                 <img src="/logo.png" alt="DigiLocal" className="w-full h-full object-contain scale-[1.8] mix-blend-multiply" />
               </div>
-              <span className="font-cormorant italic text-base sm:text-lg font-bold text-[#1E3623]">DigiLocal</span>
+              <span className="font-cormorant italic text-base sm:text-lg font-bold text-[#541D26]">DigiLocal</span>
             </div>
           </div>
 
@@ -634,10 +667,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           </div>
 
           <div className="text-center z-10 space-y-1">
-            <span className="text-[11px] font-black uppercase tracking-widest text-[#2E4A35]">
+            <span className="text-[11px] font-black uppercase tracking-widest text-[#541D26]">
               Hyperlocal Community Network
             </span>
-            <p className="text-[11px] text-[#4A5D4E] font-medium">
+            <p className="text-[11px] text-[#211A19]/70 font-medium">
               Connecting gated societies with trusted local vendors.
             </p>
           </div>
@@ -648,27 +681,24 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           ref={rightPanelRef}
           className="md:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-center space-y-6 relative bg-white"
         >
-
           {/* Top Right "Become a Vendor" Button */}
           <div className="flex justify-end mb-1">
             <button
               type="button"
-              onClick={() => handleNavigateWithAnimation('vendorRegister')}
-              className="bg-[#18281F] hover:bg-black text-white text-xs font-bold px-4 py-2 rounded-full flex items-center space-x-2 shadow-sm hover:scale-[1.02] transition-all group cursor-pointer"
+              onClick={() => setRoute({ page: 'vendorRegister' })}
+              className="bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold px-4 py-2 rounded-full flex items-center space-x-2 shadow-sm hover:scale-[1.02] transition-all group cursor-pointer border border-[#C8A878]/30"
             >
-              <Store className="w-3.5 h-3.5 text-[#E6C35C]" />
-              <span>Become a Vendor</span>
-              <ArrowRight className="w-3.5 h-3.5 text-[#E6C35C] group-hover:translate-x-0.5 transition-transform" />
+              <Store className="w-3.5 h-3.5 text-[#C8A878]" />
+              <span>Register Vendor</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#C8A878] group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
-
-
 
           <div className="space-y-5">
 
             {/* Header */}
             <div>
-              <h1 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#1E3623]">
+              <h1 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#211A19]">
                 {accountType === 'resident' ? 'Welcome Back!' : 'Vendor Portal Login'}
               </h1>
               <p className="text-xs text-muted-foreground mt-1.5 font-medium leading-relaxed">
@@ -687,8 +717,8 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
             )}
 
             {successMsg && (
-              <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-xs">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+              <div className="p-3.5 bg-[#EEE5DA] border border-[#C8A878]/40 text-[#541D26] rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-xs">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-[#541D26]" />
                 <span>{successMsg}</span>
               </div>
             )}
@@ -699,7 +729,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               {/* Resident User: Phone Number Field | Vendor: Email / Phone Field */}
               {accountType === 'resident' ? (
                 <div>
-                  <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
+                  <label className="block text-xs font-bold text-[#211A19] mb-1.5">
                     Phone Number *
                   </label>
                   <div className="flex items-center gap-2">
@@ -718,14 +748,14 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                         placeholder={phonePlaceholder}
                         value={userPhone}
                         onChange={(e) => setUserPhone(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                        className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15 text-ink transition-all shadow-xs"
                       />
                     </div>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
+                  <label className="block text-xs font-bold text-[#211A19] mb-1.5">
                     Email Address or Phone Number *
                   </label>
                   <div className="relative">
@@ -736,7 +766,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                       placeholder="e.g. vendor@digilocal.com or 9876543210"
                       value={vendorIdentifier}
                       onChange={(e) => setVendorIdentifier(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15 text-ink transition-all shadow-xs"
                     />
                   </div>
                 </div>
@@ -746,7 +776,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               {authMethod === 'password' ? (
                 /* 1. PASSWORD FIELD */
                 <div>
-                  <label className="block text-xs font-bold text-[#1E3623] mb-1.5">
+                  <label className="block text-xs font-bold text-[#211A19] mb-1.5">
                     Password *
                   </label>
                   <div className="relative">
@@ -757,14 +787,14 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-11 pr-11 py-3.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-ink transition-all shadow-xs"
+                      className="w-full pl-11 pr-11 py-3.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15 text-ink transition-all shadow-xs"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
                     >
-                      {showPassword ? <Eye className="w-4 h-4 text-emerald-800" /> : <EyeOff className="w-4 h-4" />}
+                      {showPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   </div>
                   
@@ -773,9 +803,9 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                     <button
                       type="button"
                       onClick={handleSwitchToOtpMethod}
-                      className="text-xs font-bold text-emerald-800 hover:text-emerald-950 hover:underline transition-colors cursor-pointer flex items-center gap-1.5"
+                      className="text-xs font-bold text-[#541D26] hover:text-[#6B2732] hover:underline transition-colors cursor-pointer flex items-center gap-1.5"
                     >
-                      <KeyRound className="w-3.5 h-3.5 text-emerald-700" />
+                      <KeyRound className="w-3.5 h-3.5 text-[#C8A878]" />
                       <span>Try another method</span>
                     </button>
                   </div>
@@ -784,7 +814,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                 /* 2. INLINE 4-BLOCK OTP FIELD (PASSWORD IS REMOVED) */
                 <div className="space-y-3 pt-1 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-[#1E3623]">
+                    <label className="block text-xs font-bold text-[#211A19]">
                       6-Digit Verification Code *
                     </label>
                     <button
@@ -793,7 +823,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                         setAuthMethod('password');
                         setOtpSentMsg('');
                       }}
-                      className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 underline cursor-pointer"
+                      className="text-[11px] font-bold text-[#541D26] hover:text-[#6B2732] underline cursor-pointer"
                     >
                       Use Password Instead
                     </button>
@@ -812,15 +842,15 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                         onChange={(e) => handleOtpBoxChange(i, e.target.value)}
                         onKeyDown={(e) => handleOtpBoxKeyDown(i, e)}
                         onPaste={handleOtpBoxPaste}
-                        className="w-11 h-11 sm:w-12 sm:h-12 text-center text-base sm:text-lg font-bold rounded-2xl bg-[#FAF9F6] border border-border/80 focus:border-[#1E3623] focus:ring-2 focus:ring-[#1E3623]/15 text-[#1E3623] shadow-xs transition-all outline-none"
+                        className="w-11 h-11 sm:w-12 sm:h-12 text-center text-base sm:text-lg font-bold rounded-2xl bg-[#FAF9F6] border border-border/80 focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15 text-[#211A19] shadow-xs transition-all outline-none"
                       />
                     ))}
                   </div>
 
                   {otpSentMsg && (
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center justify-between shadow-xs">
+                    <div className="p-3 bg-[#EEE5DA] border border-[#C8A878]/40 text-[#541D26] rounded-2xl text-xs font-bold flex items-center justify-between shadow-xs">
                       <span className="flex items-center gap-1.5 min-w-0 pr-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-[#541D26] shrink-0" />
                         <span className="truncate">{otpSentMsg}</span>
                       </span>
                       <button
@@ -828,7 +858,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                         disabled={resendCountdown > 0 || loading}
                         onClick={handleResendOtp}
                         className={`text-[10px] font-extrabold underline ml-2 shrink-0 cursor-pointer ${
-                          resendCountdown > 0 ? 'text-gray-400 cursor-not-allowed no-underline' : 'text-emerald-900 hover:text-emerald-950'
+                          resendCountdown > 0 ? 'text-gray-400 cursor-not-allowed no-underline' : 'text-[#541D26] hover:text-[#6B2732]'
                         }`}
                       >
                         {resendCountdown > 0 ? `Resend in ${resendCountdown}s` : 'Resend OTP'}
@@ -841,7 +871,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 flex items-center justify-center space-x-2 mt-4 cursor-pointer"
+                className="w-full py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 mt-4 cursor-pointer border border-[#C8A878]/30"
               >
                 <span>
                   {loading 
@@ -852,7 +882,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                         ? 'Log In' 
                         : 'Login as Vendor'}
                 </span>
-                <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
+                <ArrowRight className="w-4 h-4 text-[#C8A878]" />
               </button>
             </form>
 
@@ -862,7 +892,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               <button
                 type="button"
                 onClick={() => handleNavigateWithAnimation(accountType === 'resident' ? 'register' : 'vendorRegister')}
-                className="font-bold text-emerald-800 hover:text-emerald-950 underline transition-colors cursor-pointer"
+                className="font-bold text-[#541D26] hover:text-[#6B2732] underline transition-colors cursor-pointer"
               >
                 {accountType === 'resident' ? 'Create Account' : 'Register Store as Vendor'}
               </button>
@@ -885,10 +915,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
             {/* Modal Header */}
             <div>
-              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-800 text-[10px] font-black uppercase tracking-wider rounded-full border border-emerald-500/20">
+              <span className="px-3 py-1 bg-[#541D26]/10 text-[#541D26] text-[10px] font-black uppercase tracking-wider rounded-full border border-[#541D26]/20">
                 OTP Verified
               </span>
-              <h3 className="text-xl font-serif font-bold text-[#1E3623] mt-2">
+              <h3 className="text-xl font-serif font-bold text-[#211A19] mt-2">
                 {altStep === 3 && 'Update Account Password?'}
                 {altStep === 4 && 'Set New Password'}
               </h3>
@@ -903,9 +933,9 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               <div className={`p-3 rounded-2xl text-xs font-bold flex items-center space-x-2 ${
                 altMsgType === 'error' 
                   ? 'bg-rose-50 border border-rose-200 text-rose-700' 
-                  : 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                  : 'bg-[#EEE5DA] border border-[#C8A878]/40 text-[#541D26]'
               }`}>
-                {altMsgType === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />}
+                {altMsgType === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0 text-[#541D26]" />}
                 <span>{altMsg}</span>
               </div>
             )}
@@ -915,20 +945,23 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               <div className="space-y-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setAltStep(4)}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-between cursor-pointer group"
+                  onClick={handleSendPasswordResetOTP}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-between cursor-pointer group border border-[#C8A878]/30"
                 >
-                  <span>Yes, Update My Password</span>
-                  <KeyRound className="w-4 h-4 text-[#E6C35C] group-hover:rotate-12 transition-transform" />
+                  <span className="flex items-center space-x-2">
+                    <KeyRound className="w-4 h-4 text-[#C8A878] group-hover:rotate-12 transition-transform" />
+                    <span>Send Verification Code</span>
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-[#C8A878] group-hover:translate-x-0.5 transition-transform" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleCompleteDirectLogin()}
-                  className="w-full py-3 px-4 rounded-2xl bg-secondary hover:bg-border text-[#1E3623] font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer"
+                  className="w-full py-3 px-4 rounded-2xl bg-[#EEE5DA] hover:bg-[#D6B7A5] text-[#211A19] font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer"
                 >
                   <span>No, Skip & Log In Now</span>
-                  <ArrowRight className="w-4 h-4 text-[#1E3623]" />
+                  <ArrowRight className="w-4 h-4 text-[#211A19]" />
                 </button>
               </div>
             )}
@@ -937,31 +970,45 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
             {altStep === 4 && (
               <form onSubmit={handleSaveNewPassword} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-bold text-[#1E3623] mb-1">New Password *</label>
+                  <label className="block text-xs font-bold text-[#211A19] mb-1">New Password *</label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
-                      type="password"
+                      type={showAltNewPassword ? 'text' : 'password'}
                       required
                       placeholder="••••••••"
                       value={altNewPassword}
                       onChange={(e) => setAltNewPassword(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border border-border text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink"
+                      className="w-full pl-11 pr-10 py-3 rounded-2xl bg-[#FAF9F6] border border-border text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowAltNewPassword(!showAltNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1"
+                    >
+                      {showAltNewPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#1E3623] mb-1">Confirm New Password *</label>
+                  <label className="block text-xs font-bold text-[#211A19] mb-1">Confirm New Password *</label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
-                      type="password"
+                      type={showAltConfirmPassword ? 'text' : 'password'}
                       required
                       placeholder="••••••••"
                       value={altConfirmPassword}
                       onChange={(e) => setAltConfirmPassword(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#FAF9F6] border border-border text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink"
+                      className="w-full pl-11 pr-10 py-3 rounded-2xl bg-[#FAF9F6] border border-border text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowAltConfirmPassword(!showAltConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1"
+                    >
+                      {showAltConfirmPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 
@@ -976,10 +1023,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 py-3.5 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center space-x-2"
+                    className="flex-1 py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center space-x-2 border border-[#C8A878]/30"
                   >
                     <span>{loading ? 'Saving...' : 'Save Password & Log In'}</span>
-                    <CheckCircle2 className="w-4 h-4 text-[#E6C35C]" />
+                    <CheckCircle2 className="w-4 h-4 text-[#C8A878]" />
                   </button>
                 </div>
               </form>
@@ -994,8 +1041,8 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
       {showOtpPasswordModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-border space-y-6 text-center animate-in fade-in zoom-in duration-200">
-            <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-[#18281F]">
-              <KeyRound className="w-8 h-8 text-[#18281F]" />
+            <div className="w-16 h-16 rounded-full bg-[#EEE5DA] border border-[#C8A878]/40 flex items-center justify-center mx-auto text-[#541D26]">
+              <KeyRound className="w-8 h-8 text-[#541D26]" />
             </div>
             <div>
               <h3 className="text-xl font-bold text-ink">Set Account Password?</h3>
@@ -1005,8 +1052,8 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
             </div>
 
             {otpPasswordSuccess ? (
-              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-bold text-emerald-800 flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+              <div className="p-3.5 bg-[#EEE5DA] border border-[#C8A878]/40 rounded-2xl text-xs font-bold text-[#541D26] flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-[#541D26]" />
                 <span>Password set successfully! Opening your profile...</span>
               </div>
             ) : (
@@ -1016,12 +1063,19 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
-                      type="password"
+                      type={showOtpNewPassword ? 'text' : 'password'}
                       placeholder="Enter new password (min 6 chars)"
                       value={otpNewPassword}
                       onChange={(e) => setOtpNewPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-secondary/40 border border-border rounded-xl text-xs font-medium focus:outline-none focus:border-[#18281F]"
+                      className="w-full pl-10 pr-10 py-3 bg-secondary/40 border border-border rounded-xl text-xs font-medium focus:outline-none focus:border-[#541D26]"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowOtpNewPassword(!showOtpNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1"
+                    >
+                      {showOtpNewPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
                 <div>
@@ -1029,12 +1083,19 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
-                      type="password"
+                      type={showOtpConfirmPassword ? 'text' : 'password'}
                       placeholder="Re-enter new password"
                       value={otpConfirmPassword}
                       onChange={(e) => setOtpConfirmPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-secondary/40 border border-border rounded-xl text-xs font-medium focus:outline-none focus:border-[#18281F]"
+                      className="w-full pl-10 pr-10 py-3 bg-secondary/40 border border-border rounded-xl text-xs font-medium focus:outline-none focus:border-[#541D26]"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowOtpConfirmPassword(!showOtpConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1"
+                    >
+                      {showOtpConfirmPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
                 {otpPasswordError && (
@@ -1051,10 +1112,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-3 px-4 rounded-xl bg-[#18281F] text-white text-xs font-bold shadow-md hover:bg-black transition-all cursor-pointer flex items-center justify-center gap-2"
+                    className="flex-1 py-3 px-4 rounded-xl bg-[#541D26] text-white text-xs font-bold shadow-md hover:bg-[#6B2732] transition-all cursor-pointer flex items-center justify-center gap-2 border border-[#C8A878]/30"
                   >
                     <span>Save Password</span>
-                    <ArrowRight className="w-4 h-4 text-[#E6C35C]" />
+                    <ArrowRight className="w-4 h-4 text-[#C8A878]" />
                   </button>
                 </div>
               </form>
@@ -1062,6 +1123,17 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           </div>
         </div>
       )}
+
+      {/* Blocked Account Alert Modal */}
+      <BlockedAccountModal
+        isOpen={Boolean(blockedModalInfo)}
+        onClose={() => setBlockedModalInfo(null)}
+        onOpenSupport={() => {
+          setBlockedModalInfo(null);
+          setRoute({ page: 'info', tab: 'help-support' });
+        }}
+        blockInfo={blockedModalInfo}
+      />
     </div>
   );
 }

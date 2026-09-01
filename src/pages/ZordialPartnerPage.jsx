@@ -20,16 +20,16 @@ import ZordialLogo from '../components/ZordialLogo';
 
 export default function ZordialPartnerPage({ setRoute }) {
   return (
-    <div className="min-h-screen bg-[#EDEDE4] pt-4 pb-20 px-3 sm:px-6 lg:px-8 font-sans text-foreground">
+    <div className="min-h-screen bg-[#F6EDDA] pt-4 pb-20 px-3 sm:px-6 lg:px-8 font-sans text-[#182421]">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Navigation Header */}
         <div className="flex items-center justify-between">
           <button
             onClick={() => setRoute({ page: 'home' })}
-            className="flex items-center space-x-2 px-4 py-2 rounded-full bg-white hover:bg-secondary text-[#1E3623] text-xs font-bold transition-all shadow-sm border border-border cursor-pointer"
+            className="flex items-center space-x-2 px-4 py-2 rounded-full bg-white hover:bg-[#EEE5DA] text-[#211A19] text-xs font-bold transition-all shadow-sm border border-[#E5DAD0] cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 text-[#541D26]" />
             <span>Back to DigiLocal Home</span>
           </button>
 
@@ -37,9 +37,9 @@ export default function ZordialPartnerPage({ setRoute }) {
             href="https://zordial.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center space-x-2 px-4 py-2 rounded-full bg-[#C4A066] hover:bg-amber-400 text-[#0B150D] text-xs font-extrabold transition-all shadow-md cursor-pointer"
+            className="flex items-center space-x-2 px-4 py-2 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-extrabold transition-all shadow-md cursor-pointer"
           >
-            <Globe className="w-4 h-4" />
+            <Globe className="w-4 h-4 text-[#C8A878]" />
             <span>Visit Zordial Official Website (zordial.com) ↗</span>
           </a>
         </div>
@@ -47,19 +47,19 @@ export default function ZordialPartnerPage({ setRoute }) {
         {/* ------------------------------------------------------------- */}
         {/* HERO SECTION: Bento Card with Dark Theme & Zordial Branding   */}
         {/* ------------------------------------------------------------- */}
-        <div className="bg-[#18281F] text-white rounded-[2.5rem] p-8 sm:p-12 lg:p-14 shadow-2xl relative overflow-hidden border border-emerald-950/50">
+        <div className="bg-[#211A19] text-white rounded-[2.5rem] p-8 sm:p-12 lg:p-14 shadow-2xl relative overflow-hidden border border-white/10">
           
-          {/* Subtle Decorative Lighting & Glow Gradients in Theme Gold & Emerald */}
-          <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#E6C35C]/15 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+          {/* Subtle Decorative Lighting & Glow Gradients in Theme Nude & Gold */}
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#D6B7A5]/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[#C8A878]/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
             
             {/* Left Column: Partnership & Parent Company Info */}
             <div className="lg:col-span-7 space-y-6">
               
-              <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-extrabold text-[#E6C35C]">
-                <Sparkles className="w-4 h-4 text-[#E6C35C]" />
+              <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-extrabold text-[#C8A878]">
+                <Sparkles className="w-4 h-4 text-[#C8A878]" />
                 <span>Parent Engineering & Tech Partner</span>
               </div>
 
@@ -214,8 +214,8 @@ export default function ZordialPartnerPage({ setRoute }) {
         <div className="bg-white rounded-3xl p-8 sm:p-10 shadow-md border border-border space-y-6">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-border pb-6">
             <div>
-              <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">Company Profile</span>
-              <h3 className="text-2xl font-serif font-bold text-[#1E3623] mt-1">About Zordial Technologies</h3>
+              <span className="text-xs font-bold text-[#541D26] uppercase tracking-wider">Company Profile</span>
+              <h3 className="text-2xl font-serif font-bold text-[#211A19] mt-1">About Zordial Technologies</h3>
               <p className="text-xs text-muted-foreground mt-0.5">Transforming Ideas Into Applications Across Web, Cloud & Mobile Ecosystems</p>
             </div>
 
@@ -223,7 +223,7 @@ export default function ZordialPartnerPage({ setRoute }) {
               href="https://zordial.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-5 py-2.5 rounded-full bg-[#18281F] hover:bg-black text-[#E6C35C] font-extrabold text-xs uppercase tracking-wider shadow-sm flex items-center space-x-2 shrink-0 border border-[#E6C35C]/30"
+              className="px-5 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-[#C8A878] font-extrabold text-xs uppercase tracking-wider shadow-sm flex items-center space-x-2 shrink-0 border border-[#C8A878]/30 cursor-pointer"
             >
               <span>zordial.com</span>
               <ExternalLink className="w-4 h-4" />
@@ -250,7 +250,7 @@ export default function ZordialPartnerPage({ setRoute }) {
                 </li>
                 <li className="flex items-center justify-between border-b border-border/60 pb-1.5">
                   <span className="font-bold text-ink">Official Website:</span>
-                  <a href="https://zordial.com" target="_blank" rel="noopener noreferrer" className="text-emerald-800 font-bold hover:underline">https://zordial.com</a>
+                  <a href="https://zordial.com" target="_blank" rel="noopener noreferrer" className="text-[#541D26] font-bold hover:underline">https://zordial.com</a>
                 </li>
                 <li className="flex items-center justify-between border-b border-border/60 pb-1.5">
                   <span className="font-bold text-ink">Core Expertise:</span>
@@ -258,24 +258,24 @@ export default function ZordialPartnerPage({ setRoute }) {
                 </li>
                 <li className="flex items-center justify-between">
                   <span className="font-bold text-ink">Flagship Product:</span>
-                  <span className="font-bold text-emerald-800">DigiLocal Hyperlocal Platform</span>
+                  <span className="font-bold text-[#541D26]">DigiLocal Hyperlocal Platform</span>
                 </li>
               </ul>
             </div>
           </div>
 
           {/* Bottom CTA Banner */}
-          <div className="bg-[#18281F] text-white p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 border border-emerald-900/40">
+          <div className="bg-[#541D26] text-white p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 border border-[#C8A878]/30">
             <div className="space-y-1 text-center sm:text-left">
               <h4 className="font-serif font-bold text-base text-white">Have a project idea to transform into an application?</h4>
-              <p className="text-xs text-emerald-100/70">Connect with the engineering team at Zordial Technologies.</p>
+              <p className="text-xs text-[#EEE5DA]/80">Connect with the engineering team at Zordial Technologies.</p>
             </div>
 
             <a
               href="https://zordial.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-6 py-3 rounded-full bg-[#E6C35C] hover:bg-amber-400 text-[#0B150D] font-extrabold text-xs uppercase tracking-wider shadow-md shrink-0 flex items-center space-x-2"
+              className="px-6 py-3 rounded-full bg-[#C8A878] hover:bg-[#d8be92] text-[#211A19] font-extrabold text-xs uppercase tracking-wider shadow-md shrink-0 flex items-center space-x-2 cursor-pointer"
             >
               <span>Visit Zordial.com</span>
               <ArrowRight className="w-4 h-4" />

@@ -163,15 +163,15 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#1E3623] text-[#E6C35C] rounded-2xl flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 bg-[#541D26] text-white rounded-2xl flex items-center justify-center shadow-md">
               <LifeBuoy className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-serif font-bold text-[#1E3623]">DigiLocal Support Desk & Help Intake</h3>
+              <h3 className="text-lg font-serif font-bold text-[#211A19]">DigiLocal Support Desk & Help Intake</h3>
               <p className="text-[11px] text-muted-foreground font-semibold">Log complaints, billing queries, payout disputes & track resolution</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-secondary rounded-full transition-all text-muted-foreground hover:text-ink cursor-pointer">
+          <button onClick={onClose} className="p-2 hover:bg-[#EEE5DA] rounded-full transition-all text-muted-foreground hover:text-ink cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -181,21 +181,21 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
         {/* ------------------------------------------------------------------- */}
         {isVendorAccount && (
           <div className="pt-3 pb-1">
-            <p className="text-[11px] font-bold text-[#1E3623] uppercase tracking-wider mb-1.5 flex items-center gap-1">
+            <p className="text-[11px] font-bold text-[#211A19] uppercase tracking-wider mb-1.5 flex items-center gap-1">
               <span>Filing Complaint As:</span>
             </p>
-            <div className="grid grid-cols-2 gap-2 bg-secondary/40 p-1.5 rounded-2xl border border-border">
+            <div className="grid grid-cols-2 gap-2 bg-[#EEE5DA]/50 p-1.5 rounded-2xl border border-border">
               <button
                 type="button"
                 onClick={() => { setTicketUserType('vendor'); setSource('vendor_portal'); setCategory('payouts'); }}
                 className={`py-2.5 px-3 rounded-xl transition-all flex flex-col items-center justify-center gap-1 cursor-pointer text-center ${
                   ticketUserType === 'vendor' 
-                    ? 'bg-[#1E3623] text-white shadow-md font-bold ring-2 ring-[#E6C35C]' 
+                    ? 'bg-[#541D26] text-white shadow-md font-bold ring-2 ring-[#541D26]/30' 
                     : 'bg-white text-muted-foreground hover:text-ink border border-border/50 font-semibold'
                 }`}
               >
                 <div className="flex items-center gap-1.5">
-                  <Store className="w-4 h-4 text-[#E6C35C]" />
+                  <Store className="w-4 h-4 text-[#C8A878]" />
                   <span className="text-xs">Vendor Merchant Store</span>
                 </div>
                 <span className="text-[10px] opacity-80 font-normal">Store Payouts, Catalog, Settlements & Listings</span>
@@ -206,12 +206,12 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
                 onClick={() => { setTicketUserType('user'); setSource('user_app'); setCategory('billing'); }}
                 className={`py-2.5 px-3 rounded-xl transition-all flex flex-col items-center justify-center gap-1 cursor-pointer text-center ${
                   ticketUserType === 'user' 
-                    ? 'bg-[#1E3623] text-white shadow-md font-bold ring-2 ring-[#E6C35C]' 
+                    ? 'bg-[#541D26] text-white shadow-md font-bold ring-2 ring-[#541D26]/30' 
                     : 'bg-white text-muted-foreground hover:text-ink border border-border/50 font-semibold'
                 }`}
               >
                 <div className="flex items-center gap-1.5">
-                  <User className="w-4 h-4 text-[#E6C35C]" />
+                  <User className="w-4 h-4 text-[#C8A878]" />
                   <span className="text-xs">Resident Customer</span>
                 </div>
                 <span className="text-[10px] opacity-80 font-normal">Personal Home Orders, Resident Delivery & Refunds</span>
@@ -234,13 +234,13 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
           <div className="flex items-center gap-2 text-xs font-bold ml-auto">
             <button
               onClick={() => { setActiveTab('new'); setSelectedTicket(null); setSubmittedTicket(null); }}
-              className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${activeTab === 'new' ? 'bg-[#18281F] text-white border-[#18281F]' : 'bg-white text-ink border-border'}`}
+              className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${activeTab === 'new' ? 'bg-[#541D26] text-white border-[#541D26] shadow-2xs' : 'bg-white text-[#211A19] border-border hover:bg-[#EEE5DA]'}`}
             >
               + Submit Complaint
             </button>
             <button
               onClick={() => { setActiveTab('history'); loadTickets(); }}
-              className={`px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${activeTab === 'history' ? 'bg-[#18281F] text-white border-[#18281F]' : 'bg-white text-ink border-border'}`}
+              className={`px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${activeTab === 'history' ? 'bg-[#541D26] text-white border-[#541D26] shadow-2xs' : 'bg-white text-[#211A19] border-border hover:bg-[#EEE5DA]'}`}
             >
               <MessageSquare className="w-3.5 h-3.5" />
               <span>My Tickets ({ticketsList.length})</span>
@@ -554,12 +554,12 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
                       placeholder="Write your response message..."
-                      className="flex-1 px-4 py-2.5 bg-secondary/30 border border-border rounded-xl text-xs font-semibold focus:outline-none focus:border-[#1E3623]"
+                      className="flex-1 px-4 py-2.5 bg-secondary/30 border border-border rounded-xl text-xs font-semibold focus:outline-none focus:border-[#541D26]"
                     />
                     <button
                       type="submit"
                       disabled={replyLoading}
-                      className="px-5 py-2.5 bg-[#18281F] text-white rounded-xl text-xs font-bold hover:bg-black transition-all cursor-pointer shrink-0"
+                      className="px-5 py-2.5 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 border border-[#C8A878]/30 shadow-xs"
                     >
                       {replyLoading ? 'Sending...' : 'Send Reply'}
                     </button>

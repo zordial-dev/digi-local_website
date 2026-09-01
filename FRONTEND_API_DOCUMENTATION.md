@@ -185,17 +185,36 @@ The Resident Panel enables apartment owners and residents to register, authentic
 
 ### 1.7 Delete Resident Account
 * **Panel**: Resident Panel / Profile Settings
-* **Endpoint**: `DELETE /api/users/:userId`
-* **Idea Behind Using It**: Permanently wipes user credentials, saved addresses, and active sessions per GDPR privacy rules.
-* **Headers**: `Authorization: Bearer <token>`
+* **Endpoints**: 
+  - `DELETE /api/users/profile` (Primary)
+  - `DELETE /api/users/me` (Alias)
+  - `DELETE /api/users/delete` (Alias)
+  - `DELETE /api/users/:userId`
+  - `POST /api/users/delete-account`
+* **Idea Behind Using It**: Permanently wipes user credentials, registered phone indices, saved addresses, and active sessions.
+* **Headers**: 
+  - `Authorization: Bearer <token>`
+  - `Content-Type: application/json`
+* **Optional Body**:
+  ```json
+  {
+    "user_id": "usr_381029",
+    "phone": "9876543210"
+  }
+  ```
 * **Expected Output (200 OK)**:
   ```json
   {
     "success": true,
-    "message": "User account for \"Aarav Gupta\" (ID: usr_381029) deleted successfully.",
-    "user_id": "usr_381029"
+    "message": "Resident user account for \"Aarav Gupta\" (ID: usr_381029, Phone: 9876543210) deleted permanently.",
+    "user_id": "usr_381029",
+    "deleted_at": "2026-09-01T13:10:00.000Z"
   }
   ```
+* **Error States**:
+  - `404 Not Found`: `{ "success": false, "error": "User account not found or already deleted." }`
+  - `400 Bad Request`: `{ "success": false, "error": "User ID or phone number is required" }`
+  - `500 Internal Server Error`: `{ "success": false, "error": "Failed to delete user account: Database error" }`
 
 ---
 

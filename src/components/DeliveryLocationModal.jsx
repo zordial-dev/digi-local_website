@@ -72,21 +72,21 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
       <div className="bg-card border border-border rounded-[2.5rem] max-w-lg w-full shadow-2xl overflow-hidden relative text-foreground">
         
         {/* Header */}
-        <div className="bg-[#18281F] text-[#F7F4EE] px-6 py-5 flex items-center justify-between border-b border-emerald-800/40">
+        <div className="bg-[#541D26] text-[#F7F4EE] px-6 py-5 flex items-center justify-between border-b border-[#C8A878]/30">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-white/10 p-2 flex items-center justify-center border border-white/15">
-              <MapPin className="w-5 h-5 text-[#C4A066]" />
+              <MapPin className="w-5 h-5 text-[#C8A878]" />
             </div>
             <div>
               <h3 className="text-sm font-serif font-black uppercase tracking-wider text-white">
                 Select Delivery Location
               </h3>
-              <p className="text-[11px] text-emerald-200/80 font-medium">Choose your residential society or enter address</p>
+              <p className="text-[11px] text-[#EEE5DA]/80 font-medium">Choose your residential society or enter address</p>
             </div>
           </div>
           <button 
             onClick={onClose} 
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>

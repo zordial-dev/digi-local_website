@@ -1,151 +1,106 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { api, getSocietyImage, DIVERSE_SOCIETY_IMAGES } from '../services/api';
-import { Search, MapPin, Building2, Store, PlusCircle, AlertCircle, ArrowRight, X, CheckCircle2, ArrowUpRight, Play, Sparkles, ChevronRight, ChevronLeft, ShieldCheck, Heart, Coffee, Clock, Lock, Smartphone, ShoppingBag, Cookie, Milk, Headphones, Star, Truck, MessageCircle, Filter, Zap, LogOut } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Store, ArrowRight, ArrowUpRight, Sparkles, ShieldCheck, Lock, Headphones, Star, Truck, Zap, ShoppingBag, CheckCircle2, Wrench, ExternalLink, Building2, Globe, Cpu } from 'lucide-react';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
-import { SocietyCardSkeleton } from '../components/Skeletons';
-import MaskedHeading from '../components/MaskedHeading';
-import TextType from '../components/TextType';
-import AccordionGallery from '../components/AccordionGallery';
+import AnimatedIcon from '../components/common/AnimatedIcon';
+import ScrollStoryAnimation from '../components/ScrollStoryAnimation';
+import StrokeText from '../components/StrokeText';
+import ZordialLogo from '../components/ZordialLogo';
+
+const POLAROID_SETS = [
+  {
+    categoryLabel: "🛒 Daily Goods & Fresh Produce",
+    badge: "Product Merchant",
+    items: [
+      {
+        image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&auto=format&fit=crop&q=80",
+        text: "Fresh Produce",
+        angle: -4
+      },
+      {
+        image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&auto=format&fit=crop&q=80",
+        text: "Artisan Bakes",
+        angle: 3
+      },
+      {
+        image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=800&auto=format&fit=crop&q=80",
+        text: "Food Junction",
+        angle: -3
+      },
+      {
+        image: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800&auto=format&fit=crop&q=80",
+        text: "Farm Fresh",
+        angle: 4
+      }
+    ]
+  },
+  {
+    categoryLabel: "🛠️ On-Demand Home Services",
+    badge: "Service Merchant",
+    items: [
+      {
+        image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&auto=format&fit=crop&q=80",
+        text: "Electric & Plumbing",
+        angle: -4
+      },
+      {
+        image: "https://images.unsplash.com/photo-1545173168-9f1947eebb7f?w=800&auto=format&fit=crop&q=80",
+        text: "Express Laundry",
+        angle: 3
+      },
+      {
+        image: "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?w=800&auto=format&fit=crop&q=80",
+        text: "Pet Care & Grooming",
+        angle: -3
+      },
+      {
+        image: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800&auto=format&fit=crop&q=80",
+        text: "Home Salon & Care",
+        angle: 4
+      }
+    ]
+  },
+  {
+    categoryLabel: "🌸 Specialty Stores & Healthcare",
+    badge: "Specialty Merchant",
+    items: [
+      {
+        image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80",
+        text: "Organic Dairy",
+        angle: -4
+      },
+      {
+        image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=80",
+        text: "Gourmet Coffee",
+        angle: 3
+      },
+      {
+        image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+        text: "Pharmacy & Care",
+        angle: -3
+      },
+      {
+        image: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&auto=format&fit=crop&q=80",
+        text: "Resin & Crafts",
+        angle: 4
+      }
+    ]
+  }
+];
 
 export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
-  const [societies, setSocieties] = useState([]);
-  const [search, setSearch] = useState('');
-  const [activeLocationFilter, setActiveLocationFilter] = useState('All');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isLoginPromptOpen, setIsLoginPromptOpen] = useState(false);
-  const [isResidentNoticeModalOpen, setIsResidentNoticeModalOpen] = useState(false);
-
-  // 24-Item Pagination State (24 grids per page)
-  const [currentPage, setCurrentPage] = useState(1);
-  const SOCIETIES_PER_PAGE = 24;
-  const [activeResidentUser, setActiveResidentUser] = useState(null);
-  const [selectedTargetSociety, setSelectedTargetSociety] = useState(null);
-
-  useEffect(() => {
-    if (currentRoute?.openSocietyModal || currentRoute?.openRequestModal) {
-      setIsUnlistedModalOpen(true);
-    }
-  }, [currentRoute]);
-
-  const handleSocietySelect = (soc) => {
-    const sId = soc.society_id || soc.id;
-    const sName = soc.society_name || soc.name || 'Selected Society';
-
-    sessionStorage.setItem('digilocal_pending_society_id', String(sId));
-    sessionStorage.setItem('digilocal_pending_society_name', sName);
-    setSelectedTargetSociety(soc);
-
-    const savedUser = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
-    const savedVendor = localStorage.getItem('digilocal_vendor_session');
-    let isLoggedIn = false;
-    try {
-      if (savedUser) {
-        const parsed = JSON.parse(savedUser);
-        const u = parsed.user || parsed;
-        if (u && (u.user_id || u.email || u.name)) isLoggedIn = true;
-      }
-      if (savedVendor) {
-        const parsedV = JSON.parse(savedVendor);
-        const v = parsedV.vendor || parsedV;
-        if (v && (v.vendor_id || v.email || v.vendor_name || v.store_name)) isLoggedIn = true;
-      }
-    } catch (_) {}
-
-    if (isLoggedIn) {
-      setRoute({ page: 'societyVendors', societyId: sId });
-    } else {
-      setIsLoginPromptOpen(true);
-    }
-  };
-
-  const checkVendorAuthBeforeSocietyCreate = (prefillName = '') => {
-    try {
-      const savedVendor = localStorage.getItem('digilocal_vendor_session');
-      if (savedVendor) {
-        const parsed = JSON.parse(savedVendor);
-        if (parsed && parsed.vendor && parsed.expiresAt > Date.now()) {
-          if (prefillName) setUnlistedForm((prev) => ({ ...prev, societyName: prefillName }));
-          setIsUnlistedModalOpen(true);
-          return;
-        }
-      }
-
-      const savedUser = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
-      if (savedUser) {
-        const parsedUser = JSON.parse(savedUser);
-        const userObj = parsedUser.user || parsedUser;
-        if (userObj && (userObj.user_id || userObj.name || userObj.email)) {
-          setActiveResidentUser(userObj);
-          setIsResidentNoticeModalOpen(true);
-          return;
-        }
-      }
-    } catch (_) { }
-    setIsLoginPromptOpen(true);
-  };
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [activeOrder, setActiveOrder] = useState(null);
+  const [activeSetIndex, setActiveSetIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
-  // Hero Carousel Images State (Rotates every 3.5 seconds)
-  const heroImages = [
-    {
-      url: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1000&auto=format&fit=crop&q=80",
-      alt: "Fresh organic green vegetables & salads",
-      tag: "Fresh Produce"
-    },
-    {
-      url: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1000&auto=format&fit=crop&q=80",
-      alt: "Artisan fresh baked sourdough bread & pastries",
-      tag: "Artisan Bakes"
-    },
-    {
-      url: "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=1000&auto=format&fit=crop&q=80",
-      alt: "Fresh neighborhood snacks & bakes",
-      tag: "Food Junction"
-    },
-    {
-      url: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1000&auto=format&fit=crop&q=80",
-      alt: "Fresh organic farm fruits & berries",
-      tag: "Farm Fresh"
-    },
-    {
-      url: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1000&auto=format&fit=crop&q=80",
-      alt: "Specialty coffee & neighborhood bakery",
-      tag: "Gourmet Coffee"
-    }
-  ];
-
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-
+  // Auto-switch polaroid merchant categories every 2.8 seconds
   useEffect(() => {
+    if (isPaused) return;
     const timer = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % heroImages.length);
-    }, 3500);
+      setActiveSetIndex((prev) => (prev + 1) % POLAROID_SETS.length);
+    }, 2800);
     return () => clearInterval(timer);
-  }, [heroImages.length]);
-
-  // Unlisted Society Modal State
-  const [isUnlistedModalOpen, setIsUnlistedModalOpen] = useState(false);
-  const [unlistedForm, setUnlistedForm] = useState({
-    societyName: '',
-    fullAddress: '',
-    pincode: '',
-    totalFlats: '',
-    rwaPhone: '',
-  });
-  const [unlistedFormSubmitted, setUnlistedFormSubmitted] = useState(false);
-  const [unlistedError, setUnlistedError] = useState('');
-
-  const searchRef = useRef(null);
-
-  useEffect(() => {
-    fetchSocieties(search);
-  }, [search]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search]);
+  }, [isPaused]);
 
   // Load active order from storage for live order tracking widget
   useEffect(() => {
@@ -157,1027 +112,597 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
     } catch (_) { }
   }, []);
 
-  // Keyboard shortcut listener ('/' focuses search box)
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
-        e.preventDefault();
-        const inputEl = document.getElementById('search-input-box');
-        if (inputEl) inputEl.focus();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  const currentSet = POLAROID_SETS[activeSetIndex];
 
-  // Handle Outside Click for Autocomplete Dropdown
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  // Respect OS/Browser prefers-reduced-motion setting
+  const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-  const fetchSocieties = async (queryStr = '') => {
-    try {
-      setLoading(true);
-      const data = await api.getSocieties(queryStr);
-      setSocieties(data);
-      setError('');
-    } catch (err) {
-      setError('Could not connect to DigiLocal backend server');
-    } finally {
-      setLoading(false);
+  // Animation variants for calm scroll reveals
+  const containerVariants = {
+    hidden: prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 48, scale: 0.96 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: prefersReducedMotion ? 0.1 : 1.1,
+        ease: [0.16, 1, 0.3, 1],
+        staggerChildren: 0.14,
+        delayChildren: 0.1
+      }
     }
   };
 
-  const handleUnlistedSubmit = async (e) => {
-    e.preventDefault();
-    if (
-      !unlistedForm.societyName.trim() ||
-      !unlistedForm.fullAddress.trim() ||
-      !unlistedForm.pincode.trim() ||
-      !unlistedForm.totalFlats.trim() ||
-      !unlistedForm.rwaPhone.trim()
-    ) {
-      setUnlistedError('Please complete all required fields before submitting.');
-      return;
+  const itemVariants = {
+    hidden: prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 32, scale: 0.96 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: prefersReducedMotion ? 0.1 : 0.9,
+        ease: [0.16, 1, 0.3, 1]
+      }
     }
-
-    try {
-      setUnlistedError('');
-      let token = '';
-      try {
-        const session = localStorage.getItem('digilocal_vendor_session');
-        if (session) {
-          const parsed = JSON.parse(session);
-          token = parsed.token || parsed.accessToken || parsed.vendor?.token || '';
-        }
-      } catch (_) { }
-
-      await api.createSociety({
-        society_name: unlistedForm.societyName,
-        location: unlistedForm.fullAddress,
-        pincode: unlistedForm.pincode,
-        total_flats: unlistedForm.totalFlats,
-        rwa_phone: unlistedForm.rwaPhone
-      }, token);
-
-      setUnlistedFormSubmitted(true);
-      fetchSocieties(search);
-    } catch (err) {
-      console.warn('Society request note:', err);
-      setUnlistedFormSubmitted(true);
-      fetchSocieties(search);
-    }
-  };
-
-  const resetUnlistedModal = () => {
-    setIsUnlistedModalOpen(false);
-    setUnlistedFormSubmitted(false);
-    fetchSocieties(search);
-    setUnlistedForm({
-      societyName: '',
-      fullAddress: '',
-      pincode: '',
-      totalFlats: '',
-      rwaPhone: '',
-    });
-    setUnlistedError('');
   };
 
   return (
-    <div className="w-full bg-[#EDEDE4] text-foreground pb-12 px-1.5 sm:px-3 lg:px-4 font-sans -mt-px">
+    <div className="w-full bg-[#F6F0E8] min-h-screen font-sans -mt-px overflow-x-hidden text-[#211A19] pb-16">
+      
+      {/* HERO SECTION */}
+      <div className="w-full pt-8 sm:pt-12 lg:pt-14 pb-10 sm:pb-14 px-4 sm:px-8 lg:px-12 relative overflow-hidden flex flex-col items-center justify-center text-center bg-[#F6F0E8]">
 
-      {/* Outer Dark Green Bento Container wrapping Hero section */}
-      <div className="max-w-7xl mx-auto bg-[#34533C] text-white rounded-b-[2.5rem] sm:rounded-b-[2.8rem] lg:rounded-b-[3rem] px-3 sm:px-4 lg:px-5 pb-3 sm:pb-4 mb-8 shadow-md">
+          {/* Decorative subtle ambient Nude radial glow */}
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-[#D6B7A5]/30 rounded-full blur-[100px] pointer-events-none" />
 
-        {/* Main Off-White Hero Section Container (Merged with Logo Tab) */}
-        <div className="bg-[#EDEDE4] text-[#1E3623] rounded-tl-none rounded-tr-[2rem] sm:rounded-tr-[2.4rem] lg:rounded-tr-[2.6rem] rounded-b-[2rem] sm:rounded-b-[2.4rem] lg:rounded-b-[2.6rem] pt-6 sm:pt-8 pb-8 sm:pb-10 px-6 sm:px-10 lg:px-12 relative overflow-hidden shadow-xs">
-
-
-          {/* Main 2-Column Hero Grid shifted slightly inner */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-center max-w-7xl mx-auto">
-
-            {/* Left Column - Hero Copy & Action Buttons */}
-            <div className="lg:col-span-6 space-y-6">
-
-              {/* Delivery Time Badge */}
-              <div className="inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-white/80 border border-[#1E3623]/10 text-[#1E3623] text-xs font-bold shadow-sm">
-                <span>Delivered in 10–15 Mins</span>
-                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
-              </div>
-
-              {/* Headline with MaskedHeading Reveal Effect */}
-              <div className="my-2">
-                <MaskedHeading
-                  text="Your Society. Your Vendors. Delivered."
-                  tag="h1"
-                  mediaType="image"
-                  src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1200&auto=format&fit=crop&q=80"
-                  fillScale={1.3}
-                  parallax={28}
-                  drift={14}
-                  reveal="wipe"
-                  trigger="view"
-                  align="left"
-                  weight={700}
-                  tracking={-0.03}
-                  lineHeight={1.1}
-                  textScale={0.085}
-                  className="font-serif text-[#1E3623]"
-                />
-              </div>
-
-              {/* Sub-headline Description & Rotating Stamp Row (Elevated & Positioned Right) */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
-                <p className="text-xs sm:text-sm text-[#4A5D4E] font-normal leading-relaxed max-w-sm sm:max-w-md">
-                  DigiLocal is a curated marketplace of vendors chosen from within your registered society — bakers, growers, florists and craftspeople, all a few doors away.
-                </p>
-
-                {/* Stamp Graphic: TRUSTED BY HOUSING SOCIETIES (Positioned Right & Nudged Down Slightly) */}
-                <div className="flex items-center justify-center relative w-28 h-28 sm:w-32 sm:h-32 lg:w-36 lg:h-36 text-[#1E3623] select-none shrink-0 sm:ml-auto mt-1 sm:mt-2">
-                  <svg className="w-full h-full animate-spin-slow origin-center" viewBox="0 0 100 100">
-                    <path id="stampCircle" d="M 50, 50 m -37, 0 a 37,37 0 1,1 74,0 a 37,37 0 1,1 -74,0" fill="none" />
-                    <text className="text-[6.2px] font-extrabold tracking-[0.16em] fill-[#1E3623] uppercase">
-                      <textPath href="#stampCircle">
-                        • TRUSTED BY HOUSING SOCIETIES • DIGILOCAL MARKETPLACE 
-                      </textPath>
-                    </text>
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center font-black text-[#1E3623] text-center">
-                    <span className="text-lg sm:text-xl font-black tracking-tight leading-none">100+</span>
-                    <span className="text-[8px] font-extrabold uppercase tracking-widest text-[#2E4A35] mt-0.5">Societies</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons Row */}
-              <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-1">
-                <button
-                  onClick={() => {
-                    const el = document.getElementById('societies-section');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="bg-[#0D1910] hover:bg-black text-white px-6 sm:px-7 py-3.5 rounded-full text-xs sm:text-sm font-semibold flex items-center space-x-2 shadow-md transition-all group"
-                >
-                  <span>Discover Local Stores</span>
-                  <span className="text-[#E6C35C] font-bold text-sm sm:text-base group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform">
-                    ↗
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setRoute({ page: 'info', tab: 'how-it-works' })}
-                  className="text-[#1E3623] hover:text-black text-xs sm:text-sm font-bold flex items-center space-x-1.5 transition-colors px-2 py-2"
-                >
-                  <span>How It Works</span>
-                  <Play className="w-3 h-3 text-[#1E3623] fill-[#1E3623] shrink-0" />
-                </button>
-              </div>
-
-            </div>
-
-            {/* Right Column - Accordion Gallery of 5 Hyperlocal Photos */}
-            <div className="lg:col-span-6 relative">
-              <div className="rounded-[2.2rem] sm:rounded-[2.5rem] overflow-hidden shadow-xl border border-[#1E3623]/10 bg-[#18281F]">
-                <AccordionGallery
-                  items={[
-                    {
-                      image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1000&auto=format&fit=crop&q=80",
-                      label: "Fresh Produce",
-                      alt: "Fresh organic green vegetables & salads"
-                    },
-                    {
-                      image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1000&auto=format&fit=crop&q=80",
-                      label: "Artisan Bakes",
-                      alt: "Artisan fresh baked sourdough bread & pastries"
-                    },
-                    {
-                      image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=1000&auto=format&fit=crop&q=80",
-                      label: "Food Junction",
-                      alt: "Fresh neighborhood snacks & bakes"
-                    },
-                    {
-                      image: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1000&auto=format&fit=crop&q=80",
-                      label: "Farm Fresh",
-                      alt: "Fresh organic farm fruits & berries"
-                    },
-                    {
-                      image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1000&auto=format&fit=crop&q=80",
-                      label: "Gourmet Coffee",
-                      alt: "Specialty coffee & neighborhood bakery"
-                    }
-                  ]}
-                  defaultIndex={1}
-                  expandRatio={0.48}
-                  height={410}
-                  gap={8}
-                  radius={20}
-                  accentColor="#E6C35C"
-                  overlayColor="#18281F"
-                  textColor="#ffffff"
-                  trigger="hover"
-                  grayscale={false}
-                  showLabels={true}
-                />
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
-
-      {/* 3-Column Bottom Bento Grid */}
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 mb-6">
-
-        {/* Card 1: Verified Stores */}
-        <div className="lg:col-span-4 bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 shadow-sm flex flex-col justify-between relative overflow-hidden group min-h-[220px]">
-          <div className="relative z-10 pr-24 sm:pr-28">
-            <div className="w-12 h-12 rounded-2xl bg-secondary border border-border flex items-center justify-center text-foreground mb-4">
-              <Store className="w-6 h-6 text-foreground" />
-            </div>
-
-            <span className="text-[10px] font-bold text-[#C4A066] tracking-widest block mb-1">
-              Hyperlocal
-            </span>
-
-            <h2 className="text-2xl font-serif font-bold text-ink">
-              Verified Stores
-            </h2>
-
-            <p className="text-xs text-muted-foreground font-normal mt-1 mb-6 leading-relaxed">
-              Explore trusted local vendors in your gated community.
-            </p>
-
-            <button
-              onClick={() => {
-                const el = document.getElementById('societies-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="inline-flex items-center space-x-1.5 text-xs font-bold text-ink hover:text-[#C4A066] transition-colors"
-            >
-              <span>Explore Stores</span>
-              <ArrowUpRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Fresh Produce Basket Graphic Cutout */}
-          <div className="w-28 h-28 sm:w-32 sm:h-32 absolute bottom-4 right-4 opacity-90 group-hover:scale-105 transition-transform duration-500 pointer-events-none">
-            <img
-              src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80"
-              alt="Basket"
-              className="w-full h-full object-cover rounded-full border-4 border-white shadow-md"
-            />
-          </div>
-        </div>
-
-        {/* Card 2: Quick Delivery */}
-        <div className="lg:col-span-4 bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 shadow-sm flex flex-col justify-between relative overflow-hidden group min-h-[220px]">
-          <div className="relative z-10 pr-24 sm:pr-28">
-            <div className="w-12 h-12 rounded-2xl bg-secondary border border-border flex items-center justify-center text-foreground mb-4">
-              <Clock className="w-6 h-6 text-foreground" />
-            </div>
-
-            <span className="text-[10px] font-bold text-[#C4A066] tracking-widest block mb-1">
-              Fast & Reliable
-            </span>
-
-            <h2 className="text-2xl font-serif font-bold text-ink">
-              Quick Delivery
-            </h2>
-
-            <p className="text-xs text-muted-foreground font-normal mt-1 mb-6 leading-relaxed">
-              Get your daily essentials delivered in just 10-15 mins.
-            </p>
-
-            <button
-              onClick={() => setRoute({ page: 'info', tab: 'how-it-works' })}
-              className="inline-flex items-center space-x-1.5 text-xs font-bold text-ink hover:text-[#C4A066] transition-colors cursor-pointer"
-            >
-              <span>How It Works</span>
-              <ArrowUpRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Grocery Bag & Clock Graphic Cutout */}
-          <div className="w-28 h-28 sm:w-32 sm:h-32 absolute bottom-4 right-4 opacity-90 group-hover:scale-105 transition-transform duration-500 pointer-events-none">
-            <img
-              src="https://images.unsplash.com/photo-1616401784845-180882ba9ba8?w=500&auto=format&fit=crop&q=80"
-              alt="Grocery Bag"
-              className="w-full h-full object-cover rounded-full border-4 border-white shadow-md"
-            />
-          </div>
-        </div>
-
-        {/* Card 3: Registered Housing Societies */}
-        <div className="lg:col-span-4 bg-card border border-border rounded-[2.5rem] p-6 sm:p-7 shadow-sm flex flex-col justify-between relative overflow-hidden group min-h-[220px]">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-12 h-12 rounded-2xl bg-secondary border border-border flex items-center justify-center text-foreground">
-                <Building2 className="w-6 h-6 text-foreground" />
-              </div>
-              <span className="px-3 py-1 text-[10px] font-black bg-[#18281F] text-white rounded-full uppercase tracking-wider shadow-xs">
-                {societies.length > 0 ? `${societies.length}+ SOCIETIES` : '6+ SOCIETIES'}
-              </span>
-            </div>
-
-            <span className="text-[10px] font-bold text-[#C4A066] tracking-widest uppercase block mb-0.5">
-              Gated Communities
-            </span>
-
-            <h2 className="text-xl font-serif font-black text-ink uppercase tracking-tight mb-3">
-              REGISTERED HOUSING SOCIETIES
-            </h2>
-
-            {/* Society Thumbnails Row */}
-            <div className="grid grid-cols-4 gap-2.5 pt-1">
-              {societies.slice(0, 4).map((soc, idx) => {
-                const socImg = getSocietyImage(soc, idx);
-                const fullSocName = soc.society_name || 'Housing Society';
-
-                return (
-                  <div
-                    key={soc.society_id || idx}
-                    onClick={() => setRoute({ page: 'societyVendors', societyId: soc.society_id })}
-                    className="group/soc cursor-pointer"
-                    title={fullSocName}
-                  >
-                    <div className="h-16 rounded-2xl overflow-hidden bg-secondary border border-border relative mb-1.5 shadow-2xs">
-                      <img
-                        src={socImg}
-                        alt={fullSocName}
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = DIVERSE_SOCIETY_IMAGES[idx % DIVERSE_SOCIETY_IMAGES.length];
-                        }}
-                        className="w-full h-full object-cover group-hover/soc:scale-110 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                    </div>
-                    <p className="text-[10px] font-bold text-ink truncate leading-tight transition-colors group-hover/soc:text-[#C4A066]">
-                      {fullSocName}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              const el = document.getElementById('societies-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="inline-flex items-center space-x-1.5 text-xs font-bold text-ink hover:text-[#C4A066] transition-colors pt-3 cursor-pointer"
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+            className="relative z-10 w-full max-w-5xl mx-auto flex flex-col items-center text-center space-y-4 sm:space-y-5"
           >
-            <span>View All Societies</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
 
-      </div>
+            {/* Top Badge: Oxblood & Nude Accent */}
+            <motion.div variants={itemVariants} className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-[#541D26]/10 text-[#541D26] text-xs font-extrabold shadow-xs border border-[#541D26]/20">
+              <Sparkles className="w-3.5 h-3.5 text-[#541D26] fill-[#541D26]" />
+              <span>DigiLocal • Hyperlocal Lifestyle Marketplace</span>
+            </motion.div>
 
-      {/* Bottom Trust Badges Bar */}
-      <div className="max-w-4xl mx-auto bg-card border border-border rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 shadow-sm grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 my-6">
-        <div className="flex items-center space-x-2.5 sm:space-x-3 border-r border-border/40 pr-2 sm:pr-4 justify-center">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-secondary flex items-center justify-center text-foreground flex-shrink-0">
-            <ShieldCheck className="w-4 h-4 text-foreground" />
-          </div>
-          <div>
-            <h5 className="text-[11px] sm:text-xs font-bold text-ink whitespace-nowrap">Verified Vendors</h5>
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground font-normal whitespace-nowrap">100% Verified & Reliable</p>
-          </div>
-        </div>
+            {/* Headline with Espresso text & Oxblood highlights */}
+            <motion.div variants={itemVariants} className="w-full max-w-5xl mx-auto py-1">
+              <StrokeText
+                text="YOUR SOCIETY. YOUR VENDORS. DELIVERED."
+                strokeColor="#211A19"
+                fillColor="#211A19"
+                strokeWidth={1.5}
+                drawDuration={1.6}
+                fillDelay={0.2}
+                stagger={0.035}
+                ease="power2.out"
+                trigger="mount"
+                fillMode="wipe"
+                fontSize={72}
+                fontWeight={900}
+                fontFamily="'Cormorant Garamond', 'Playfair Display', Georgia, serif"
+                letterSpacing={0}
+                style={{ '--stroke-text-height': 'clamp(1.8rem, 4.5vw, 3.2rem)' }}
+                className="w-full"
+              />
+            </motion.div>
 
-        <div className="flex items-center space-x-2.5 sm:space-x-3 md:border-r border-border/40 pr-2 sm:pr-4 justify-center">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-secondary flex items-center justify-center text-foreground flex-shrink-0">
-            <Lock className="w-4 h-4 text-foreground" />
-          </div>
-          <div>
-            <h5 className="text-[11px] sm:text-xs font-bold text-ink whitespace-nowrap">Safe Payments</h5>
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground font-normal whitespace-nowrap">Secure & Hassle-free</p>
-          </div>
-        </div>
+            {/* Subtitle Description */}
+            <motion.p variants={itemVariants} className="text-xs sm:text-sm lg:text-base text-[#211A19]/80 font-medium leading-relaxed text-center max-w-2xl mx-auto">
+              DigiLocal connects residents directly with verified neighborhood stores, organic growers, artisanal bakeries, pharmacies, and daily service providers.
+            </motion.p>
 
-        <div className="flex items-center space-x-2.5 sm:space-x-3 border-r border-border/40 pr-2 sm:pr-4 justify-center">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-secondary flex items-center justify-center text-foreground flex-shrink-0">
-            <Headphones className="w-4 h-4 text-foreground" />
-          </div>
-          <div>
-            <h5 className="text-[11px] sm:text-xs font-bold text-ink whitespace-nowrap">24/7 Support</h5>
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground font-normal whitespace-nowrap">We're here to help</p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2.5 sm:space-x-3 justify-center">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-secondary flex items-center justify-center text-foreground flex-shrink-0">
-            <Star className="w-4 h-4 text-foreground" />
-          </div>
-          <div>
-            <h5 className="text-[11px] sm:text-xs font-bold text-ink whitespace-nowrap">Best Quality</h5>
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground font-normal whitespace-nowrap">Quality you can trust</p>
-          </div>
-        </div>
-      </div>
-
-      {/* SEARCH SOCIETY AUTOCOMPLETE BAR SECTION */}
-      <div className="mt-8 max-w-3xl mx-auto relative" ref={searchRef}>
-        <div className="relative shadow-sm rounded-[2rem] bg-card border-2 border-border focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-all">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-primary" />
-
-          <input
-            id="search-input-box"
-            type="text"
-            placeholder="Search by society name, pincode or store (e.g. Greenwood, 201301, FreshMart)..."
-            value={search}
-            onFocus={() => setIsDropdownOpen(true)}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setIsDropdownOpen(true);
-            }}
-            className="w-full pl-14 pr-24 py-4 rounded-[2rem] bg-transparent text-ink placeholder-muted-foreground text-xs sm:text-sm font-semibold focus:outline-none"
-          />
-
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center space-x-2">
-            {search ? (
+            {/* Action Buttons (Primary Oxblood #541D26 & Secondary Transparent/Oxblood) */}
+            <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-center gap-3.5 sm:gap-4 pt-2 pb-4 z-20">
               <button
-                onClick={() => setSearch('')}
-                className="text-xs font-bold text-muted-foreground hover:text-ink bg-secondary rounded-full w-6 h-6 flex items-center justify-center transition-colors"
+                onClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
+                className="px-7 py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center space-x-2 cursor-pointer transition-all"
               >
-                ✕
+                <span>Browse All Vendors</span>
+                <AnimatedIcon icon={ArrowUpRight} animation="scale" size={14} className="currentColor text-white" />
               </button>
-            ) : (
-              <span className="hidden sm:inline-flex items-center text-[10px] font-mono font-bold text-muted-foreground bg-secondary px-2 py-1 rounded-md border border-border">
-                Press /
-              </span>
-            )}
-          </div>
-        </div>
 
-        {/* Location Quick Filter Chips */}
-        <div className="flex items-center space-x-2 overflow-x-auto py-3 px-1 scrollbar-none text-xs font-bold">
-          <span className="text-[11px] text-muted-foreground uppercase tracking-wider font-extrabold flex items-center gap-1 shrink-0">
-            <Filter className="w-3.5 h-3.5 text-gold" /> Filter:
-          </span>
-          {['All', 'Noida', 'Greater Noida', 'Bengaluru', 'Gurugram'].map((loc) => (
-            <button
-              key={loc}
-              onClick={() => {
-                setActiveLocationFilter(loc);
-                setSearch(loc === 'All' ? '' : loc);
-              }}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border flex items-center space-x-1.5 ${activeLocationFilter === loc || (loc === 'All' && !search)
-                ? 'bg-[#14261C] text-white border-[#14261C] shadow-sm'
-                : 'bg-card text-muted-foreground hover:text-ink border-border'
-                }`}
+              <button
+                onClick={() => setRoute({ page: 'vendorRegister' })}
+                className="px-7 py-3.5 rounded-full bg-transparent border border-[#541D26] text-[#541D26] hover:bg-[#541D26] hover:text-white font-extrabold text-xs uppercase tracking-wider shadow-xs flex items-center space-x-2 cursor-pointer transition-all"
+              >
+                <AnimatedIcon icon={Store} animation="pulse" size={14} className="currentColor" />
+                <span>Register As Vendor</span>
+              </button>
+            </motion.div>
+
+            {/* 4 TILTED POLAROID CARDS ROW WITH PURE WHITE CARDS */}
+            <motion.div
+              variants={itemVariants}
+              className="w-full max-w-5xl mx-auto pt-4 sm:pt-6 pb-2 flex flex-col items-center select-none"
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
             >
-              {loc === 'All' ? (
-                <>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20 shrink-0" />
-                  <span>All Complexes</span>
-                </>
-              ) : (
-                <>
-                  <MapPin className="w-3.5 h-3.5 text-rose-500 fill-rose-500/20 shrink-0" />
-                  <span>{loc}</span>
-                </>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Dropdown Autocomplete Results */}
-        {isDropdownOpen && search.trim().length > 0 && (
-          <div className="absolute left-0 right-0 top-full mt-2 bg-card rounded-[1.75rem] shadow-2xl border border-border z-50 overflow-hidden max-h-80 overflow-y-auto text-left">
-            {societies.length > 0 ? (
-              <div className="py-2">
-                <div className="px-5 py-2 text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider bg-secondary/50 border-b border-border/50">
-                  Matching Societies ({societies.length})
+              {/* Tilted Polaroid Cards Grid */}
+              <div className="w-full min-h-[220px] sm:min-h-[260px] flex items-center justify-center">
+                <div className="w-full grid grid-cols-2 md:flex md:flex-row items-center justify-center gap-4 sm:gap-6 md:gap-0">
+                  <AnimatePresence mode="wait">
+                    {currentSet.items.map((item, index) => (
+                      <motion.div
+                        key={`${activeSetIndex}-${index}`}
+                        initial={{ opacity: 0, y: 24, scale: 0.94, rotate: 0 }}
+                        animate={{ opacity: 1, y: 0, scale: 1, rotate: item.angle }}
+                        exit={{ opacity: 0, y: -18, scale: 0.94, rotate: 0 }}
+                        transition={{
+                          duration: 0.45,
+                          delay: index * 0.08,
+                          ease: [0.25, 0.1, 0.25, 1]
+                        }}
+                        whileHover={{ scale: 1.07, rotate: 0, zIndex: 30 }}
+                        className="w-full md:w-56 lg:w-60 bg-white p-2.5 sm:p-3 pb-7 sm:pb-8 shadow-[0_10px_25px_rgba(33,26,25,0.08)] rounded-md border border-[#E5DAD0] -mx-1 sm:-mx-2 lg:-mx-3 transition-all hover:shadow-[0_16px_36px_rgba(33,26,25,0.15)] cursor-pointer shrink-0"
+                        onClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
+                      >
+                        <div className="w-full aspect-[4/3] overflow-hidden rounded-xs bg-[#EEE5DA] relative">
+                          <img src={item.image} alt={item.text} className="w-full h-full object-cover transition-transform duration-500 hover:scale-110" />
+                        </div>
+                        <div className="mt-3 text-center font-serif italic text-[#211A19] font-bold text-sm sm:text-base tracking-wide">
+                          {item.text}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
+              </div>
 
-                {societies.map((soc) => (
-                  <div
-                    key={soc.society_id}
-                    onClick={() => {
-                      handleSocietySelect(soc);
-                      setIsDropdownOpen(false);
-                    }}
-                    className="px-5 py-3.5 hover:bg-secondary cursor-pointer transition-colors border-b border-border/40 last:border-none flex items-center justify-between group"
-                  >
-                    <div className="flex items-center space-x-3.5">
-                      <div className="w-10 h-10 rounded-2xl bg-secondary border border-border flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                        <Building2 className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-ink group-hover:text-primary transition-colors">
-                          {soc.society_name}
-                        </h4>
-                        <p className="text-[11px] text-muted-foreground flex items-center space-x-1 mt-0.5">
-                          <MapPin className="w-3 h-3 text-gold" />
-                          <span>{soc.location}</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-                      {soc.vendor_count || 0} Vendors
-                    </span>
-                  </div>
+              {/* Category Dot Indicators */}
+              <div className="flex items-center justify-center space-x-2 mt-5">
+                {POLAROID_SETS.map((set, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveSetIndex(idx)}
+                    className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                      activeSetIndex === idx ? 'w-7 bg-[#541D26]' : 'w-2 bg-[#541D26]/25 hover:bg-[#541D26]/50'
+                    }`}
+                    title={set.categoryLabel}
+                  />
                 ))}
               </div>
-            ) : (
-              /* Dropdown Empty State */
-              <div className="p-6 text-center bg-card">
-                <AlertCircle className="w-8 h-8 text-gold mx-auto mb-2" />
-                <h4 className="text-xs font-bold text-ink">No Registered Societies Match "{search}"</h4>
-                <p className="text-[11px] text-muted-foreground mt-1 mb-4">
-                  Can't find your residential society in our database? Request onboarding below.
+            </motion.div>
+
+          </motion.div>
+        </div>
+
+        {/* HOW IT WORKS ANIMATED STORY SECTION */}
+        <ScrollStoryAnimation
+          onExploreClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
+        />
+
+        {/* PRODUCT FEATURES & HIGHLIGHTS BENTO GRID (Pure White Cards over Warm Cream Background) */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={containerVariants}
+          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4"
+        >
+          <motion.div variants={itemVariants} className="text-center max-w-2xl mx-auto mb-8">
+            <span className="text-[11px] font-extrabold text-[#541D26] uppercase tracking-widest block mb-1">
+              Why DigiLocal?
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-serif font-black text-[#211A19] uppercase tracking-tight">
+              The Hyperlocal Advantage
+            </h2>
+            <p className="text-xs sm:text-sm text-[#211A19]/75 font-medium mt-1">
+              Designed for residential communities to empower local commerce with zero friction.
+            </p>
+          </motion.div>
+
+          <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+            {/* Card 1: 15-Min Delivery */}
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-[2rem] p-6 sm:p-7 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-1 group flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-4 group-hover:scale-110 transition-transform">
+                  <Zap className="w-6 h-6 text-[#541D26]" />
+                </div>
+                <h3 className="text-lg font-serif font-bold text-[#211A19] mb-1">
+                  15-Min Express Delivery
+                </h3>
+                <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
+                  Orders are fulfilled directly from neighborhood stores within your area for instant delivery.
                 </p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-[#E5DAD0] text-[11px] font-bold text-[#541D26] flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#541D26]" />
+                <span>Hyperlocal Speed</span>
+              </div>
+            </motion.div>
+
+            {/* Card 2: Verified Local Stores */}
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-[2rem] p-6 sm:p-7 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-1 group flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-4 group-hover:scale-110 transition-transform">
+                  <ShieldCheck className="w-6 h-6 text-[#541D26]" />
+                </div>
+                <h3 className="text-lg font-serif font-bold text-[#211A19] mb-1">
+                  100% Verified Merchants
+                </h3>
+                <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
+                  Every vendor undergoes identity, GSTIN, and business location verification before listing.
+                </p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-[#E5DAD0] text-[11px] font-bold text-[#541D26] flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#541D26]" />
+                <span>Verified & Trustworthy</span>
+              </div>
+            </motion.div>
+
+            {/* Card 3: Farm Fresh & Organic */}
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-[2rem] p-6 sm:p-7 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-1 group flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-4 group-hover:scale-110 transition-transform">
+                  <ShoppingBag className="w-6 h-6 text-[#541D26]" />
+                </div>
+                <h3 className="text-lg font-serif font-bold text-[#211A19] mb-1">
+                  Farm Fresh & Organic
+                </h3>
+                <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
+                  Direct access to organic produce, A2 cow milk, artisan bakeries, and handcrafted local goods.
+                </p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-[#E5DAD0] text-[11px] font-bold text-[#541D26] flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#541D26]" />
+                <span>Pure & Organic</span>
+              </div>
+            </motion.div>
+
+            {/* Card 4: Seamless Order Tracking */}
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-[2rem] p-6 sm:p-7 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-1 group flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-4 group-hover:scale-110 transition-transform">
+                  <Truck className="w-6 h-6 text-[#541D26]" />
+                </div>
+                <h3 className="text-lg font-serif font-bold text-[#211A19] mb-1">
+                  Seamless Order Tracking
+                </h3>
+                <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
+                  Real-time order status updates, WhatsApp coordination, and direct vendor communication.
+                </p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-[#E5DAD0] text-[11px] font-bold text-[#541D26] flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#541D26]" />
+                <span>Instant Updates</span>
+              </div>
+            </motion.div>
+          </motion.div>
+        </motion.div>
+
+        {/* COMPANY MISSION & LIVE IMPACT STATS (Dark Espresso #211A19 Section) */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={containerVariants}
+          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4"
+        >
+          <div className="bg-[#211A19] text-white rounded-[2.5rem] p-8 sm:p-12 shadow-2xl relative overflow-hidden border border-white/10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
+              <motion.div variants={itemVariants} className="lg:col-span-7 space-y-4">
+                <span className="px-3.5 py-1 text-[11px] font-extrabold bg-[#D6B7A5] text-[#211A19] rounded-full inline-block">
+                  Company Vision & Mission
+                </span>
+                <h2 className="text-2xl sm:text-4xl font-serif font-black text-white leading-tight">
+                  Empowering Local Merchants, Enriching Residential Communities.
+                </h2>
+                <p className="text-xs sm:text-sm text-[#D6B7A5] leading-relaxed font-medium">
+                  DigiLocal was built to bridge the gap between residents and neighborhood vendors. By eliminating middleman markups and giving local store owners digital tools, we foster thriving, self-sustaining community economies.
+                </p>
+                <div className="pt-2 flex items-center gap-4 flex-wrap">
+                  <button
+                    onClick={() => setRoute({ page: 'info', tab: 'about-us' })}
+                    className="px-6 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <span>Our Story</span>
+                    <ArrowRight className="w-4 h-4 text-white" />
+                  </button>
+                  <button
+                    onClick={() => setRoute({ page: 'info', tab: 'how-it-works' })}
+                    className="px-6 py-2.5 rounded-full bg-transparent hover:bg-white/10 text-white font-extrabold text-xs uppercase tracking-wider transition-all border border-[#D6B7A5]/40 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>How It Works</span>
+                    <ArrowUpRight className="w-4 h-4 text-[#C8A878]" />
+                  </button>
+                </div>
+              </motion.div>
+
+              {/* Live Stats Grid */}
+              <motion.div variants={containerVariants} className="lg:col-span-5 grid grid-cols-2 gap-4">
+                <motion.div variants={itemVariants} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center transition-all hover:border-[#C8A878]/40">
+                  <span className="text-[10px] font-extrabold text-[#C8A878] tracking-widest block mb-0.5">01</span>
+                  <div className="text-3xl sm:text-4xl font-serif font-black text-white">50+</div>
+                  <div className="text-[11px] font-bold text-[#D6B7A5] uppercase tracking-wider mt-1">Cities Serviced</div>
+                </motion.div>
+                <motion.div variants={itemVariants} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center transition-all hover:border-[#C8A878]/40">
+                  <span className="text-[10px] font-extrabold text-[#C8A878] tracking-widest block mb-0.5">02</span>
+                  <div className="text-3xl sm:text-4xl font-serif font-black text-white">10,000+</div>
+                  <div className="text-[11px] font-bold text-[#D6B7A5] uppercase tracking-wider mt-1">Active Residents</div>
+                </motion.div>
+                <motion.div variants={itemVariants} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center transition-all hover:border-[#C8A878]/40">
+                  <span className="text-[10px] font-extrabold text-[#C8A878] tracking-widest block mb-0.5">03</span>
+                  <div className="text-3xl sm:text-4xl font-serif font-black text-white">1,200+</div>
+                  <div className="text-[11px] font-bold text-[#D6B7A5] uppercase tracking-wider mt-1">Verified Stores</div>
+                </motion.div>
+                <motion.div variants={itemVariants} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center transition-all hover:border-[#C8A878]/40">
+                  <span className="text-[10px] font-extrabold text-[#C8A878] tracking-widest block mb-0.5">04</span>
+                  <div className="text-3xl sm:text-4xl font-serif font-black text-white">99.4%</div>
+                  <div className="text-[11px] font-bold text-[#D6B7A5] uppercase tracking-wider mt-1">On-Time Delivery</div>
+                </motion.div>
+              </motion.div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* HOW DIGILOCAL WORKS (3 EASY STEPS WITH PURE WHITE CARDS) */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={containerVariants}
+          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4"
+        >
+          <motion.div variants={itemVariants} className="text-center max-w-2xl mx-auto mb-10">
+            <span className="text-[11px] font-extrabold text-[#541D26] uppercase tracking-widest block mb-1">
+              Simple & Transparent Process
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-serif font-black text-[#211A19] uppercase tracking-tight">
+              How DigiLocal Works
+            </h2>
+            <p className="text-xs sm:text-sm text-[#211A19]/75 font-medium mt-1">
+              Experience effortless shopping from neighborhood stores in 3 simple steps.
+            </p>
+          </motion.div>
+
+          <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Step 1 */}
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-3xl p-7 shadow-xs relative text-center flex flex-col items-center group hover:border-[#541D26]/40 transition-all">
+              <span className="text-[10px] font-extrabold text-[#541D26] tracking-widest uppercase mb-2 block">Step 01</span>
+              <div className="w-12 h-12 rounded-full bg-[#541D26] text-white font-serif font-black text-lg flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform">
+                1
+              </div>
+              <h3 className="text-base font-bold text-[#211A19] mb-1">Search Your Locality or Item</h3>
+              <p className="text-xs text-[#211A19]/75 font-medium leading-relaxed">
+                Enter your area, society, pincode, or store name to view active vendors servicing your neighborhood.
+              </p>
+            </motion.div>
+
+            {/* Step 2 */}
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-3xl p-7 shadow-xs relative text-center flex flex-col items-center group hover:border-[#541D26]/40 transition-all">
+              <span className="text-[10px] font-extrabold text-[#541D26] tracking-widest uppercase mb-2 block">Step 02</span>
+              <div className="w-12 h-12 rounded-full bg-[#541D26] text-white font-serif font-black text-lg flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform">
+                2
+              </div>
+              <h3 className="text-base font-bold text-[#211A19] mb-1">Select Fresh Goods & Services</h3>
+              <p className="text-xs text-[#211A19]/75 font-medium leading-relaxed">
+                Browse organic groceries, artisan bakes, dairy, medicines, or book skilled home repair services.
+              </p>
+            </motion.div>
+
+            {/* Step 3 */}
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-3xl p-7 shadow-xs relative text-center flex flex-col items-center group hover:border-[#541D26]/40 transition-all">
+              <span className="text-[10px] font-extrabold text-[#541D26] tracking-widest uppercase mb-2 block">Step 03</span>
+              <div className="w-12 h-12 rounded-full bg-[#541D26] text-white font-serif font-black text-lg flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform">
+                3
+              </div>
+              <h3 className="text-base font-bold text-[#211A19] mb-1">Enjoy Doorstep Delivery</h3>
+              <p className="text-xs text-[#211A19]/75 font-medium leading-relaxed">
+                Receive your order in 15 minutes with real-time status updates and direct vendor support.
+              </p>
+            </motion.div>
+          </motion.div>
+        </motion.div>
+
+        {/* TRUST BADGES BAR */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          variants={containerVariants}
+          className="max-w-4xl mx-auto bg-white border border-[#E5DAD0] rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 shadow-xs grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 my-8"
+        >
+          <motion.div variants={itemVariants} className="flex items-center space-x-2.5 sm:space-x-3 border-r border-[#E5DAD0] pr-2 sm:pr-4 justify-center">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#541D26]/10 flex items-center justify-center text-[#541D26] flex-shrink-0">
+              <ShieldCheck className="w-4 h-4 text-[#541D26]" />
+            </div>
+            <div>
+              <h5 className="text-[11px] sm:text-xs font-bold text-[#211A19] whitespace-nowrap">Verified Vendors</h5>
+              <p className="text-[9px] sm:text-[10px] text-[#211A19]/70 font-normal whitespace-nowrap">100% Verified & Reliable</p>
+            </div>
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="flex items-center space-x-2.5 sm:space-x-3 md:border-r border-[#E5DAD0] pr-2 sm:pr-4 justify-center">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#541D26]/10 flex items-center justify-center text-[#541D26] flex-shrink-0">
+              <Lock className="w-4 h-4 text-[#541D26]" />
+            </div>
+            <div>
+              <h5 className="text-[11px] sm:text-xs font-bold text-[#211A19] whitespace-nowrap">Safe Payments</h5>
+              <p className="text-[9px] sm:text-[10px] text-[#211A19]/70 font-normal whitespace-nowrap">Secure & Hassle-free</p>
+            </div>
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="flex items-center space-x-2.5 sm:space-x-3 border-r border-[#E5DAD0] pr-2 sm:pr-4 justify-center">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#541D26]/10 flex items-center justify-center text-[#541D26] flex-shrink-0">
+              <Headphones className="w-4 h-4 text-[#541D26]" />
+            </div>
+            <div>
+              <h5 className="text-[11px] sm:text-xs font-bold text-[#211A19] whitespace-nowrap">24/7 Support</h5>
+              <p className="text-[9px] sm:text-[10px] text-[#211A19]/70 font-normal whitespace-nowrap">We're here to help</p>
+            </div>
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="flex items-center space-x-2.5 sm:space-x-3 justify-center">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#541D26]/10 flex items-center justify-center text-[#541D26] flex-shrink-0">
+              <Star className="w-4 h-4 text-[#C8A878] fill-[#C8A878]" />
+            </div>
+            <div>
+              <h5 className="text-[11px] sm:text-xs font-bold text-[#211A19] whitespace-nowrap">Best Quality</h5>
+              <p className="text-[9px] sm:text-[10px] text-[#211A19]/70 font-normal whitespace-nowrap">Quality you can trust</p>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* ZORDIAL TECHNOLOGIES PARTNER / PARENT PRODUCT SECTION */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.25 }}
+          variants={containerVariants}
+          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4"
+        >
+          <div className="bg-white border border-[#E7DFD5] rounded-[2.5rem] p-6 sm:p-10 lg:p-12 shadow-sm relative overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            
+            {/* Background ambient glow */}
+            <div className="absolute top-0 right-0 w-96 h-96 bg-[#C8A878]/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+
+            {/* Left Column: Product Information & Architectural Story */}
+            <motion.div variants={itemVariants} className="lg:col-span-7 space-y-4 sm:space-y-5 text-left">
+              <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 text-[#541D26] text-xs font-extrabold shadow-2xs">
+                <Building2 className="w-3.5 h-3.5 text-[#541D26]" />
+                <span>Product of Zordial Technologies</span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-black text-[#211A19] leading-tight">
+                Engineered & Powered by <span className="text-[#541D26] underline decoration-[#C8A878]/50 underline-offset-4">Zordial Technologies</span>
+              </h2>
+
+              <p className="text-xs sm:text-sm text-[#211A19]/80 font-medium leading-relaxed">
+                DigiLocal was conceived, architected, and engineered by <strong>Zordial</strong> — a premier software technology company specializing in transforming ambitious ideas into enterprise-grade applications. Zordial provides the underlying core technology stack and infrastructure that powers DigiLocal.
+              </p>
+
+              {/* 3 Key Capabilities Pills */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] text-left space-y-1">
+                  <div className="flex items-center gap-1.5 text-[#541D26] font-bold text-xs">
+                    <Cpu className="w-3.5 h-3.5 text-[#541D26]" />
+                    <span>Core Engine</span>
+                  </div>
+                  <p className="text-[11px] text-[#78716C] font-medium leading-snug">
+                    Hyperlocal society & flat unit mapping
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] text-left space-y-1">
+                  <div className="flex items-center gap-1.5 text-[#541D26] font-bold text-xs">
+                    <Zap className="w-3.5 h-3.5 text-[#541D26]" />
+                    <span>Direct Routing</span>
+                  </div>
+                  <p className="text-[11px] text-[#78716C] font-medium leading-snug">
+                    Zero-commission order fulfillment gateway
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] text-left space-y-1">
+                  <div className="flex items-center gap-1.5 text-[#541D26] font-bold text-xs">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#541D26]" />
+                    <span>Security</span>
+                  </div>
+                  <p className="text-[11px] text-[#78716C] font-medium leading-snug">
+                    Enterprise encryption & data privacy
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3 pt-2">
                 <button
                   onClick={() => {
-                    setIsDropdownOpen(false);
-                    checkVendorAuthBeforeSocietyCreate(search);
+                    setRoute({ page: 'zordial' });
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-full transition-colors uppercase tracking-wider shadow-sm"
+                  className="px-6 py-3 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center space-x-2 border border-[#C8A878]/30 transition-all cursor-pointer"
                 >
-                  Onboard Unlisted Society
+                  <span>Explore Partnership</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#C8A878]" />
                 </button>
+
+                <a
+                  href="https://zordial.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-5 py-3 rounded-full bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[#211A19] border border-[#E7DFD5] font-extrabold text-xs flex items-center space-x-1.5 transition-all shadow-2xs cursor-pointer"
+                >
+                  <Globe className="w-3.5 h-3.5 text-[#541D26]" />
+                  <span>Visit zordial.com</span>
+                  <ExternalLink className="w-3 h-3 text-[#78716C]" />
+                </a>
               </div>
-            )}
-          </div>
-        )}
-      </div>
+            </motion.div>
 
-      {/* MAIN CONTENT: SOCIETIES GRID SECTION */}
-      <div id="societies-section" className="max-w-7xl mx-auto mt-10">
-
-        {/* Section Header */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-6 rounded-[2rem] shadow-sm">
-          <div>
-            <div className="flex items-center space-x-2 text-primary text-xs font-bold uppercase tracking-wider mb-1">
-              <Building2 className="w-4 h-4 text-gold" />
-              <span>Gated Communities</span>
-            </div>
-            <h2 className="text-2xl font-serif font-black text-ink uppercase tracking-tight">
-              Registered Housing Societies
-            </h2>
-            <p className="text-xs text-muted-foreground font-medium mt-0.5">Select a society portal or register your store as an approved vendor</p>
-          </div>
-
-          <button
-            onClick={() => checkVendorAuthBeforeSocietyCreate(search)}
-            className="px-5 py-2.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs transition-all uppercase tracking-wider flex items-center space-x-2 shadow-sm self-start sm:self-auto"
-          >
-            <PlusCircle className="w-4 h-4 text-gold" />
-            <span>Request Unlisted Society</span>
-          </button>
-        </div>
-
-        {/* Skeleton Loading */}
-        {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <SocietyCardSkeleton key={i} />
-            ))}
-          </div>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 text-center font-medium text-xs">
-            {error}
-          </div>
-        )}
-
-        {/* Unlisted Fallback Banner when search yields no results */}
-        {!loading && societies.length === 0 && (
-          <div className="bg-card border-2 border-dashed border-border rounded-[2.5rem] p-8 sm:p-12 text-center max-w-2xl mx-auto shadow-sm my-8">
-            <div className="w-14 h-14 rounded-2xl bg-secondary border border-border flex items-center justify-center text-primary mx-auto mb-4">
-              <Building2 className="w-8 h-8 text-gold" />
-            </div>
-
-            <h3 className="text-xl font-serif font-extrabold text-ink uppercase tracking-wide">
-              Society Not Listed?
-            </h3>
-            <p className="text-xs text-muted-foreground mt-2 mb-6 font-medium max-w-md mx-auto">
-              We couldn't find any registered societies matching "{search}". Request onboarding for your gated community now to enable resident shopping and vendor registrations.
-            </p>
-
-            <button
-              onClick={() => checkVendorAuthBeforeSocietyCreate(search)}
-              className="px-6 py-3.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold text-xs uppercase tracking-widest transition-colors shadow-md flex items-center justify-center space-x-2 mx-auto"
-            >
-              <PlusCircle className="w-4 h-4 text-gold" />
-              <span>Request to Add Your Society</span>
-            </button>
-          </div>
-        )}
-
-        {/* Societies Bento Grid */}
-        {!loading && societies.length > 0 && (() => {
-          const totalPages = Math.ceil(societies.length / SOCIETIES_PER_PAGE);
-          const paginatedSocieties = societies.slice((currentPage - 1) * SOCIETIES_PER_PAGE, currentPage * SOCIETIES_PER_PAGE);
-
-          return (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                {paginatedSocieties.map((soc, idx) => {
-                  const absoluteIdx = (currentPage - 1) * SOCIETIES_PER_PAGE + idx;
-                  const socImg = getSocietyImage(soc, absoluteIdx);
-                  const formattedId = typeof soc.society_id === 'number' 
-                    ? `SOC-${soc.society_id}` 
-                    : String(soc.society_id || '').startsWith('SOC-') 
-                      ? soc.society_id 
-                      : `SOC-${String(soc.society_id || absoluteIdx).slice(-4)}`;
-
-                  return (
-                    <div
-                      key={soc.society_id || absoluteIdx}
-                      className="bg-card rounded-[2rem] border border-border hover:border-primary/40 transition-all duration-300 shadow-sm hover:shadow-md overflow-hidden flex flex-col justify-between group bento-card"
-                    >
-                      <div>
-                        {/* Banner Image */}
-                        <div className="h-48 w-full relative overflow-hidden bg-secondary">
-                          <img
-                            src={socImg}
-                            alt={soc.society_name}
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = DIVERSE_SOCIETY_IMAGES[absoluteIdx % DIVERSE_SOCIETY_IMAGES.length];
-                            }}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          />
-
-                          {/* Unique Society ID Badge */}
-                          <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-emerald-950/80 backdrop-blur-md border border-emerald-500/30 text-emerald-300 text-[10px] font-extrabold flex items-center space-x-1 shadow-sm">
-                            <Building2 className="w-3 h-3 text-gold" />
-                            <span>{formattedId}</span>
-                          </div>
-
-                          {/* Active Vendors Count Badge */}
-                          <div className="absolute top-3.5 right-3.5 px-3 py-1 rounded-full bg-ink/80 backdrop-blur-md border border-white/20 text-white text-[10px] font-extrabold flex items-center space-x-1.5">
-                            <Store className="w-3.5 h-3.5 text-gold" />
-                            <span>{soc.vendor_count || 0} Active Vendors</span>
-                          </div>
-                        </div>
-
-                      {/* Society Info */}
-                      <div className="p-6">
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <h3 className="text-xl font-serif font-extrabold text-ink uppercase tracking-wide group-hover:text-primary transition-colors">
-                            {soc.society_name}
-                          </h3>
-                        </div>
-                        <p className="text-xs text-muted-foreground flex items-center space-x-1.5 mt-1.5 font-medium">
-                          <MapPin className="w-4 h-4 text-gold shrink-0" />
-                          <span>{soc.location}</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* 2 CTA Buttons */}
-                    <div className="p-6 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <button
-                        onClick={() => handleSocietySelect(soc)}
-                        className="w-full py-2.5 px-3 rounded-full bg-secondary text-ink hover:bg-border font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
-                      >
-                        <span>Show Vendors</span>
-                        <ArrowRight className="w-3.5 h-3.5 text-gold" />
-                      </button>
-
-                      <button
-                        onClick={() => setRoute({ page: 'vendorRegister', societyId: soc.society_id, societyName: soc.society_name, allowNewStore: true })}
-                        className="w-full py-2.5 px-3 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
-                      >
-                        <Store className="w-3.5 h-3.5 text-gold" />
-                        <span>Become Vendor</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              </div>
-
-              {/* 25-Item Pagination Controls Bar */}
-              {societies.length > SOCIETIES_PER_PAGE && (
-                <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-card border border-border p-4 px-6 rounded-2xl shadow-xs">
-                  <div className="text-xs font-semibold text-muted-foreground">
-                    Showing <span className="font-bold text-ink">{(currentPage - 1) * SOCIETIES_PER_PAGE + 1}</span>–<span className="font-bold text-ink">{Math.min(currentPage * SOCIETIES_PER_PAGE, societies.length)}</span> of <span className="font-bold text-ink">{societies.length}</span> Registered Societies
-                  </div>
-
-                  <div className="flex items-center space-x-1.5">
-                    <button
-                      type="button"
-                      disabled={currentPage === 1}
-                      onClick={() => {
-                        setCurrentPage(p => Math.max(p - 1, 1));
-                        document.getElementById('societies-section')?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                      className="px-3.5 py-2 rounded-xl border border-border bg-background hover:bg-secondary text-ink text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center space-x-1 cursor-pointer"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                      <span>Prev</span>
-                    </button>
-
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
-                      <button
-                        type="button"
-                        key={pg}
-                        onClick={() => {
-                          setCurrentPage(pg);
-                          document.getElementById('societies-section')?.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                        className={`w-9 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          currentPage === pg
-                            ? 'bg-primary text-primary-foreground shadow-xs'
-                            : 'bg-background hover:bg-secondary text-ink border border-border'
-                        }`}
-                      >
-                        {pg}
-                      </button>
-                    ))}
-
-                    <button
-                      type="button"
-                      disabled={currentPage === totalPages}
-                      onClick={() => {
-                        setCurrentPage(p => Math.min(p + 1, totalPages));
-                        document.getElementById('societies-section')?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                      className="px-3.5 py-2 rounded-xl border border-border bg-background hover:bg-secondary text-ink text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center space-x-1 cursor-pointer"
-                    >
-                      <span>Next</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          );
-        })()}
-
-      </div>
-
-      {/* VENDOR & USER LOGIN REQUIRED PROMPT MODAL */}
-      {isLoginPromptOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-card border border-border rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative space-y-5 text-center">
-            <button
-              onClick={() => setIsLoginPromptOpen(false)}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-ink transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-600">
-              <Building2 className="w-8 h-8" />
-            </div>
-
-            <div>
-              <span className="px-3 py-1 bg-amber-500/10 text-amber-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-amber-500/20">
-                Login Required
-              </span>
-              <h3 className="text-xl font-serif font-black text-ink mt-2">
-                {selectedTargetSociety ? `Explore ${selectedTargetSociety.society_name}` : 'Log In to Access Society Portal'}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-2 leading-relaxed font-medium">
-                {selectedTargetSociety
-                  ? `Please log in to your account to view approved local stores, products, and daily essentials for ${selectedTargetSociety.society_name}.`
-                  : 'Please log in to your account to access residential society portals and vendor stores.'}
-              </p>
-            </div>
-
-            <div className="pt-2 flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => {
-                  setIsLoginPromptOpen(false);
-                  const targetId = selectedTargetSociety?.society_id || sessionStorage.getItem('digilocal_pending_society_id');
-                  setRoute({ page: 'login', tab: 'user', redirectSocietyId: targetId });
-                }}
-                className="flex-1 py-3 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
-              >
-                <LogOut className="w-4 h-4 rotate-180" />
-                <span>Log In Now</span>
-              </button>
-              <button
-                onClick={() => {
-                  setIsLoginPromptOpen(false);
-                  const targetId = selectedTargetSociety?.society_id || sessionStorage.getItem('digilocal_pending_society_id');
-                  setRoute({ page: 'register', redirectSocietyId: targetId });
-                }}
-                className="flex-1 py-3 px-4 rounded-full bg-secondary hover:bg-border text-ink font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
-              >
-                Register
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* RESIDENT USER PRIVILEGE NOTICE MODAL */}
-      {isResidentNoticeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-card border border-border rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative space-y-5 text-center">
-            <button
-              onClick={() => setIsResidentNoticeModalOpen(false)}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-ink transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="w-16 h-16 rounded-3xl bg-[#18281F]/10 border border-[#18281F]/20 flex items-center justify-center mx-auto text-[#18281F]">
-              <Building2 className="w-8 h-8 text-emerald-800" />
-            </div>
-
-            <div>
-              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-800 text-[10px] font-black uppercase tracking-wider rounded-full border border-emerald-500/20">
-                Resident User Account
-              </span>
-              <h3 className="text-xl font-serif font-black text-ink mt-2">Explore Society Vendors</h3>
-              <p className="text-xs text-muted-foreground mt-2 leading-relaxed font-medium">
-                You are currently logged in as a <strong>Resident User</strong>. As a resident, you can explore societies, browse catalogs, and order from local vendors. Society onboarding and store registrations are reserved for Vendor accounts.
-              </p>
-            </div>
-
-            <div className="pt-2 flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => {
-                  setIsResidentNoticeModalOpen(false);
-                  const targetSocId = activeResidentUser?.society_id || activeResidentUser?.societyId || 1;
-                  setRoute({ page: 'societyVendors', societyId: targetSocId });
-                }}
-                className="flex-1 py-3 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
-              >
-                <Store className="w-4 h-4 text-[#E6C35C]" />
-                <span>Explore Vendors</span>
-              </button>
-              <button
-                onClick={() => {
-                  setIsResidentNoticeModalOpen(false);
-                  setRoute({ page: 'login', tab: 'vendor' });
-                }}
-                className="flex-1 py-3 px-4 rounded-full bg-secondary hover:bg-border text-ink font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
-              >
-                Vendor Account
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {isUnlistedModalOpen && (
-        <div className="fixed inset-0 bg-ink/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-card rounded-[2.5rem] max-w-lg w-full shadow-2xl border border-border overflow-hidden relative">
-
-            {/* Modal Header */}
-            <div className="bg-primary text-primary-foreground p-6 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl bg-primary-foreground/20 border border-primary-foreground/30 flex items-center justify-center text-gold">
-                  <Building2 className="w-5 h-5" />
+            {/* Right Column: Zordial Logo Card */}
+            <motion.div variants={itemVariants} className="lg:col-span-5 flex flex-col items-center justify-center">
+              <div className="w-full bg-[#FAF8F5] border border-[#E7DFD5] rounded-3xl p-6 sm:p-8 flex flex-col items-center text-center space-y-4 shadow-2xs hover:border-[#C8A878]/60 transition-all group">
+                <div className="w-full max-w-[240px] sm:max-w-[280px] p-2 bg-white rounded-2xl border border-[#E7DFD5]/60 shadow-xs flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                  <ZordialLogo className="w-full h-auto" />
                 </div>
                 <div>
-                  <h3 className="text-base font-serif font-extrabold uppercase tracking-wider">
-                    Request Society Onboarding
-                  </h3>
-                  <p className="text-[11px] text-gold">Register an unlisted gated community</p>
+                  <h4 className="text-xs font-black tracking-wider uppercase text-[#211A19]">
+                    Zordial Technologies Private Limited
+                  </h4>
+                  <p className="text-[11px] text-[#78716C] font-medium mt-0.5">
+                    Transforming Ideas Into Enterprise Applications
+                  </p>
                 </div>
+                <a
+                  href="https://zordial.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#541D26] hover:text-[#6B2732] hover:underline"
+                >
+                  <span>https://zordial.com</span>
+                  <ExternalLink className="w-3 h-3 text-[#541D26]" />
+                </a>
               </div>
-              <button
-                onClick={resetUnlistedModal}
-                className="p-1.5 rounded-full text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            </motion.div>
 
-            {/* Modal Body */}
-            <div className="p-6">
-              {unlistedFormSubmitted ? (
-                <div className="text-center py-6 space-y-4">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/30 text-primary flex items-center justify-center mx-auto shadow-md">
-                    <CheckCircle2 className="w-10 h-10 text-primary" />
-                  </div>
-                  <div>
-                    <h4 className="text-lg font-serif font-extrabold text-ink uppercase">
-                      Request Submitted Successfully!
-                    </h4>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Our DigiLocal admin team will verify <strong>{unlistedForm.societyName}</strong> with RWA contacts within 24 hours.
-                    </p>
-                  </div>
-                  <button
-                    onClick={resetUnlistedModal}
-                    className="w-full py-3.5 bg-primary text-primary-foreground font-bold text-xs rounded-full hover:bg-primary/90 transition-colors uppercase tracking-wider shadow-sm"
-                  >
-                    Done & Return to Homepage
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleUnlistedSubmit} className="space-y-4">
-                  {unlistedError && (
-                    <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-700 text-xs font-semibold rounded-2xl">
-                      {unlistedError}
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1">
-                      Society / Colony Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Mahagun Modern"
-                      value={unlistedForm.societyName}
-                      onChange={(e) => setUnlistedForm({ ...unlistedForm, societyName: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-2xl border border-border text-xs font-medium focus:ring-2 focus:ring-primary bg-background"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1">
-                      Full Address & Landmark *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Sector 78, Expressway"
-                      value={unlistedForm.fullAddress}
-                      onChange={(e) => setUnlistedForm({ ...unlistedForm, fullAddress: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-2xl border border-border text-xs font-medium focus:ring-2 focus:ring-primary bg-background"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1">
-                        Pincode *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        maxLength={6}
-                        placeholder="201301"
-                        value={unlistedForm.pincode}
-                        onChange={(e) => setUnlistedForm({ ...unlistedForm, pincode: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-2xl border border-border text-xs font-medium focus:ring-2 focus:ring-primary bg-background"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1">
-                        Total Flats *
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        placeholder="e.g. 450"
-                        value={unlistedForm.totalFlats}
-                        onChange={(e) => setUnlistedForm({ ...unlistedForm, totalFlats: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-2xl border border-border text-xs font-medium focus:ring-2 focus:ring-primary bg-background"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1">
-                      RWA / Facility Manager Contact Phone *
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="10-digit phone number"
-                      value={unlistedForm.rwaPhone}
-                      onChange={(e) => setUnlistedForm({ ...unlistedForm, rwaPhone: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-2xl border border-border text-xs font-medium focus:ring-2 focus:ring-primary bg-background"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full py-3.5 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold text-xs rounded-full uppercase tracking-wider transition-colors shadow-md mt-2"
-                  >
-                    Submit Society Request
-                  </button>
-                </form>
-              )}
-            </div>
           </div>
-        </div>
-      )}
+        </motion.div>
 
-      {/* Live Order Tracker Floating Widget */}
-      <LiveOrderTrackerToast
-        activeOrder={activeOrder}
-        onClose={() => setActiveOrder(null)}
-      />
+        {/* FINAL CALL TO ACTION BANNER */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          variants={containerVariants}
+          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto mt-10 px-4"
+        >
+          <div className="bg-[#EEE5DA] border border-[#E5DAD0] rounded-[2.5rem] p-8 sm:p-12 text-center relative overflow-hidden shadow-xs">
+            <motion.div variants={itemVariants} className="max-w-2xl mx-auto space-y-4">
+              <span className="px-3.5 py-1 text-[11px] font-extrabold bg-[#541D26] text-white rounded-full inline-block shadow-xs">
+                Get Started Today
+              </span>
+              <h2 className="text-2xl sm:text-4xl font-serif font-black text-[#211A19]">
+                Ready to Explore Your Neighborhood Marketplace?
+              </h2>
+              <p className="text-xs sm:text-sm text-[#211A19]/75 font-medium leading-relaxed">
+                Whether you're a resident looking for fresh local products or a merchant wanting to expand your business, DigiLocal is your platform.
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
+                <button
+                  onClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
+                  className="px-7 py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center space-x-2 cursor-pointer transition-all"
+                >
+                  <span>Browse All Vendors</span>
+                  <ArrowUpRight className="w-4 h-4 text-white" />
+                </button>
 
-    </div>
-  );
-}
+                <button
+                  onClick={() => setRoute({ page: 'vendorRegister' })}
+                  className="px-7 py-3.5 rounded-full bg-white hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26] font-extrabold text-xs uppercase tracking-wider shadow-sm flex items-center space-x-2 cursor-pointer transition-all"
+                >
+                  <Store className="w-4 h-4 currentColor" />
+                  <span>Register As Merchant</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
+
+      </div>
+    );
+  }

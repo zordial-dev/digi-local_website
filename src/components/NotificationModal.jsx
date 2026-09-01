@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, AlertTriangle, AlertCircle, Info, X } from 'lucide-react';
 
 export default function NotificationModal({
@@ -15,14 +16,20 @@ export default function NotificationModal({
 
   const isConfirm = type === 'confirm';
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A1428]/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center flex flex-col items-center">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+      onClick={onCancel || onConfirm}
+    >
+      <div 
+        className="bg-white border border-[#E7DFD5] rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center flex flex-col items-center my-auto animate-in zoom-in-95 duration-200 text-[#211A19]"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Icon Header */}
         <div className="mb-4">
           {type === 'success' && (
-            <div className="w-14 h-14 rounded-full bg-[#E8F5E9] border border-[#2E7D32]/30 text-[#2E7D32] flex items-center justify-center shadow-sm mx-auto">
+            <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shadow-sm mx-auto">
               <CheckCircle2 className="w-8 h-8" />
             </div>
           )}
@@ -32,8 +39,8 @@ export default function NotificationModal({
             </div>
           )}
           {(type === 'warning' || type === 'confirm') && (
-            <div className="w-14 h-14 rounded-full bg-[#F6F3EC] border border-[#C5A880]/40 text-[#C5A880] flex items-center justify-center shadow-sm mx-auto">
-              <AlertTriangle className="w-8 h-8" />
+            <div className="w-14 h-14 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 text-[#541D26] flex items-center justify-center shadow-sm mx-auto">
+              <AlertTriangle className="w-8 h-8 text-[#541D26]" />
             </div>
           )}
           {type === 'info' && (
@@ -44,11 +51,11 @@ export default function NotificationModal({
         </div>
 
         {/* Title & Message */}
-        <h3 className="text-base font-serif font-extrabold text-[#0A1428] uppercase tracking-wide mb-1">
+        <h3 className="text-base font-serif font-extrabold text-[#211A19] uppercase tracking-wide mb-1">
           {title || (type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Notice')}
         </h3>
 
-        <p className="text-xs text-[#787F8C] leading-relaxed mb-6 font-medium">
+        <p className="text-xs text-[#78716C] leading-relaxed mb-6 font-medium">
           {message}
         </p>
 
@@ -58,13 +65,13 @@ export default function NotificationModal({
             <div className="flex items-center space-x-2">
               <button
                 onClick={onCancel}
-                className="flex-1 py-2.5 rounded-xl bg-transparent border border-[#C5A880]/40 text-[#787F8C] hover:text-[#0A1428] font-bold text-xs uppercase tracking-wider transition-colors"
+                className="flex-1 py-3 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] text-[#211A19] hover:bg-[#EEE5DA] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
               >
                 {cancelText}
               </button>
               <button
                 onClick={onConfirm}
-                className="flex-1 py-2.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs uppercase tracking-wider shadow-sm transition-colors"
+                className="flex-1 py-3 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-colors border border-[#C8A878]/30 cursor-pointer"
               >
                 {confirmText}
               </button>
@@ -72,14 +79,14 @@ export default function NotificationModal({
           ) : (
             <button
               onClick={onConfirm || onCancel}
-              className="w-full py-3 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs uppercase tracking-wider shadow-md transition-all"
+              className="w-full py-3.5 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all border border-[#C8A878]/30 cursor-pointer"
             >
               {confirmText}
             </button>
           )}
         </div>
-
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

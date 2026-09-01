@@ -48,7 +48,7 @@ export class ErrorBoundary extends React.Component {
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
                 onClick={() => window.location.reload()}
-                className="flex-1 py-3.5 px-4 rounded-full bg-[#18281F] hover:bg-black text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all shadow-md cursor-pointer"
+                className="flex-1 py-3.5 px-4 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all shadow-md cursor-pointer border border-[#C8A878]/30"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Reload Page</span>
@@ -56,7 +56,7 @@ export class ErrorBoundary extends React.Component {
 
               <button
                 onClick={this.handleReset}
-                className="flex-1 py-3.5 px-4 rounded-full bg-secondary hover:bg-border text-[#1E3623] text-xs font-bold flex items-center justify-center space-x-2 border border-border/80 transition-all shadow-xs cursor-pointer"
+                className="flex-1 py-3.5 px-4 rounded-full bg-secondary hover:bg-border text-[#211A19] text-xs font-bold flex items-center justify-center space-x-2 border border-border/80 transition-all shadow-xs cursor-pointer"
               >
                 <Home className="w-3.5 h-3.5" />
                 <span>Go to Home</span>

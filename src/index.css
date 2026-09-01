@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400;1,500;1,600;1,700&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700;800;900&family=Playfair+Display:wght@700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -12,23 +12,31 @@
   font-family: 'Cormorant Garamond', Georgia, serif;
 }
 
-/* Color Scheme Tokens from Reference Image */
+/* DIGILOCAL LUXURY PALETTE (Oxblood x Nude x Warm Cream) */
 :root {
-  --background: #F7F4EE;         /* Warm light cream */
-  --foreground: #18281F;         /* Deep forest dark espresso text */
-  --card: #FFFFFF;               /* Pure white cards */
-  --muted-foreground: #6B7C70;   /* Muted sage taupe */
-  --border: #E4DCC9;             /* Soft warm sand border */
-  --secondary: #EFE8D8;          /* Light warm sand surface */
-  --ink: #18281F;                /* Deep forest text */
-  --ink-foreground: #F7F4EE;     /* Cream text */
-  --gold: #C4A066;               /* Warm tan gold accent */
-  --accent: #C4A066;             /* Warm tan gold accent */
-  --primary: #18281F;            /* Deep dark forest green hero background */
-  --primary-card: #243A2D;       /* Inner dark forest bento card */
-  --primary-foreground: #F7F4EE; /* Cream text */
+  --cream: #F6F0E8;
+  --soft-section: #EEE5DA;
+  --espresso: #211A19;
+  --oxblood: #541D26;
+  --oxblood-hover: #6B2732;
+  --nude: #D6B7A5;
+  --gold: #C8A878;
+  --border-tone: #E5DAD0;
+  --card-white: #FFFFFF;
 
-  --font-serif: 'Playfair Display', Georgia, serif;
+  --background: #F6F0E8;
+  --foreground: #211A19;
+  --card: #FFFFFF;
+  --muted-foreground: rgba(33, 26, 25, 0.75);
+  --border: #E5DAD0;
+  --secondary: #D6B7A5;
+  --ink: #211A19;
+  --ink-foreground: #FFFFFF;
+  --primary: #541D26;
+  --primary-hover: #6B2732;
+  --primary-foreground: #FFFFFF;
+
+  --font-serif: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
@@ -43,20 +51,21 @@ html {
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--cream);
+  color: var(--espresso);
   font-family: var(--font-sans);
   overflow-x: hidden;
   width: 100%;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  transform: translateZ(0);
 }
 
 #root {
   width: 100%;
   min-height: 100vh;
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--cream);
+  color: var(--espresso);
   display: flex;
   flex-direction: column;
 }
@@ -65,53 +74,109 @@ body {
   font-family: var(--font-serif);
 }
 
-/* Custom Scrollbar */
+/* Custom Refined Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: var(--background);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--muted-foreground);
+  background: var(--cream);
 }
 
-/* Custom bento glass & rounded utilities */
+::-webkit-scrollbar-thumb {
+  background: rgba(84, 29, 38, 0.2);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(84, 29, 38, 0.4);
+}
+
+/* Surface Texture Utilities */
+.cream-paper {
+  background-color: #F6F0E8;
+  transform: translateZ(0);
+}
+
+.soft-section-bg {
+  background-color: #EEE5DA;
+  transform: translateZ(0);
+}
+
+.card-white {
+  background-color: #FFFFFF;
+  border: 1px solid #E5DAD0;
+  box-shadow: 0 4px 20px -4px rgba(33, 26, 25, 0.05);
+}
+
+.card-white:hover {
+  box-shadow: 0 12px 30px -6px rgba(33, 26, 25, 0.1);
+}
+
+/* Bento Card Utility */
 .bento-card {
-  background-color: var(--card);
-  border: 1px solid var(--border);
+  background-color: #FFFFFF;
+  border: 1px solid #E5DAD0;
   border-radius: 1.75rem;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
 }
 
 .bento-card:hover {
-  box-shadow: 0 12px 30px -10px rgba(28, 68, 53, 0.08);
+  border-color: rgba(84, 29, 38, 0.25);
+  box-shadow: 0 16px 36px -10px rgba(33, 26, 25, 0.08);
 }
 
-/* Rotating Stamp Animation */
-@keyframes spinSlow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* Primary Button (Oxblood #541D26, Hover #6B2732) */
+.btn-primary, .btn-oxblood, .btn-obsidian {
+  position: relative;
+  background-color: #541D26;
+  color: #FFFFFF;
+  border: 1px solid #541D26;
+  border-radius: 9999px;
+  font-weight: 700;
+  overflow: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.15s ease;
+  z-index: 1;
 }
 
-.animate-spin-slow {
-  animation: spinSlow 18s linear infinite;
-  transform-origin: center center;
+.btn-primary:hover, .btn-oxblood:hover, .btn-obsidian:hover {
+  background-color: #6B2732;
+  border-color: #6B2732;
+  color: #FFFFFF;
 }
 
-/* Hide reCAPTCHA badge for clean UI */
-.grecaptcha-badge {
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
+/* Secondary Button (Transparent Background, Oxblood #541D26 Border & Text) */
+.btn-secondary, .btn-bone {
+  position: relative;
+  background-color: transparent;
+  color: #541D26;
+  border: 1px solid #541D26;
+  border-radius: 9999px;
+  font-weight: 700;
+  overflow: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.15s ease;
+  z-index: 1;
 }
 
+.btn-secondary:hover, .btn-bone:hover {
+  background-color: #541D26;
+  color: #FFFFFF;
+  border-color: #541D26;
+}
+
+/* Micro-Interactions */
+button:hover:not(:disabled),
+.btn-cta:hover:not(:disabled) {
+  transform: scale(1.02);
+}
+
+button:active:not(:disabled),
+.btn-cta:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Soft Decorative Gradients */
+.animate-wave-drift {
+  background: linear-gradient(135deg, #F6F0E8 0%, #EEE5DA 50%, #D6B7A5 100%);
+}

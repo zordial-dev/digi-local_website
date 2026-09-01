@@ -92,7 +92,7 @@ export default function HeroSearchComponent({ societies = [], onSelectSociety, o
                           {society.society_name}
                         </h4>
                         {society.society_id && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-[#18281F] text-[#C4A066] rounded-md uppercase">
+                          <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-[#541D26] text-[#C8A878] rounded-md uppercase">
                             {society.society_id}
                           </span>
                         )}

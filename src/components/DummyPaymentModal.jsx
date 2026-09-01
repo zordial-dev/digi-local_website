@@ -101,7 +101,7 @@ export default function DummyPaymentModal({
       <div className="bg-card border border-border rounded-[2.5rem] max-w-lg w-full shadow-2xl overflow-hidden relative text-foreground">
         
         {/* Gateway Header */}
-        <div className="bg-[#18281F] text-[#F7F4EE] px-6 py-5 flex items-center justify-between border-b border-emerald-800/40">
+        <div className="bg-[#541D26] text-[#F7F4EE] px-6 py-5 flex items-center justify-between border-b border-[#C8A878]/30">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-white/10 p-1 flex items-center justify-center border border-white/15">
               <img src="/logo.png" alt="DigiLocal Logo" className="w-full h-full object-contain" />
@@ -111,16 +111,16 @@ export default function DummyPaymentModal({
                 <h3 className="text-sm font-serif font-black uppercase tracking-wider text-white">
                   {title}
                 </h3>
-                <span className="px-2 py-0.5 text-[9px] font-black bg-[#C4A066] text-[#18281F] rounded-md uppercase tracking-widest">
+                <span className="px-2 py-0.5 text-[9px] font-black bg-[#C8A878] text-[#541D26] rounded-md uppercase tracking-widest">
                   Secure Gateway
                 </span>
               </div>
-              <p className="text-[11px] text-emerald-200/80 font-medium">{description}</p>
+              <p className="text-[11px] text-[#EEE5DA]/80 font-medium">{description}</p>
             </div>
           </div>
           <button 
             onClick={handleResetAndClose} 
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>

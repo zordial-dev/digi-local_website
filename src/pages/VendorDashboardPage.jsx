@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { api, getNormalizedImageUrl, getItemUnitLabel, formatItemQuantityBadge } from '../services/api';
-import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight } from 'lucide-react';
+import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight, Briefcase } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
+import VendorStatusBanner from '../components/VendorStatusBanner';
 import { QRCodeSVG } from 'qrcode.react';
 import { DashboardSkeleton } from '../components/Skeletons';
 
@@ -13,6 +15,27 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   // Modals state
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [showSettingsSuccessModal, setShowSettingsSuccessModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [deletingStore, setDeletingStore] = useState(false);
+  const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info' });
+
+  // Service Enquiries State
+  const [enquiries, setEnquiries] = useState([]);
+  const [enquiryFilter, setEnquiryFilter] = useState('ALL'); // 'ALL' | 'NEW' | 'CONTACTED' | 'SCHEDULED' | 'COMPLETED'
+  const [updatingEnquiryId, setUpdatingEnquiryId] = useState(null);
+
+  // Location Settings State (Standardized to v3.0.0 Architecture)
+  const [coverageSettings, setCoverageSettings] = useState({
+    area: '',
+    location: '',
+    city: '',
+    state: '',
+    pincode: '',
+    location_address: ''
+  });
+  const [availableZonesList, setAvailableZonesList] = useState([]);
+  const [savingCoverage, setSavingCoverage] = useState(false);
   const [itemForm, setItemForm] = useState({
     item_name: '',
     description: '',
@@ -43,6 +66,37 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Strict Background Freeze (Locks background position & scroll completely while any modal is open)
+  useEffect(() => {
+    const isAnyModalOpen = showAddItemModal || showSettingsSuccessModal || showDeleteConfirmModal || modalConfig.isOpen;
+    if (isAnyModalOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+    } else {
+      const scrollY = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
+      }
+    }
+    return () => {
+      const scrollY = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
+      }
+    };
+  }, [showAddItemModal, showSettingsSuccessModal, showDeleteConfirmModal, modalConfig.isOpen]);
+
   // Settings State (DigiCafe style complete settings)
   const [settingsForm, setSettingsForm] = useState({
     store_name: '',
@@ -56,7 +110,18 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     max_quantity_limit: '10',
     delivery_charge: '0',
     gst_percentage: '5',
-    service_charge_percentage: '0'
+    service_charge_percentage: '0',
+    location: '',
+    area: '',
+    city: '',
+    state: '',
+    pincode: '',
+    account_holder_name: '',
+    bank_name: '',
+    account_number: '',
+    ifsc_code: '',
+    upi_id: '',
+    qr_code_url: ''
   });
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -203,19 +268,39 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       const data = await api.getVendorPanel(vendorId);
       setPanelData(data);
       if (data.vendor) {
+        let cachedVendor = {};
+        try {
+          const session = localStorage.getItem('digilocal_vendor_session') || localStorage.getItem('vendor_profile');
+          if (session) {
+            const parsed = JSON.parse(session);
+            cachedVendor = parsed.vendor || parsed || {};
+          }
+        } catch (_) {}
+
         setSettingsForm({
-          store_name: data.vendor.store_name || '',
-          logo: data.vendor.logo || '',
-          description: data.vendor.description || '',
-          phone_number: data.vendor.phone_number || '',
-          gst_number: data.vendor.gst_number || '',
-          opening_timing: data.vendor.opening_timing || '08:00 AM',
-          closing_timing: data.vendor.closing_timing || '10:00 PM',
-          min_order_value: String(data.vendor.min_order_value ?? 0),
-          max_quantity_limit: String(data.vendor.max_quantity_limit ?? 10),
-          delivery_charge: String(data.vendor.delivery_charge ?? 0),
-          gst_percentage: String(data.vendor.gst_percentage ?? 5),
-          service_charge_percentage: String(data.vendor.service_charge_percentage ?? 0)
+          store_name: data.vendor.store_name || cachedVendor.store_name || '',
+          logo: data.vendor.logo || cachedVendor.logo || '',
+          description: data.vendor.description || cachedVendor.description || '',
+          phone_number: data.vendor.phone_number || cachedVendor.phone_number || '',
+          gst_number: data.vendor.gst_number || data.vendor.gstin || cachedVendor.gst_number || cachedVendor.gstin || '',
+          opening_timing: data.vendor.opening_timing || cachedVendor.opening_timing || '08:00 AM',
+          closing_timing: data.vendor.closing_timing || cachedVendor.closing_timing || '10:00 PM',
+          min_order_value: String(data.vendor.min_order_value ?? cachedVendor.min_order_value ?? 0),
+          max_quantity_limit: String(data.vendor.max_quantity_limit ?? cachedVendor.max_quantity_limit ?? 10),
+          delivery_charge: String(data.vendor.delivery_charge ?? cachedVendor.delivery_charge ?? 0),
+          gst_percentage: String(data.vendor.gst_percentage ?? cachedVendor.gst_percentage ?? 5),
+          service_charge_percentage: String(data.vendor.service_charge_percentage ?? cachedVendor.service_charge_percentage ?? 0),
+          location: data.vendor.location || data.vendor.area || data.vendor.shop_address || data.vendor.society_name || cachedVendor.location || cachedVendor.area || cachedVendor.shop_address || cachedVendor.society_name || '',
+          area: data.vendor.area || cachedVendor.area || '',
+          city: data.vendor.city || cachedVendor.city || 'Jaipur',
+          state: data.vendor.state || cachedVendor.state || 'Rajasthan',
+          pincode: data.vendor.pincode || cachedVendor.pincode || '',
+          account_holder_name: data.vendor.account_holder_name || data.vendor.payment_details?.account_holder_name || cachedVendor.account_holder_name || '',
+          bank_name: data.vendor.bank_name || data.vendor.payment_details?.bank_name || cachedVendor.bank_name || '',
+          account_number: data.vendor.account_number || data.vendor.payment_details?.account_number || cachedVendor.account_number || '',
+          ifsc_code: data.vendor.ifsc_code || data.vendor.payment_details?.ifsc_code || cachedVendor.ifsc_code || '',
+          upi_id: data.vendor.upi_id || data.vendor.payment_details?.upi_id || cachedVendor.upi_id || '',
+          qr_code_url: data.vendor.qr_code_url || data.vendor.payment_details?.qr_code_url || cachedVendor.qr_code_url || ''
         });
       }
     } catch (err) {
@@ -224,8 +309,6 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       setLoading(false);
     }
   };
-
-  const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
 
   const isItemAvailable = (item) => {
     if (!item) return false;
@@ -390,8 +473,6 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     }
   };
 
-  const [showSettingsSuccessModal, setShowSettingsSuccessModal] = useState(false);
-
   const handleSaveSettings = async (e) => {
     e.preventDefault();
     try {
@@ -426,10 +507,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     });
   };
 
-  // Delete Vendor Store State & Handler
-  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
-  const [deletingStore, setDeletingStore] = useState(false);
-
+  // Delete Vendor Store Handler
   const handleDeleteVendorStore = async () => {
     try {
       setDeletingStore(true);
@@ -665,18 +743,30 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               <div className="min-w-0">
                 <div className="flex items-center space-x-2">
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-secondary text-ink border border-border">
-                    {vendor.category || 'General Store'}
+                    {vendor.category || vendor.business_category || 'Fresh Flowers, Bouquets & Puja Floral Supplies'}
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    {vendor.status || 'ACTIVE'}
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border ${
+                    (vendor.status === 'APPROVED' || vendor.status === 'ACTIVE')
+                      ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                      : vendor.status === 'REJECTED'
+                      ? 'bg-red-500/10 text-red-700 border-red-500/20'
+                      : 'bg-amber-500/15 text-amber-800 border-amber-500/30'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      (vendor.status === 'APPROVED' || vendor.status === 'ACTIVE')
+                        ? 'bg-emerald-500 animate-pulse'
+                        : vendor.status === 'REJECTED'
+                        ? 'bg-red-500'
+                        : 'bg-amber-500 animate-pulse'
+                    }`} />
+                    {vendor.status || 'PENDING APPROVAL'}
                   </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-serif font-black text-ink mt-1 truncate">
-                  {vendor.store_name}
+                  {vendor.store_name || 'My Local Store'}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-1 font-medium truncate">
-                  Vendor: {vendor.vendor_name}
+                  Vendor: {vendor.vendor_name || vendor.owner_name || (vendor.email && vendor.email.includes('@') ? vendor.email.split('@')[0] : 'Verified Vendor')}
                   {vendor.email && vendor.email.includes('@') && !vendor.email.includes('@vendor.digilocal') 
                     ? ` (${vendor.email})` 
                     : (vendor.phone_number || vendor.phone ? ` • ${vendor.phone_number || vendor.phone}` : '')}
@@ -696,24 +786,29 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirmModal(true)}
-                className="px-4 py-2.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center space-x-1.5 border border-rose-200 shadow-sm uppercase tracking-wider transition-colors cursor-pointer"
-                title="Delete Shop Account"
+                className="px-4 py-2.5 rounded-full bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center space-x-1.5 border border-red-200 shadow-2xs transition-all cursor-pointer"
               >
-                <Trash2 className="w-4 h-4 text-rose-600" />
-                <span>Delete Store</span>
+                <span>Delete Account</span>
               </button>
             </div>
           </div>
+
+          <VendorStatusBanner
+            vendorId={vendorId || vendor?.vendor_id}
+            onNavigateSettings={() => setActiveTab('settings')}
+            onRefreshStatus={loadPanelData}
+            activeVendor={vendor}
+          />
         </div>
 
         {/* Pending Admin Approval Banner */}
-        {vendor.status === 'PENDING' && (
-          <div className="p-4 rounded-2xl bg-secondary border border-border text-ink text-xs flex items-start space-x-3 shadow-sm font-medium">
-            <ShieldCheck className="w-5 h-5 text-gold flex-shrink-0 mt-0.5" />
+        {(vendor.status === 'PENDING' || vendor.status === 'PENDING APPROVAL' || (vendor.status !== 'APPROVED' && vendor.status !== 'ACTIVE')) && (
+          <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-300/80 text-amber-900 text-xs flex items-start space-x-3 shadow-sm font-medium">
+            <ShieldCheck className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
             <div>
-              <h4 className="font-bold text-ink text-sm mb-0.5">Store Setup Active (Hidden From Residents Until Approved)</h4>
-              <p className="text-muted-foreground">
-                Your payment is confirmed! You can add products, set prices, and configure store settings now. Your store will automatically become visible to community residents in <strong>{vendor.society_name}</strong> once DigiLocal Admin approves your subscription request.
+              <h4 className="font-extrabold text-amber-950 text-sm mb-0.5">Store Setup Active (Awaiting Admin / Secretary Approval)</h4>
+              <p className="text-amber-800/90 leading-relaxed">
+                Your vendor registration is complete! You can add products, set prices, and configure store settings now. Your store will automatically become live to community residents in <strong>{vendor.society_name || 'your society'}</strong> once your Housing Society Admin or DigiLocal Admin approves your request.
               </p>
             </div>
           </div>
@@ -723,7 +818,9 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
         <div className="flex items-center space-x-2 border-b border-border overflow-x-auto">
           {[
             { id: 'orders', label: `Orders (${orders.length})`, icon: ShoppingBag },
-            { id: 'items', label: `Items (${items.length})`, icon: Package },
+            (vendor?.vendor_type === 'service' || vendor?.can_add_items === false)
+              ? { id: 'enquiries', label: `Enquiries (${enquiries.length})`, icon: Briefcase }
+              : { id: 'items', label: `Items (${items.length})`, icon: Package },
             { id: 'settings', label: 'Store Settings', icon: Settings },
             { id: 'subscription', label: 'Subscription Plan', icon: CreditCard },
           ].map((tab) => {
@@ -980,6 +1077,147 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 1.5 SERVICE ENQUIRIES TAB */}
+        {activeTab === 'enquiries' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card border border-border/80 rounded-2xl p-4 sm:p-5 shadow-xs">
+              <div>
+                <h2 className="text-xl font-serif font-extrabold text-[#18281F] uppercase tracking-wider">
+                  Service Enquiries & Requests
+                </h2>
+                <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                  Track resident service requests, schedule visits, and respond directly via Call or WhatsApp
+                </p>
+              </div>
+
+              {/* Status Filter Buttons */}
+              <div className="flex flex-wrap gap-1.5 bg-[#FAF9F6] p-1 rounded-xl border border-border">
+                {['ALL', 'NEW', 'CONTACTED', 'SCHEDULED', 'COMPLETED'].map(st => (
+                  <button
+                    key={st}
+                    onClick={() => setEnquiryFilter(st)}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase transition-all ${
+                      enquiryFilter === st
+                        ? 'bg-[#18281F] text-white shadow-xs'
+                        : 'text-muted-foreground hover:text-[#18281F]'
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {enquiries.length === 0 ? (
+              <div className="p-12 text-center bg-card border border-border rounded-3xl space-y-3">
+                <Briefcase className="w-12 h-12 text-muted-foreground mx-auto" />
+                <h3 className="text-base font-bold text-[#18281F]">No Service Requests Received Yet</h3>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  When residents in your society or coverage radius request services, their details will appear here instantly.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {enquiries
+                  .filter(e => enquiryFilter === 'ALL' || e.status === enquiryFilter)
+                  .map(enq => {
+                    const cleanPhone = String(enq.resident_phone || '').replace(/[^0-9]/g, '');
+                    const waPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+                    const waText = encodeURIComponent(`Hello ${enq.resident_name || 'Resident'}, I received your service request for "${enq.service_title}" via DigiLocal. Let us connect to assist you!`);
+
+                    return (
+                      <div key={enq.enquiry_id} className="bg-card border border-border rounded-2xl p-5 space-y-3 shadow-xs">
+                        <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                          <span className="text-xs font-black text-[#18281F] uppercase tracking-wider">{enq.enquiry_id}</span>
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
+                            enq.status === 'NEW' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
+                            enq.status === 'CONTACTED' ? 'bg-blue-100 text-blue-900 border border-blue-300' :
+                            enq.status === 'SCHEDULED' ? 'bg-purple-100 text-purple-900 border border-purple-300' :
+                            'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                          }`}>
+                            ● {enq.status}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex items-center gap-2 text-[#18281F] font-bold">
+                            <User className="w-4 h-4 text-emerald-700" />
+                            <span>{enq.resident_name || 'Resident'}</span>
+                            {enq.flat_number && <span className="text-muted-foreground font-normal">(Flat {enq.flat_number})</span>}
+                          </div>
+
+                          {enq.society_name && (
+                            <div className="flex items-center gap-2 text-muted-foreground font-medium">
+                              <Building2 className="w-3.5 h-3.5 text-amber-600" />
+                              <span>{enq.society_name}</span>
+                            </div>
+                          )}
+
+                          <div className="p-3 bg-[#FAF9F6] rounded-xl border border-border/60 space-y-1 my-2">
+                            <span className="text-[11px] font-bold text-[#18281F] block">{enq.service_title}</span>
+                            {enq.description && <p className="text-[11px] text-muted-foreground">{enq.description}</p>}
+                            {enq.preferred_time && (
+                              <span className="text-[10px] font-bold text-emerald-800 flex items-center gap-1 pt-1">
+                                <Clock className="w-3 h-3 text-emerald-600" /> Preferred: {enq.preferred_time}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status Update Buttons */}
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {['NEW', 'CONTACTED', 'SCHEDULED', 'COMPLETED'].map(statusOpt => (
+                            <button
+                              key={statusOpt}
+                              onClick={async () => {
+                                setUpdatingEnquiryId(enq.enquiry_id);
+                                await api.updateEnquiryStatus(vendorId, enq.enquiry_id, statusOpt);
+                                setEnquiries(prev => prev.map(item => item.enquiry_id === enq.enquiry_id ? { ...item, status: statusOpt } : item));
+                                setUpdatingEnquiryId(null);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                                enq.status === statusOpt
+                                  ? 'bg-[#18281F] text-white shadow-2xs'
+                                  : 'bg-white border border-border text-muted-foreground hover:bg-gray-100'
+                              }`}
+                            >
+                              {statusOpt}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Direct Communication Buttons */}
+                        <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                          {enq.resident_phone && (
+                            <>
+                              <a
+                                href={`tel:${enq.resident_phone}`}
+                                className="flex-1 py-2 px-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 hover:bg-emerald-100 font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                              >
+                                <Phone className="w-3.5 h-3.5 text-emerald-700" />
+                                <span>Call Resident</span>
+                              </a>
+
+                              <a
+                                href={`https://wa.me/${waPhone}?text=${waText}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-2xs"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5 text-white" />
+                                <span>WhatsApp Chat</span>
+                              </a>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -1306,8 +1544,228 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 </div>
               </div>
 
-              {/* SECTION 5: DANGER ZONE - DELETE STORE ACCOUNT */}
-              <div className="p-5 rounded-xl bg-rose-50/80 border border-rose-200 space-y-3">
+              {/* SECTION 4.5: STORE AREA, CITY, STATE & PINCODE SETTINGS */}
+              <div className="p-5 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] space-y-4">
+                <div className="flex items-center justify-between border-b border-[#E7DFD5] pb-2.5">
+                  <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-[#541D26]" />
+                    <span>Store Area & City / State Location Settings</span>
+                  </h3>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Area / Locality Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Sitapura Industrial Area, Sector 62..."
+                      value={settingsForm.location || ''}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, location: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">City</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Jaipur"
+                        value={settingsForm.city || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, city: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">State</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Rajasthan"
+                        value={settingsForm.state || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, state: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Pincode</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 302022"
+                        value={settingsForm.pincode || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, pincode: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await api.updateVendorCoverage(vendor?.vendor_id || vendorId, {
+                          area: settingsForm.area || settingsForm.location || '',
+                          location: settingsForm.location || settingsForm.area || '',
+                          city: settingsForm.city || '',
+                          state: settingsForm.state || '',
+                          pincode: settingsForm.pincode || '',
+                          location_address: settingsForm.location_address || settingsForm.address || ''
+                        });
+                        alert('Location details updated successfully!');
+                      } catch (err) {
+                        alert(err.message || 'Failed to update location details');
+                      }
+                    }}
+                    className="px-4 py-2.5 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer border border-[#C8A878]/30 flex items-center gap-2"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-[#C8A878]" />
+                    <span>Save Location Details</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* SECTION 4.6: BANK ACCOUNT & UPI PAYMENT SETTINGS */}
+              <div className="p-5 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] space-y-4">
+                <div className="flex items-center justify-between border-b border-[#E7DFD5] pb-2.5">
+                  <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-[#541D26]" />
+                    <span>Bank Account & UPI Payment Settings</span>
+                  </h3>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Account Holder Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Rajesh Sharma"
+                        value={settingsForm.account_holder_name || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, account_holder_name: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Bank Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. HDFC Bank"
+                        value={settingsForm.bank_name || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, bank_name: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Bank Account Number</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 918273645019"
+                        value={settingsForm.account_number || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, account_number: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">IFSC Code</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. HDFC0001234"
+                        value={settingsForm.ifsc_code || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, ifsc_code: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none uppercase"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Merchant UPI ID (VPA)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. freshbites@upi"
+                        value={settingsForm.upi_id || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, upi_id: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Custom Payment QR Code Image URL</label>
+                      <input
+                        type="url"
+                        placeholder="https://imgh.in/host/vendor_upi_qr.png"
+                        value={settingsForm.qr_code_url || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, qr_code_url: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await api.updateVendorPaymentDetails({
+                          vendor_id: vendor?.vendor_id || vendorId,
+                          account_number: settingsForm.account_number,
+                          ifsc_code: settingsForm.ifsc_code,
+                          bank_name: settingsForm.bank_name,
+                          account_holder_name: settingsForm.account_holder_name,
+                          upi_id: settingsForm.upi_id,
+                          qr_code_url: settingsForm.qr_code_url
+                        });
+                        alert('Bank account & payment details updated successfully!');
+                      } catch (err) {
+                        alert(err.message || 'Failed to update payment details');
+                      }
+                    }}
+                    className="px-4 py-2.5 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2 border border-[#C8A878]/30"
+                  >
+                    <CreditCard className="w-3.5 h-3.5 text-[#C8A878]" />
+                    <span>Save Bank & Payment Details</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* SECTION 4.7: NOTIFICATION PREFERENCES */}
+              <div className="p-5 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] space-y-4">
+                <div className="flex items-center justify-between border-b border-[#E7DFD5] pb-2.5">
+                  <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-[#541D26]" />
+                    <span>Store Order Notification Preferences</span>
+                  </h3>
+                </div>
+
+                <div className="space-y-3 text-xs font-semibold text-[#211A19]">
+                  <div className="flex items-center justify-between p-3.5 bg-white rounded-xl border border-[#E7DFD5]">
+                    <div>
+                      <p className="font-bold text-[#211A19]">WhatsApp Order Status Alerts</p>
+                      <p className="text-[11px] text-[#211A19]/70 font-normal">Receive instant new order & status change alerts on merchant WhatsApp number</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settingsForm.notify_whatsapp !== false}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, notify_whatsapp: e.target.checked })}
+                      className="w-4 h-4 accent-[#541D26] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-3.5 bg-white rounded-xl border border-[#E7DFD5]">
+                    <div>
+                      <p className="font-bold text-[#211A19]">SMS Merchant Notifications</p>
+                      <p className="text-[11px] text-[#211A19]/70 font-normal">Receive order confirmation & dispatch SMS updates</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settingsForm.notify_sms !== false}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, notify_sms: e.target.checked })}
+                      className="w-4 h-4 accent-[#541D26] cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="p-5 rounded-2xl bg-rose-50/80 border border-rose-200 space-y-3">
                 <div className="flex items-center space-x-2 text-rose-700">
                   <Trash2 className="w-4 h-4 shrink-0 text-rose-600" />
                   <h3 className="text-xs font-serif font-bold uppercase tracking-wider">5. Danger Zone - Delete Shop Account</h3>
@@ -1328,7 +1786,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               <button
                 type="submit"
                 disabled={savingSettings}
-                className="w-full py-3.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider transition-all"
+                className="w-full py-3.5 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all border border-[#C8A878]/30 cursor-pointer"
               >
                 {savingSettings ? 'Saving All Store Settings...' : 'Save Store Configuration'}
               </button>
@@ -1336,47 +1794,47 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
             {/* ─── QR CODE CARD (inside Settings tab) ─── */}
             {vendor && (
-              <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-8 shadow-sm">
+              <div className="bg-white border border-[#E7DFD5] rounded-3xl p-8 shadow-sm">
                 <div className="flex items-center gap-3 mb-1">
-                  <div className="w-9 h-9 rounded-xl bg-[#F6F3EC] border border-[#C5A880]/30 flex items-center justify-center">
-                    <QrCode className="w-4 h-4 text-[#C5A880]" />
+                  <div className="w-9 h-9 rounded-2xl bg-[#541D26]/10 border border-[#541D26]/20 flex items-center justify-center">
+                    <QrCode className="w-4 h-4 text-[#C8A878]" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-serif font-extrabold text-[#0A1428] uppercase tracking-wider">Your Shop QR Code</h2>
-                    <p className="text-xs text-[#787F8C] font-medium">Customers scan this to open your shop directly</p>
+                    <h2 className="text-xl font-serif font-extrabold text-[#211A19] uppercase tracking-wider">Your Shop QR Code</h2>
+                    <p className="text-xs text-[#78716C] font-medium">Customers scan this to open your shop directly</p>
                   </div>
                 </div>
 
                 <div className="mt-6 flex flex-col sm:flex-row items-center gap-8">
                   {/* QR Code */}
-                  <div className="flex-shrink-0 p-4 rounded-2xl bg-white border-2 border-[#C5A880]/40 shadow-md relative" id="vendor-qr-wrapper">
+                  <div className="flex-shrink-0 p-4 rounded-2xl bg-white border-2 border-[#E7DFD5] shadow-md relative" id="vendor-qr-wrapper">
                     <QRCodeSVG
                       id="vendor-qr-svg"
                       value={`http://localhost:5000/shop/${vendor.vendor_id}`}
                       size={180}
                       bgColor="#FFFFFF"
-                      fgColor="#0A1428"
+                      fgColor="#211A19"
                       level="H"
                       includeMargin={false}
                     />
-                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-[#0A1428] text-[#C5A880] text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-widest whitespace-nowrap">
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-[#541D26] text-[#C8A878] text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-widest whitespace-nowrap">
                       DigiLocal
                     </div>
                   </div>
 
                   {/* Info & Actions */}
                   <div className="flex-1 space-y-4 text-sm">
-                    <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/25 space-y-2">
-                      <p className="text-[11px] text-[#787F8C] font-medium uppercase tracking-wider">Shop Direct Link</p>
+                    <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#E7DFD5] space-y-2">
+                      <p className="text-[11px] text-[#78716C] font-medium uppercase tracking-wider">Shop Direct Link</p>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-[#0A1428] font-bold break-all">
+                        <span className="text-xs font-mono text-[#211A19] font-bold break-all">
                           localhost:5000/shop/{vendor.vendor_id}
                         </span>
                         <button
                           type="button"
                           onClick={() => navigator.clipboard.writeText(`http://localhost:5000/shop/${vendor.vendor_id}`)}
                           title="Copy link"
-                          className="p-1.5 rounded-lg bg-white border border-[#C5A880]/30 hover:bg-[#F6F3EC] text-[#0A1428] transition-colors flex-shrink-0"
+                          className="p-1.5 rounded-lg bg-white border border-[#E7DFD5] hover:bg-[#EEE5DA] text-[#211A19] transition-colors flex-shrink-0 cursor-pointer"
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
@@ -1388,9 +1846,9 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         href={`http://localhost:5000/shop/${vendor.vendor_id}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 hover:border-[#C5A880] text-[#0A1428] font-bold text-xs uppercase tracking-wider transition-all"
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E7DFD5] hover:border-[#541D26] text-[#211A19] font-bold text-xs uppercase tracking-wider transition-all"
                       >
-                        <ExternalLink className="w-3.5 h-3.5 text-[#C5A880]" />
+                        <ExternalLink className="w-3.5 h-3.5 text-[#C8A878]" />
                         Test Shop Link
                       </a>
 
@@ -1414,9 +1872,9 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           };
                           img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
                         }}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs uppercase tracking-wider transition-all shadow-md"
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer border border-[#C8A878]/30"
                       >
-                        <Download className="w-3.5 h-3.5" />
+                        <Download className="w-3.5 h-3.5 text-[#C8A878]" />
                         Download QR Code (PNG)
                       </button>
                     </div>
@@ -1489,22 +1947,29 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       </div>
     </div>
 
-      {/* Add / Edit Product Modal (Compact, Sleek & Modern Design) */}
-      {showAddItemModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white border border-[#E8E2D5] rounded-2xl max-w-md w-full max-h-[88vh] shadow-xl flex flex-col overflow-hidden text-ink relative">
+      {/* Add / Edit Product Modal (Centered, Portaled to Body, Brand Color Scheme) */}
+      {showAddItemModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md transition-all duration-300 ease-out"
+          style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAddItemModal(false); }}
+        >
+          <div 
+            className="bg-white border border-[#E7DFD5] rounded-[2rem] max-w-md w-full max-h-[85vh] shadow-2xl flex flex-col overflow-hidden text-[#211A19] relative my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             
-            {/* Sleek Compact Header */}
-            <div className="px-4 py-3 border-b border-[#E8E2D5] flex items-center justify-between shrink-0 bg-[#FAF9F6]">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#E3EFE6] border border-[#18281F]/20 flex items-center justify-center text-[#18281F]">
-                  <Sparkles className="w-4 h-4 text-[#C4A066]" />
+            {/* Sleek Header */}
+            <div className="px-5 py-3.5 border-b border-[#E7DFD5] flex items-center justify-between shrink-0 bg-[#FAF8F5]">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-xl bg-[#541D26]/10 border border-[#541D26]/20 flex items-center justify-center text-[#541D26] shrink-0">
+                  <Sparkles className="w-4 h-4 text-[#C8A878]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-serif font-bold text-[#18281F]">
+                  <h3 className="text-sm font-serif font-bold text-[#211A19]">
                     {editingItem ? 'Edit Product Item' : 'Add New Product'}
                   </h3>
-                  <p className="text-[10px] text-muted-foreground font-medium">
+                  <p className="text-[10px] text-[#78716C] font-medium">
                     Enter product details, pricing & stock quantity
                   </p>
                 </div>
@@ -1513,25 +1978,25 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               <button 
                 type="button"
                 onClick={() => setShowAddItemModal(false)} 
-                className="w-7 h-7 rounded-full bg-white hover:bg-[#EFEADF] border border-[#E8E2D5] text-gray-500 hover:text-ink flex items-center justify-center transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-full bg-white hover:bg-[#FAF8F5] border border-[#E7DFD5] text-[#211A19] flex items-center justify-center transition-colors cursor-pointer shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* Form Body */}
-            <form onSubmit={handleSaveItem} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-4 overflow-y-auto space-y-3 flex-1 scrollbar-thin">
+            {/* Form Body with Strict min-h-0 and overflow-y-auto */}
+            <form onSubmit={handleSaveItem} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 flex-1 min-h-0 scrollbar-thin">
 
                 {/* 1. COMPACT PHOTO UPLOAD BAR */}
                 <div>
-                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
                     PRODUCT IMAGE
                   </label>
-                  <div className="flex items-center gap-3 bg-[#FAF8F5] p-2.5 rounded-xl border border-[#EBE5D8]">
+                  <div className="flex items-center gap-3 bg-[#FAF8F5] p-2.5 rounded-2xl border border-[#E7DFD5]">
                     <div className="relative shrink-0">
                       {itemForm.image_url ? (
-                        <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-[#C4A066]">
+                        <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-[#C8A878]">
                           <img 
                             src={getNormalizedImageUrl(itemForm.image_url)} 
                             alt="Preview" 
@@ -1546,8 +2011,8 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           </button>
                         </div>
                       ) : (
-                        <label className="w-12 h-12 rounded-lg border border-dashed border-[#C4A066]/60 bg-white flex items-center justify-center cursor-pointer hover:bg-[#EFEADF] transition-colors">
-                          <Camera className="w-5 h-5 text-[#C4A066]" />
+                        <label className="w-12 h-12 rounded-xl border border-dashed border-[#C8A878]/80 bg-white flex items-center justify-center cursor-pointer hover:bg-[#EEE5DA] transition-colors">
+                          <Camera className="w-4 h-4 text-[#C8A878]" />
                           <input 
                             type="file" 
                             accept="image/*" 
@@ -1570,11 +2035,11 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         placeholder="Paste image URL..."
                         value={itemForm.image_url}
                         onChange={(e) => setItemForm({ ...itemForm, image_url: e.target.value })}
-                        className="w-full bg-white border border-[#E5DFD1] focus:border-[#18281F] rounded-lg px-2.5 py-1.5 text-xs text-[#18281F] focus:outline-none"
+                        className="w-full bg-white border border-[#E7DFD5] focus:border-[#541D26] rounded-xl px-2.5 py-1.5 text-xs text-[#211A19] focus:outline-none"
                       />
                       <div className="flex items-center gap-3 mt-1 text-[10px]">
-                        <label className="font-bold text-[#18281F] hover:underline cursor-pointer flex items-center gap-1">
-                          <Upload className="w-3 h-3 text-[#C4A066]" /> Upload Media
+                        <label className="font-bold text-[#541D26] hover:underline cursor-pointer flex items-center gap-1">
+                          <Upload className="w-3 h-3 text-[#C8A878]" /> Upload Media
                           <input 
                             type="file" 
                             accept="image/*" 
@@ -1589,8 +2054,8 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             }} 
                           />
                         </label>
-                        <label className="font-bold text-[#18281F] hover:underline cursor-pointer flex items-center gap-1">
-                          <Camera className="w-3 h-3 text-[#C4A066]" /> Capture Photo
+                        <label className="font-bold text-[#541D26] hover:underline cursor-pointer flex items-center gap-1">
+                          <Camera className="w-3 h-3 text-[#C8A878]" /> Capture Photo
                           <input 
                             type="file" 
                             accept="image/*" 
@@ -1613,7 +2078,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
                 {/* 2. PRODUCT NAME */}
                 <div>
-                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
                     PRODUCT NAME *
                   </label>
                   <input
@@ -1622,7 +2087,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     placeholder="e.g. Amul Gold Fresh Milk 1L"
                     value={itemForm.item_name}
                     onChange={(e) => setItemForm({ ...itemForm, item_name: e.target.value })}
-                    className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] rounded-xl px-3 py-2 text-xs font-bold text-[#18281F] focus:outline-none"
+                    className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl px-3 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
                   />
                 </div>
 
@@ -1630,22 +2095,22 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 <div className="grid grid-cols-2 gap-2.5">
                   {/* Category Selection */}
                   <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
                       CATEGORY *
                     </label>
                     <div className="relative">
                       <button
                         type="button"
                         onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                        className="w-full bg-[#FAF8F5] border border-[#E8E2D5] hover:border-[#18281F] rounded-xl pl-8 pr-2.5 py-2 text-xs font-bold text-[#18281F] flex items-center justify-between cursor-pointer"
+                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] hover:border-[#541D26] rounded-xl pl-7 pr-2 py-2 text-xs font-bold text-[#211A19] flex items-center justify-between cursor-pointer"
                       >
-                        <Tag className="w-3.5 h-3.5 text-[#C4A066] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <Tag className="w-3 h-3 text-[#C8A878] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <span className="truncate">{itemForm.category || 'Category'}</span>
-                        <ChevronDown className={`w-3.5 h-3.5 text-[#18281F] shrink-0 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-3 h-3 text-[#541D26] shrink-0 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
                       </button>
 
                       {showCategoryDropdown && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E8E2D5] rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E7DFD5] rounded-xl shadow-2xl z-50 max-h-44 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
                           {[
                             'General',
                             'Dairy & Milk',
@@ -1678,12 +2143,12 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                               }}
                               className={`px-2.5 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
                                 itemForm.category === cat 
-                                  ? 'bg-[#18281F] text-white' 
-                                  : 'text-[#18281F] hover:bg-[#E3EFE6]'
+                                  ? 'bg-[#541D26] text-white' 
+                                  : 'text-[#211A19] hover:bg-[#EEE5DA]'
                               }`}
                             >
                               <span className="truncate">{cat}</span>
-                              {itemForm.category === cat && <Check className="w-3 h-3 text-[#E6C35C] shrink-0" />}
+                              {itemForm.category === cat && <Check className="w-3 h-3 text-[#C8A878] shrink-0" />}
                             </div>
                           ))}
                         </div>
@@ -1693,11 +2158,11 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
                   {/* Price (₹) */}
                   <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
                       PRICE (₹) *
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-[#C4A066]">₹</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-[#541D26]">₹</span>
                       <input
                         type="number"
                         step="0.01"
@@ -1706,7 +2171,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         placeholder="199.00"
                         value={itemForm.price}
                         onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })}
-                        className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] rounded-xl pl-7 pr-2.5 py-2 text-xs font-bold text-[#18281F] focus:outline-none"
+                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl pl-7 pr-2.5 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
                       />
                     </div>
                   </div>
@@ -1716,21 +2181,21 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 <div className="grid grid-cols-2 gap-2.5">
                   {/* Unit Select Dropdown */}
                   <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
                       UNIT *
                     </label>
                     <div className="relative">
                       <button
                         type="button"
                         onClick={() => setShowUnitDropdown(!showUnitDropdown)}
-                        className="w-full bg-[#FAF8F5] border border-[#E8E2D5] hover:border-[#18281F] rounded-xl px-3 py-2 text-xs font-bold text-[#18281F] flex items-center justify-between cursor-pointer"
+                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] hover:border-[#541D26] rounded-xl px-3 py-2 text-xs font-bold text-[#211A19] flex items-center justify-between cursor-pointer"
                       >
                         <span className="truncate">{itemForm.unit || 'Piece'}</span>
-                        <ChevronDown className={`w-3.5 h-3.5 text-[#18281F] shrink-0 transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-3 h-3 text-[#541D26] shrink-0 transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
                       </button>
 
                       {showUnitDropdown && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E8E2D5] rounded-xl shadow-xl z-50 max-h-40 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E7DFD5] rounded-xl shadow-xl z-50 max-h-36 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
                           {[
                             'Piece',
                             'Set',
@@ -1750,15 +2215,15 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                                 setItemForm({ ...itemForm, unit: u });
                                 setShowUnitDropdown(false);
                               }}
-                              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
+                              className={`px-2.5 py-1 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
                                 itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()
-                                  ? 'bg-[#18281F] text-white' 
-                                  : 'text-[#18281F] hover:bg-[#E3EFE6]'
+                                  ? 'bg-[#541D26] text-white' 
+                                  : 'text-[#211A19] hover:bg-[#EEE5DA]'
                               }`}
                             >
                               <span>{u}</span>
                               {(itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()) && (
-                                <Check className="w-3 h-3 text-[#E6C35C]" />
+                                <Check className="w-3 h-3 text-[#C8A878]" />
                               )}
                             </div>
                           ))}
@@ -1769,11 +2234,11 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
                   {/* Stock Quantity Input */}
                   <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
                       STOCK QUANTITY *
                     </label>
                     <div className="relative">
-                      <Package className="w-3.5 h-3.5 text-[#C4A066] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Package className="w-3 h-3 text-[#C8A878] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="number"
                         min="0"
@@ -1781,17 +2246,17 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         placeholder="e.g. 10"
                         value={itemForm.stock}
                         onChange={(e) => setItemForm({ ...itemForm, stock: e.target.value })}
-                        className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] rounded-xl pl-8 pr-2.5 py-2 text-xs font-bold text-[#18281F] focus:outline-none"
+                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl pl-8 pr-2.5 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* 5. ITEM AVAILABILITY TOGGLE */}
-                <div className="bg-[#FAF8F5] border border-[#E8E2D5] rounded-xl px-3 py-2 flex items-center justify-between">
+                <div className="bg-[#FAF8F5] border border-[#E7DFD5] rounded-xl px-3.5 py-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${itemForm.is_available ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-[#18281F]">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-[#211A19]">
                       {itemForm.is_available ? 'Item Available for Orders' : 'Item Out of Stock / Hidden'}
                     </span>
                   </div>
@@ -1800,11 +2265,11 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     type="button"
                     onClick={() => setItemForm({ ...itemForm, is_available: !itemForm.is_available })}
                     className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                      itemForm.is_available ? 'bg-[#18281F]' : 'bg-gray-300'
+                      itemForm.is_available ? 'bg-[#541D26]' : 'bg-gray-300'
                     }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#C4A066] shadow transition duration-200 ease-in-out ${
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#C8A878] shadow transition duration-200 ease-in-out ${
                         itemForm.is_available ? 'translate-x-4' : 'translate-x-0 bg-white'
                       }`}
                     />
@@ -1813,7 +2278,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
                 {/* 6. DESCRIPTION (1 ROW) */}
                 <div>
-                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#18281F] mb-1">
+                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
                     DESCRIPTION (OPTIONAL)
                   </label>
                   <input
@@ -1821,58 +2286,71 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     placeholder="Short item details..."
                     value={itemForm.description}
                     onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
-                    className="w-full bg-[#FAF8F5] border border-[#E8E2D5] focus:border-[#18281F] rounded-xl px-3 py-2 text-xs font-medium text-[#18281F] focus:outline-none"
+                    className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl px-3 py-2 text-xs font-medium text-[#211A19] focus:outline-none"
                   />
                 </div>
               </div>
 
-              {/* Compact Fixed Footer */}
-              <div className="px-4 py-3 border-t border-[#E8E2D5] shrink-0 bg-[#FAF9F6]">
+              {/* Fixed Footer with Brand CTA */}
+              <div className="px-5 py-3.5 border-t border-[#E7DFD5] shrink-0 bg-[#FAF8F5]">
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-xl bg-[#18281F] hover:bg-black text-[#C4A066] font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                  className="w-full py-3 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 border border-[#C8A878]/30 cursor-pointer"
                 >
-                  <CheckCircle2 className="w-4 h-4 text-[#C4A066]" />
+                  <CheckCircle2 className="w-4 h-4 text-[#C8A878]" />
                   <span>{editingItem ? 'Save Changes' : 'Add Product to Store'}</span>
                 </button>
               </div>
             </form>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* In-Website Settings Success Modal (DigiCafe Style UI Popup) */}
-      {showSettingsSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A1428]/60 backdrop-blur-sm">
-          <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center flex flex-col items-center">
-            
-            <div className="w-14 h-14 rounded-full bg-[#E8F5E9] border border-[#2E7D32]/30 text-[#2E7D32] flex items-center justify-center mb-4 shadow-sm">
+      {/* In-Website Settings Success Modal (Portaled, Brand Colors) */}
+      {showSettingsSuccessModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          onClick={() => setShowSettingsSuccessModal(false)}
+        >
+          <div 
+            className="bg-white border border-[#C8A878]/40 rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center flex flex-col items-center my-auto animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mb-4 shadow-sm">
               <CheckCircle2 className="w-8 h-8" />
             </div>
 
-            <h3 className="text-lg font-serif font-extrabold text-[#0A1428] uppercase tracking-wide mb-1">
+            <h3 className="text-lg font-serif font-extrabold text-[#211A19] uppercase tracking-wide mb-1">
               Settings Saved Successfully!
             </h3>
             
-            <p className="text-xs text-[#787F8C] leading-relaxed mb-6 font-medium">
+            <p className="text-xs text-[#78716C] leading-relaxed mb-6 font-medium">
               Your store profile, operating hours, taxes, charges, and order limits have been updated in DigiLocal.
             </p>
 
             <button
               onClick={() => setShowSettingsSuccessModal(false)}
-              className="w-full py-3 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs uppercase tracking-wider shadow-md transition-all"
+              className="w-full py-3.5 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all border border-[#C8A878]/30 cursor-pointer"
             >
               Continue to Vendor Panel
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Delete Store Confirmation Modal */}
-      {showDeleteConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white border border-rose-200 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 text-center relative">
+      {/* Delete Store Confirmation Modal (Portaled, Centered) */}
+      {showDeleteConfirmModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+          onClick={() => setShowDeleteConfirmModal(false)}
+        >
+          <div 
+            className="bg-white border border-rose-200 rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 text-center relative my-auto animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-16 h-16 rounded-full bg-rose-100 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto shadow-sm">
               <Trash2 className="w-8 h-8" />
             </div>
@@ -1881,10 +2359,10 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               <span className="px-3 py-1 bg-rose-100 text-rose-800 text-[10px] font-black uppercase tracking-wider rounded-full border border-rose-200">
                 Permanent Action
               </span>
-              <h3 className="text-xl font-serif font-bold text-ink mt-2">
+              <h3 className="text-xl font-serif font-bold text-[#211A19] mt-2">
                 Delete Store Permanently?
               </h3>
-              <p className="text-xs text-muted-foreground mt-2 leading-relaxed font-medium">
+              <p className="text-xs text-[#78716C] mt-2 leading-relaxed font-medium">
                 Are you sure you want to permanently delete <strong>{panelData?.vendor?.store_name || 'your store'}</strong>? All catalog items, store details, and active order history will be removed. This action cannot be undone.
               </p>
             </div>
@@ -1893,7 +2371,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirmModal(false)}
-                className="flex-1 py-3 px-4 rounded-full bg-secondary text-ink font-bold text-xs uppercase tracking-wider hover:bg-border transition-colors cursor-pointer"
+                className="flex-1 py-3 px-4 rounded-full bg-[#FAF8F5] border border-[#E7DFD5] text-[#211A19] font-bold text-xs uppercase tracking-wider hover:bg-[#EEE5DA] transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1907,7 +2385,8 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* In-Website Generic Notification / Confirm Modal */}

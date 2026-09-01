@@ -60,6 +60,11 @@ export const setupRecaptcha = async (containerId = 'recaptcha-container') => {
 export const sendFirebasePhoneOtp = async (phoneNumber, containerId = 'recaptcha-container') => {
   console.log(`📱 [FIREBASE PHONE AUTH] Requesting SMS for ${phoneNumber}...`);
 
+  const cleanDigits = String(phoneNumber || '').replace(/[^0-9]/g, '');
+  if (!isValidIndianMobileNumber(cleanDigits)) {
+    throw new Error('Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9. Anonymous or dummy numbers (e.g. 1111111111) are not allowed.');
+  }
+
   cleanupRecaptcha(containerId);
 
   try {

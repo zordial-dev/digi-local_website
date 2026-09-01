@@ -14,8 +14,9 @@ import UserProfilePage from './pages/UserProfilePage';
 import ZordialPartnerPage from './pages/ZordialPartnerPage';
 import LoginModal from './components/LoginModal';
 import SupportDeskModal from './components/SupportDeskModal';
+import BlockedAccountModal from './components/BlockedAccountModal';
+import FloatingCartBar from './components/FloatingCartBar';
 import { api } from './services/api';
-import { ShieldCheck, AlertTriangle } from 'lucide-react';
 
 function getRouteFromPath(path = window.location.pathname) {
   const cleanPath = path.toLowerCase().replace(/\/$/, '');
@@ -52,7 +53,7 @@ function getRouteFromPath(path = window.location.pathname) {
     return { page: 'info', tab: 'child-security' };
   }
   if (cleanPath === '/terms-conditions' || cleanPath === '/terms-and-conditions' || cleanPath === '/terms') {
-    return { page: 'info', tab: 'terms-conditions' };
+    return { page: 'info', tab: 'terms-and-conditions' };
   }
   if (cleanPath === '/help-support' || cleanPath === '/help' || cleanPath === '/faqs' || cleanPath === '/faq') {
     return { page: 'info', tab: 'help-support' };
@@ -95,7 +96,7 @@ function getRouteFromPath(path = window.location.pathname) {
       const parsed = JSON.parse(saved);
       if (parsed && parsed.page) return parsed;
     }
-  } catch (_) {}
+  } catch (_) { }
 
   return { page: 'home' };
 }
@@ -136,8 +137,9 @@ export default function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isSupportDeskOpen, setIsSupportDeskOpen] = useState(false);
   const [platformConfig, setPlatformConfig] = useState(null);
+  const [blockedAccountInfo, setBlockedAccountInfo] = useState(null);
 
-  // Restore Active User & Vendor sessions on mount & check global platform config
+  // Restore Active User & Vendor sessions on mount & check status ONCE
   useEffect(() => {
     const initialRoute = getRouteFromPath();
     setRouteState(initialRoute);
@@ -147,33 +149,134 @@ export default function App() {
     // Fetch Global Platform Config
     api.getPlatformConfig().then(cfg => {
       if (cfg) setPlatformConfig(cfg);
-    }).catch(() => {});
+    }).catch(() => { });
 
+    // 1. Check & Guard Resident User Session (CALL ONLY ONCE on mount)
     try {
-      const savedVendor = localStorage.getItem('digilocal_vendor_session');
-      if (savedVendor) {
-        const parsed = JSON.parse(savedVendor);
-        if (parsed && parsed.vendor && parsed.expiresAt > Date.now()) {
-          setActiveVendor(parsed.vendor);
-        }
-      }
-    } catch (_) {}
-
-    try {
-      const savedUser = localStorage.getItem('digilocal_user_session');
-      if (savedUser) {
-        const parsed = JSON.parse(savedUser);
-        if (parsed && (parsed.user || parsed.name) && parsed.expiresAt > Date.now()) {
-          setActiveUser(parsed.user || parsed);
+      let savedUser = null;
+      let userToken = localStorage.getItem('accessToken') || localStorage.getItem('userToken') || null;
+      const userSessionStr = localStorage.getItem('digilocal_user_session');
+      if (userSessionStr) {
+        const parsed = JSON.parse(userSessionStr);
+        if (parsed && (parsed.user || parsed.name) && (!parsed.expiresAt || parsed.expiresAt > Date.now())) {
+          savedUser = parsed.user || parsed;
+          userToken = parsed.token || parsed.accessToken || userToken;
         }
       } else {
-        const savedRes = localStorage.getItem('digilocal_resident_session');
-        if (savedRes) {
-          const parsedRes = JSON.parse(savedRes);
-          if (parsedRes) setActiveUser(parsedRes.user || parsedRes);
+        const residentSessionStr = localStorage.getItem('digilocal_resident_session');
+        if (residentSessionStr) {
+          const parsedRes = JSON.parse(residentSessionStr);
+          if (parsedRes) savedUser = parsedRes.user || parsedRes;
         }
       }
-    } catch (_) {}
+
+      if (savedUser) {
+        setActiveUser(savedUser);
+        const userId = savedUser.user_id || savedUser.id || savedUser.phone;
+        // Call status check API ONCE on app launch
+        api.checkUserStatus(userId, userToken).then(statusRes => {
+          if (statusRes?.is_blocked || statusRes?.code === 'USER_BLOCKED' || statusRes?.action === 'logout') {
+            console.warn('⚠️ Resident account blocked by admin. Purging local storage and logging out...');
+            localStorage.removeItem('digilocal_user_session');
+            localStorage.removeItem('digilocal_resident_session');
+            localStorage.removeItem('user_profile');
+            localStorage.removeItem('resident_profile');
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('userToken');
+            setActiveUser(null);
+            setBlockedAccountInfo({
+              accountType: 'resident',
+              code: statusRes.code || 'USER_BLOCKED',
+              title: 'Resident Account Blocked',
+              error: statusRes.error || statusRes.message,
+              message: statusRes.message || 'Your resident user account has been blocked by administrator.',
+              blockReason: statusRes.block_reason || 'Violation of community rules'
+            });
+            setRoute({ page: 'login', accountType: 'resident' });
+          } else if (statusRes && (statusRes.success || statusRes.name || statusRes.user)) {
+            // Sync complete v2.5.0 profile & address attributes
+            const uData = statusRes.user || statusRes;
+            const freshName = uData.name;
+            const freshPhone = uData.phone;
+            const freshEmail = uData.email;
+            const freshFlat = uData.flat;
+            const freshArea = uData.area || uData.society_name;
+            const freshCity = uData.city;
+            const freshPincode = uData.pincode;
+            const freshAddress = uData.address;
+
+            setActiveUser(prev => {
+              if (
+                prev &&
+                freshName && prev.name === freshName &&
+                (!freshPhone || prev.phone === freshPhone) &&
+                (!freshFlat || prev.flat === freshFlat) &&
+                (!freshArea || (prev.area || prev.society_name) === freshArea)
+              ) {
+                return prev;
+              }
+              const updated = {
+                ...(prev || {}),
+                ...(uData || {}),
+                ...(freshName ? { name: freshName } : {}),
+                ...(freshPhone ? { phone: freshPhone } : {}),
+                ...(freshEmail ? { email: freshEmail } : {}),
+                ...(freshFlat ? { flat: freshFlat } : {}),
+                ...(freshArea ? { area: freshArea, society_name: freshArea } : {}),
+                ...(freshCity ? { city: freshCity } : {}),
+                ...(freshPincode ? { pincode: freshPincode } : {}),
+                ...(freshAddress ? { address: freshAddress } : {})
+              };
+
+              try {
+                const sessionStr = localStorage.getItem('digilocal_user_session');
+                if (sessionStr) {
+                  const parsed = JSON.parse(sessionStr);
+                  localStorage.setItem('digilocal_user_session', JSON.stringify({ ...parsed, user: updated }));
+                }
+                localStorage.setItem('digilocal_resident_session', JSON.stringify(updated));
+              } catch (_) {}
+
+              return updated;
+            });
+          }
+        }).catch(() => {});
+      }
+    } catch (_) { }
+
+    // 2. Check & Guard Vendor Session (CALL ONLY ONCE on mount)
+    try {
+      const savedVendorStr = localStorage.getItem('digilocal_vendor_session');
+      if (savedVendorStr) {
+        const parsedV = JSON.parse(savedVendorStr);
+        if (parsedV && parsedV.vendor && (!parsedV.expiresAt || parsedV.expiresAt > Date.now())) {
+          const vendor = parsedV.vendor;
+          const vendorToken = parsedV.token || parsedV.accessToken || localStorage.getItem('digilocal_vendor_token') || null;
+          setActiveVendor(vendor);
+          const vendorId = vendor.vendor_id || vendor.id;
+          // Call status check API ONCE on portal launch
+          api.checkVendorStatus(vendorId, vendorToken).then(statusRes => {
+            if (statusRes?.is_blocked || statusRes?.code === 'VENDOR_BLOCKED' || statusRes?.action === 'logout') {
+              console.warn('⚠️ Vendor account blocked by admin. Purging local storage and logging out...');
+              localStorage.removeItem('digilocal_vendor_session');
+              localStorage.removeItem('digilocal_vendor_token');
+              localStorage.removeItem('vendorToken');
+              localStorage.removeItem('accessToken');
+              setActiveVendor(null);
+              setBlockedAccountInfo({
+                accountType: 'vendor',
+                code: statusRes.code || 'VENDOR_BLOCKED',
+                title: 'Vendor Store Account Blocked',
+                error: statusRes.error || statusRes.message,
+                message: statusRes.message || 'Your vendor store account has been blocked by administrator.',
+                blockReason: statusRes.block_reason || 'Policy violation'
+              });
+              setRoute({ page: 'login', accountType: 'vendor' });
+            }
+          }).catch(() => {});
+        }
+      }
+    } catch (_) { }
   }, []);
 
   // Sync route state with URL pathname, browser history & sessionStorage
@@ -181,7 +284,7 @@ export default function App() {
     setRouteState(newRoute);
     try {
       sessionStorage.setItem('digilocal_active_route', JSON.stringify(newRoute));
-    } catch (_) {}
+    } catch (_) { }
     const path = getPathFromRoute(newRoute);
     if (replace) {
       window.history.replaceState(newRoute, '', path);
@@ -219,7 +322,15 @@ export default function App() {
   const handleUserLogout = () => {
     localStorage.removeItem('digilocal_user_session');
     localStorage.removeItem('digilocal_resident_session');
+    localStorage.removeItem('user_profile');
+    localStorage.removeItem('resident_profile');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('digilocal_saved_addresses');
+    localStorage.removeItem('digilocal_user_location');
     localStorage.removeItem('digilocal_active_order');
+    localStorage.removeItem('digilocal_guest_address');
+    window.dispatchEvent(new CustomEvent('digilocal_saved_addresses_updated', { detail: [] }));
+    window.dispatchEvent(new CustomEvent('digilocal_location_changed', { detail: null }));
     setActiveUser(null);
     setRoute({ page: 'home' });
   };
@@ -235,9 +346,9 @@ export default function App() {
       )}
 
       {route.page !== 'login' && route.page !== 'vendorRegister' && route.page !== 'register' && (
-        <Navbar 
-          currentRoute={route} 
-          setRoute={setRoute} 
+        <Navbar
+          currentRoute={route}
+          setRoute={setRoute}
           activeVendor={activeVendor}
           onVendorLogout={handleVendorLogout}
           activeUser={activeUser}
@@ -261,10 +372,10 @@ export default function App() {
         )}
 
         {route.page === 'profile' && (
-          <UserProfilePage 
-            activeUser={activeUser} 
-            setActiveUser={setActiveUser} 
-            setRoute={setRoute} 
+          <UserProfilePage
+            activeUser={activeUser}
+            setActiveUser={setActiveUser}
+            setRoute={setRoute}
             onLogout={handleUserLogout}
             onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
           />
@@ -280,10 +391,12 @@ export default function App() {
 
         {route.page === 'vendorStorefront' && (
           <VendorStorefrontPage
+            currentRoute={route}
             societyId={route.societyId}
             vendorId={route.vendorId}
             setRoute={setRoute}
             onOpenLoginModal={() => setIsLoginModalOpen(true)}
+            activeUser={activeUser}
           />
         )}
 
@@ -292,11 +405,11 @@ export default function App() {
         )}
 
         {route.page === 'vendorDashboard' && (
-          <VendorDashboardPage 
-            vendorId={route.vendorId} 
-            setRoute={setRoute} 
-            setActiveVendor={setActiveVendor} 
-            onVendorLogout={handleVendorLogout} 
+          <VendorDashboardPage
+            vendorId={route.vendorId}
+            setRoute={setRoute}
+            setActiveVendor={setActiveVendor}
+            onVendorLogout={handleVendorLogout}
             onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
           />
         )}
@@ -310,7 +423,7 @@ export default function App() {
         )}
 
         {route.page === 'info' && (
-          <InfoPages tab={route.tab} setRoute={setRoute} onOpenSupportDesk={() => setIsSupportDeskOpen(true)} />
+          <InfoPages currentRoute={route} tab={route.tab} setRoute={setRoute} onOpenSupportDesk={() => setIsSupportDeskOpen(true)} />
         )}
 
         {!['home', 'login', 'register', 'profile', 'societyVendors', 'vendorStorefront', 'vendorRegister', 'vendorDashboard', 'admin', 'zordial', 'info'].includes(route.page) && (
@@ -322,10 +435,10 @@ export default function App() {
         <Footer setRoute={setRoute} onOpenSupportDesk={() => setIsSupportDeskOpen(true)} />
       )}
 
-      <LoginModal 
-        isOpen={isLoginModalOpen} 
-        onClose={() => setIsLoginModalOpen(false)} 
-        setRoute={setRoute} 
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        setRoute={setRoute}
         setActiveVendor={setActiveVendor}
         setActiveUser={setActiveUser}
       />
@@ -338,6 +451,19 @@ export default function App() {
         initialName={activeVendor?.vendor_name || activeUser?.name}
         entityName={activeVendor?.store_name || activeUser?.flat}
       />
+
+      <BlockedAccountModal
+        isOpen={Boolean(blockedAccountInfo)}
+        onClose={() => setBlockedAccountInfo(null)}
+        onOpenSupport={() => {
+          setBlockedAccountInfo(null);
+          setIsSupportDeskOpen(true);
+        }}
+        blockInfo={blockedAccountInfo}
+      />
+
+      {/* Floating Bottom Cart Bar (Sticky View Cart Bar) */}
+      <FloatingCartBar currentRoute={route} setRoute={setRoute} />
     </div>
   );
 }
