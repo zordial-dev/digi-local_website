@@ -180,3 +180,52 @@ button:active:not(:disabled),
 .animate-wave-drift {
   background: linear-gradient(135deg, #F6F0E8 0%, #EEE5DA 50%, #D6B7A5 100%);
 }
+
+/* Watery Floating Background Doodle Animations */
+@keyframes floatWatery1 {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(4deg);
+  }
+  100% {
+    transform: translateY(-4px) rotate(-3deg);
+  }
+}
+
+@keyframes floatWatery2 {
+  0% {
+    transform: translateY(-6px) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(8px) rotate(5deg);
+  }
+  100% {
+    transform: translateY(-6px) rotate(-4deg);
+  }
+}
+
+@keyframes floatWatery3 {
+  0% {
+    transform: translateY(0px) rotate(2deg) translateX(0px);
+  }
+  50% {
+    transform: translateY(-12px) rotate(-4deg) translateX(6px);
+  }
+  100% {
+    transform: translateY(0px) rotate(2deg) translateX(0px);
+  }
+}
+
+.animate-float-watery-1 {
+  animation: floatWatery1 11s ease-in-out infinite alternate;
+}
+
+.animate-float-watery-2 {
+  animation: floatWatery2 14s ease-in-out infinite alternate;
+}
+
+.animate-float-watery-3 {
+  animation: floatWatery3 12.5s ease-in-out infinite alternate;
+}

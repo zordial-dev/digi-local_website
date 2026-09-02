@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { MapPin, Building2, Check, X, Sparkles, Plus, Edit3 } from 'lucide-react';
 import { api } from '../services/api';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function DeliveryAddressModal({ isOpen = true, onClose, onAddressSaved, addressToEdit = null }) {
+  useScrollLock(isOpen);
   const [label, setLabel] = useState('Home');
   const [society, setSociety] = useState('');
   const [building, setBuilding] = useState('');
@@ -32,33 +34,15 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
     }
   }, [addressToEdit, isOpen]);
 
-  // Strict Background Freeze (Locks background position & scroll completely while modal is open)
+  // Strict Background Freeze (Locks background scroll cleanly while modal is open)
   useEffect(() => {
     if (isOpen) {
-      const scrollY = window.scrollY;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
       document.body.style.overflow = 'hidden';
     } else {
-      const scrollY = document.body.style.top;
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
       document.body.style.overflow = '';
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
-      }
     }
     return () => {
-      const scrollY = document.body.style.top;
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
       document.body.style.overflow = '';
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
-      }
     };
   }, [isOpen]);
 

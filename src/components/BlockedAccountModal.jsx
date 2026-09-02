@@ -1,7 +1,9 @@
 import React from 'react';
 import { AlertOctagon, Phone, MessageSquare, ShieldAlert, X, HelpCircle, ExternalLink } from 'lucide-react';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function BlockedAccountModal({ isOpen = true, onClose, onOpenSupport, blockInfo }) {
+  useScrollLock(isOpen);
   if (!isOpen) return null;
 
   const title = blockInfo?.title || 'Account Blocked by Admin';

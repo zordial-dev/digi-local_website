@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Search, Check, X, Building2, Navigation, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function DeliveryLocationModal({ isOpen, onClose, selectedLocation, onSelectLocation, setRoute }) {
+  useScrollLock(isOpen);
   const [searchQuery, setSearchQuery] = useState('');
   const [flatNumber, setFlatNumber] = useState('');
   const [customAddress, setCustomAddress] = useState('');

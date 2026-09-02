@@ -13,6 +13,7 @@ import {
   Sparkles,
   Lock
 } from 'lucide-react';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function DummyPaymentModal({
   isOpen,
@@ -23,6 +24,7 @@ export default function DummyPaymentModal({
   onSuccess,
   onFailure
 }) {
+  useScrollLock(isOpen);
   const [activeTab, setActiveTab] = useState('upi'); // 'upi' | 'card' | 'netbanking' | 'cod'
   const [upiId, setUpiId] = useState('');
   const [cardNumber, setCardNumber] = useState('');

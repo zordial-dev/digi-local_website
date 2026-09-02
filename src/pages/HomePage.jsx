@@ -6,6 +6,7 @@ import AnimatedIcon from '../components/common/AnimatedIcon';
 import ScrollStoryAnimation from '../components/ScrollStoryAnimation';
 import StrokeText from '../components/StrokeText';
 import ZordialLogo from '../components/ZordialLogo';
+import FloatingDoodles from '../components/FloatingDoodles';
 
 const POLAROID_SETS = [
   {
@@ -147,10 +148,13 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
   };
 
   return (
-    <div className="w-full bg-[#F6F0E8] min-h-screen font-sans -mt-px overflow-x-hidden text-[#211A19] pb-16">
+    <div className="w-full bg-[#F6F0E8] min-h-screen font-sans -mt-px overflow-x-hidden text-[#211A19] pb-16 relative">
       
       {/* HERO SECTION */}
       <div className="w-full pt-8 sm:pt-12 lg:pt-14 pb-10 sm:pb-14 px-4 sm:px-8 lg:px-12 relative overflow-hidden flex flex-col items-center justify-center text-center bg-[#F6F0E8]">
+
+          {/* Floating Transparent Watery Doodles Background */}
+          <FloatingDoodles section="hero" />
 
           {/* Decorative subtle ambient Nude radial glow */}
           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-[#D6B7A5]/30 rounded-full blur-[100px] pointer-events-none" />
@@ -281,8 +285,9 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
           variants={containerVariants}
-          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4"
+          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
         >
+          <FloatingDoodles section="bento" />
           <motion.div variants={itemVariants} className="text-center max-w-2xl mx-auto mb-8">
             <span className="text-[11px] font-extrabold text-[#541D26] uppercase tracking-widest block mb-1">
               Why DigiLocal?
@@ -380,8 +385,9 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
           variants={containerVariants}
-          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4"
+          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
         >
+          <FloatingDoodles section="mission" />
           <div className="bg-[#211A19] text-white rounded-[2.5rem] p-8 sm:p-12 shadow-2xl relative overflow-hidden border border-white/10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
               <motion.div variants={itemVariants} className="lg:col-span-7 space-y-4">
@@ -445,8 +451,9 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
           variants={containerVariants}
-          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4"
+          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
         >
+          <FloatingDoodles section="howItWorks" />
           <motion.div variants={itemVariants} className="text-center max-w-2xl mx-auto mb-10">
             <span className="text-[11px] font-extrabold text-[#541D26] uppercase tracking-widest block mb-1">
               Simple & Transparent Process
@@ -504,8 +511,9 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           whileInView="visible"
           viewport={{ once: true, amount: 0.3 }}
           variants={containerVariants}
-          className="max-w-4xl mx-auto bg-white border border-[#E5DAD0] rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 shadow-xs grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 my-8"
+          className="max-w-4xl mx-auto bg-white border border-[#E5DAD0] rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 shadow-xs grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 my-8 relative"
         >
+          <FloatingDoodles section="trust" />
           <motion.div variants={itemVariants} className="flex items-center space-x-2.5 sm:space-x-3 border-r border-[#E5DAD0] pr-2 sm:pr-4 justify-center">
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#541D26]/10 flex items-center justify-center text-[#541D26] flex-shrink-0">
               <ShieldCheck className="w-4 h-4 text-[#541D26]" />
@@ -553,8 +561,9 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           whileInView="visible"
           viewport={{ once: true, amount: 0.25 }}
           variants={containerVariants}
-          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4"
+          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
         >
+          <FloatingDoodles section="zordial" />
           <div className="bg-white border border-[#E7DFD5] rounded-[2.5rem] p-6 sm:p-10 lg:p-12 shadow-sm relative overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             
             {/* Background ambient glow */}
@@ -669,8 +678,9 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           whileInView="visible"
           viewport={{ once: true, amount: 0.3 }}
           variants={containerVariants}
-          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto mt-10 px-4"
+          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto mt-10 px-4 relative"
         >
+          <FloatingDoodles section="cta" />
           <div className="bg-[#EEE5DA] border border-[#E5DAD0] rounded-[2.5rem] p-8 sm:p-12 text-center relative overflow-hidden shadow-xs">
             <motion.div variants={itemVariants} className="max-w-2xl mx-auto space-y-4">
               <span className="px-3.5 py-1 text-[11px] font-extrabold bg-[#541D26] text-white rounded-full inline-block shadow-xs">

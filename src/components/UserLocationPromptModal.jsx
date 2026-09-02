@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Search, X, Loader2, Building2, Sparkles, Check } from 'lucide-react';
 import { api } from '../services/api';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export const UserLocationPromptModal = ({ isOpen = true, onClose, onLocationSet }) => {
+  useScrollLock(isOpen);
   const [areaInput, setAreaInput] = useState('');
   const [cityInput, setCityInput] = useState('Jaipur');
   const [stateInput, setStateInput] = useState('Rajasthan');

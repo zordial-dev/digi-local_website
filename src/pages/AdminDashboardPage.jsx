@@ -212,7 +212,10 @@ export default function AdminDashboardPage({ setRoute }) {
     }
   };
 
-  const handleAdminLogout = () => {
+  const handleAdminLogout = async () => {
+    try {
+      await api.logoutAdmin();
+    } catch (_) {}
     setModalConfig({
       isOpen: true,
       title: 'Admin Logged Out',
@@ -430,12 +433,12 @@ export default function AdminDashboardPage({ setRoute }) {
                         <p className="text-xs text-[#787F8C] font-medium">
                           Vendor Name: <strong>{req.vendor_name}</strong> • Email: <strong className="text-[#C5A880]">{req.email}</strong>
                         </p>
-
                         <div className="flex flex-wrap items-center gap-3 text-xs text-[#787F8C] pt-1 font-medium">
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5 text-[#C5A880]" />
-                            {req.society_name} ({req.location})
+                            {req.society_name} ({req.location || req.area})
                           </span>
+                          <span>• Shop No: <strong className="text-[#0A1428]">{req.shop_number || req.shop_no || 'Shop 101'}</strong></span>
                           <span>• Phone: {req.phone_number || 'N/A'}</span>
                           {req.gst_number && <span>• GST: {req.gst_number}</span>}
                         </div>
@@ -450,13 +453,13 @@ export default function AdminDashboardPage({ setRoute }) {
                     <div className="flex items-center space-x-3 self-end md:self-center">
                       <button
                         onClick={() => handleRejectRequest(req.vendor_id)}
-                        className="px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 transition-colors uppercase"
+                        className="px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 transition-colors uppercase cursor-pointer"
                       >
                         Reject
                       </button>
                       <button
                         onClick={() => handleApproveRequest(req.vendor_id)}
-                        className="px-6 py-2.5 rounded-xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-bold text-xs shadow-md flex items-center space-x-1.5 uppercase tracking-wider"
+                        className="px-6 py-2.5 rounded-xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-bold text-xs shadow-md flex items-center space-x-1.5 uppercase tracking-wider cursor-pointer"
                       >
                         <Check className="w-4 h-4" />
                         <span>Accept & Activate 1-Yr Subscription</span>
@@ -495,25 +498,21 @@ export default function AdminDashboardPage({ setRoute }) {
             {loading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-28 rounded-2xl bg-white border border-[#C5A880]/20 animate-pulse" />
+                  <div key={i} className="h-20 rounded-2xl bg-white border border-[#C5A880]/20 animate-pulse" />
                 ))}
               </div>
             ) : (!Array.isArray(vendors) || vendors.length === 0) ? (
               <div className="text-center py-16 bg-[#FAF9F6] rounded-2xl border border-[#C5A880]/20 p-8 shadow-sm">
                 <Store className="w-12 h-12 text-[#787F8C] mx-auto mb-3" />
                 <h3 className="text-base font-bold text-[#0A1428] mb-1">No Vendors Found</h3>
-                <p className="text-[#787F8C] text-xs font-medium">No registered vendors match your search query.</p>
+                <p className="text-xs text-[#787F8C]">No vendor profiles match your current search criteria.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {(Array.isArray(vendors) ? vendors : []).map((vendor) => {
+                {vendors.map((vendor) => {
                   const isExpanded = expandedVendorId === vendor.vendor_id;
-
                   return (
-                    <div
-                      key={vendor.vendor_id}
-                      className="rounded-2xl bg-white border border-[#C5A880]/25 overflow-hidden transition-all shadow-sm"
-                    >
+                    <div key={vendor.vendor_id} className="bg-white rounded-2xl border border-[#C5A880]/20 shadow-sm overflow-hidden transition-all">
                       <div
                         onClick={() => setExpandedVendorId(isExpanded ? null : vendor.vendor_id)}
                         className="p-5 flex items-center justify-between cursor-pointer hover:bg-[#FAF9F6] transition-colors"
@@ -536,7 +535,7 @@ export default function AdminDashboardPage({ setRoute }) {
                               </span>
                             </div>
                             <p className="text-xs text-[#787F8C] font-medium">
-                              Vendor: {vendor.vendor_name} • Society: <strong className="text-[#C5A880]">{vendor.society_name}</strong>
+                              Vendor: {vendor.vendor_name} • Shop: <strong className="text-[#0A1428]">{vendor.shop_number || vendor.shop_no || 'Shop 101'}</strong> • Society: <strong className="text-[#C5A880]">{vendor.society_name}</strong>
                             </p>
                           </div>
                         </div>
@@ -593,12 +592,13 @@ export default function AdminDashboardPage({ setRoute }) {
                                 <span>Vendor Details</span>
                               </div>
                               <div className="text-xs space-y-1 text-[#787F8C] font-medium">
-                                <p>Email: {vendor.email}</p>
-                                <p>Phone: {vendor.phone_number || 'N/A'}</p>
-                                <p>GST: {vendor.gst_number || 'N/A'}</p>
+                                <p>Shop No: <strong className="text-[#0A1428]">{vendor.shop_number || vendor.shop_no || 'Shop 101'}</strong></p>
+                                <p>Address: {vendor.address || 'N/A'}</p>
+                                <p>Email: {vendor.email || 'N/A'}</p>
+                                <p>Phone: {vendor.country_code ? `${vendor.country_code} ${vendor.phone_number}` : (vendor.phone_number || 'N/A')}</p>
+                                <p>GSTIN: {vendor.gstin || vendor.gst_number || 'N/A'}</p>
                               </div>
                             </div>
-
                           </div>
 
                           <div>

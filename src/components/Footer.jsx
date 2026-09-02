@@ -152,7 +152,7 @@ export default function Footer({ setRoute, onOpenSupportDesk }) {
               <ul className="space-y-3.5 text-xs sm:text-sm text-white">
                 <li>
                   <button 
-                    onClick={() => onOpenSupportDesk ? onOpenSupportDesk() : navTo('contact-support')}
+                    onClick={() => navTo('contact-support')}
                     className="hover:text-[#C8A878] transition-colors flex items-center space-x-2 text-left group font-bold cursor-pointer py-0.5"
                   >
                     <Headphones className="w-4 h-4 text-[#C8A878] group-hover:scale-110 transition-transform shrink-0" />
@@ -161,7 +161,7 @@ export default function Footer({ setRoute, onOpenSupportDesk }) {
                 </li>
                 <li>
                   <button 
-                    onClick={() => onOpenSupportDesk ? onOpenSupportDesk() : navTo('contact-support')}
+                    onClick={() => navTo('contact-support')}
                     className="hover:text-[#C8A878] transition-colors flex items-center space-x-2 text-left group cursor-pointer"
                   >
                     <FileText className="w-4 h-4 text-[#D6B7A5] group-hover:text-[#C8A878] shrink-0 group-hover:scale-110 transition-all" />

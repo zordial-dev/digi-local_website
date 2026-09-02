@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle2, AlertTriangle, AlertCircle, Info, X } from 'lucide-react';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function NotificationModal({
   isOpen,
@@ -12,17 +13,20 @@ export default function NotificationModal({
   confirmText = 'OK',
   cancelText = 'Cancel'
 }) {
+  useScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   const isConfirm = type === 'confirm';
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+      className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto"
+      style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0 }}
       onClick={onCancel || onConfirm}
     >
       <div 
-        className="bg-white border border-[#E7DFD5] rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center flex flex-col items-center my-auto animate-in zoom-in-95 duration-200 text-[#211A19]"
+        className="relative bg-white border border-[#E7DFD5] rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center flex flex-col items-center my-auto shrink-0 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200 text-[#211A19]"
         onClick={(e) => e.stopPropagation()}
       >
         

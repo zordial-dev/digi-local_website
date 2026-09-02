@@ -64,19 +64,54 @@ export default function VendorStatusBanner({ vendorId, token, onNavigateSettings
   const handleResubmit = async () => {
     try {
       setResubmitting(true);
+      const vId = vendorId || activeVendor?.vendor_id || 1164;
+      const storedPan = localStorage.getItem('digilocal_pan_' + vId) || '';
+      const panVal = activeVendor?.pan_number || activeVendor?.pan || activeVendor?.panNumber || storedPan || '';
+      const phoneVal = activeVendor?.phone_number || activeVendor?.phone || activeVendor?.whatsapp_number || activeVendor?.mobile || '';
+      const emailVal = activeVendor?.email || activeVendor?.store_email || '';
+      const shopNum = activeVendor?.shop_number || activeVendor?.shop_no || activeVendor?.shopNumber || 'Shop 101';
+      const storeName = activeVendor?.store_name || activeVendor?.shop_business_name || 'My Local Store';
+      const ownerName = activeVendor?.vendor_name || activeVendor?.owner_name || 'Vendor Merchant';
+
       const payload = {
-        vendor_id: vendorId || activeVendor?.vendor_id || 1164,
-        store_name: activeVendor?.store_name || activeVendor?.shop_business_name || 'My Local Store',
-        vendor_name: activeVendor?.vendor_name || activeVendor?.owner_name || 'Vendor Merchant',
+        ...activeVendor,
+        vendor_id: vId,
+        store_name: storeName,
+        shop_business_name: storeName,
+        vendor_name: ownerName,
+        owner_name: ownerName,
+        email: emailVal,
+        store_email: emailVal,
+        phone_number: phoneVal,
+        phone: phoneVal,
+        whatsapp_number: phoneVal,
+        mobile: phoneVal,
+        shop_number: shopNum,
+        shop_no: shopNum,
         gstin: activeVendor?.gstin || activeVendor?.gst_number || '',
+        pan_number: panVal,
+        pan: panVal,
+        panNumber: panVal,
+        description: activeVendor?.description || '',
+        opening_timing: activeVendor?.opening_timing || activeVendor?.opening_time || '',
+        closing_timing: activeVendor?.closing_timing || activeVendor?.closing_time || '',
         area: activeVendor?.area || activeVendor?.location || '',
+        location: activeVendor?.location || activeVendor?.area || '',
         city: activeVendor?.city || 'Jaipur',
+        state: activeVendor?.state || 'Rajasthan',
         pincode: activeVendor?.pincode || '302020',
-        shop_image: activeVendor?.logo || activeVendor?.shop_image || ''
+        shop_image: activeVendor?.logo || activeVendor?.shop_image || '',
+        logo: activeVendor?.logo || activeVendor?.shop_image || '',
+        account_holder_name: activeVendor?.account_holder_name || '',
+        bank_name: activeVendor?.bank_name || '',
+        account_number: activeVendor?.account_number || '',
+        ifsc_code: activeVendor?.ifsc_code || '',
+        upi_id: activeVendor?.upi_id || '',
+        qr_code_url: activeVendor?.qr_code_url || ''
       };
 
       const res = await api.resubmitVendorApplication(payload, token);
-      if (res && res.has_resubmitted) {
+      if (res) {
         setResubmitSuccess(true);
         fetchStatus();
         if (onRefreshStatus) onRefreshStatus();
@@ -245,28 +280,40 @@ export default function VendorStatusBanner({ vendorId, token, onNavigateSettings
               Application Rejected
             </h4>
             <p className="text-xs font-semibold text-rose-900 mt-0.5">
-              {recommended_ui_text || "Your application was rejected by admin. Please contact support if you believe this is an error."}
+              {recommended_ui_text || "Your registration application was rejected by admin. You can update your store details and resubmit your application for review."}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3 pt-1 border-t border-rose-200/80">
-          <a
-            href="tel:+919876543210"
-            className="px-4 py-2 rounded-xl bg-white border border-rose-300 text-rose-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
-          >
-            <PhoneCall className="w-3.5 h-3.5 text-rose-700" />
-            <span>Call Support</span>
-          </a>
+        {resubmitSuccess ? (
+          <div className="p-3 rounded-2xl bg-emerald-100 text-emerald-900 text-xs font-bold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+            <span>Your application has been resubmitted successfully! Status reset to PENDING for Admin review.</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-end space-x-3 pt-1 border-t border-rose-200/80">
+            {onNavigateSettings && (
+              <button
+                type="button"
+                onClick={onNavigateSettings}
+                className="px-4 py-2 rounded-xl bg-white hover:bg-rose-100/60 border border-rose-300 text-rose-950 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              >
+                <Settings className="w-3.5 h-3.5 text-rose-800" />
+                <span>Edit Store Details</span>
+              </button>
+            )}
 
-          <a
-            href="mailto:support@digilocal.in"
-            className="px-4 py-2 rounded-xl bg-white border border-rose-300 text-rose-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
-          >
-            <Mail className="w-3.5 h-3.5 text-rose-700" />
-            <span>Email Support</span>
-          </a>
-        </div>
+            <button
+              type="button"
+              onClick={handleResubmit}
+              disabled={resubmitting}
+              className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${resubmitting ? 'animate-spin' : ''}`} />
+              <span>{resubmitting ? 'Resubmitting...' : 'Resubmit Application for Admin Review'}</span>
+            </button>
+          </div>
+        )}
       </div>
     );
   }

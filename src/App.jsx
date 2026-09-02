@@ -312,14 +312,23 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const handleVendorLogout = () => {
+  const handleVendorLogout = async () => {
+    try {
+      await api.logoutVendor({ vendor_id: activeVendor?.vendor_id });
+    } catch (_) {}
     localStorage.removeItem('digilocal_vendor_session');
     localStorage.removeItem('digilocal_active_order');
+    localStorage.removeItem('vendor_profile');
+    localStorage.removeItem('fcm_token');
+    localStorage.removeItem('push_token');
     setActiveVendor(null);
     setRoute({ page: 'home' });
   };
 
-  const handleUserLogout = () => {
+  const handleUserLogout = async () => {
+    try {
+      await api.logoutUser();
+    } catch (_) {}
     localStorage.removeItem('digilocal_user_session');
     localStorage.removeItem('digilocal_resident_session');
     localStorage.removeItem('user_profile');

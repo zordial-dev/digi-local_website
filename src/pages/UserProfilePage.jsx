@@ -765,7 +765,7 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                             </button>
                           </div>
                           <p className="text-[11px] text-[#211A19]/60 font-medium mt-0.5">
-                            <span className="font-mono text-[#211A19] font-bold">#{order.order_id || order.id}</span> • {new Date(order.date || order.created_at || Date.now()).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            <span className="font-mono text-[#211A19] font-bold">#{order.order_id || order.id}</span> • {order.created_at_readable || new Date(order.created_at_ist || order.created_at || Date.now()).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
                       </div>
@@ -1228,9 +1228,9 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                 <button
                   type="button"
                   onClick={onLogout}
-                  className="w-full py-3.5 bg-[#EEE5DA]/80 hover:bg-[#EEE5DA] text-[#541D26] border border-[#E5DAD0] rounded-full text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                  className="w-full py-3 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md border border-[#C8A878]/30"
                 >
-                  <LogOut className="w-4 h-4 text-[#541D26]" />
+                  <LogOut className="w-4 h-4 text-white" />
                   <span>Log Out of Account</span>
                 </button>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   LifeBuoy, 
   Send, 
@@ -11,11 +12,14 @@ import {
   Store, 
   HelpCircle,
   ShoppingBag,
-  ArrowRight
+  ArrowRight,
+  Paperclip
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function SupportDeskModal({ isOpen, onClose, userType = 'user', initialEmail = '', initialName = '', entityName = '' }) {
+  useScrollLock(isOpen);
   const [activeTab, setActiveTab] = useState('new'); // 'new' | 'history'
   
   // Ticket Form State
@@ -27,8 +31,11 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
   const [entity, setEntity] = useState(entityName || '');
   const [orderId, setOrderId] = useState('');
   const [subject, setSubject] = useState('');
-  const [category, setCategory] = useState(userType === 'vendor' ? 'payouts' : 'billing');
+  const [category, setCategory] = useState(userType === 'vendor' ? 'payouts' : 'user_vs_vendor');
+  const [targetVendor, setTargetVendor] = useState('');
   const [description, setDescription] = useState('');
+  const [attachmentFile, setAttachmentFile] = useState(null);
+  const [replyAttachmentFile, setReplyAttachmentFile] = useState(null);
   
   // UI Messages & Loading State
   const [loading, setLoading] = useState(false);
@@ -54,7 +61,12 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
 
   const loadTickets = async () => {
     try {
-      const data = await api.getSupportTickets(ticketUserType, reporterEmail);
+      let data = [];
+      if (ticketUserType === 'user') {
+        data = await api.getResidentTickets();
+      } else {
+        data = await api.getSupportTickets(ticketUserType, reporterEmail);
+      }
       if (Array.isArray(data)) setTicketsList(data);
     } catch (_) {}
   };
@@ -71,40 +83,63 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
       setErrorMsg('');
       const payload = {
         user_type: ticketUserType,
-        source: source,
+        source: ticketUserType === 'vendor' ? 'vendor_portal' : 'landing_website',
         reporter_name: reporterName.trim(),
         reporter_email: reporterEmail.trim(),
         reporter_phone: reporterPhone.trim(),
         entity_name: entity.trim(),
         order_id: orderId.trim(),
+        target_vendor: targetVendor.trim(),
         subject: subject.trim(),
         description: description.trim(),
         category: category,
-        priority: 'low' // Default priority set to LOW (Admin adjusts accordingly)
+        priority: 'low'
       };
 
-      const res = await api.createSupportTicket(payload);
-      if (res && (res.success || res.data)) {
+      const res = ticketUserType === 'user'
+        ? await api.createResidentTicket(payload)
+        : await api.createSupportTicket(payload);
+
+      if (res && (res.code === 201 || res.status === 'success' || res.success || res.data)) {
+        let uploadedAtt = null;
+        const targetTicketId = res.data?.ticket_id || res.data?.id;
+        if (attachmentFile && targetTicketId) {
+          try {
+            const attRes = await api.uploadTicketAttachment(targetTicketId, attachmentFile);
+            if (attRes && attRes.data) uploadedAtt = attRes.data;
+          } catch (attErr) {
+            console.warn('Attachment upload failed:', attErr);
+          }
+        }
+
         const generatedTicket = {
           ticket_id: res.data?.ticket_id || `TCK-${Date.now()}`,
+          ticket_number: res.data?.ticket_number || `TICK-${Math.floor(1000 + Math.random() * 9000)}`,
           subject: payload.subject,
           category: payload.category,
           order_id: payload.order_id,
-          status: 'OPEN',
+          target_vendor: payload.target_vendor,
+          status: res.data?.status || 'open',
           user_type: payload.user_type,
           reporter_name: payload.reporter_name,
           reporter_email: payload.reporter_email,
           description: payload.description,
+          attachments: uploadedAtt ? [uploadedAtt] : [],
+          sla_minutes_remaining: res.data?.sla_minutes_remaining || 45,
+          created_at_readable: res.data?.created_at_readable || new Date().toLocaleString(),
           created_at: new Date().toISOString(),
           ...res.data
         };
         setSubmittedTicket(generatedTicket);
+        setSuccessMsg(res.message || 'Your support ticket has been submitted. Our team will respond within 45 minutes.');
         setSubject('');
         setDescription('');
         setOrderId('');
+        setTargetVendor('');
+        setAttachmentFile(null);
         loadTickets();
       } else {
-        throw new Error(res?.error || 'Failed to submit ticket');
+        throw new Error(res?.error || res?.message || 'Failed to submit ticket');
       }
     } catch (err) {
       setErrorMsg(err.message || 'Failed to submit support complaint. Please try again.');
@@ -135,15 +170,36 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
 
     try {
       setReplyLoading(true);
-      const res = await api.replySupportTicket(selectedTicket.ticket_id, {
-        sender_role: ticketUserType,
-        sender_name: reporterName || 'Applicant',
-        content: replyText.trim()
-      });
+      const tId = selectedTicket.ticket_id || selectedTicket.id;
+      const res = ticketUserType === 'user'
+        ? await api.replyResidentTicket(tId, replyText.trim())
+        : await api.replySupportTicket(tId, {
+            sender_role: ticketUserType,
+            sender_name: reporterName || 'Applicant',
+            content: replyText.trim()
+          });
 
-      if (res && res.data) {
-        setThreadMessages(prev => [...prev, res.data]);
+      if (res && (res.status === 'success' || res.data)) {
+        let uploadedAtt = null;
+        if (replyAttachmentFile && tId) {
+          try {
+            const attRes = await api.uploadTicketAttachment(tId, replyAttachmentFile);
+            if (attRes && attRes.data) uploadedAtt = attRes.data;
+          } catch (_) {}
+        }
+
+        const msgObj = res.data || {
+          id: `m-${Date.now()}`,
+          sender_name: reporterName || 'Resident Customer',
+          sender_role: 'user',
+          message: replyText.trim(),
+          content: replyText.trim(),
+          attachment: uploadedAtt,
+          created_at_readable: 'Just now'
+        };
+        setThreadMessages(prev => [...prev, msgObj]);
         setReplyText('');
+        setReplyAttachmentFile(null);
       }
     } catch (err) {
       alert(err.message || 'Failed to post reply');
@@ -156,9 +212,15 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
 
   const isVendorAccount = userType === 'vendor';
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/65 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white text-ink rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl border border-border flex flex-col max-h-[90vh] overflow-hidden">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[99999999] flex items-start justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md overflow-y-auto w-full h-full min-h-screen top-0 left-0 right-0 bottom-0 animate-in fade-in"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white text-ink rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-border flex flex-col max-h-[85vh] overflow-hidden relative my-3 sm:my-6 shrink-0 animate-in zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-4 border-b border-border">
@@ -232,12 +294,6 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
           </div>
 
           <div className="flex items-center gap-2 text-xs font-bold ml-auto">
-            <button
-              onClick={() => { setActiveTab('new'); setSelectedTicket(null); setSubmittedTicket(null); }}
-              className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${activeTab === 'new' ? 'bg-[#541D26] text-white border-[#541D26] shadow-2xs' : 'bg-white text-[#211A19] border-border hover:bg-[#EEE5DA]'}`}
-            >
-              + Submit Complaint
-            </button>
             <button
               onClick={() => { setActiveTab('history'); loadTickets(); }}
               className={`px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${activeTab === 'history' ? 'bg-[#541D26] text-white border-[#541D26] shadow-2xs' : 'bg-white text-[#211A19] border-border hover:bg-[#EEE5DA]'}`}
@@ -396,10 +452,10 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
                         </>
                       ) : (
                         <>
-                          <option value="billing">💳 Billing & Refund Queries</option>
-                          <option value="delivery">🚚 Order Delivery & Logistics</option>
-                          <option value="technical">🛠️ App Technical Issue</option>
-                          <option value="general">❓ General Platform Assistance</option>
+                          <option value="user_vs_vendor">🛒 Merchant / Order Dispute (user_vs_vendor)</option>
+                          <option value="billing">💳 Billing & Refund Queries (billing)</option>
+                          <option value="technical">🛠️ App Technical Issue (technical)</option>
+                          <option value="general">❓ General Platform Assistance (general)</option>
                         </>
                       )}
                     </select>
@@ -411,10 +467,21 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
                       type="text"
                       value={orderId}
                       onChange={(e) => setOrderId(e.target.value)}
-                      placeholder="e.g. ORD-984201"
+                      placeholder="e.g. ORD-9842"
                       className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623]"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-ink font-bold mb-1">Reported Merchant / Vendor Store Name (Optional)</label>
+                  <input
+                    type="text"
+                    value={targetVendor}
+                    onChange={(e) => setTargetVendor(e.target.value)}
+                    placeholder="e.g. Aarushi Sweets / Fresh Grocery Store"
+                    className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623]"
+                  />
                 </div>
 
                 <div>
@@ -433,12 +500,40 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
                   <label className="block text-ink font-bold mb-1">Detailed Description of Complaint *</label>
                   <textarea
                     required
-                    rows={4}
+                    rows={3}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Provide complete details including transaction details, issue timeline, or relevant store information..."
                     className="w-full px-3.5 py-2.5 bg-secondary/30 border border-border rounded-xl focus:outline-none focus:border-[#1E3623] resize-none"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-ink font-bold mb-1">Attach Photo Evidence / PDF Document (Optional)</label>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 px-3.5 py-2 bg-secondary/40 hover:bg-secondary/70 border border-border rounded-xl text-xs font-bold text-ink cursor-pointer transition-colors shadow-2xs">
+                      <Paperclip className="w-4 h-4 text-[#541D26]" />
+                      <span>{attachmentFile ? 'Change File Evidence' : 'Choose Photo / PDF Evidence'}</span>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setAttachmentFile(e.target.files[0]);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                    {attachmentFile && (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] font-bold text-emerald-800 shrink-0">
+                        <span className="truncate max-w-[180px]">📎 {attachmentFile.name}</span>
+                        <button type="button" onClick={() => setAttachmentFile(null)} className="text-rose-600 hover:text-rose-800 p-0.5">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <button
@@ -476,22 +571,27 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
                         >
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono font-bold text-[11px] px-2 py-0.5 bg-secondary rounded-lg text-ink">{t.ticket_id}</span>
+                              <span className="font-mono font-bold text-[11px] px-2 py-0.5 bg-secondary rounded-lg text-ink">{t.ticket_number || t.ticket_id}</span>
                               {t.order_id && (
                                 <span className="font-mono text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-900 rounded-lg">Order: {t.order_id}</span>
                               )}
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                                t.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-800' : 
-                                t.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800'
+                                t.status === 'RESOLVED' || t.status === 'closed' ? 'bg-emerald-100 text-emerald-800' : 
+                                t.status === 'IN_PROGRESS' || t.status === 'in_progress' ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800'
                               }`}>
                                 {t.status}
                               </span>
-                              <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-800 rounded-full uppercase">
-                                {t.priority || 'low'}
-                              </span>
+                              {t.sla_minutes_remaining && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
+                                  SLA: {t.sla_minutes_remaining}m
+                                </span>
+                              )}
                             </div>
                             <h4 className="font-serif font-bold text-xs text-ink">{t.subject}</h4>
                             <p className="text-[11px] text-muted-foreground line-clamp-1">{t.description}</p>
+                            {t.created_at_readable && (
+                              <p className="text-[10px] text-muted-foreground font-medium pt-0.5">{t.created_at_readable}</p>
+                            )}
                           </div>
                           <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
                         </div>
@@ -547,22 +647,45 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
                   </div>
 
                   {/* Reply Form */}
-                  <form onSubmit={handlePostReply} className="flex items-center gap-2 pt-2">
-                    <input
-                      type="text"
-                      required
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      placeholder="Write your response message..."
-                      className="flex-1 px-4 py-2.5 bg-secondary/30 border border-border rounded-xl text-xs font-semibold focus:outline-none focus:border-[#541D26]"
-                    />
-                    <button
-                      type="submit"
-                      disabled={replyLoading}
-                      className="px-5 py-2.5 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 border border-[#C8A878]/30 shadow-xs"
-                    >
-                      {replyLoading ? 'Sending...' : 'Send Reply'}
-                    </button>
+                  <form onSubmit={handlePostReply} className="space-y-2 pt-2">
+                    {replyAttachmentFile && (
+                      <div className="flex items-center justify-between p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] font-bold text-emerald-800">
+                        <span>📎 Photo Evidence Attached: {replyAttachmentFile.name}</span>
+                        <button type="button" onClick={() => setReplyAttachmentFile(null)} className="text-rose-600 hover:text-rose-800">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <label className="p-2.5 bg-secondary/40 hover:bg-secondary/70 border border-border rounded-xl text-ink cursor-pointer shrink-0">
+                        <Paperclip className="w-4 h-4 text-[#541D26]" />
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setReplyAttachmentFile(e.target.files[0]);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder="Write your response message..."
+                        className="flex-1 px-4 py-2.5 bg-secondary/30 border border-border rounded-xl text-xs font-semibold focus:outline-none focus:border-[#541D26]"
+                      />
+                      <button
+                        type="submit"
+                        disabled={replyLoading}
+                        className="px-5 py-2.5 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 border border-[#C8A878]/30 shadow-xs"
+                      >
+                        {replyLoading ? 'Sending...' : 'Send Reply'}
+                      </button>
+                    </div>
                   </form>
                 </div>
               )}
@@ -572,6 +695,7 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

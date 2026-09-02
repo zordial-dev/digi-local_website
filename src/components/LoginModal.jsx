@@ -16,8 +16,10 @@ import {
   EyeOff
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor, setActiveUser }) {
+  useScrollLock(isOpen);
   const [loginType, setLoginType] = useState('resident'); // 'resident' (default) | 'vendor'
   const [step, setStep] = useState(1); // For resident OTP login
   

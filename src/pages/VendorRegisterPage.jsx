@@ -36,6 +36,7 @@ import { api, getValidImageUrl, isValidIndianMobileNumber } from '../services/ap
 import CountryCodePicker from '../components/CountryCodePicker';
 import CategoryPicker from '../components/CategoryPicker';
 import { sendFirebasePhoneOtp, verifyFirebasePhoneOtp } from '../firebase';
+import { resolveLocationFromInput, fetchDetailsByPincode } from '../utils/locationResolver';
 
 export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVendor, setActiveUser }) {
   // Stepper State (1: Society & Contact Verification, 2: Shop Details, 3: Password & Finish)
@@ -65,10 +66,12 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [shopNumber, setShopNumber] = useState('');
   const [shopAddress, setShopAddress] = useState('');
-  const [pincode, setPincode] = useState('302022');
-  const [city, setCity] = useState('Jaipur');
-  const [state, setState] = useState('Rajasthan');
+  const [pincode, setPincode] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [taxIdType, setTaxIdType] = useState('gstin');
   const [gstNumber, setGstNumber] = useState('');
+  const [panNumber, setPanNumber] = useState('');
   const [areaSuggestions, setAreaSuggestions] = useState([]);
   const [showAreaDropdown, setShowAreaDropdown] = useState(false);
   const [liveLocationSuggestions, setLiveLocationSuggestions] = useState([]);
@@ -91,7 +94,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     }
   };
 
-  const handleSelectLiveLocation = (loc) => {
+  const handleSelectLiveLocation = async (loc) => {
     const locArea = loc.area || loc.society_name || loc.name || '';
     setSocietySearch(locArea);
     setAreaName(locArea);
@@ -102,12 +105,33 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     if (loc.society_id) setSelectedSocietyId(loc.society_id);
     setActiveSocietyDetails({
       society_name: locArea,
-      city: loc.city || city,
-      state: loc.state || state,
-      pincode: loc.pincode || pincode
+      city: loc.city || '',
+      state: loc.state || '',
+      pincode: loc.pincode || ''
     });
     setShowSelectedDetails(true);
     setShowSocietyDropdown(false);
+
+    const pinToLookup = loc.pincode || pincode;
+    if ((!loc.city || !loc.state) && pinToLookup && String(pinToLookup).replace(/[^0-9]/g, '').length === 6) {
+      const details = await fetchDetailsByPincode(pinToLookup);
+      if (details) {
+        if (details.city) setCity(details.city);
+        if (details.state) setState(details.state);
+      }
+    }
+  };
+
+  const handlePincodeInputChange = async (val) => {
+    const clean = val.replace(/[^0-9]/g, '');
+    setPincode(clean);
+    if (clean.length === 6) {
+      const details = await fetchDetailsByPincode(clean);
+      if (details) {
+        if (details.city) setCity(details.city);
+        if (details.state) setState(details.state);
+      }
+    }
   };
 
   const handleAddressChange = async (val) => {
@@ -117,6 +141,24 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
       setCity('');
       setState('');
       setPincode('');
+    } else {
+      try {
+        const res = await resolveLocationFromInput(val);
+        if (res && (res.city || res.state || res.pincode)) {
+          setCity(res.city || '');
+          setState(res.state || '');
+          setPincode(res.pincode || '');
+        } else {
+          // If typed area does not exist in location database/geocoder, clear auto-filled fields
+          setCity('');
+          setState('');
+          setPincode('');
+        }
+      } catch (_) {
+        setCity('');
+        setState('');
+        setPincode('');
+      }
     }
     setShowAreaDropdown(true);
     try {
@@ -704,8 +746,16 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
       setError('Please enter shop / business name.');
       return;
     }
-    if (!gstNumber || !gstNumber.trim()) {
-      setError('Please enter 15-digit GSTIN or 10-digit PAN.');
+    if (!shopNumber || !shopNumber.trim()) {
+      setError('Please enter shop / building number.');
+      return;
+    }
+    if (taxIdType === 'gstin' && (!gstNumber || !gstNumber.trim())) {
+      setError('Please enter a valid 15-digit GSTIN number.');
+      return;
+    }
+    if (taxIdType === 'pan' && (!panNumber || !panNumber.trim())) {
+      setError('Please enter a valid 10-digit PAN number.');
       return;
     }
     if (!Array.isArray(shopImages) || shopImages.length === 0) {
@@ -754,15 +804,17 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         password,
         vendor_type: vendorType,
         can_add_items: vendorType === 'product',
-        location: areaName.trim() || shopAddress.trim() || societySearch.trim() || 'A, Sitapura Industrial Area',
-        city: city.trim() || 'Jaipur',
-        state: state.trim() || 'Rajasthan',
-        pincode: pincode.trim() || '302022',
+        location: areaName.trim() || shopAddress.trim() || societySearch.trim() || '',
+        city: city.trim(),
+        state: state.trim(),
+        pincode: pincode.trim(),
         shop_number: shopNumber.trim(),
         shop_address: shopAddress.trim(),
         society_name: societySearch.trim(),
         society_id: selectedSocietyId || 1,
-        gst_number: gstNumber.trim(),
+        gstin: gstNumber.trim() ? gstNumber.trim().toUpperCase() : (taxIdType.toLowerCase() === 'gstin' ? gstNumber.trim().toUpperCase() : ''),
+        pan_number: panNumber.trim() ? panNumber.trim().toUpperCase() : (taxIdType.toLowerCase() === 'pan' ? panNumber.trim().toUpperCase() : ''),
+        gst_number: gstNumber.trim() ? gstNumber.trim().toUpperCase() : (taxIdType.toLowerCase() === 'gstin' ? gstNumber.trim().toUpperCase() : ''),
         shop_images: shopImages,
         logo: customLogo,
         image_url: customLogo,
@@ -775,23 +827,26 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
       const res = await api.registerVendor(payload);
       
       const accessToken = res.accessToken || res.data?.accessToken || res.token;
+      const refreshToken = res.refreshToken || res.data?.refreshToken;
       const serverVendor = res.vendor || res.data?.vendor || {};
       const createdVendor = {
-        vendor_id: res.vendor_id || serverVendor.vendor_id || Math.floor(Math.random() * 1000 + 104),
-        society_id: selectedSocietyId || serverVendor.society_id || 1,
+        vendor_id: res.vendor_id || serverVendor.vendor_id,
+        society_id: selectedSocietyId || serverVendor.society_id,
         society_name: societySearch.trim() || serverVendor.society_name || '',
         store_name: shopBusinessName.trim() || serverVendor.store_name || '',
         vendor_name: ownerName.trim() || serverVendor.vendor_name || cleanEmail.split('@')[0],
         email: cleanEmail || serverVendor.email || '',
         phone_number: mainPhone || verifiedContactValue || serverVendor.phone_number || '',
-        category: businessCategory || serverVendor.category || 'General',
+        category: businessCategory || serverVendor.category || '',
         location: areaName.trim() || shopAddress.trim() || societySearch.trim() || serverVendor.location || serverVendor.area || '',
         area: areaName.trim() || serverVendor.area || '',
-        city: city.trim() || serverVendor.city || 'Jaipur',
-        state: state.trim() || serverVendor.state || 'Rajasthan',
-        pincode: pincode.trim() || serverVendor.pincode || '302022',
+        city: city.trim() || serverVendor.city || '',
+        state: state.trim() || serverVendor.state || '',
+        pincode: pincode.trim() || serverVendor.pincode || '',
         shop_address: shopAddress.trim() || serverVendor.shop_address || '',
-        gst_number: gstNumber.trim() || serverVendor.gst_number || '',
+        gstin: serverVendor.gstin || serverVendor.gst_number || (gstNumber ? gstNumber.trim().toUpperCase() : ''),
+        pan_number: serverVendor.pan_number || (panNumber ? panNumber.trim().toUpperCase() : ''),
+        gst_number: serverVendor.gst_number || serverVendor.gstin || (gstNumber ? gstNumber.trim().toUpperCase() : ''),
         status: serverVendor.status || 'PENDING APPROVAL',
         logo: customLogo || serverVendor.logo || '',
         image_url: customLogo || serverVendor.image_url || '',
@@ -1150,7 +1205,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                       {filteredSocieties.map((soc) => (
                         <div
                           key={soc.society_id}
-                          onClick={() => {
+                          onClick={async () => {
                             setSelectedSocietyId(soc.society_id);
                             setSocietySearch(soc.society_name);
                             setAreaName(soc.society_name);
@@ -1160,9 +1215,18 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                             setActiveSocietyDetails(soc);
                             setShowSelectedDetails(true);
                             setShowSocietyDropdown(false);
+
+                            const pinToLookup = soc.pincode || pincode;
+                            if ((!soc.city || !soc.state) && pinToLookup && String(pinToLookup).replace(/[^0-9]/g, '').length === 6) {
+                              const details = await fetchDetailsByPincode(pinToLookup);
+                              if (details) {
+                                if (details.city && (!soc.city || !city)) setCity(details.city);
+                                if (details.state && (!soc.state || !state)) setState(details.state);
+                              }
+                            }
                           }}
                           className={`px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-colors flex items-center justify-between ${
-                            selectedSocietyId === soc.society_id ? 'bg-[#541D26] text-white' : 'text-[#211A19] hover:bg-[#EEE5DA]'
+                            selectedSocietyId === soc.society_id ? 'bg-[#541D26] text-[#FAF8F5]' : 'text-[#211A19] hover:bg-[#EEE5DA]'
                           }`}
                         >
                           <span className="flex items-center gap-2">
@@ -1219,16 +1283,11 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                     <input
                       type="text"
                       required
-                      readOnly={Boolean(pincode)}
-                      disabled={Boolean(pincode)}
-                      placeholder="302033"
+                      maxLength={6}
+                      placeholder="Enter 6-digit pincode"
                       value={pincode}
-                      onChange={(e) => setPincode(e.target.value)}
-                      className={`w-full px-3.5 py-2.5 rounded-2xl border text-xs font-bold transition-all shadow-xs ${
-                        Boolean(pincode)
-                          ? 'bg-[#F3F4F6] text-[#4B5563] cursor-not-allowed border-gray-300/80 shadow-none'
-                          : 'bg-[#FAF9F6] text-ink border-border/80 focus:outline-none focus:border-[#541D26]'
-                      }`}
+                      onChange={(e) => handlePincodeInputChange(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-[#FAF9F6] text-ink border border-border/80 focus:outline-none focus:border-[#541D26] text-xs font-bold transition-all shadow-xs"
                     />
                   </div>
 
@@ -1239,16 +1298,10 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                     <input
                       type="text"
                       required
-                      readOnly={Boolean(city)}
-                      disabled={Boolean(city)}
                       placeholder="Jaipur"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      className={`w-full px-3.5 py-2.5 rounded-2xl border text-xs font-bold transition-all shadow-xs ${
-                        Boolean(city)
-                          ? 'bg-[#F3F4F6] text-[#4B5563] cursor-not-allowed border-gray-300/80 shadow-none'
-                          : 'bg-[#FAF9F6] text-ink border-border/80 focus:outline-none focus:border-[#541D26]'
-                      }`}
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-[#FAF9F6] text-ink border border-border/80 focus:outline-none focus:border-[#541D26] text-xs font-bold transition-all shadow-xs"
                     />
                   </div>
                 </div>
@@ -1261,16 +1314,10 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                   <input
                     type="text"
                     required
-                    readOnly={Boolean(state)}
-                    disabled={Boolean(state)}
                     placeholder="Rajasthan"
                     value={state}
                     onChange={(e) => setState(e.target.value)}
-                    className={`w-full px-3.5 py-2.5 rounded-2xl border text-xs font-bold transition-all shadow-xs ${
-                      Boolean(state)
-                        ? 'bg-[#F3F4F6] text-[#4B5563] cursor-not-allowed border-gray-300/80 shadow-none'
-                        : 'bg-[#FAF9F6] text-ink border-border/80 focus:outline-none focus:border-[#541D26]'
-                    }`}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-[#FAF9F6] text-ink border border-border/80 focus:outline-none focus:border-[#541D26] text-xs font-bold transition-all shadow-xs"
                   />
                 </div>
 
@@ -1546,19 +1593,96 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                 />
               </div>
 
-              {/* 5. GST / PAN NUMBER */}
+              {/* 4.5 SHOP / BUILDING NUMBER */}
               <div>
                 <label className="block text-xs font-bold text-[#211A19] mb-1">
-                  GST / PAN Number *
+                  Shop / Building Number *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Enter 15-digit GSTIN or 10-digit PAN"
-                  value={gstNumber}
-                  onChange={(e) => setGstNumber(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink transition-all shadow-xs uppercase"
+                  placeholder="e.g. Shop 101, Ground Floor / Plot 42"
+                  value={shopNumber}
+                  onChange={(e) => {
+                    setShopNumber(e.target.value);
+                    setShopAddress(e.target.value);
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink transition-all shadow-xs"
                 />
+              </div>
+
+              {/* 5. FLEXIBLE TAX IDENTIFIER WITH TOGGLE BUTTON (v3.8.0) */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-[#211A19]">
+                    Tax Identifier *
+                  </label>
+
+                  {/* Segmented Toggle Control */}
+                  <div className="bg-[#EEE5DA] p-0.5 rounded-xl flex items-center gap-0.5 border border-border/60">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTaxIdType('gstin');
+                        setPanNumber('');
+                      }}
+                      className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        taxIdType === 'gstin'
+                          ? 'bg-[#541D26] text-white shadow-xs'
+                          : 'text-[#211A19]/70 hover:text-[#211A19]'
+                      }`}
+                    >
+                      GSTIN
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTaxIdType('pan');
+                        setGstNumber('');
+                      }}
+                      className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        taxIdType === 'pan'
+                          ? 'bg-[#541D26] text-white shadow-xs'
+                          : 'text-[#211A19]/70 hover:text-[#211A19]'
+                      }`}
+                    >
+                      PAN
+                    </button>
+                  </div>
+                </div>
+
+                {taxIdType === 'gstin' ? (
+                  <div className="animate-in fade-in">
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                      GSTIN Number *
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={15}
+                      required
+                      placeholder="Enter 15-digit GSTIN (e.g. 08ABCDE1234F1Z5)"
+                      value={gstNumber}
+                      onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink transition-all shadow-xs uppercase"
+                    />
+                  </div>
+                ) : (
+                  <div className="animate-in fade-in">
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                      PAN Number *
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      required
+                      placeholder="Enter 10-digit PAN (e.g. ABCDE1234F)"
+                      value={panNumber}
+                      onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink transition-all shadow-xs uppercase"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* 6. SHOP IMAGES (DASHED CONTAINER WITH + ICON MATCHING APP SCREENSHOT) */}
@@ -1771,6 +1895,10 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground font-medium">Shop Name:</span>
                       <span className="font-bold text-[#211A19]">{shopBusinessName}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-medium">Shop Number:</span>
+                      <span className="font-bold text-[#211A19]">{shopNumber || 'Shop 101'}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground font-medium">GST / PAN:</span>

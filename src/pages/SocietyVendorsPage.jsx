@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { api, getSocietyImage, getNormalizedImageUrl } from '../services/api';
-import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, ChevronLeft, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock, LogIn, Heart } from 'lucide-react';
+import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, ChevronLeft, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock, LogIn, Heart, SlidersHorizontal, Star } from 'lucide-react';
 import { getStoreStatus } from '../utils/storeHours';
 import { VendorCardSkeleton } from '../components/Skeletons';
 
@@ -79,10 +79,13 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
     } catch (_) { }
   };
 
-  // Custom Dropdown State
+  // Custom Dropdown & Sort State
   const [isSocietyDropdownOpen, setIsSocietyDropdownOpen] = useState(false);
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const [sortBy, setSortBy] = useState('recommended'); // 'recommended' | 'rating_high' | 'rating_low' | 'nearest' | 'farthest'
   const [societyFilterSearch, setSocietyFilterSearch] = useState('');
   const dropdownRef = useRef(null);
+  const sortDropdownRef = useRef(null);
   const searchInputRef = useRef(null);
 
   // Global Keyboard Listener for '/' shortcut to focus search input
@@ -102,11 +105,14 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Click outside listener for dropdown
+  // Click outside listener for dropdowns
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsSocietyDropdownOpen(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target)) {
+        setIsSortDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -205,17 +211,16 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
     }
   };
 
-  // Synchronous client-side filtered vendors - Supports searching by society, area, sector, vendor name, address, pincode, store name & category!
+  // Synchronous client-side filtered & sorted vendors - Supports searching and sorting by rating & distance!
   const vendors = useMemo(() => {
-    let list = allMasterVendors;
+    let list = [...allMasterVendors];
 
     if (search && search.trim()) {
       const term = search.toLowerCase().trim();
       const terms = term.split(/\s+/).filter(Boolean);
 
-      return list.filter(v => {
+      list = list.filter(v => {
         if (!v) return false;
-        // Dynamically inspect all values of the vendor object
         const allVendorText = Object.values(v)
           .map(val => {
             if (!val) return '';
@@ -231,8 +236,30 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
       });
     }
 
+    // Sort Options Processing
+    if (sortBy === 'rating_high') {
+      list.sort((a, b) => (parseFloat(b.rating || b.vendor_rating || 4.5) - parseFloat(a.rating || a.vendor_rating || 4.5)));
+    } else if (sortBy === 'rating_low') {
+      list.sort((a, b) => (parseFloat(a.rating || a.vendor_rating || 4.5) - parseFloat(b.rating || b.vendor_rating || 4.5)));
+    } else if (sortBy === 'nearest') {
+      list.sort((a, b) => {
+        const isANear = (a.is_local || a.inside_society || String(a.society_id) === String(currentSocietyId)) ? 1 : 0;
+        const isBNear = (b.is_local || b.inside_society || String(b.society_id) === String(currentSocietyId)) ? 1 : 0;
+        if (isANear !== isBNear) return isBNear - isANear;
+        const distA = parseFloat(a.distance_km || a.delivery_distance_km || 0.5);
+        const distB = parseFloat(b.distance_km || b.delivery_distance_km || 0.5);
+        return distA - distB;
+      });
+    } else if (sortBy === 'farthest') {
+      list.sort((a, b) => {
+        const distA = parseFloat(a.distance_km || a.delivery_distance_km || 0.5);
+        const distB = parseFloat(b.distance_km || b.delivery_distance_km || 0.5);
+        return distB - distA;
+      });
+    }
+
     return list;
-  }, [allMasterVendors, search, currentSocietyId]);
+  }, [allMasterVendors, search, currentSocietyId, sortBy]);
 
   const currentSocietyName = society?.society_name || (currentSocietyId !== 'all' ? (allSocieties.find(s => String(s.society_id) === String(currentSocietyId))?.society_name || 'Society') : '');
 
@@ -351,40 +378,40 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
       {/* Vendors Bento Grid Container */}
       <div className="max-w-7xl mx-auto mt-2">
 
-        {/* Society Filter Selector Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6 bg-card border border-border rounded-2xl p-3.5 sm:px-5 shadow-xs">
-          <div className="flex items-center space-x-2 text-xs font-bold text-ink">
-            <Building2 className="w-4 h-4 text-[#151415]" />
-            <span>Filter Vendors by Society:</span>
-          </div>
+        {/* Society Filter & Sorting Control Bar */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6 bg-card border border-border rounded-2xl p-3.5 sm:px-5 shadow-xs">
+          
+          {/* 1. Society Filter Dropdown */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 min-w-0">
+            <div className="flex items-center space-x-2 text-xs font-bold text-ink shrink-0">
+              <Building2 className="w-4 h-4 text-[#541D26]" />
+              <span>Society Filter:</span>
+            </div>
 
-          <div className="flex items-center space-x-2">
-            {/* Custom Styled React Dropdown */}
-            <div className="relative w-full sm:w-80 z-30" ref={dropdownRef}>
+            <div className="relative flex-1 max-w-sm z-30" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsSocietyDropdownOpen(!isSocietyDropdownOpen)}
-                className="w-full px-4 py-2.5 rounded-xl border border-border bg-[#F7F4EE] hover:bg-white text-ink text-xs font-bold transition-all shadow-xs flex items-center justify-between gap-2 cursor-pointer group"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-[#F7F4EE] hover:bg-white text-ink text-xs font-bold transition-all shadow-xs flex items-center justify-between gap-2 cursor-pointer group"
               >
                 <div className="flex items-center space-x-2 truncate">
                   {currentSocietyId === 'all' ? (
                     <>
-                      <Sparkles className="w-3.5 h-3.5 text-[#C4A066] shrink-0" />
+                      <Sparkles className="w-3.5 h-3.5 text-[#C8A878] shrink-0" />
                       <span className="truncate">All Societies (Show All Vendors)</span>
                     </>
                   ) : (
                     <>
-                      <Building2 className="w-3.5 h-3.5 text-[#C4A066] shrink-0" />
+                      <Building2 className="w-3.5 h-3.5 text-[#C8A878] shrink-0" />
                       <span className="truncate">{society?.society_name || 'Selected Society'}</span>
                     </>
                   )}
                 </div>
-                <ChevronDown className={`w-4 h-4 text-muted-foreground group-hover:text-ink transition-transform duration-200 shrink-0 ${isSocietyDropdownOpen ? 'rotate-180 text-[#C4A066]' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-muted-foreground group-hover:text-ink transition-transform duration-200 shrink-0 ${isSocietyDropdownOpen ? 'rotate-180 text-[#C8A878]' : ''}`} />
               </button>
 
               {isSocietyDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-full sm:w-96 bg-white border border-[#E4DCC9] rounded-2xl shadow-2xl z-50 overflow-hidden animate-fadeIn">
-                  {/* Search inside dropdown */}
+                <div className="absolute left-0 top-full mt-2 w-full sm:w-80 bg-white border border-[#E4DCC9] rounded-2xl shadow-2xl z-50 overflow-hidden animate-fadeIn">
                   <div className="p-2.5 border-b border-[#E4DCC9] bg-[#F7F4EE]">
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-3" />
@@ -392,13 +419,12 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                         type="text"
                         value={societyFilterSearch}
                         onChange={(e) => setSocietyFilterSearch(e.target.value)}
-                        placeholder="Search society or area by name or location..."
-                        className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#E4DCC9] bg-white text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C4A066]"
+                        placeholder="Search society or area..."
+                        className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#E4DCC9] bg-white text-xs text-[#18281F] focus:outline-none focus:ring-2 focus:ring-[#C8A878]"
                       />
                     </div>
                   </div>
 
-                  {/* Options List */}
                   <div className="max-h-64 overflow-y-auto p-1.5 space-y-1">
                     <button
                       type="button"
@@ -437,25 +463,13 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                           >
                             <div className="flex items-center space-x-2.5 min-w-0">
                               {soc.is_area ? (
-                                <MapPin className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-[#C4A066]' : 'text-amber-600'}`} />
+                                <MapPin className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-[#C8A878]' : 'text-amber-600'}`} />
                               ) : (
-                                <Building2 className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-[#C4A066]' : 'text-emerald-700'}`} />
+                                <Building2 className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-[#C8A878]' : 'text-emerald-700'}`} />
                               )}
-                              <div className="truncate">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="block truncate font-bold">{soc.society_name}</span>
-                                  {soc.is_area ? (
-                                    <span className="px-1.5 py-0.2 text-[8px] font-extrabold bg-amber-100 text-amber-900 rounded shrink-0">📍 Area</span>
-                                  ) : (
-                                    <span className="px-1.5 py-0.2 text-[8px] font-extrabold bg-emerald-100 text-emerald-900 rounded shrink-0">🏢 Society</span>
-                                  )}
-                                </div>
-                                <span className={`text-[10px] block truncate ${isSelected ? 'text-emerald-200' : 'text-[#6B7C70]'}`}>
-                                  {soc.location}
-                                </span>
-                              </div>
+                              <span className="block truncate font-bold">{soc.society_name}</span>
                             </div>
-                            {isSelected && <Check className="w-4 h-4 text-[#C4A066] shrink-0" />}
+                            {isSelected && <Check className="w-4 h-4 text-[#C8A878] shrink-0" />}
                           </button>
                         );
                       })}
@@ -463,6 +477,93 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                 </div>
               )}
             </div>
+          </div>
+
+          {/* 2. Sort By Filter Dropdown */}
+          <div className="flex items-center space-x-2.5 shrink-0">
+            <div className="flex items-center space-x-1.5 text-xs font-bold text-ink">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#541D26]" />
+              <span>Sort By:</span>
+            </div>
+
+            <div className="relative" ref={sortDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
+                className="px-3.5 py-2.5 rounded-xl border border-border bg-[#F7F4EE] hover:bg-white text-ink text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer group"
+              >
+                <span className="truncate">
+                  {sortBy === 'rating_high' && '⭐ High Rated'}
+                  {sortBy === 'rating_low' && '⭐ Low Rated'}
+                  {sortBy === 'nearest' && '📍 Nearest First'}
+                  {sortBy === 'farthest' && '📍 Farthest First'}
+                  {sortBy === 'recommended' && '✨ Recommended'}
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground group-hover:text-ink transition-transform duration-200 ${isSortDropdownOpen ? 'rotate-180 text-[#541D26]' : ''}`} />
+              </button>
+
+              {isSortDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-[#E4DCC9] rounded-2xl shadow-2xl z-50 overflow-hidden p-1.5 space-y-1 animate-fadeIn">
+                  <button
+                    type="button"
+                    onClick={() => { setSortBy('recommended'); setIsSortDropdownOpen(false); }}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${sortBy === 'recommended' ? 'bg-[#541D26] text-white shadow-xs' : 'hover:bg-[#EEE5DA] text-[#211A19]'}`}
+                  >
+                    <span>✨ Recommended</span>
+                    {sortBy === 'recommended' && <Check className="w-3.5 h-3.5 text-[#C8A878]" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setSortBy('rating_high'); setIsSortDropdownOpen(false); }}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${sortBy === 'rating_high' ? 'bg-[#541D26] text-white shadow-xs' : 'hover:bg-[#EEE5DA] text-[#211A19]'}`}
+                  >
+                    <div className="flex items-center space-x-1.5">
+                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                      <span>Highest Rated</span>
+                    </div>
+                    {sortBy === 'rating_high' && <Check className="w-3.5 h-3.5 text-[#C8A878]" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setSortBy('rating_low'); setIsSortDropdownOpen(false); }}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${sortBy === 'rating_low' ? 'bg-[#541D26] text-white shadow-xs' : 'hover:bg-[#EEE5DA] text-[#211A19]'}`}
+                  >
+                    <div className="flex items-center space-x-1.5">
+                      <Star className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Lowest Rated</span>
+                    </div>
+                    {sortBy === 'rating_low' && <Check className="w-3.5 h-3.5 text-[#C8A878]" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setSortBy('nearest'); setIsSortDropdownOpen(false); }}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${sortBy === 'nearest' ? 'bg-[#541D26] text-white shadow-xs' : 'hover:bg-[#EEE5DA] text-[#211A19]'}`}
+                  >
+                    <div className="flex items-center space-x-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Nearest First</span>
+                    </div>
+                    {sortBy === 'nearest' && <Check className="w-3.5 h-3.5 text-[#C8A878]" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setSortBy('farthest'); setIsSortDropdownOpen(false); }}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${sortBy === 'farthest' ? 'bg-[#541D26] text-white shadow-xs' : 'hover:bg-[#EEE5DA] text-[#211A19]'}`}
+                  >
+                    <div className="flex items-center space-x-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Farthest First</span>
+                    </div>
+                    {sortBy === 'farthest' && <Check className="w-3.5 h-3.5 text-[#C8A878]" />}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
 
             {currentSocietyId !== 'all' && (
               <button
@@ -477,7 +578,6 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
               </button>
             )}
           </div>
-        </div>
 
         {loading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-7">

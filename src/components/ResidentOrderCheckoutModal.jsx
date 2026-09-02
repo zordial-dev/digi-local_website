@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { ShoppingCart, Clock, Phone, MapPin, CheckCircle2, ShieldCheck, ArrowRight, X } from 'lucide-react';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function ResidentOrderCheckoutModal({ isOpen, onClose, cartItems = [], vendor, onOrderPlaced }) {
+  useScrollLock(isOpen);
   const [step, setStep] = useState(1); // Step 1: Cart & Delivery Slot, Step 2: Phone OTP, Step 3: Success
   const STATIC_OTP = "1234";
 

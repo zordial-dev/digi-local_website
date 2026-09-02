@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { motion, useScroll, useTransform, useSpring } from 'motion/react';
 import { Store, ShieldCheck, Building2, CheckCircle2, ArrowRight, Zap, Clock, Sparkles } from 'lucide-react';
+import FloatingDoodles from './FloatingDoodles';
 
 export default function ScrollStoryAnimation({ onExploreClick }) {
   const containerRef = useRef(null);
@@ -51,8 +52,9 @@ export default function ScrollStoryAnimation({ onExploreClick }) {
   ];
 
   return (
-    <section ref={containerRef} className="w-full bg-[#EEE5DA] py-12 sm:py-20 text-[#211A19] font-sans overflow-hidden border-y border-[#E5DAD0]">
-      <div className="w-full max-w-[96%] xl:max-w-[1240px] mx-auto px-4">
+    <section ref={containerRef} className="w-full bg-[#EEE5DA] py-12 sm:py-20 text-[#211A19] font-sans overflow-hidden border-y border-[#E5DAD0] relative">
+      <FloatingDoodles section="story" />
+      <div className="w-full max-w-[96%] xl:max-w-[1240px] mx-auto px-4 relative z-10">
         
         {/* SECTION HEADER */}
         <div className="max-w-2xl mx-auto text-center mb-12 sm:mb-16 space-y-3">

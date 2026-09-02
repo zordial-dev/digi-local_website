@@ -61,6 +61,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
   const [cart, setCart] = useState([]);
   const [showCartDrawer, setShowCartDrawer] = useState(Boolean(currentRoute?.openCart));
   const [orderRemark, setOrderRemark] = useState('');
+  const [pendingWhatsappUrl, setPendingWhatsappUrl] = useState('');
 
   useEffect(() => {
     if (currentRoute?.openCart) {
@@ -71,30 +72,12 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
   // Lock background page scroll when Cart Side Panel Drawer is open
   useEffect(() => {
     if (showCartDrawer) {
-      const scrollY = window.scrollY;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
       document.body.style.overflow = 'hidden';
     } else {
-      const scrollY = document.body.style.top;
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
       document.body.style.overflow = '';
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
-      }
     }
     return () => {
-      const scrollY = document.body.style.top;
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
       document.body.style.overflow = '';
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
-      }
     };
   }, [showCartDrawer]);
   
@@ -659,7 +642,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       const cleanFlatStr = `Flat ${flatNumber}${buildingNumber ? `, ${buildingNumber}` : ''}`;
       const cleanAddrStr = `${cleanFlatStr}, ${societyName || 'Residential Complex'}`;
 
-      const userCity = vendorData?.city || currentUser?.city || 'Jaipur';
+      const userCity = vendorData?.city || currentUser?.city || '';
       const userState = vendorData?.state || currentUser?.state || 'Rajasthan';
       const userPincode = vendorData?.pincode || currentUser?.pincode || '302001';
 
@@ -707,11 +690,23 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
       const encodedMsg = encodeURIComponent(msg);
       const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodedMsg}`;
+      setPendingWhatsappUrl(whatsappUrl);
+
       // Reset body scroll lock immediately so fixed modals align to dead center of viewport
       document.body.style.position = '';
       document.body.style.top = '';
       document.body.style.width = '';
       document.body.style.overflow = '';
+
+      // Open WhatsApp application / web tab immediately
+      try {
+        const win = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+        if (!win) {
+          window.location.href = whatsappUrl;
+        }
+      } catch (_) {
+        window.location.href = whatsappUrl;
+      }
 
       setShowCartDrawer(false);
       setShowConfirmModal(true);
@@ -884,7 +879,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                   <div className="flex items-center space-x-2 text-xs font-extrabold text-[#151415] mb-1.5 flex-wrap gap-2">
                     <div className="flex items-center space-x-1.5 bg-[#151415]/10 px-3 py-1 rounded-full border border-[#151415]/15">
                       <ShieldCheck className="w-4 h-4 text-[#151415]" />
-                      <span>Verified Store • {vendorData.society_name || vendorData.society || vendorData.location || vendorData.address || 'Residential Community'}</span>
+                      <span>Verified Store • {vendorData.shop_number || vendorData.shop_no ? `${vendorData.shop_number || vendorData.shop_no}, ` : ''}{vendorData.society_name || vendorData.society || vendorData.location || vendorData.address || 'Residential Community'}</span>
                     </div>
 
                     {(vendorData.category || vendorData.business_type) && (
@@ -1366,7 +1361,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             const cleanFlatStr = `Flat ${flatNumber}${buildingNumber ? `, ${buildingNumber}` : ''}`;
             const cleanAddrStr = `${cleanFlatStr}, ${societyName || 'Residential Complex'}`;
 
-            const userCity = vendorData?.city || currentUser?.city || 'Jaipur';
+            const userCity = vendorData?.city || currentUser?.city || '';
             const userState = vendorData?.state || currentUser?.state || 'Rajasthan';
             const userPincode = vendorData?.pincode || currentUser?.pincode || '302001';
 
@@ -1472,32 +1467,44 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             <h3 className="text-lg font-serif font-black text-[#211A19] mb-1">Order Sent via WhatsApp?</h3>
             <p className="text-xs text-[#211A19]/70 font-medium mb-5">Did you send your order message to the vendor on WhatsApp?</p>
 
-            <div className="flex space-x-3 w-full text-xs font-bold uppercase tracking-wider">
-              <button
-                onClick={() => setShowConfirmModal(false)}
-                className="flex-1 py-3 rounded-full bg-[#EEE5DA] text-[#211A19] border border-[#E5DAD0] hover:bg-[#D6B7A5]/60 transition-all cursor-pointer"
-              >
-                No, Not Yet
-              </button>
-              <button
-                onClick={() => {
-                  setShowConfirmModal(false);
-                  if (lastPlacedOrder) {
-                    saveOrderToUserProfile(lastPlacedOrder.order_id, lastPlacedOrder.total, lastPlacedOrder.items, true);
-                  }
-                  saveCartToStorage([]);
-                  setOrderRemark('');
-                  setModalConfig({
-                    isOpen: true,
-                    title: 'Order Recorded!',
-                    message: 'Your order has been logged to your account orders history and sent to the vendor.',
-                    type: 'success'
-                  });
-                }}
-                className="flex-1 py-3 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold shadow-md transition-all cursor-pointer"
-              >
-                Yes, Sent!
-              </button>
+            <div className="flex flex-col gap-2.5 w-full text-xs font-bold uppercase tracking-wider">
+              {pendingWhatsappUrl && (
+                <a
+                  href={pendingWhatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold shadow-sm transition-all text-center flex items-center justify-center gap-2"
+                >
+                  <span>💬 Launch WhatsApp App</span>
+                </a>
+              )}
+              <div className="flex space-x-2.5 w-full">
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="flex-1 py-2.5 rounded-full bg-[#EEE5DA] text-[#211A19] border border-[#E5DAD0] hover:bg-[#D6B7A5]/60 transition-all cursor-pointer"
+                >
+                  No, Not Yet
+                </button>
+                <button
+                  onClick={() => {
+                    setShowConfirmModal(false);
+                    if (lastPlacedOrder) {
+                      saveOrderToUserProfile(lastPlacedOrder.order_id, lastPlacedOrder.total, lastPlacedOrder.items, true);
+                    }
+                    saveCartToStorage([]);
+                    setOrderRemark('');
+                    setModalConfig({
+                      isOpen: true,
+                      title: 'Order Recorded!',
+                      message: 'Your order has been logged to your account orders history and sent to the vendor.',
+                      type: 'success'
+                    });
+                  }}
+                  className="flex-1 py-3 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold shadow-md transition-all cursor-pointer"
+                >
+                  Yes, Sent!
+                </button>
+              </div>
             </div>
           </div>
         </div>

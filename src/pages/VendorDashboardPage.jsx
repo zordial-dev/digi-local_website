@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { api, getNormalizedImageUrl, getItemUnitLabel, formatItemQuantityBadge } from '../services/api';
-import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight, Briefcase } from 'lucide-react';
+import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, ShieldAlert, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight, Briefcase } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import VendorStatusBanner from '../components/VendorStatusBanner';
 import { QRCodeSVG } from 'qrcode.react';
 import { DashboardSkeleton } from '../components/Skeletons';
+import { resolveLocationFromInput, fetchLocationSuggestions } from '../utils/locationResolver';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendor, onVendorLogout }) {
   const [activeTab, setActiveTab] = useState('orders');
@@ -17,6 +19,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   const [editingItem, setEditingItem] = useState(null);
   const [showSettingsSuccessModal, setShowSettingsSuccessModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [deletingStore, setDeletingStore] = useState(false);
   const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info' });
 
@@ -24,6 +27,9 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   const [enquiries, setEnquiries] = useState([]);
   const [enquiryFilter, setEnquiryFilter] = useState('ALL'); // 'ALL' | 'NEW' | 'CONTACTED' | 'SCHEDULED' | 'COMPLETED'
   const [updatingEnquiryId, setUpdatingEnquiryId] = useState(null);
+
+  // Vendor Purchases & B2B Orders Made State (v1.0.0 Spec)
+  const [purchases, setPurchases] = useState([]);
 
   // Location Settings State (Standardized to v3.0.0 Architecture)
   const [coverageSettings, setCoverageSettings] = useState({
@@ -66,50 +72,34 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Strict Background Freeze (Locks background position & scroll completely while any modal is open)
-  useEffect(() => {
-    const isAnyModalOpen = showAddItemModal || showSettingsSuccessModal || showDeleteConfirmModal || modalConfig.isOpen;
-    if (isAnyModalOpen) {
-      const scrollY = window.scrollY;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
-      document.body.style.overflow = 'hidden';
-    } else {
-      const scrollY = document.body.style.top;
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      document.body.style.overflow = '';
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
-      }
-    }
-    return () => {
-      const scrollY = document.body.style.top;
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      document.body.style.overflow = '';
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
-      }
-    };
-  }, [showAddItemModal, showSettingsSuccessModal, showDeleteConfirmModal, modalConfig.isOpen]);
+  // Strict Background Freeze for all Vendor Dashboard Modals
+  const isAnyVendorModalOpen = Boolean(
+    showAddItemModal || 
+    showSettingsSuccessModal || 
+    showDeleteConfirmModal || 
+    showLogoutModal || 
+    modalConfig.isOpen || 
+    editingItem
+  );
+  useScrollLock(isAnyVendorModalOpen);
 
   // Settings State (DigiCafe style complete settings)
   const [settingsForm, setSettingsForm] = useState({
     store_name: '',
+    vendor_name: '',
+    email: '',
     logo: '',
     description: '',
     phone_number: '',
+    gstin: '',
+    pan_number: '',
     gst_number: '',
-    opening_timing: '08:00 AM',
-    closing_timing: '10:00 PM',
+    opening_timing: '',
+    closing_timing: '',
     min_order_value: '0',
-    max_quantity_limit: '10',
+    max_quantity_limit: '',
     delivery_charge: '0',
-    gst_percentage: '5',
+    gst_percentage: '0',
     service_charge_percentage: '0',
     location: '',
     area: '',
@@ -124,6 +114,43 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     qr_code_url: ''
   });
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Store Location Auto-Fetching & Autocomplete State
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [autoLocationBadge, setAutoLocationBadge] = useState('');
+
+  const handleStoreLocationChange = async (val) => {
+    setSettingsForm(prev => ({
+      ...prev,
+      location: val,
+      area: val
+    }));
+    setShowLocationDropdown(true);
+
+    if (!val || val.trim().length < 2) {
+      setLocationSuggestions([]);
+      return;
+    }
+
+    try {
+      const sug = await fetchLocationSuggestions(val);
+      setLocationSuggestions(sug);
+    } catch (_) {}
+  };
+
+  const handleSelectLocationSuggestion = (item) => {
+    setSettingsForm(prev => ({
+      ...prev,
+      location: item.area || item.fullText || prev.location,
+      area: item.area || prev.area,
+      city: item.city || prev.city,
+      state: item.state || prev.state,
+      pincode: item.pincode || prev.pincode
+    }));
+    setShowLocationDropdown(false);
+    setAutoLocationBadge(`✨ Selected: ${item.city || ''}${item.state ? ', ' + item.state : ''}${item.pincode ? ' (' + item.pincode + ')' : ''}`);
+  };
 
   // New Incoming Order Alert & Audio Chime State
   const [newOrderAlert, setNewOrderAlert] = useState(null);
@@ -214,7 +241,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     };
     window.addEventListener('storage', onStorageEvent);
 
-    // 3. Fast Polling every 4 seconds for backend orders
+    // 3. Periodic background check for backend orders (15 seconds)
     let intervalId = null;
     const checkForNewOrders = async () => {
       try {
@@ -249,7 +276,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     };
 
     checkForNewOrders();
-    intervalId = setInterval(checkForNewOrders, 4000);
+    intervalId = setInterval(checkForNewOrders, 25000);
 
     return () => {
       window.removeEventListener('digilocal_new_order', onCustomOrderEvent);
@@ -266,41 +293,57 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     try {
       setLoading(true);
       const data = await api.getVendorPanel(vendorId);
+
+      let userSaved = {};
+      try {
+        const savedStr = localStorage.getItem('digilocal_vendor_saved_settings_' + vendorId);
+        if (savedStr) userSaved = JSON.parse(savedStr) || {};
+      } catch (_) {}
+
+      if (data && data.vendor) {
+        data.vendor = {
+          ...data.vendor,
+          ...userSaved
+        };
+      }
+
       setPanelData(data);
       if (data.vendor) {
-        let cachedVendor = {};
-        try {
-          const session = localStorage.getItem('digilocal_vendor_session') || localStorage.getItem('vendor_profile');
-          if (session) {
-            const parsed = JSON.parse(session);
-            cachedVendor = parsed.vendor || parsed || {};
-          }
-        } catch (_) {}
+        const v = data.vendor;
+        const panVal = userSaved.pan_number || userSaved.pan || v.pan_number || v.pan || v.panNumber || '';
 
         setSettingsForm({
-          store_name: data.vendor.store_name || cachedVendor.store_name || '',
-          logo: data.vendor.logo || cachedVendor.logo || '',
-          description: data.vendor.description || cachedVendor.description || '',
-          phone_number: data.vendor.phone_number || cachedVendor.phone_number || '',
-          gst_number: data.vendor.gst_number || data.vendor.gstin || cachedVendor.gst_number || cachedVendor.gstin || '',
-          opening_timing: data.vendor.opening_timing || cachedVendor.opening_timing || '08:00 AM',
-          closing_timing: data.vendor.closing_timing || cachedVendor.closing_timing || '10:00 PM',
-          min_order_value: String(data.vendor.min_order_value ?? cachedVendor.min_order_value ?? 0),
-          max_quantity_limit: String(data.vendor.max_quantity_limit ?? cachedVendor.max_quantity_limit ?? 10),
-          delivery_charge: String(data.vendor.delivery_charge ?? cachedVendor.delivery_charge ?? 0),
-          gst_percentage: String(data.vendor.gst_percentage ?? cachedVendor.gst_percentage ?? 5),
-          service_charge_percentage: String(data.vendor.service_charge_percentage ?? cachedVendor.service_charge_percentage ?? 0),
-          location: data.vendor.location || data.vendor.area || data.vendor.shop_address || data.vendor.society_name || cachedVendor.location || cachedVendor.area || cachedVendor.shop_address || cachedVendor.society_name || '',
-          area: data.vendor.area || cachedVendor.area || '',
-          city: data.vendor.city || cachedVendor.city || 'Jaipur',
-          state: data.vendor.state || cachedVendor.state || 'Rajasthan',
-          pincode: data.vendor.pincode || cachedVendor.pincode || '',
-          account_holder_name: data.vendor.account_holder_name || data.vendor.payment_details?.account_holder_name || cachedVendor.account_holder_name || '',
-          bank_name: data.vendor.bank_name || data.vendor.payment_details?.bank_name || cachedVendor.bank_name || '',
-          account_number: data.vendor.account_number || data.vendor.payment_details?.account_number || cachedVendor.account_number || '',
-          ifsc_code: data.vendor.ifsc_code || data.vendor.payment_details?.ifsc_code || cachedVendor.ifsc_code || '',
-          upi_id: data.vendor.upi_id || data.vendor.payment_details?.upi_id || cachedVendor.upi_id || '',
-          qr_code_url: data.vendor.qr_code_url || data.vendor.payment_details?.qr_code_url || cachedVendor.qr_code_url || ''
+          store_name: userSaved.store_name || v.store_name || v.vendor_name || v.shop_business_name || '',
+          vendor_name: userSaved.vendor_name || v.vendor_name || v.owner_name || '',
+          email: userSaved.email || v.email || '',
+          logo: userSaved.logo || v.logo || '',
+          description: userSaved.description || v.description || '',
+          phone_number: userSaved.phone_number || v.phone_number || v.phone || v.mobile || '',
+          shop_number: userSaved.shop_number || userSaved.shop_no || v.shop_number || v.shop_no || v.shopNumber || '',
+          shop_no: userSaved.shop_number || userSaved.shop_no || v.shop_number || v.shop_no || v.shopNumber || '',
+          gstin: userSaved.gstin || userSaved.gst_number || v.gstin || v.gst_number || v.gstNumber || v.gst || '',
+          gst_number: userSaved.gstin || userSaved.gst_number || v.gstin || v.gst_number || v.gstNumber || v.gst || '',
+          pan_number: panVal,
+          pan: panVal,
+          panNumber: panVal,
+          opening_timing: userSaved.opening_timing || v.opening_timing || v.opening_time || '',
+          closing_timing: userSaved.closing_timing || v.closing_timing || v.closing_time || '',
+          min_order_value: String(userSaved.min_order_value ?? v.min_order_value ?? 0),
+          max_quantity_limit: String(userSaved.max_quantity_limit ?? v.max_quantity_limit ?? ''),
+          delivery_charge: String(userSaved.delivery_charge ?? v.delivery_charge ?? 0),
+          gst_percentage: String(userSaved.gst_percentage ?? v.gst_percentage ?? 0),
+          service_charge_percentage: String(userSaved.service_charge_percentage ?? v.service_charge_percentage ?? 0),
+          location: userSaved.location || userSaved.area || v.location || v.area || v.shop_address || '',
+          area: userSaved.area || userSaved.location || v.area || v.location || '',
+          city: userSaved.city || v.city || '',
+          state: userSaved.state || v.state || '',
+          pincode: userSaved.pincode || v.pincode || '',
+          account_holder_name: userSaved.account_holder_name || v.account_holder_name || v.payment_details?.account_holder_name || '',
+          bank_name: userSaved.bank_name || v.bank_name || v.payment_details?.bank_name || '',
+          account_number: userSaved.account_number || v.account_number || v.payment_details?.account_number || '',
+          ifsc_code: userSaved.ifsc_code || v.ifsc_code || v.payment_details?.ifsc_code || '',
+          upi_id: userSaved.upi_id || v.upi_id || v.payment_details?.upi_id || '',
+          qr_code_url: userSaved.qr_code_url || v.qr_code_url || v.payment_details?.qr_code_url || ''
         });
       }
     } catch (err) {
@@ -473,12 +516,35 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     }
   };
 
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
   const handleSaveSettings = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     try {
       setSavingSettings(true);
+
+      if (vendorId && settingsForm) {
+        try {
+          localStorage.setItem('digilocal_vendor_saved_settings_' + vendorId, JSON.stringify(settingsForm));
+        } catch (_) {}
+      }
+
       await api.updateVendorSettings(vendorId, settingsForm);
-      setShowSettingsSuccessModal(true);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3500);
+
+      setPanelData(prev => {
+        if (!prev) return prev;
+        const currentVendor = prev.vendor || {};
+        return {
+          ...prev,
+          vendor: {
+            ...currentVendor,
+            ...settingsForm
+          }
+        };
+      });
+
       loadPanelData();
     } catch (err) {
       setModalConfig({
@@ -492,19 +558,15 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     }
   };
 
-  const handleVendorLogout = () => {
+  const handleVendorLogout = async () => {
+    try {
+      await api.logoutVendor({ vendor_id: vendorId });
+    } catch (_) {}
     localStorage.removeItem('digilocal_vendor_session');
-    setModalConfig({
-      isOpen: true,
-      title: 'Vendor Logged Out',
-      message: 'You have been logged out of the Vendor Panel successfully.',
-      type: 'info',
-      confirmText: 'Go to Home Screen',
-      onConfirm: () => {
-        setModalConfig({ isOpen: false });
-        setRoute({ page: 'home' });
-      }
-    });
+    localStorage.removeItem('vendor_profile');
+    localStorage.removeItem('fcm_token');
+    localStorage.removeItem('push_token');
+    if (typeof onVendorLogout === 'function') onVendorLogout();
   };
 
   // Delete Vendor Store Handler
@@ -560,8 +622,8 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     } catch (_) {}
 
     return (
-      <div className="min-h-screen bg-background text-foreground pb-20 px-4 py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
+      <div className="min-h-screen bg-background text-foreground pb-20 px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto space-y-8">
           {/* Welcome Banner */}
           <div className="bg-card border border-border rounded-[2.5rem] p-8 shadow-sm text-center space-y-4">
             <div className="w-20 h-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary">
@@ -677,7 +739,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   const items = deduplicateVendorItems(rawItems);
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20 relative">
+    <div className="min-h-screen bg-background text-foreground px-4 sm:px-6 lg:px-8 pb-20 relative">
       
       {/* Thin Notification Alert Strip Banner for Real Incoming Orders (Left to Right Animation & Stays until closed) */}
       {newOrderAlert && (
@@ -727,24 +789,30 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       )}
 
       {/* Main Container */}
-      <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-4 pb-20 space-y-6">
+      <div className="w-full max-w-7xl mx-auto pt-4 pb-20 space-y-6">
         
         {/* Top Banner */}
         <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center space-x-5 min-w-0 flex-1">
               <div className="w-20 h-20 rounded-2xl border-2 border-border bg-secondary flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm relative">
-                <img
-                  src={getNormalizedImageUrl(vendor.logo || vendor.image_url || localStorage.getItem(`digilocal_vendor_logo_${vendor.vendor_id}`)) || 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=200&auto=format&fit=crop&q=80'}
-                  alt={vendor.store_name || ''}
-                  className="w-full h-full object-cover"
-                />
+                {getNormalizedImageUrl(vendor.logo || vendor.image_url || localStorage.getItem(`digilocal_vendor_logo_${vendor.vendor_id}`)) ? (
+                  <img
+                    src={getNormalizedImageUrl(vendor.logo || vendor.image_url || localStorage.getItem(`digilocal_vendor_logo_${vendor.vendor_id}`))}
+                    alt={vendor.store_name || ''}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Store className="w-8 h-8 text-[#541D26]" />
+                )}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center space-x-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-secondary text-ink border border-border">
-                    {vendor.category || vendor.business_category || 'Fresh Flowers, Bouquets & Puja Floral Supplies'}
-                  </span>
+                  {(vendor.category || vendor.business_category) && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-secondary text-ink border border-border">
+                      {vendor.category || vendor.business_category}
+                    </span>
+                  )}
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border ${
                     (vendor.status === 'APPROVED' || vendor.status === 'ACTIVE')
                       ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
@@ -759,14 +827,14 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         ? 'bg-red-500'
                         : 'bg-amber-500 animate-pulse'
                     }`} />
-                    {vendor.status || 'PENDING APPROVAL'}
+                    {vendor.status || 'PENDING'}
                   </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-serif font-black text-ink mt-1 truncate">
-                  {vendor.store_name || 'My Local Store'}
+                  {vendor.store_name || vendor.vendor_name || 'Vendor Store'}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-1 font-medium truncate">
-                  Vendor: {vendor.vendor_name || vendor.owner_name || (vendor.email && vendor.email.includes('@') ? vendor.email.split('@')[0] : 'Verified Vendor')}
+                  Vendor: {vendor.vendor_name || vendor.owner_name || vendor.email || vendor.phone_number || ''}
                   {vendor.email && vendor.email.includes('@') && !vendor.email.includes('@vendor.digilocal') 
                     ? ` (${vendor.email})` 
                     : (vendor.phone_number || vendor.phone ? ` • ${vendor.phone_number || vendor.phone}` : '')}
@@ -774,32 +842,25 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               </div>
             </div>
 
-            <div className="flex items-center space-x-2.5 self-start md:self-auto flex-wrap gap-y-2">
+            <div className="flex items-center space-x-2.5 self-start md:self-auto shrink-0">
               <button
                 onClick={loadPanelData}
-                className="px-4 py-2.5 rounded-full bg-secondary hover:bg-border text-ink text-xs font-bold flex items-center space-x-2 border border-border shadow-sm uppercase tracking-wider cursor-pointer"
+                className="px-4 py-2.5 rounded-full bg-secondary hover:bg-border text-ink text-xs font-bold flex items-center space-x-2 border border-border shadow-sm uppercase tracking-wider cursor-pointer transition-all whitespace-nowrap"
               >
-                <RefreshCw className="w-4 h-4 text-gold" />
+                <RefreshCw className="w-3.5 h-3.5 text-gold" />
                 <span>Refresh Panel</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirmModal(true)}
-                className="px-4 py-2.5 rounded-full bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center space-x-1.5 border border-red-200 shadow-2xs transition-all cursor-pointer"
-              >
-                <span>Delete Account</span>
               </button>
             </div>
           </div>
-
-          <VendorStatusBanner
-            vendorId={vendorId || vendor?.vendor_id}
-            onNavigateSettings={() => setActiveTab('settings')}
-            onRefreshStatus={loadPanelData}
-            activeVendor={vendor}
-          />
         </div>
+
+        {/* Vendor Status Banner (Hold / Rejected / Action Required) */}
+        <VendorStatusBanner
+          vendorId={vendorId || vendor?.vendor_id}
+          onNavigateSettings={() => setActiveTab('settings')}
+          onRefreshStatus={loadPanelData}
+          activeVendor={vendor}
+        />
 
         {/* Pending Admin Approval Banner */}
         {(vendor.status === 'PENDING' || vendor.status === 'PENDING APPROVAL' || (vendor.status !== 'APPROVED' && vendor.status !== 'ACTIVE')) && (
@@ -817,7 +878,8 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
         {/* Navigation Tabs */}
         <div className="flex items-center space-x-2 border-b border-border overflow-x-auto">
           {[
-            { id: 'orders', label: `Orders (${orders.length})`, icon: ShoppingBag },
+            { id: 'orders', label: `Store Sales (${orders.length})`, icon: ShoppingBag },
+            { id: 'purchases', label: `My Purchases (${purchases.length})`, icon: ShoppingBag },
             (vendor?.vendor_type === 'service' || vendor?.can_add_items === false)
               ? { id: 'enquiries', label: `Enquiries (${enquiries.length})`, icon: Briefcase }
               : { id: 'items', label: `Items (${items.length})`, icon: Package },
@@ -1223,6 +1285,144 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           </div>
         )}
 
+        {/* 1b. MY PURCHASES TAB (B2B & B2C Purchases Placed by Vendor) */}
+        {activeTab === 'purchases' && (
+          <div className="space-y-6 animate-fadeIn font-sans">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#E5DAD0] rounded-2xl p-5 shadow-xs">
+              <div>
+                <h2 className="text-lg font-serif font-black text-[#211A19] uppercase tracking-wider">
+                  My Purchases & Orders Placed
+                </h2>
+                <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                  Track wholesale supplies, B2B store inventory purchases, and orders placed with other merchants.
+                </p>
+              </div>
+
+              {purchases.length > 0 && (
+                <span className="px-3.5 py-1.5 rounded-full bg-[#541D26] text-[#C8A878] font-extrabold text-xs shadow-xs shrink-0 self-start sm:self-auto">
+                  {purchases.length} Total Purchase{purchases.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            {purchases.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-3xl border border-[#E5DAD0] p-8 shadow-xs space-y-3">
+                <div className="w-16 h-16 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 flex items-center justify-center text-[#541D26] mx-auto shadow-2xs">
+                  <ShoppingBag className="w-8 h-8 text-[#541D26]" />
+                </div>
+                <h3 className="text-base font-serif font-bold text-[#211A19]">No purchases or supply orders placed yet</h3>
+                <p className="text-muted-foreground text-xs font-medium max-w-sm mx-auto leading-relaxed">
+                  When you buy inventory, raw materials, or products from other DigiLocal vendor stores, your purchase receipts will appear here automatically.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-5">
+                {purchases.map((purchase) => {
+                  const statusUpper = (purchase.status || 'delivered').toUpperCase();
+                  const purchaseItems = Array.isArray(purchase.items) ? purchase.items : [];
+
+                  return (
+                    <div
+                      key={purchase.order_id}
+                      className="rounded-3xl bg-white border border-[#E5DAD0] p-6 flex flex-col lg:flex-row justify-between gap-6 shadow-xs hover:shadow-md transition-all relative overflow-hidden"
+                    >
+                      {/* Left Side: Seller Details & Purchase Receipt */}
+                      <div className="space-y-4 flex-1 min-w-0">
+                        {/* Header: Order ID + Status Badge + Date */}
+                        <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#E5DAD0]">
+                          <div className="flex items-center space-x-2.5 min-w-0">
+                            <div className="px-2.5 py-1.5 rounded-xl bg-[#541D26] text-[#C8A878] flex items-center justify-center font-black text-xs shadow-2xs shrink-0 gap-1">
+                              <ShoppingBag className="w-3.5 h-3.5 text-[#C8A878]" />
+                              <span>{purchase.order_id}</span>
+                            </div>
+                            <span className="font-serif font-extrabold text-[#211A19] text-base tracking-wide truncate">
+                              Purchase Order #{purchase.order_id}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-2xs ${
+                              statusUpper === 'DELIVERED' || statusUpper === 'COMPLETED'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : statusUpper === 'CONFIRMED' || statusUpper === 'ACCEPTED'
+                                ? 'bg-blue-50 text-blue-800 border-blue-300'
+                                : statusUpper === 'PENDING'
+                                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                : 'bg-rose-50 text-rose-800 border-rose-300'
+                            }`}>
+                              ● {statusUpper}
+                            </span>
+
+                            <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1 bg-[#FAF8F5] px-2.5 py-1 rounded-full border border-[#E5DAD0]">
+                              <Clock className="w-3 h-3 text-[#541D26]" />
+                              <span>{purchase.created_at_readable || 'Recent Purchase'}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Seller Store Information Card */}
+                        <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E5DAD0] flex items-center space-x-4">
+                          <div className="w-12 h-12 rounded-xl bg-white border border-[#E5DAD0] overflow-hidden flex items-center justify-center shrink-0 shadow-2xs">
+                            {purchase.seller_store_logo ? (
+                              <img src={getNormalizedImageUrl(purchase.seller_store_logo)} alt={purchase.seller_store_name} className="w-full h-full object-cover" />
+                            ) : (
+                              <Store className="w-6 h-6 text-[#541D26]" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[10px] font-extrabold text-[#541D26] uppercase tracking-wider block">Seller Store</span>
+                            <h4 className="font-serif font-bold text-sm text-[#211A19] truncate">{purchase.seller_store_name || 'Vendor Merchant'}</h4>
+                            <p className="text-xs text-muted-foreground truncate">{purchase.delivery_address || 'Shop Delivery'}</p>
+                          </div>
+                        </div>
+
+                        {/* Purchased Items List */}
+                        <div className="space-y-2 pt-1">
+                          <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-[#211A19]">
+                            <span>PURCHASED ITEMS ({purchaseItems.length})</span>
+                            <span>SUB-TOTAL</span>
+                          </div>
+
+                          <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-[#E5DAD0]">
+                            {purchaseItems.map((item, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-xs font-semibold py-0.5">
+                                <div className="flex items-center gap-2 pr-2 min-w-0">
+                                  <span className="w-5 h-5 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-extrabold flex items-center justify-center shrink-0">
+                                    ×{item.quantity || 1}
+                                  </span>
+                                  <span className="text-[#211A19] font-bold truncate">
+                                    {item.item_name || 'Purchased Supply Item'}
+                                  </span>
+                                </div>
+                                <span className="font-extrabold text-[#211A19] shrink-0 font-mono">
+                                  ₹{parseFloat(item.item_total || (parseFloat(item.price || 0) * (item.quantity || 1))).toFixed(2)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Side: Total Amount Panel */}
+                      <div className="flex flex-col justify-between items-end border-t lg:border-t-0 lg:border-l border-[#E5DAD0] pt-4 lg:pt-0 lg:pl-6 min-w-[220px]">
+                        <div className="text-right w-full bg-[#FAF8F5] p-4 rounded-2xl border border-[#E5DAD0] space-y-1">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">TOTAL PURCHASE AMOUNT</span>
+                          <p className="text-2xl font-serif font-black text-[#541D26]">
+                            ₹{parseFloat(purchase.total_amount || 0).toFixed(2)}
+                          </p>
+                          <span className="text-[10px] font-bold text-emerald-900 bg-emerald-100/80 px-2.5 py-0.5 rounded-full inline-block">
+                            Verified B2B Purchase
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 2. ITEMS / INVENTORY TAB */}
         {activeTab === 'items' && (
           <div className="space-y-6">
@@ -1321,480 +1521,616 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
         {/* 3. STORE SETTINGS TAB (DigiCafe Hotel-Room-Service Matched) */}
         {activeTab === 'settings' && (
-          <div className="max-w-3xl bg-white border border-[#C5A880]/30 rounded-2xl p-8 shadow-sm space-y-8">
-            <div>
-              <h2 className="text-xl font-serif font-extrabold text-[#0A1428] mb-1 uppercase tracking-wider">Store & Service Configuration</h2>
-              <p className="text-xs text-[#787F8C] font-medium">Configure store details, operating hours, taxes, charges, and order limits matching DigiCafe standards.</p>
+          <div className="w-full space-y-6">
+            {/* Store Settings Top Header Card */}
+            <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-serif font-extrabold text-[#0A1428] uppercase tracking-wider">Store & Service Configuration</h2>
+                <p className="text-xs text-[#787F8C] font-medium mt-0.5">Configure store details, operating hours, taxes, charges, order limits, payment & location details.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveSettings}
+                disabled={savingSettings}
+                className={`px-6 py-3 rounded-xl font-bold text-xs shadow-md uppercase tracking-wider transition-all border shrink-0 cursor-pointer flex items-center justify-center gap-2 ${
+                  saveSuccess
+                    ? 'bg-emerald-700 text-white border-emerald-500'
+                    : 'bg-[#541D26] hover:bg-[#6B2732] text-white border-[#C8A878]/30'
+                }`}
+              >
+                <CheckCircle2 className={`w-4 h-4 ${saveSuccess ? 'text-emerald-200' : 'text-[#C8A878]'}`} />
+                <span>{savingSettings ? 'Saving...' : saveSuccess ? '✓ Settings Saved!' : 'Save All Settings'}</span>
+              </button>
             </div>
 
             <form onSubmit={handleSaveSettings} className="space-y-6">
-              
-              {/* SECTION 1: BRANDING & CONTACT */}
-              <div className="p-5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/25 space-y-4">
-                <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider border-b border-[#C5A880]/15 pb-2">1. Store Profile & Branding</h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
-                <div>
-                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Store / Business Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={settingsForm.store_name}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, store_name: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                  />
-                </div>
+                {/* LEFT COLUMN: BRANDING, TIMINGS, TAXES, ORDER LIMITS */}
+                <div className="space-y-6">
+                  {/* SECTION 1: BRANDING & CONTACT */}
+                  <div className="p-5 sm:p-6 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#C5A880]/15 pb-2.5">
+                      <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider flex items-center gap-2">
+                        <Store className="w-4 h-4 text-[#541D26]" />
+                        <span>1. Store Profile & Merchant Contact</span>
+                      </h3>
+                    </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase">Store Logo Image URL</label>
-                    <span className="text-[10px] text-amber-800 font-medium">💡 Requires direct image URL (.jpg/.png/CDN)</span>
-                  </div>
-                  <div className="flex gap-3 items-center">
-                    <input
-                      type="url"
-                      placeholder="https://images.unsplash.com/..."
-                      value={settingsForm.logo}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, logo: e.target.value })}
-                      className="flex-1 px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                    />
-                    {settingsForm.logo && (
-                      <div className="w-10 h-10 rounded-xl border border-border overflow-hidden shrink-0 bg-gray-100 flex items-center justify-center">
-                        <img
-                          src={getNormalizedImageUrl(settingsForm.logo)}
-                          alt="Preview"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
-                          className="w-full h-full object-cover"
+                    <div className="space-y-4">
+                      {/* ROW 1: STORE / BUSINESS NAME */}
+                      <div>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Store / Business Name</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Flower's Point"
+                          value={settingsForm.store_name}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, store_name: e.target.value })}
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
                         />
                       </div>
-                    )}
+
+                      {/* ROW 2: OWNER NAME & STORE EMAIL */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">Owner / Merchant Name</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Aarushi"
+                            value={settingsForm.vendor_name}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, vendor_name: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">Store Contact Email</label>
+                          <input
+                            type="email"
+                            placeholder="e.g. aarushi20@gmail.com"
+                            value={settingsForm.email}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* ROW 3: PHONE NUMBER, GSTIN, PAN NUMBER & SHOP NUMBER */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">WhatsApp / Phone</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 9784319840"
+                            value={settingsForm.phone_number}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, phone_number: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">Shop / Building No *</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Shop 101"
+                            value={settingsForm.shop_number}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, shop_number: e.target.value, shop_no: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">GSTIN Number</label>
+                          <input
+                            type="text"
+                            maxLength={15}
+                            placeholder="e.g. 08ABCDE1234F1Z5"
+                            value={settingsForm.gstin || settingsForm.gst_number}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, gstin: e.target.value.toUpperCase(), gst_number: e.target.value.toUpperCase() })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19] uppercase"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">PAN Number</label>
+                          <input
+                            type="text"
+                            maxLength={10}
+                            placeholder="e.g. ABCDE1234F"
+                            value={settingsForm.pan_number || settingsForm.pan || settingsForm.panNumber || ''}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, pan_number: e.target.value.toUpperCase(), pan: e.target.value.toUpperCase(), panNumber: e.target.value.toUpperCase() })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19] uppercase"
+                          />
+                        </div>
+                      </div>
+
+                      {/* ROW 4: LOGO URL & PRESETS */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-bold text-[#211A19] uppercase">Store Logo Image URL</label>
+                          <span className="text-[10px] text-amber-800 font-medium">💡 Requires direct image URL (.jpg/.png/CDN)</span>
+                        </div>
+                        <div className="flex gap-3 items-center">
+                          <input
+                            type="url"
+                            placeholder="https://images.unsplash.com/..."
+                            value={settingsForm.logo}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, logo: e.target.value })}
+                            className="flex-1 px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                          />
+                          {settingsForm.logo && (
+                            <div className="w-10 h-10 rounded-xl border border-border overflow-hidden shrink-0 bg-gray-100 flex items-center justify-center">
+                              <img
+                                src={getNormalizedImageUrl(settingsForm.logo)}
+                                alt="Preview"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-2.5 flex flex-wrap gap-1.5 items-center">
+                          <span className="text-[11px] font-bold text-[#211A19] mr-1">Quick Presets:</span>
+                          <button
+                            type="button"
+                            onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80' })}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-[11px] font-bold border border-emerald-200 transition-colors cursor-pointer"
+                          >
+                            🌸 Florist / Bouquet
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&auto=format&fit=crop&q=80' })}
+                            className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200 transition-colors cursor-pointer"
+                          >
+                            🍞 Bakery & Cakes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80' })}
+                            className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-900 text-[11px] font-bold border border-blue-200 transition-colors cursor-pointer"
+                          >
+                            🥦 Fresh Grocery
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=800&auto=format&fit=crop&q=80' })}
+                            className="px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-900 text-[11px] font-bold border border-cyan-200 transition-colors cursor-pointer"
+                          >
+                            🥛 Dairy Products
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* ROW 5: STORE DESCRIPTION */}
+                      <div>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Store Description</label>
+                        <textarea
+                          rows={2}
+                          placeholder="Brief description of your storefront..."
+                          value={settingsForm.description}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, description: e.target.value })}
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1.5 leading-normal">
-                    Note: iStockphoto HTML search pages (like <code className="bg-muted px-1 rounded">https://www.istockphoto.com/photos/...</code>) are web page URLs. DigiLocal automatically converts them to high-resolution store cover images.
-                  </p>
-                  
-                  {/* Preset Quick Selectors */}
-                  <div className="mt-2.5 flex flex-wrap gap-1.5 items-center">
-                    <span className="text-[11px] font-bold text-[#0A1428] mr-1">Quick Presets:</span>
-                    <button
-                      type="button"
-                      onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80' })}
-                      className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-[11px] font-bold border border-emerald-200 transition-colors"
-                    >
-                      🌸 Florist / Bouquet
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&auto=format&fit=crop&q=80' })}
-                      className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200 transition-colors"
-                    >
-                      🍞 Bakery & Cakes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80' })}
-                      className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-900 text-[11px] font-bold border border-blue-200 transition-colors"
-                    >
-                      🥦 Fresh Grocery
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=800&auto=format&fit=crop&q=80' })}
-                      className="px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-900 text-[11px] font-bold border border-cyan-200 transition-colors"
-                    >
-                      🥛 Dairy Products
-                    </button>
+
+                  {/* SECTION 2: STORE TIMINGS */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#C5A880]/15 pb-2">
+                      <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider">2. Store Operating Timings & Availability</h3>
+                      <span className="text-[10px] text-muted-foreground font-medium">Controls store open/closed badges & ordering</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Opening Time</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 08:00 AM"
+                          value={settingsForm.opening_timing}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, opening_timing: e.target.value })}
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Closing Time</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 10:00 PM"
+                          value={settingsForm.closing_timing}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, closing_timing: e.target.value })}
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 3: TAXES & CHARGES */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
+                    <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider border-b border-[#C5A880]/15 pb-2">3. Taxes & Charges</h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">GST Tax (%)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          placeholder="5.0"
+                          value={settingsForm.gst_percentage}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, gst_percentage: e.target.value })}
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Service Charge (%)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          placeholder="0.0"
+                          value={settingsForm.service_charge_percentage}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, service_charge_percentage: e.target.value })}
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Packaging / Delivery (₹)</label>
+                        <input
+                          type="number"
+                          step="1"
+                          placeholder="0"
+                          value={settingsForm.delivery_charge}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, delivery_charge: e.target.value })}
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 4: ORDER LIMITS */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
+                    <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider border-b border-[#C5A880]/15 pb-2">4. Order Restrictions & Limits</h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Minimum Order Value (₹)</label>
+                        <input
+                          type="number"
+                          step="1"
+                          placeholder="0"
+                          value={settingsForm.min_order_value}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, min_order_value: e.target.value })}
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Max Item Quantity Limit</label>
+                        <input
+                          type="number"
+                          step="1"
+                          placeholder="10"
+                          value={settingsForm.max_quantity_limit}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, max_quantity_limit: e.target.value })}
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Store Description</label>
-                  <textarea
-                    rows={2}
-                    value={settingsForm.description}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, description: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                  />
-                </div>
+                {/* RIGHT COLUMN: LOCATION, PAYMENTS, NOTIFICATIONS, DANGER ZONE */}
+                <div className="space-y-6">
+                  {/* SECTION 4.5: STORE AREA, CITY, STATE & PINCODE SETTINGS */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4 relative">
+                    <div className="flex items-center justify-between border-b border-[#C5A880]/15 pb-2.5 flex-wrap gap-2">
+                      <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-[#541D26]" />
+                        <span>Store Location Details</span>
+                      </h3>
+                      {autoLocationBadge && (
+                        <span className="text-[10px] font-extrabold text-[#541D26] bg-[#541D26]/10 px-2.5 py-1 rounded-full border border-[#541D26]/20">
+                          {autoLocationBadge}
+                        </span>
+                      )}
+                    </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">WhatsApp Target Phone Number</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 9876543210"
-                      value={settingsForm.phone_number}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, phone_number: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                    />
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Area / Locality Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Sitapura Industrial Area, Sector 62, Jaipur..."
+                          value={settingsForm.location || ''}
+                          onChange={(e) => handleStoreLocationChange(e.target.value)}
+                          onFocus={() => {
+                            if (settingsForm.location && settingsForm.location.length >= 2) {
+                              setShowLocationDropdown(true);
+                            }
+                          }}
+                          onBlur={() => {
+                            setTimeout(() => setShowLocationDropdown(false), 200);
+                          }}
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                        />
+
+                        {/* Autocomplete Dropdown */}
+                        {showLocationDropdown && locationSuggestions.length > 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#C5A880]/40 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto divide-y divide-[#C5A880]/15">
+                            {locationSuggestions.map((sug, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onMouseDown={() => handleSelectLocationSuggestion(sug)}
+                                className="w-full text-left px-3.5 py-2 hover:bg-[#FAF9F6] text-xs transition-colors flex items-center justify-between group cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="w-3.5 h-3.5 text-[#541D26] shrink-0" />
+                                  <span className="font-bold text-[#211A19] group-hover:text-[#541D26]">{sug.area}</span>
+                                </div>
+                                <span className="text-[10px] text-[#78716C] font-medium ml-2">
+                                  {sug.city}{sug.state ? `, ${sug.state}` : ''} {sug.pincode ? `(${sug.pincode})` : ''}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">City</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Jaipur"
+                            value={settingsForm.city || ''}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, city: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">State</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Rajasthan"
+                            value={settingsForm.state || ''}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, state: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Pincode</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 302022"
+                            value={settingsForm.pincode || ''}
+                            onChange={async (e) => {
+                              const val = e.target.value;
+                              setSettingsForm(prev => ({ ...prev, pincode: val }));
+                              if (val && val.length === 6) {
+                                const res = await resolveLocationFromInput(val);
+                                if (res && (res.city || res.state)) {
+                                  setSettingsForm(prev => ({
+                                    ...prev,
+                                    city: res.city || prev.city || '',
+                                    state: res.state || prev.state || ''
+                                  }));
+                                  setAutoLocationBadge(`✨ Auto-filled by Pincode: ${res.city}, ${res.state}`);
+                                }
+                              }
+                            }}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveSettings}
+                        disabled={savingSettings}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer border flex items-center gap-2 ${
+                          saveSuccess
+                            ? 'bg-emerald-700 text-white border-emerald-500'
+                            : 'bg-[#541D26] hover:bg-[#6B2732] text-white border-[#C8A878]/30'
+                        }`}
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-[#C8A878]" />
+                        <span>{savingSettings ? 'Saving...' : saveSuccess ? '✓ Location Saved!' : 'Save Location Details'}</span>
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">GSTIN Registration Number</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 07AAACR12341Z5"
-                      value={settingsForm.gst_number}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, gst_number: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                    />
+
+                  {/* SECTION 4.6: BANK ACCOUNT & UPI PAYMENT SETTINGS */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#C5A880]/15 pb-2.5">
+                      <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
+                        <CreditCard className="w-4 h-4 text-[#541D26]" />
+                        <span>Bank Account & UPI Payment Settings</span>
+                      </h3>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* ROW 1: ACCOUNT HOLDER & BANK NAME */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Account Holder Name</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Aarushi"
+                            value={settingsForm.account_holder_name || ''}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, account_holder_name: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Bank Name</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. HDFC Bank"
+                            value={settingsForm.bank_name || ''}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, bank_name: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* ROW 2: BANK ACCOUNT NUMBER & IFSC CODE */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">Bank Account Number</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 918273645019"
+                            value={settingsForm.account_number || ''}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, account_number: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">IFSC Code</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. HDFC0001234"
+                            value={settingsForm.ifsc_code || ''}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, ifsc_code: e.target.value.toUpperCase() })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none uppercase"
+                          />
+                        </div>
+                      </div>
+
+                      {/* ROW 3: MERCHANT UPI ID & QR URL */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">Merchant UPI ID (VPA)</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. freshbites@upi"
+                            value={settingsForm.upi_id || ''}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, upi_id: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Payment QR Image URL</label>
+                          <input
+                            type="url"
+                            placeholder="https://imgh.in/host/vendor_upi_qr.png"
+                            value={settingsForm.qr_code_url || ''}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, qr_code_url: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveSettings}
+                        disabled={savingSettings}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer border flex items-center gap-2 ${
+                          saveSuccess
+                            ? 'bg-emerald-700 text-white border-emerald-500'
+                            : 'bg-[#541D26] hover:bg-[#6B2732] text-white border-[#C8A878]/30'
+                        }`}
+                      >
+                        <CreditCard className="w-3.5 h-3.5 text-[#C8A878]" />
+                        <span>{savingSettings ? 'Saving...' : saveSuccess ? '✓ Payment Details Saved!' : 'Save Bank & Payment Details'}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#C5A880]/15 pb-2.5">
+                      <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-[#541D26]" />
+                        <span>Store Order Notification Preferences</span>
+                      </h3>
+                    </div>
+
+                    <div className="space-y-3 text-xs font-semibold text-[#211A19]">
+                      <div className="flex items-center justify-between p-3.5 bg-[#FAF9F6] rounded-xl border border-[#C5A880]/20">
+                        <div>
+                          <p className="font-bold text-[#211A19]">WhatsApp Order Status Alerts</p>
+                          <p className="text-[11px] text-[#211A19]/70 font-normal">Receive instant new order & status change alerts on merchant WhatsApp number</p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={settingsForm.notify_whatsapp !== false}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, notify_whatsapp: e.target.checked })}
+                          className="w-4 h-4 accent-[#541D26] cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3.5 bg-[#FAF9F6] rounded-xl border border-[#C5A880]/20">
+                        <div>
+                          <p className="font-bold text-[#211A19]">SMS Merchant Notifications</p>
+                          <p className="text-[11px] text-[#211A19]/70 font-normal">Receive order confirmation & dispatch SMS updates</p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={settingsForm.notify_sms !== false}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, notify_sms: e.target.checked })}
+                          className="w-4 h-4 accent-[#541D26] cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ACCOUNT ACTIONS & SECURITY SECTION IN STORE SETTINGS */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
+                    <div className="border-b border-[#C5A880]/15 pb-2.5">
+                      <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-[#541D26]" />
+                        <span>Account Actions & Security</span>
+                      </h3>
+                      <p className="text-[11px] text-[#78716C] font-medium mt-0.5">
+                        Manage your active merchant login session or permanently delete your vendor storefront.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {/* BUTTON 1: LOG OUT */}
+                      <button
+                        type="button"
+                        onClick={() => setShowLogoutModal(true)}
+                        className="w-full px-5 py-3 rounded-xl bg-[#FAF9F6] hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26]/40 font-bold text-xs uppercase tracking-wider shadow-2xs transition-all cursor-pointer flex items-center justify-center space-x-2 group"
+                      >
+                        <LogOut className="w-4 h-4 text-[#541D26] group-hover:text-white transition-colors" />
+                        <span>Log Out</span>
+                      </button>
+
+                      {/* BUTTON 2: DELETE ACCOUNT */}
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteConfirmModal(true)}
+                        className="w-full px-5 py-3 rounded-xl bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 font-bold text-xs uppercase tracking-wider shadow-2xs transition-all cursor-pointer flex items-center justify-center space-x-2 group"
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-600 group-hover:text-white transition-colors" />
+                        <span>Delete Account</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* SECTION 2: STORE TIMINGS */}
-              <div className="p-5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/25 space-y-4">
-                <div className="flex items-center justify-between border-b border-[#C5A880]/15 pb-2">
-                  <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider">2. Store Operating Timings & Availability</h3>
-                  <span className="text-[10px] text-muted-foreground font-medium">Controls store open/closed badges & ordering availability</span>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Opening Time</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 08:00 AM"
-                      value={settingsForm.opening_timing}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, opening_timing: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Closing Time</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 10:00 PM"
-                      value={settingsForm.closing_timing}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, closing_timing: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 3: TAXES & CHARGES */}
-              <div className="p-5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/25 space-y-4">
-                <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider border-b border-[#C5A880]/15 pb-2">3. Taxes & Charges</h3>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">GST Tax (%)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      placeholder="5.0"
-                      value={settingsForm.gst_percentage}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, gst_percentage: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Service Charge (%)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      placeholder="0.0"
-                      value={settingsForm.service_charge_percentage}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, service_charge_percentage: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Packaging / Delivery (₹)</label>
-                    <input
-                      type="number"
-                      step="1"
-                      placeholder="0"
-                      value={settingsForm.delivery_charge}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, delivery_charge: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 4: ORDER LIMITS */}
-              <div className="p-5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/25 space-y-4">
-                <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider border-b border-[#C5A880]/15 pb-2">4. Order Restrictions & Limits</h3>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Minimum Order Value (₹)</label>
-                    <input
-                      type="number"
-                      step="1"
-                      placeholder="0"
-                      value={settingsForm.min_order_value}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, min_order_value: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Max Item Quantity Limit</label>
-                    <input
-                      type="number"
-                      step="1"
-                      placeholder="10"
-                      value={settingsForm.max_quantity_limit}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, max_quantity_limit: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 4.5: STORE AREA, CITY, STATE & PINCODE SETTINGS */}
-              <div className="p-5 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] space-y-4">
-                <div className="flex items-center justify-between border-b border-[#E7DFD5] pb-2.5">
-                  <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-[#541D26]" />
-                    <span>Store Area & City / State Location Settings</span>
-                  </h3>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Area / Locality Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Sitapura Industrial Area, Sector 62..."
-                      value={settingsForm.location || ''}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, location: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">City</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Jaipur"
-                        value={settingsForm.city || ''}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, city: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">State</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Rajasthan"
-                        value={settingsForm.state || ''}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, state: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Pincode</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 302022"
-                        value={settingsForm.pincode || ''}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, pincode: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await api.updateVendorCoverage(vendor?.vendor_id || vendorId, {
-                          area: settingsForm.area || settingsForm.location || '',
-                          location: settingsForm.location || settingsForm.area || '',
-                          city: settingsForm.city || '',
-                          state: settingsForm.state || '',
-                          pincode: settingsForm.pincode || '',
-                          location_address: settingsForm.location_address || settingsForm.address || ''
-                        });
-                        alert('Location details updated successfully!');
-                      } catch (err) {
-                        alert(err.message || 'Failed to update location details');
-                      }
-                    }}
-                    className="px-4 py-2.5 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer border border-[#C8A878]/30 flex items-center gap-2"
-                  >
-                    <MapPin className="w-3.5 h-3.5 text-[#C8A878]" />
-                    <span>Save Location Details</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* SECTION 4.6: BANK ACCOUNT & UPI PAYMENT SETTINGS */}
-              <div className="p-5 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] space-y-4">
-                <div className="flex items-center justify-between border-b border-[#E7DFD5] pb-2.5">
-                  <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-[#541D26]" />
-                    <span>Bank Account & UPI Payment Settings</span>
-                  </h3>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Account Holder Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Rajesh Sharma"
-                        value={settingsForm.account_holder_name || ''}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, account_holder_name: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Bank Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. HDFC Bank"
-                        value={settingsForm.bank_name || ''}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, bank_name: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Bank Account Number</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 918273645019"
-                        value={settingsForm.account_number || ''}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, account_number: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">IFSC Code</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. HDFC0001234"
-                        value={settingsForm.ifsc_code || ''}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, ifsc_code: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none uppercase"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Merchant UPI ID (VPA)</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. freshbites@upi"
-                        value={settingsForm.upi_id || ''}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, upi_id: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Custom Payment QR Code Image URL</label>
-                      <input
-                        type="url"
-                        placeholder="https://imgh.in/host/vendor_upi_qr.png"
-                        value={settingsForm.qr_code_url || ''}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, qr_code_url: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E7DFD5] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await api.updateVendorPaymentDetails({
-                          vendor_id: vendor?.vendor_id || vendorId,
-                          account_number: settingsForm.account_number,
-                          ifsc_code: settingsForm.ifsc_code,
-                          bank_name: settingsForm.bank_name,
-                          account_holder_name: settingsForm.account_holder_name,
-                          upi_id: settingsForm.upi_id,
-                          qr_code_url: settingsForm.qr_code_url
-                        });
-                        alert('Bank account & payment details updated successfully!');
-                      } catch (err) {
-                        alert(err.message || 'Failed to update payment details');
-                      }
-                    }}
-                    className="px-4 py-2.5 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2 border border-[#C8A878]/30"
-                  >
-                    <CreditCard className="w-3.5 h-3.5 text-[#C8A878]" />
-                    <span>Save Bank & Payment Details</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* SECTION 4.7: NOTIFICATION PREFERENCES */}
-              <div className="p-5 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] space-y-4">
-                <div className="flex items-center justify-between border-b border-[#E7DFD5] pb-2.5">
-                  <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-[#541D26]" />
-                    <span>Store Order Notification Preferences</span>
-                  </h3>
-                </div>
-
-                <div className="space-y-3 text-xs font-semibold text-[#211A19]">
-                  <div className="flex items-center justify-between p-3.5 bg-white rounded-xl border border-[#E7DFD5]">
-                    <div>
-                      <p className="font-bold text-[#211A19]">WhatsApp Order Status Alerts</p>
-                      <p className="text-[11px] text-[#211A19]/70 font-normal">Receive instant new order & status change alerts on merchant WhatsApp number</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={settingsForm.notify_whatsapp !== false}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, notify_whatsapp: e.target.checked })}
-                      className="w-4 h-4 accent-[#541D26] cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-3.5 bg-white rounded-xl border border-[#E7DFD5]">
-                    <div>
-                      <p className="font-bold text-[#211A19]">SMS Merchant Notifications</p>
-                      <p className="text-[11px] text-[#211A19]/70 font-normal">Receive order confirmation & dispatch SMS updates</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={settingsForm.notify_sms !== false}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, notify_sms: e.target.checked })}
-                      className="w-4 h-4 accent-[#541D26] cursor-pointer"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="p-5 rounded-2xl bg-rose-50/80 border border-rose-200 space-y-3">
-                <div className="flex items-center space-x-2 text-rose-700">
-                  <Trash2 className="w-4 h-4 shrink-0 text-rose-600" />
-                  <h3 className="text-xs font-serif font-bold uppercase tracking-wider">5. Danger Zone - Delete Shop Account</h3>
-                </div>
-                <p className="text-xs text-rose-700/80 leading-relaxed font-medium">
-                  Permanently delete your vendor shop storefront from DigiLocal. All listed catalog items, store configuration, and order history will be removed.
-                </p>
+              {/* Save All Settings Footer Button */}
+              <div className="p-4 bg-white border border-[#C5A880]/30 rounded-2xl shadow-sm flex justify-end">
                 <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirmModal(true)}
-                  className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center space-x-2 cursor-pointer"
+                  type="submit"
+                  disabled={savingSettings}
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all border border-[#C8A878]/30 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <Trash2 className="w-4 h-4 text-white" />
-                  <span>Delete My Shop Store</span>
+                  <CheckCircle2 className="w-4 h-4 text-[#C8A878]" />
+                  <span>{savingSettings ? 'Saving All Store Settings...' : 'Save Store Configuration'}</span>
                 </button>
               </div>
-
-              <button
-                type="submit"
-                disabled={savingSettings}
-                className="w-full py-3.5 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all border border-[#C8A878]/30 cursor-pointer"
-              >
-                {savingSettings ? 'Saving All Store Settings...' : 'Save Store Configuration'}
-              </button>
             </form>
 
             {/* ─── QR CODE CARD (inside Settings tab) ─── */}
             {vendor && (
-              <div className="bg-white border border-[#E7DFD5] rounded-3xl p-8 shadow-sm">
+              <div className="bg-white border border-[#E7DFD5] rounded-3xl p-6 sm:p-8 shadow-sm">
                 <div className="flex items-center gap-3 mb-1">
                   <div className="w-9 h-9 rounded-2xl bg-[#541D26]/10 border border-[#541D26]/20 flex items-center justify-center">
                     <QrCode className="w-4 h-4 text-[#C8A878]" />
@@ -1823,7 +2159,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   </div>
 
                   {/* Info & Actions */}
-                  <div className="flex-1 space-y-4 text-sm">
+                  <div className="flex-1 space-y-4 text-sm w-full">
                     <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#E7DFD5] space-y-2">
                       <p className="text-[11px] text-[#78716C] font-medium uppercase tracking-wider">Shop Direct Link</p>
                       <div className="flex items-center gap-2">
@@ -1893,7 +2229,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
         {/* 4. SUBSCRIPTION PLAN TAB */}
         {activeTab === 'subscription' && (
-          <div className="max-w-3xl space-y-6">
+          <div className="w-full space-y-6">
 
             {/* Subscription Status */}
             <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-8 shadow-sm">
@@ -2311,11 +2647,12 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       {/* In-Website Settings Success Modal (Portaled, Brand Colors) */}
       {showSettingsSuccessModal && createPortal(
         <div 
-          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto"
+          style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0 }}
           onClick={() => setShowSettingsSuccessModal(false)}
         >
           <div 
-            className="bg-white border border-[#C8A878]/40 rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center flex flex-col items-center my-auto animate-in zoom-in-95"
+            className="relative bg-white border border-[#C8A878]/40 rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center flex flex-col items-center my-auto shrink-0 max-h-[90vh] overflow-y-auto animate-in zoom-in-95"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mb-4 shadow-sm">
@@ -2344,11 +2681,12 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       {/* Delete Store Confirmation Modal (Portaled, Centered) */}
       {showDeleteConfirmModal && createPortal(
         <div 
-          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto"
+          style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0 }}
           onClick={() => setShowDeleteConfirmModal(false)}
         >
           <div 
-            className="bg-white border border-rose-200 rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 text-center relative my-auto animate-in zoom-in-95"
+            className="relative bg-white border border-rose-200 rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 text-center my-auto shrink-0 max-h-[90vh] overflow-y-auto animate-in zoom-in-95"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-16 h-16 rounded-full bg-rose-100 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto shadow-sm">
@@ -2360,10 +2698,10 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 Permanent Action
               </span>
               <h3 className="text-xl font-serif font-bold text-[#211A19] mt-2">
-                Delete Store Permanently?
+                Are you sure to delete account?
               </h3>
               <p className="text-xs text-[#78716C] mt-2 leading-relaxed font-medium">
-                Are you sure you want to permanently delete <strong>{panelData?.vendor?.store_name || 'your store'}</strong>? All catalog items, store details, and active order history will be removed. This action cannot be undone.
+                Deleting your vendor shop storefront is permanent and cannot be undone. All your listed catalog items, store configuration, pricing details, and historical order records will be permanently removed from DigiLocal.
               </p>
             </div>
 
@@ -2381,7 +2719,64 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 onClick={handleDeleteVendorStore}
                 className="flex-1 py-3 px-4 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center space-x-2"
               >
-                <span>{deletingStore ? 'Deleting Store...' : 'Yes, Delete Store'}</span>
+                <Trash2 className="w-4 h-4 text-white" />
+                <span>{deletingStore ? 'Deleting Account...' : 'Yes, Delete Account'}</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Log Out Confirmation Modal (Portaled, Centered) */}
+      {showLogoutModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto"
+          style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0 }}
+          onClick={() => setShowLogoutModal(false)}
+        >
+          <div 
+            className="relative bg-white border border-[#C5A880]/40 rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 text-center my-auto shrink-0 max-h-[90vh] overflow-y-auto animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-16 h-16 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 text-[#541D26] flex items-center justify-center mx-auto shadow-sm">
+              <LogOut className="w-8 h-8 text-[#541D26]" />
+            </div>
+
+            <div>
+              <span className="px-3 py-1 bg-[#541D26]/10 text-[#541D26] text-[10px] font-black uppercase tracking-wider rounded-full border border-[#541D26]/20">
+                Session Action
+              </span>
+              <h3 className="text-xl font-serif font-bold text-[#211A19] mt-2">
+                Are you sure to logout?
+              </h3>
+              <p className="text-xs text-[#78716C] mt-2 leading-relaxed font-medium">
+                Logging out will safely end your active merchant session on this device. You will need to re-authenticate with your registered phone number or credentials to access your store dashboard, manage catalog items, and process incoming orders.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 py-3 px-4 rounded-full bg-[#FAF8F5] border border-[#E7DFD5] text-[#211A19] font-bold text-xs uppercase tracking-wider hover:bg-[#EEE5DA] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLogoutModal(false);
+                  try {
+                    localStorage.removeItem('digilocal_vendor_session');
+                    localStorage.removeItem('digilocal_vendor_token');
+                  } catch (_) {}
+                  if (typeof onVendorLogout === 'function') onVendorLogout();
+                }}
+                className="flex-1 py-3 px-4 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center space-x-2"
+              >
+                <LogOut className="w-4 h-4 text-white" />
+                <span>Yes, Log Out</span>
               </button>
             </div>
           </div>

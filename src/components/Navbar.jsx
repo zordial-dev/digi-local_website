@@ -378,7 +378,7 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
       <header className={`w-full bg-[#F6F0E8] text-[#211A19] pt-3 sm:pt-4 pb-1 px-4 sm:px-6 lg:px-8 font-sans transition-all duration-300 relative z-40`}>
         {isHomePage ? (
           /* FLOATING HEADER BAR: Sleek thin glassmorphic warm cream pill bar */
-          <div className="w-full max-w-[96%] xl:max-w-[95%] mx-auto bg-white/80 backdrop-blur-lg rounded-[2rem] sm:rounded-full px-4 sm:px-6 py-1.5 sm:py-2 shadow-md border border-[#E5DAD0] relative transition-all">
+          <div className="w-full max-w-7xl mx-auto bg-white/80 backdrop-blur-lg rounded-[2rem] sm:rounded-full px-4 sm:px-6 py-1.5 sm:py-2 shadow-md border border-[#E5DAD0] relative transition-all">
             <div className="flex items-center justify-between min-h-[38px] sm:min-h-[40px] relative">
               
               {/* LEFT: Logo (#211A19 Espresso text) */}
@@ -436,23 +436,13 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                 {renderLocationPill()}
 
                 {currentVendor ? (
-                  <div className="flex items-center space-x-1.5">
-                    <button
-                      onClick={() => setRoute({ page: 'vendorDashboard', vendorId: currentVendor.vendor_id })}
-                      className="bg-[#541D26] hover:bg-[#6B2732] text-white px-3.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all shadow-xs shrink-0"
-                    >
-                      <AnimatedIcon icon={Store} animation="pulse" size={13} className="text-white" />
-                      <span className="truncate max-w-[90px] sm:max-w-[110px]">{currentVendor.store_name || 'My Store'}</span>
-                    </button>
-
-                    <button
-                      onClick={handleHeaderVendorLogout}
-                      title="Log Out Vendor"
-                      className="p-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors shrink-0"
-                    >
-                      <AnimatedIcon icon={LogOut} animation="wiggle" size={13} />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setRoute({ page: 'vendorDashboard', vendorId: currentVendor.vendor_id })}
+                    className="bg-[#541D26] hover:bg-[#6B2732] text-white px-3.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+                  >
+                    <AnimatedIcon icon={Store} animation="pulse" size={13} className="text-white" />
+                    <span className="truncate max-w-[90px] sm:max-w-[110px]">{currentVendor.store_name || 'My Store'}</span>
+                  </button>
                 ) : currentUser ? (
                   <div className="flex items-center space-x-1.5">
                     <button
@@ -463,13 +453,6 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                       <span className="truncate max-w-[90px] sm:max-w-[110px]">{currentUser.name || currentUser.userName || 'My Profile'}</span>
                     </button>
 
-                    <button
-                      onClick={handleHeaderUserLogout}
-                      title="Log Out User"
-                      className="p-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors shrink-0"
-                    >
-                      <AnimatedIcon icon={LogOut} animation="wiggle" size={13} />
-                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center space-x-1.5">
@@ -611,15 +594,7 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                 </button>
               )}
 
-              {(currentUser || currentVendor || isDashboardOrAdmin) && (
-                <button
-                  onClick={currentVendor || isDashboardOrAdmin ? handleHeaderVendorLogout : handleHeaderUserLogout}
-                  className="px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs font-bold bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-600 hover:text-white transition-all flex items-center space-x-1.5 shrink-0 whitespace-nowrap"
-                >
-                  <LogOut className="w-3.5 h-3.5 shrink-0" />
-                  <span>Logout</span>
-                </button>
-              )}
+
             </div>
           </div>
         )}
