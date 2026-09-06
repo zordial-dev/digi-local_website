@@ -1,4 +1,5 @@
 import { formatIstTimestamp, normalizePhonePayload } from '../utils/timestampPhoneHelper';
+import { sanitizeSocietyLocation } from '../utils/locationResolver';
 
 let rawBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || '/api';
 rawBase = rawBase.trim();
@@ -1901,8 +1902,8 @@ export const api = {
             const osmLocs = osmData.map((item, idx) => {
               const addr = item.address || {};
               const areaName = addr.suburb || addr.neighbourhood || addr.residential || addr.quarter || addr.city_district || addr.town || addr.village || item.display_name.split(',')[0];
-              const cityName = addr.city || addr.state_district || addr.county || addr.town || 'Jaipur';
-              const stateName = addr.state || 'Rajasthan';
+              const cityName = addr.city || addr.state_district || addr.county || addr.town || '';
+              const stateName = addr.state || '';
               const pincodeVal = addr.postcode || '';
 
               return {
@@ -2228,6 +2229,8 @@ export const api = {
       list = MOCK_SOCIETIES;
     }
 
+    list = (list || []).map(s => sanitizeSocietyLocation(s));
+
     // Read active user location from storage ONLY IF cityFilter was not explicitly passed
     let activeCity = cityFilter;
     let activeArea = areaFilter;
@@ -2379,7 +2382,7 @@ export const api = {
   },
 
   // 2.5 List Active Vendors in Society (Public Resident Storefront Endpoint)
-  getSocietyVendors: async (societyId = 'all', search = '') => {
+  getSocietyVendors: async (societyId = 'all', search = '', targetSocietyObj = null) => {
     const extractArray = (data) => {
       if (!data) return null;
       if (Array.isArray(data)) return data;
@@ -2392,6 +2395,25 @@ export const api = {
       if (Array.isArray(data.stores)) return data.stores;
       return null;
     };
+
+    // Resolve Target Society Name (e.g. "Mansarovar" for ID 275, "Chandni chowk" for ID 274)
+    let targetSocName = '';
+    if (societyId && societyId !== 'all') {
+      if (targetSocietyObj && targetSocietyObj.society_name) {
+        targetSocName = targetSocietyObj.society_name;
+      } else {
+        try {
+          const allSocs = await api.getSocieties();
+          if (Array.isArray(allSocs)) {
+            const found = allSocs.find(s =>
+              String(s.society_id).toLowerCase() === String(societyId).toLowerCase() ||
+              String(s.society_id).toLowerCase().replace('soc-', '') === String(societyId).toLowerCase().replace('soc-', '')
+            );
+            if (found) targetSocName = found.society_name;
+          }
+        } catch (_) {}
+      }
+    }
 
     let apiVendors = null;
     let isBackendLive = false;
@@ -2434,13 +2456,13 @@ export const api = {
       console.warn('Backend fetch failed for GET /api/vendors:', err);
     }
 
-    let combinedList = [];
+    let combinedMap = new Map();
 
+    // 1. Process Backend Vendors if live
     if (isBackendLive && Array.isArray(apiVendors)) {
-      // Backend is live: map raw backend vendor items to ensure standard fields exist
-      combinedList = apiVendors.map(v => {
-        if (!v) return null;
-        const vId = v.vendor_id || v.id || v._id || v.vendorId || String(Math.random()).slice(2, 10);
+      apiVendors.forEach(v => {
+        if (!v) return;
+        const vId = String(v.vendor_id || v.id || v._id || v.vendorId || Math.random());
         const store_name = v.store_name || v.storeName || v.business_name || v.businessName || v.shop_name || v.name || 'Community Store';
         const vendor_name = v.vendor_name || v.vendorName || v.owner_name || v.ownerName || store_name;
         const category = v.category || v.category_name || v.categoryName || v.store_category || 'General Store';
@@ -2448,9 +2470,9 @@ export const api = {
         const society_name = v.society_name || v.societyName || v.society || v.area || 'Neighborhood Complex';
         const society_id = v.society_id || v.societyId || v.location_id || 'all';
 
-        return {
+        combinedMap.set(vId, {
           ...v,
-          vendor_id: String(vId),
+          vendor_id: vId,
           store_name,
           vendor_name,
           category,
@@ -2461,39 +2483,41 @@ export const api = {
           closing_time: v.closing_time || v.closingTime || v.close_time || '10:00 PM',
           rating: v.rating || v.store_rating || '4.9',
           delivery_time: v.delivery_time || v.deliveryTime || '15 mins'
-        };
-      }).filter(Boolean);
-    } else {
-      let combinedMap = new Map();
-
-      try {
-        const customVendorSession = localStorage.getItem('digilocal_vendor_session');
-        if (customVendorSession) {
-          const parsed = JSON.parse(customVendorSession);
-          if (parsed && parsed.vendor && (parsed.vendor.vendor_id || parsed.vendor.id)) {
-            const idStr = String(parsed.vendor.vendor_id || parsed.vendor.id);
-            combinedMap.set(idStr, { ...parsed.vendor, vendor_id: parsed.vendor.vendor_id || parsed.vendor.id });
-          }
-        }
-      } catch (_) { }
-
-      try {
-        const regVendorsStr = localStorage.getItem('digilocal_registered_vendors');
-        if (regVendorsStr) {
-          const regList = JSON.parse(regVendorsStr);
-          if (Array.isArray(regList)) {
-            regList.forEach(v => {
-              if (v && (v.vendor_id || v.id)) {
-                const idStr = String(v.vendor_id || v.id);
-                combinedMap.set(idStr, { ...v, vendor_id: v.vendor_id || v.id });
-              }
-            });
-          }
-        }
-      } catch (_) { }
-
-      combinedList = Array.from(combinedMap.values());
+        });
+      });
     }
+
+    // 2. Always merge Local Storage registered / session vendors
+    try {
+      const customVendorSession = localStorage.getItem('digilocal_vendor_session') || localStorage.getItem('activeVendor');
+      if (customVendorSession) {
+        const parsed = JSON.parse(customVendorSession);
+        const v = parsed?.vendor || parsed;
+        if (v && (v.vendor_id || v.id || v.store_name)) {
+          const idStr = String(v.vendor_id || v.id || v.store_name);
+          combinedMap.set(idStr, { ...v, vendor_id: idStr });
+        }
+      }
+    } catch (_) { }
+
+    try {
+      const regVendorsStr = localStorage.getItem('digilocal_registered_vendors');
+      if (regVendorsStr) {
+        const regList = JSON.parse(regVendorsStr);
+        if (Array.isArray(regList)) {
+          regList.forEach(v => {
+            if (v && (v.vendor_id || v.id || v.store_name)) {
+              const idStr = String(v.vendor_id || v.id || v.store_name);
+              if (!combinedMap.has(idStr)) {
+                combinedMap.set(idStr, { ...v, vendor_id: idStr });
+              }
+            }
+          });
+        }
+      }
+    } catch (_) { }
+
+    let combinedList = Array.from(combinedMap.values());
 
     try {
       const deletedStr = localStorage.getItem('digilocal_deleted_vendors');
@@ -2511,36 +2535,55 @@ export const api = {
       const status = String(v.status || '').toUpperCase().trim();
       const appStatus = String(v.approval_status || '').toUpperCase().trim();
 
-      if (status === 'SUSPENDED' || status === 'BLOCKED' || status === 'INACTIVE' || status === 'PENDING' || status === 'REJECTED' || status === 'DRAFT') return false;
-      if (appStatus === 'PENDING' || appStatus === 'REJECTED') return false;
+      if (status === 'SUSPENDED' || status === 'BLOCKED' || status === 'INACTIVE' || status === 'REJECTED' || status === 'DRAFT') return false;
+      if (appStatus === 'REJECTED') return false;
       if (v.is_active === false || v.isActive === false) return false;
 
-      return status === 'ACTIVE' || status === 'APPROVED' || appStatus === 'APPROVED' || !v.status;
+      return true;
     });
 
-    const isMatchingSociety = (vSocId, targetSocId, vSocName) => {
+    const isMatchingSociety = (v, targetSocId, resolvedName = '') => {
       if (!targetSocId || targetSocId === 'all') return true;
-      const vStr = String(vSocId || '').toLowerCase().trim();
-      const tStr = String(targetSocId || '').toLowerCase().trim();
-      if (vStr === tStr) return true;
 
-      const vClean = vStr.replace('soc-', '');
-      const tClean = tStr.replace('soc-', '');
-      if (vClean && tClean && vClean === tClean) return true;
+      const tId = String(targetSocId).toLowerCase().trim();
+      const tIdClean = tId.replace('soc-', '');
+      const tName = String(resolvedName || '').toLowerCase().trim();
 
-      if ((vClean === '1' || vClean === '101') && (tClean === '1' || tClean === '101')) return true;
-      if ((vClean === '2' || vClean === '102') && (tClean === '2' || tClean === '102')) return true;
-      if ((vClean === '3' || vClean === '103') && (tClean === '3' || tClean === '103')) return true;
+      const vSocId = String(v.society_id || v.societyId || v.location_id || '').toLowerCase().trim();
+      const vSocIdClean = vSocId.replace('soc-', '');
+      const vSocName = String(v.society_name || v.societyName || v.society || v.area || v.location || '').toLowerCase().trim();
 
-      if (vSocName && typeof vSocName === 'string') {
-        const vNameLower = vSocName.toLowerCase().trim();
-        if (vNameLower === tStr || vNameLower.includes(tStr) || tStr.includes(vNameLower)) return true;
+      // 1. Direct ID match
+      if (vSocId && (vSocId === tId || (vSocIdClean && tIdClean && vSocIdClean === tIdClean))) return true;
+
+      // 2. Direct Society/Area Name match (with stemming e.g. Mansarovar / Mansarover)
+      if (tName && vSocName) {
+        const tStem = tName.replace(/ar$/, '').replace(/er$/, '').slice(0, 6);
+        const vStem = vSocName.replace(/ar$/, '').replace(/er$/, '').slice(0, 6);
+        if (vSocName === tName || vSocName.includes(tName) || tName.includes(vSocName) || (tStem.length >= 4 && (vSocName.includes(tStem) || vStem === tStem))) return true;
       }
+      if (!tName && vSocName && tId && (vSocName.includes(tId) || tId.includes(vSocName))) return true;
+
+      // 3. Target / Serviceable societies array check
+      const targetArr = v.target_societies || v.serviceable_societies || v.societies || v.society_ids || v.target_society_ids || v.selected_societies;
+      if (Array.isArray(targetArr)) {
+        const found = targetArr.some(s => {
+          const sStr = String(typeof s === 'object' ? (s.society_id || s.id || s.name || s) : s).toLowerCase().trim();
+          if (sStr === tId || (tIdClean && sStr.replace('soc-', '') === tIdClean)) return true;
+          if (tName && (sStr === tName || sStr.includes(tName) || tName.includes(sStr))) return true;
+          return false;
+        });
+        if (found) return true;
+      }
+
+      // 4. Explicitly marked for ALL societies (only if not assigned to another specific society)
+      if ((v.is_all_societies || v.all_societies || vSocId === 'all') && (!vSocName || vSocName === 'all')) return true;
+
       return false;
     };
 
     if (societyId && societyId !== 'all') {
-      combinedList = combinedList.filter(v => isMatchingSociety(v.society_id, societyId, v.society_name));
+      combinedList = combinedList.filter(v => isMatchingSociety(v, societyId, targetSocName));
     }
 
     // Bind custom uploaded logos & category cover images
@@ -3373,36 +3416,42 @@ export const api = {
     };
   },
 
-  // 4.1b Fetch Orders Placed by Vendor (Purchases / B2B Supply Orders)
+  // 4.1b Fetch Orders Placed by Vendor (Purchases / B2B Supply Orders Specification v1.0.0)
   getVendorPurchases: async (vendorId, token = '') => {
     const jwtToken = token || getStoredToken();
     let purchases = [];
 
-    try {
-      let res = await fetchWithTimeout(`${API_BASE}/vendorPanel/${vendorId}/purchases`, {
-        headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
-      });
-      if (!res.ok) {
-        res = await fetchWithTimeout(`${API_BASE}/vendorPanel/${vendorId}/my-orders`, {
-          headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
-        });
-      }
-      if (!res.ok) {
-        res = await fetchWithTimeout(`${API_BASE}/vendor/${vendorId}/purchases`, {
-          headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
-        });
-      }
+    const endpointsToTry = [
+      `${API_BASE}/vendorPanel/${vendorId}/purchases`,
+      `${API_BASE}/vendorPanel/${vendorId}/my-orders`,
+      `${API_BASE}/vendor/${vendorId}/purchases`,
+      `${API_BASE}/orders/vendor-purchases/${vendorId}`
+    ];
 
-      if (res.ok) {
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const body = await res.json();
-          const list = Array.isArray(body) ? body : (Array.isArray(body.data) ? body.data : (Array.isArray(body.purchases) ? body.purchases : []));
-          purchases = list;
+    for (const url of endpointsToTry) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
+        });
+
+        if (res.ok) {
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const body = await res.json();
+            const list = Array.isArray(body)
+              ? body
+              : (Array.isArray(body.data) ? body.data : (Array.isArray(body.purchases) ? body.purchases : []));
+            if (list.length > 0) {
+              purchases = list;
+              break;
+            } else if (Array.isArray(list) && purchases.length === 0) {
+              purchases = list;
+            }
+          }
         }
+      } catch (err) {
+        console.warn(`Backend fetch failed for endpoint ${url}:`, err);
       }
-    } catch (err) {
-      console.warn('Backend fetch failed for getVendorPurchases:', err);
     }
 
     // Merge local stored vendor purchases if offline or created locally
@@ -3439,11 +3488,15 @@ export const api = {
         ...p,
         order_id: p.order_id,
         buyer_vendor_id: String(p.buyer_vendor_id || vendorId),
+        buyer_public_id: String(p.buyer_public_id || ''),
+        buyer_store_name: p.buyer_store_name || '',
+        seller_vendor_id: String(p.seller_vendor_id || ''),
         seller_store_name: p.seller_store_name || p.target_store_name || 'Vendor Store',
         seller_store_logo: p.seller_store_logo || p.logo || '',
         total_amount: parseFloat(p.total_amount || p.amount || 0),
         status: (p.status || 'delivered').toLowerCase(),
         delivery_address: p.delivery_address || p.address || 'Vendor Shop Address',
+        created_at: p.created_at || new Date().toISOString(),
         created_at_readable: p.created_at_readable || ts.created_at_readable,
         items: itemsList.map(i => ({
           item_id: i.item_id || i.id,
@@ -3456,6 +3509,59 @@ export const api = {
     }
 
     return cleanPurchases;
+  },
+
+  // Vendor Purchase Endpoints Aliases (Spec v1.0.0)
+  getVendorMyOrders: async (vendorId, token = '') => {
+    return api.getVendorPurchases(vendorId, token);
+  },
+  fetchVendorPurchases: async (vendorId, token = '') => {
+    return api.getVendorPurchases(vendorId, token);
+  },
+
+  // Create Vendor Purchase Order (B2B Purchase from another vendor)
+  createVendorPurchaseOrder: async (purchaseData, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const vendorId = purchaseData.buyer_vendor_id || purchaseData.vendor_id || purchaseData.vendorId;
+
+    const endpointsToTry = [
+      `${API_BASE}/vendorPanel/${vendorId}/purchases`,
+      `${API_BASE}/orders/vendor-purchases/${vendorId}`,
+      `${API_BASE}/vendor/${vendorId}/purchases`
+    ];
+
+    let result = null;
+    for (const url of endpointsToTry) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+          },
+          body: JSON.stringify(purchaseData)
+        });
+        if (res.ok) {
+          result = await res.json();
+          break;
+        }
+      } catch (err) {
+        console.warn(`Failed POST to ${url}:`, err);
+      }
+    }
+
+    // Save locally for instant offline availability & sync
+    try {
+      const storageKey = `digilocal_vendor_purchases_${vendorId}`;
+      const existingStr = localStorage.getItem(storageKey);
+      const existing = existingStr ? JSON.parse(existingStr) : [];
+      const newPurchase = result?.data || purchaseData;
+      existing.unshift(newPurchase);
+      localStorage.setItem(storageKey, JSON.stringify(existing));
+    } catch (_) {}
+
+    invalidateApiCache();
+    return result || { status: 'success', message: 'Vendor purchase order placed successfully', data: purchaseData };
   },
 
   // 4.2 Add Menu Item
@@ -4625,5 +4731,331 @@ export const api = {
       message: `CMS Page [${cleanSlug}] updated successfully in database.`,
       data: updated
     };
-  }
+  },
+
+  // -------------------------------------------------------------
+  // 10. Vendor Ratings & Reviews REST APIs
+  // -------------------------------------------------------------
+
+  // 10.1 Submit Rating & Review (POST /api/vendors/:vendorId/ratings)
+  submitVendorRating: async (vendorIdOrPayload, maybePayload = {}) => {
+    const payload = (typeof vendorIdOrPayload === 'object' && vendorIdOrPayload !== null) ? vendorIdOrPayload : (maybePayload || {});
+    const vId = (typeof vendorIdOrPayload !== 'object' && vendorIdOrPayload) ? vendorIdOrPayload : (payload.vendor_id || payload.vendorId);
+    const ratingPayload = {
+      vendor_id: Number(vId) || vId,
+      rating: parseFloat(payload.rating || 5.0),
+      review_text: payload.review_text || payload.review || '',
+      user_id: payload.user_id || payload.userId || 'usr_guest',
+      user_name: payload.user_name || payload.userName || payload.name || 'Resident Customer',
+      order_id: payload.order_id || payload.orderId || null
+    };
+
+    const token = getStoredToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const endpoints = [
+      `${API_BASE}/vendors/${vId}/ratings`,
+      `${API_BASE}/ratings`,
+      `${API_BASE}/vendorPanel/${vId}/ratings`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(ratingPayload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          invalidateApiCache(`ratings`);
+          return data;
+        }
+      } catch (err) {
+        console.warn(`POST rating failed on ${url}:`, err);
+      }
+    }
+
+    // Offline / local storage fallback
+    try {
+      const storageKey = `digilocal_vendor_ratings_${vId}`;
+      const existingStr = localStorage.getItem(storageKey);
+      const existing = existingStr ? JSON.parse(existingStr) : [];
+      const newRating = {
+        rating_id: Date.now(),
+        ...ratingPayload,
+        status: 'PUBLISHED',
+        reply_text: null,
+        replied_at: null,
+        created_at: new Date().toISOString()
+      };
+      existing.unshift(newRating);
+      localStorage.setItem(storageKey, JSON.stringify(existing));
+
+      const total = existing.length;
+      const sum = existing.reduce((acc, r) => acc + (parseFloat(r.rating) || 5), 0);
+      const avg = total > 0 ? (sum / total).toFixed(2) : 5.0;
+
+      return {
+        success: true,
+        message: 'Vendor rating and review submitted successfully.',
+        data: {
+          ...newRating,
+          vendor_summary: {
+            avg_rating: parseFloat(avg),
+            rating_count: total,
+            total_ratings_sum: sum
+          }
+        }
+      };
+    } catch (_) {}
+
+    return {
+      success: true,
+      message: 'Vendor rating submitted successfully.',
+      data: {
+        rating_id: Date.now(),
+        ...ratingPayload,
+        status: 'PUBLISHED',
+        created_at: new Date().toISOString()
+      }
+    };
+  },
+
+  createVendorRating: async (vendorId, payload) => api.submitVendorRating(vendorId, payload),
+  addVendorRating: async (vendorId, payload) => api.submitVendorRating(vendorId, payload),
+
+  // 10.2 Fetch Public Vendor Ratings & Star Breakdown (GET /api/vendors/:vendorId/ratings)
+  getVendorRatings: async (vendorId, { page = 1, limit = 20, star } = {}) => {
+    const vId = vendorId;
+    const query = new URLSearchParams();
+    if (page) query.append('page', page);
+    if (limit) query.append('limit', limit);
+    if (star) query.append('star', star);
+
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const endpoints = [
+      `${API_BASE}/vendors/${vId}/ratings${queryString}`,
+      `${API_BASE}/ratings/vendor/${vId}${queryString}`,
+      `${API_BASE}/vendorPanel/${vId}/ratings${queryString}`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && (data.data || data.ratings || data.success)) {
+            return data;
+          }
+        }
+      } catch (err) {
+        console.warn(`GET ratings failed on ${url}:`, err);
+      }
+    }
+
+    // Local / Offline fallback calculation
+    try {
+      const storageKey = `digilocal_vendor_ratings_${vId}`;
+      const existingStr = localStorage.getItem(storageKey);
+      let list = existingStr ? JSON.parse(existingStr) : [];
+      if (!Array.isArray(list)) list = [];
+
+      if (star) {
+        list = list.filter(r => Math.round(parseFloat(r.rating)) === parseInt(star, 10));
+      }
+
+      const total = list.length;
+      const breakdown = { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 };
+      list.forEach(r => {
+        const roundedStar = String(Math.min(5, Math.max(1, Math.round(parseFloat(r.rating) || 5))));
+        breakdown[roundedStar] = (breakdown[roundedStar] || 0) + 1;
+      });
+
+      const sum = list.reduce((acc, r) => acc + (parseFloat(r.rating) || 5), 0);
+      const avg = total > 0 ? (sum / total).toFixed(2) : 4.8;
+
+      const p = parseInt(page, 10) || 1;
+      const l = parseInt(limit, 10) || 20;
+      const paginated = list.slice((p - 1) * l, p * l);
+
+      return {
+        success: true,
+        message: 'Vendor ratings retrieved successfully.',
+        data: {
+          vendor_id: vId,
+          summary: {
+            avg_rating: parseFloat(avg),
+            total_ratings: total,
+            breakdown
+          },
+          pagination: {
+            total,
+            page: p,
+            limit: l,
+            pages: Math.ceil(total / l) || 1
+          },
+          ratings: paginated
+        }
+      };
+    } catch (_) {}
+
+    return {
+      success: true,
+      data: {
+        vendor_id: vId,
+        summary: { avg_rating: 4.8, total_ratings: 0, breakdown: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 } },
+        pagination: { total: 0, page: 1, limit: 20, pages: 1 },
+        ratings: []
+      }
+    };
+  },
+
+  fetchVendorRatings: async (vendorId, options) => api.getVendorRatings(vendorId, options),
+
+  // 10.3 Quick Rating Summary (GET /api/vendors/:vendorId/ratings/summary)
+  getVendorRatingSummary: async (vendorId) => {
+    const vId = vendorId;
+    const endpoints = [
+      `${API_BASE}/vendors/${vId}/ratings/summary`,
+      `${API_BASE}/vendors/${vId}/summary`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && (data.data || data.summary || data.success)) {
+            return data;
+          }
+        }
+      } catch (err) {
+        console.warn(`GET rating summary failed on ${url}:`, err);
+      }
+    }
+
+    // Fallback using getVendorRatings
+    const full = await api.getVendorRatings(vId, { page: 1, limit: 100 });
+    const summary = full?.data?.summary;
+
+    return {
+      success: true,
+      message: 'Vendor rating summary fetched successfully.',
+      data: {
+        vendor_id: vId,
+        avg_rating: summary?.avg_rating || 4.8,
+        rating_count: summary?.total_ratings || 0,
+        star_breakdown: summary?.breakdown || { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 }
+      }
+    };
+  },
+
+  fetchVendorRatingSummary: async (vendorId) => api.getVendorRatingSummary(vendorId),
+
+  // 10.4 Vendor Web Dashboard: Fetch Vendor's Own Ratings (GET /api/vendor/ratings)
+  getVendorDashboardRatings: async (vendorId, { page = 1, limit = 20, star } = {}) => {
+    const vId = vendorId;
+    const token = getStoredToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (vId) headers['X-Vendor-ID'] = String(vId);
+
+    const query = new URLSearchParams();
+    if (page) query.append('page', page);
+    if (limit) query.append('limit', limit);
+    if (star) query.append('star', star);
+    if (vId) query.append('vendor_id', vId);
+
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const endpoints = [
+      `${API_BASE}/vendor/ratings${queryString}`,
+      `${API_BASE}/vendorPanel/${vId}/ratings${queryString}`,
+      `${API_BASE}/vendors/${vId}/ratings${queryString}`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && (data.data || data.ratings || data.success)) {
+            return data;
+          }
+        }
+      } catch (err) {
+        console.warn(`GET vendor dashboard ratings failed on ${url}:`, err);
+      }
+    }
+
+    return await api.getVendorRatings(vId, { page, limit, star });
+  },
+
+  getMyVendorRatings: async (vendorId, options) => api.getVendorDashboardRatings(vendorId, options),
+  fetchVendorSelfRatings: async (vendorId, options) => api.getVendorDashboardRatings(vendorId, options),
+
+  // 10.5 Vendor Posts Reply to Review (POST /api/vendor/ratings/:ratingId/reply)
+  replyToVendorRating: async (ratingId, replyData, vendorId = null) => {
+    const replyText = typeof replyData === 'string' ? replyData : (replyData?.reply_text || replyData?.reply || '');
+    const token = getStoredToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (vendorId) headers['X-Vendor-ID'] = String(vendorId);
+
+    const endpoints = [
+      `${API_BASE}/vendor/ratings/${ratingId}/reply`,
+      `${API_BASE}/ratings/${ratingId}/reply`,
+      `${API_BASE}/vendorPanel/ratings/${ratingId}/reply`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ reply_text: replyText })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          invalidateApiCache(`ratings`);
+          return data;
+        }
+      } catch (err) {
+        console.warn(`POST rating reply failed on ${url}:`, err);
+      }
+    }
+
+    // Local Storage fallback update
+    if (vendorId) {
+      try {
+        const storageKey = `digilocal_vendor_ratings_${vendorId}`;
+        const existingStr = localStorage.getItem(storageKey);
+        if (existingStr) {
+          const list = JSON.parse(existingStr);
+          const idx = list.findIndex(r => String(r.rating_id) === String(ratingId));
+          if (idx !== -1) {
+            list[idx].reply_text = replyText;
+            list[idx].replied_at = new Date().toISOString();
+            localStorage.setItem(storageKey, JSON.stringify(list));
+          }
+        }
+      } catch (_) {}
+    }
+
+    return {
+      success: true,
+      message: 'Vendor reply published successfully.',
+      data: {
+        rating_id: ratingId,
+        vendor_id: vendorId,
+        reply_text: replyText,
+        replied_at: new Date().toISOString()
+      }
+    };
+  },
+
+  replyToRating: async (ratingId, replyData, vendorId) => api.replyToVendorRating(ratingId, replyData, vendorId),
+  postVendorReviewReply: async (ratingId, replyData, vendorId) => api.replyToVendorRating(ratingId, replyData, vendorId),
+  submitVendorReply: async (ratingId, replyData, vendorId) => api.replyToVendorRating(ratingId, replyData, vendorId)
 };

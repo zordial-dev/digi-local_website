@@ -16,37 +16,36 @@ export default function ScrollStoryAnimation({ onExploreClick }) {
 
   // Progress calculations for track line & active node state
   const trackWidth = useTransform(smoothProgress, [0, 1], ['0%', '100%']);
-  const riderPosition = useTransform(smoothProgress, [0.1, 0.85], ['0%', '100%']);
 
   const steps = [
     {
       id: '01',
-      tag: 'Step 01 • Origin',
-      title: 'In-Society Vendor',
-      subtitle: 'Instant Fulfillment',
-      description: 'Your order is assigned directly to verified local merchants located right within or adjacent to your gated society.',
+      tag: 'Step 01 • Neighborhood Merchants',
+      title: 'Trusted Local Stores',
+      subtitle: 'In-Society & Area Vendors',
+      description: 'Discover verified neighborhood shops, organic dairy, bakeries, and essential service providers serving your residential society.',
       icon: Store,
-      badge: '100% Verified Merchant',
-      detail: 'Fulfilling in ~3 mins'
+      badge: '100% Verified Merchants',
+      detail: 'Trusted Local Shops'
     },
     {
       id: '02',
-      tag: 'Step 02 • Verification',
-      title: 'Society Gates',
-      subtitle: 'Seamless Pass-Through',
-      description: 'Pre-verified delivery partners pass through gate security with zero delay or resident intervention.',
-      icon: ShieldCheck,
-      badge: 'RFID & Gate Verified',
-      detail: 'Instant clearance'
+      tag: 'Step 02 • Direct Digital Order',
+      title: 'Instant Ordering',
+      subtitle: 'Zero Platform Markup',
+      description: 'View real-time stock, fair prices, and place direct digital orders with nearby shopkeepers with transparent pricing.',
+      icon: Sparkles,
+      badge: 'Direct Shop Prices',
+      detail: 'Zero Hidden Fees'
     },
     {
       id: '03',
-      tag: 'Step 03 • Arrival',
-      title: 'Resident Tower',
-      subtitle: 'Doorstep Delivery',
-      description: 'Hand-delivered straight to your apartment door with real-time tracking updates in under 15 minutes total.',
+      tag: 'Step 03 • Doorstep Fulfillment',
+      title: 'Express Society Delivery',
+      subtitle: 'Doorstep Convenience',
+      description: 'Hand-delivered straight to your apartment door in 10–15 minutes with verified society gate security pass-through.',
       icon: Building2,
-      badge: '15-Min Guaranteed',
+      badge: '10–15 Min Delivery',
       detail: 'Delivered to Doorstep'
     }
   ];
@@ -58,17 +57,17 @@ export default function ScrollStoryAnimation({ onExploreClick }) {
         
         {/* SECTION HEADER */}
         <div className="max-w-2xl mx-auto text-center mb-12 sm:mb-16 space-y-3">
-          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-[#541D26]/10 text-[#541D26] text-[11px] font-extrabold shadow-xs border border-[#541D26]/20 uppercase tracking-widest">
-            <Sparkles className="w-3.5 h-3.5 text-[#541D26]" />
-            <span>Hyperlocal Logistics Journey</span>
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#541D26]" />
+            <span>Hyperlocal Commerce Ecosystem</span>
           </div>
 
           <h2 className="text-2xl sm:text-4xl lg:text-5xl font-serif font-black text-[#211A19] tracking-tight uppercase">
-            How Direct Fulfillment Works
+            How DigiLocal Works
           </h2>
 
           <p className="text-xs sm:text-sm text-[#211A19]/75 font-medium max-w-xl mx-auto leading-relaxed">
-            A frictionless, 3-stage delivery pipeline engineered specifically for connected gated residential communities.
+            Connecting residential societies with trusted neighborhood merchants for seamless hyperlocal ordering and express doorstep delivery.
           </p>
         </div>
 
@@ -76,21 +75,21 @@ export default function ScrollStoryAnimation({ onExploreClick }) {
         <div className="w-full max-w-5xl mx-auto relative space-y-12">
           
           {/* CONTINUOUS GLOWING PROGRESS TRACK BAR */}
-          <div className="w-full relative px-6 sm:px-12 py-4">
-            <div className="w-full h-1.5 bg-[#D6B7A5]/40 rounded-full relative overflow-hidden">
+          <div className="w-full relative px-6 sm:px-12 py-5">
+            <div className="w-full h-1.5 bg-[#D6B7A5]/40 rounded-full relative">
               <motion.div
                 style={{ width: trackWidth }}
-                className="h-full bg-[#541D26] rounded-full transition-all duration-150"
+                className="h-full bg-[#541D26] rounded-full relative z-0"
               />
-            </div>
 
-            {/* FLOATING DELIVERY RIDER INDICATOR NODE */}
-            <motion.div
-              style={{ left: riderPosition }}
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-[#541D26] text-white flex items-center justify-center shadow-lg border-2 border-[#C8A878] transition-transform"
-            >
-              <Zap className="w-4 h-4 text-[#C8A878]" />
-            </motion.div>
+              {/* FLOATING DELIVERY RIDER INDICATOR NODE */}
+              <motion.div
+                style={{ left: trackWidth }}
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-[#541D26] text-[#C8A878] flex items-center justify-center shadow-md border-2 border-[#C8A878] z-10 pointer-events-none"
+              >
+                <Zap className="w-4 h-4 text-[#C8A878]" />
+              </motion.div>
+            </div>
           </div>
 
           {/* 3-COLUMN BENTO STAGE CARDS GRID */}

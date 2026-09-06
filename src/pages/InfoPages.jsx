@@ -40,8 +40,7 @@ const DEFAULT_NAV_TABS = [
   { id: 'terms-and-conditions', title: 'Terms & Conditions', icon: FileText },
   { id: 'safety-standards', title: 'Safety & Quality Standards', icon: ShieldAlert },
   { id: 'help-support', title: 'Help & Support Center (with FAQs)', icon: HelpCircle },
-  { id: 'contact-support', title: 'Contact Support', icon: Headphones },
-  { id: 'b2b-api-docs', title: 'Merchant Purchases API Docs (v1.0.0)', icon: FileText }
+  { id: 'contact-support', title: 'Contact Support', icon: Headphones }
 ];
 
 const FAQS_DATA = [
@@ -1733,140 +1732,7 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
                 </div>
               )}
 
-              {/* B2B MERCHANT PURCHASES API DOCS (v1.0.0 SPECIFICATION) */}
-              {activeTab === 'b2b-api-docs' && (
-                <div className="space-y-6 font-sans">
-                  {/* Header Banner */}
-                  <div className="bg-[#211A19] text-white p-6 sm:p-8 rounded-3xl space-y-3 shadow-xl border border-white/10 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-[#541D26]/40 rounded-full blur-3xl pointer-events-none" />
-                    <div className="flex flex-wrap items-center justify-between gap-3 relative z-10">
-                      <div className="flex items-center space-x-3">
-                        <span className="px-3 py-1 rounded-full bg-[#541D26] text-[#C8A878] text-[10px] font-black uppercase tracking-wider border border-[#C8A878]/30">
-                          v1.0.0 APPROVED & LIVE IN PRODUCTION
-                        </span>
-                        <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase tracking-wider border border-emerald-500/30">
-                          STABLE B2B SPEC
-                        </span>
-                      </div>
-                      <span className="text-xs font-mono text-[#D6B7A5]">
-                        Base URL: https://digi-local-backend.onrender.com/api
-                      </span>
-                    </div>
 
-                    <h2 className="text-2xl sm:text-3xl font-serif font-black text-white relative z-10">
-                      Merchant Vendor Purchases & Orders Made API Documentation
-                    </h2>
-                    <p className="text-xs sm:text-sm text-[#D6B7A5] font-medium leading-relaxed max-w-3xl relative z-10">
-                      When a merchant vendor (e.g. Raj Supermart) acts as a buyer/customer and places an order to buy supplies or inventory from another vendor store (e.g. Aarushi Sweets or Wholesale Mart), vendors can view all orders placed by them via this API.
-                    </p>
-                  </div>
-
-                  {/* Endpoint Table */}
-                  <div className="bg-white border border-[#E5DAD0] rounded-3xl p-6 shadow-xs space-y-4">
-                    <h3 className="font-serif font-black text-[#211A19] text-lg uppercase tracking-wider">
-                      📡 Endpoints Overview
-                    </h3>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="border-b border-[#E5DAD0] text-[#541D26] font-black uppercase text-[11px]">
-                            <th className="py-3 px-4">METHOD</th>
-                            <th className="py-3 px-4">ENDPOINT</th>
-                            <th className="py-3 px-4">DESCRIPTION</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#E5DAD0] font-semibold text-[#211A19]">
-                          <tr className="hover:bg-[#FAF8F5]">
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-extrabold font-mono text-[11px]">GET</span></td>
-                            <td className="py-3 px-4 font-mono font-bold text-[#541D26]">/api/vendorPanel/:vendorId/purchases</td>
-                            <td className="py-3 px-4">Fetch orders placed by this vendor when buying from other vendors</td>
-                          </tr>
-                          <tr className="hover:bg-[#FAF8F5]">
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-extrabold font-mono text-[11px]">GET</span></td>
-                            <td className="py-3 px-4 font-mono font-bold text-[#541D26]">/api/vendorPanel/:vendorId/my-orders</td>
-                            <td className="py-3 px-4">Alias endpoint for vendor's own purchase history</td>
-                          </tr>
-                          <tr className="hover:bg-[#FAF8F5]">
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-extrabold font-mono text-[11px]">GET</span></td>
-                            <td className="py-3 px-4 font-mono font-bold text-[#541D26]">/api/vendor/:vendorId/purchases</td>
-                            <td className="py-3 px-4">Top-level vendor purchases alias</td>
-                          </tr>
-                          <tr className="hover:bg-[#FAF8F5]">
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-extrabold font-mono text-[11px]">GET</span></td>
-                            <td className="py-3 px-4 font-mono font-bold text-[#541D26]">/api/orders/vendor-purchases/:vendorId</td>
-                            <td className="py-3 px-4">Orders module vendor purchases alias</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Headers & Sample Request/Response */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Headers & Query Parameters */}
-                    <div className="bg-white border border-[#E5DAD0] rounded-3xl p-6 shadow-xs space-y-4">
-                      <h3 className="font-serif font-black text-[#211A19] text-base uppercase tracking-wider flex items-center gap-2">
-                        <Lock className="w-4 h-4 text-[#541D26]" />
-                        <span>Authorization Headers</span>
-                      </h3>
-
-                      <pre className="p-4 rounded-2xl bg-[#211A19] text-[#C8A878] font-mono text-xs overflow-x-auto leading-relaxed border border-white/10">
-{`Authorization: Bearer <VENDOR_JWT_ACCESS_TOKEN>
-Content-Type: application/json`}
-                      </pre>
-
-                      <div className="space-y-2 pt-2">
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-[#211A19]">Path Parameters</h4>
-                        <ul className="text-xs text-muted-foreground space-y-1 font-medium list-disc pl-4">
-                          <li><strong className="text-[#211A19] font-mono">vendorId</strong>: Vendor ID (e.g. <code>1225</code>), Public ID (e.g. <code>c860cb</code>), or phone number.</li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Response Sample Code JSON */}
-                    <div className="bg-white border border-[#E5DAD0] rounded-3xl p-6 shadow-xs space-y-4">
-                      <h3 className="font-serif font-black text-[#211A19] text-base uppercase tracking-wider flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-[#541D26]" />
-                        <span>Response Sample (200 OK)</span>
-                      </h3>
-
-                      <pre className="p-4 rounded-2xl bg-[#1E293B] text-emerald-300 font-mono text-[11px] overflow-x-auto leading-relaxed border border-slate-700 max-h-72">
-{`{
-  "code": 200,
-  "status": "success",
-  "message": "Vendor purchases retrieved successfully.",
-  "data": [
-    {
-      "order_id": "ORD-V2V-9842",
-      "buyer_vendor_id": "1225",
-      "buyer_public_id": "c860cb",
-      "buyer_store_name": "Raj Supermart",
-      "seller_vendor_id": "104",
-      "seller_store_name": "Aarushi Sweets",
-      "seller_store_logo": "https://...",
-      "total_amount": 707.00,
-      "status": "delivered",
-      "delivery_address": "Shop 352, Raj Supermart",
-      "created_at": "2026-09-02T06:32:11.000Z",
-      "created_at_readable": "02 Sep 2026, 06:32 am IST",
-      "items": [
-        {
-          "item_id": 101,
-          "item_name": "Organic Milk Packets (Bulk)",
-          "quantity": 10,
-          "price": 50.00,
-          "item_total": 500.00
-        }
-      ]
-    }
-  ]
-}`}
-                      </pre>
-                    </div>
-                  </div>
-                </div>
-              )}
 
             </div>
           </div>

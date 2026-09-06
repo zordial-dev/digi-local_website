@@ -643,8 +643,8 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       const cleanAddrStr = `${cleanFlatStr}, ${societyName || 'Residential Complex'}`;
 
       const userCity = vendorData?.city || currentUser?.city || '';
-      const userState = vendorData?.state || currentUser?.state || 'Rajasthan';
-      const userPincode = vendorData?.pincode || currentUser?.pincode || '302001';
+      const userState = vendorData?.state || currentUser?.state || '';
+      const userPincode = vendorData?.pincode || currentUser?.pincode || '';
 
       const backendPayload = {
         user_id: currentUser?.user_id || currentUser?.id || (resPhone ? `usr_${resPhone}` : 'usr_guest'),
@@ -825,7 +825,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
     <div className="min-h-screen bg-background text-foreground pb-28 px-3 sm:px-6">
       
       {/* Store Header Banner */}
-      <div className="max-w-6xl mx-auto pt-4 pb-6">
+      <div className="max-w-7xl mx-auto pt-4 pb-6">
         <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-sm">
           
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
@@ -956,7 +956,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {(vendorData?.vendor_type === 'service' || vendorData?.can_add_items === false) ? (
           <div className="bg-white border border-[#315C45]/20 rounded-3xl p-6 sm:p-8 max-w-xl mx-auto shadow-md space-y-5">
             <div className="text-center space-y-1.5 border-b border-border/60 pb-4">
@@ -1069,7 +1069,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
             {filteredItems.map((item) => {
               const timeStatus = getStoreTimeStatus(vendorData);
               const isStoreClosed = !timeStatus.isOpen;
@@ -1079,7 +1079,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               return (
                 <div
                   key={item.item_id}
-                  className={`rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-200 shadow-xs bento-card ${
+                  className={`rounded-2xl overflow-hidden flex flex-col justify-between h-full w-full transition-all duration-200 shadow-xs bento-card ${
                     isStoreClosed
                       ? 'border border-rose-200/80 bg-rose-50/20 opacity-80'
                       : !isAvailable
@@ -1087,8 +1087,9 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                       : 'border border-emerald-200/70 hover:border-emerald-500/60 hover:shadow-md bg-white'
                   }`}
                 >
-                  <div className="p-3.5">
-                    <div className="relative mb-2.5 rounded-xl overflow-hidden bg-secondary h-32 sm:h-36">
+                  <div className="p-3 flex-1 flex flex-col justify-between">
+                    <div>
+                      <div className="relative mb-2 rounded-xl overflow-hidden bg-secondary h-28 sm:h-32">
                       <img
                         src={getNormalizedImageUrl(item)}
                         alt={item.item_name}
@@ -1117,9 +1118,10 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                     </div>
 
                     <h3 className="text-xs sm:text-sm font-bold text-ink mb-1 line-clamp-1">{item.item_name}</h3>
-                    <p className="text-muted-foreground text-[11px] line-clamp-1 mb-2 font-medium">
+                    <p className="text-muted-foreground text-[11px] line-clamp-1 font-medium">
                       {item.description || 'Fresh quality item.'}
                     </p>
+                    </div>
                   </div>
 
                   <div className="p-2.5 sm:p-3 bg-secondary/40 border-t border-border flex items-center justify-between">
@@ -1362,8 +1364,8 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             const cleanAddrStr = `${cleanFlatStr}, ${societyName || 'Residential Complex'}`;
 
             const userCity = vendorData?.city || currentUser?.city || '';
-            const userState = vendorData?.state || currentUser?.state || 'Rajasthan';
-            const userPincode = vendorData?.pincode || currentUser?.pincode || '302001';
+            const userState = vendorData?.state || currentUser?.state || '';
+            const userPincode = vendorData?.pincode || currentUser?.pincode || '';
 
             const payload = {
               user_id: currentUser?.user_id || currentUser?.id || (resPhone ? `usr_${resPhone}` : 'usr_guest'),

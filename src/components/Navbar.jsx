@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Store, ArrowLeft, LogOut, LogIn, Building2, BookOpen, HelpCircle, ArrowUpRight, User, MapPin, ChevronDown, Check, Plus, Edit3, ShoppingCart } from 'lucide-react';
+import { Store, ArrowLeft, LogOut, LogIn, Building2, BookOpen, HelpCircle, ArrowUpRight, User, MapPin, ChevronDown, Check, Plus, Edit3, ShoppingCart, Menu, X } from 'lucide-react';
 import DeliveryAddressModal from './DeliveryAddressModal';
 import AnimatedIcon from './common/AnimatedIcon';
 
 export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorLogout, activeUser, onUserLogout, onOpenLogin, onOpenSupportDesk }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isNearFooter, setIsNearFooter] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Active Cart State (Persisted Across All Pages)
   const [activeCart, setActiveCart] = useState(null);
@@ -473,6 +474,14 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                     </button>
                   </div>
                 )}
+                {/* Mobile Menu Hamburger Toggle Button (Shown on < lg screens) */}
+                <button
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  className="lg:hidden p-1.5 rounded-full bg-[#EEE5DA] text-[#541D26] hover:bg-[#D6B7A5] transition-colors border border-[#E5DAD0] cursor-pointer shrink-0 ml-1"
+                  aria-label="Toggle Mobile Menu"
+                >
+                  {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                </button>
               </div>
             </div>
           </div>
@@ -579,21 +588,151 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                   <span className="truncate max-w-[110px]">{currentUser.name || currentUser.userName || 'Profile'}</span>
                 </button>
               ) : (
-                <button
-                  onClick={handleVendorButtonClick}
-                  className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-[#E5DAD0] flex items-center space-x-1.5 text-xs sm:text-sm font-semibold transition-all shadow-md group shrink-0 ${isVendorPortalActive
-                    ? 'bg-[#541D26] text-white font-bold'
-                    : 'bg-[#541D26] hover:bg-[#6B2732] text-white'
-                    }`}
-                >
-                  <Store className="w-3.5 h-3.5 shrink-0 text-white" />
-                  <span className="whitespace-nowrap">Vendor Portal</span>
-                  <span className="font-bold text-xs sm:text-sm group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform ml-0.5 text-white">
-                    ↗
-                  </span>
-                </button>
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    onClick={() => setRoute({ page: 'login', accountType: 'resident' })}
+                    className="bg-transparent hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26] px-3 sm:px-3.5 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+                  >
+                    <AnimatedIcon icon={LogIn} animation="scale" size={13} />
+                    <span>Log In</span>
+                  </button>
+
+                  <button
+                    onClick={handleVendorButtonClick}
+                    className={`px-3 sm:px-3.5 py-1.5 rounded-full border border-[#E5DAD0] flex items-center space-x-1.5 text-xs font-semibold transition-all shadow-md group shrink-0 cursor-pointer ${isVendorPortalActive
+                      ? 'bg-[#541D26] text-white font-bold'
+                      : 'bg-[#541D26] hover:bg-[#6B2732] text-white'
+                      }`}
+                  >
+                    <Store className="w-3.5 h-3.5 shrink-0 text-white" />
+                    <span className="whitespace-nowrap hidden sm:inline">Vendor Portal</span>
+                    <span className="font-bold text-xs group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform ml-0.5 text-white">
+                      ↗
+                    </span>
+                  </button>
+                </div>
               )}
 
+              {/* Mobile Hamburger Toggle for Non-Home Header */}
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="lg:hidden p-1.5 rounded-full bg-[#EEE5DA] text-[#541D26] hover:bg-[#D6B7A5] transition-colors border border-[#E5DAD0] cursor-pointer shrink-0 ml-1"
+                aria-label="Toggle Mobile Menu"
+              >
+                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* MOBILE NAVIGATION DRAWER OVERLAY (lg:hidden) */}
+        {isMobileMenuOpen && (
+          <div className="lg:hidden fixed inset-0 z-[99999] bg-black/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
+            <div className="w-full max-w-xs bg-[#F6F0E8] h-full shadow-2xl border-l border-[#E5DAD0] p-6 flex flex-col justify-between overflow-y-auto">
+              
+              <div className="space-y-6">
+                {/* Drawer Header */}
+                <div className="flex items-center justify-between pb-4 border-b border-[#E5DAD0]">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-7 h-7 flex items-center justify-center bg-white rounded-lg p-0.5 shadow-xs border border-[#E5DAD0]">
+                      <img src="/logo.png" alt="DigiLocal" className="w-full h-full object-contain scale-[1.8]" />
+                    </div>
+                    <span className="font-serif italic text-xl font-bold text-[#211A19]">DigiLocal</span>
+                  </div>
+                  <button
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="p-1.5 rounded-full bg-white text-[#211A19] hover:text-[#541D26] border border-[#E5DAD0]"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Mobile Navigation Links */}
+                <nav className="flex flex-col space-y-2">
+                  <button
+                    onClick={() => { setRoute({ page: 'home' }); setIsMobileMenuOpen(false); }}
+                    className={`w-full py-3 px-4 rounded-xl text-left text-sm font-bold flex items-center justify-between transition-all ${
+                      isHomePage ? 'bg-[#541D26] text-white shadow-xs' : 'bg-white text-[#211A19] hover:bg-[#EEE5DA]'
+                    }`}
+                  >
+                    <span>Home</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setRoute({ page: 'societyVendors', societyId: 'all' }); setIsMobileMenuOpen(false); }}
+                    className={`w-full py-3 px-4 rounded-xl text-left text-sm font-bold flex items-center justify-between transition-all ${
+                      isVendorsActive ? 'bg-[#541D26] text-white shadow-xs' : 'bg-white text-[#211A19] hover:bg-[#EEE5DA]'
+                    }`}
+                  >
+                    <span>Browse Vendors</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setRoute({ page: 'info', tab: 'about-us' }); setIsMobileMenuOpen(false); }}
+                    className={`w-full py-3 px-4 rounded-xl text-left text-sm font-bold flex items-center justify-between transition-all ${
+                      isOurStoryActive ? 'bg-[#541D26] text-white shadow-xs' : 'bg-white text-[#211A19] hover:bg-[#EEE5DA]'
+                    }`}
+                  >
+                    <span>Our Story</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setRoute({ page: 'info', tab: 'how-it-works' }); setIsMobileMenuOpen(false); }}
+                    className={`w-full py-3 px-4 rounded-xl text-left text-sm font-bold flex items-center justify-between transition-all ${
+                      isHowItWorksActive ? 'bg-[#541D26] text-white shadow-xs' : 'bg-white text-[#211A19] hover:bg-[#EEE5DA]'
+                    }`}
+                  >
+                    <span>How It Works</span>
+                  </button>
+                </nav>
+              </div>
+
+              {/* Drawer Footer Actions */}
+              <div className="pt-6 border-t border-[#E5DAD0] space-y-3">
+                {currentVendor ? (
+                  <button
+                    onClick={() => { setRoute({ page: 'vendorDashboard', vendorId: currentVendor.vendor_id }); setIsMobileMenuOpen(false); }}
+                    className="w-full py-3 px-4 rounded-xl bg-[#541D26] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs"
+                  >
+                    <Store className="w-4 h-4 text-[#C8A878]" />
+                    <span>Vendor Dashboard</span>
+                  </button>
+                ) : currentUser ? (
+                  <>
+                    <button
+                      onClick={() => { setRoute({ page: 'profile' }); setIsMobileMenuOpen(false); }}
+                      className="w-full py-3 px-4 rounded-xl bg-[#541D26] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs"
+                    >
+                      <User className="w-4 h-4 text-[#C8A878]" />
+                      <span>My Profile & Orders</span>
+                    </button>
+                    <button
+                      onClick={() => { handleHeaderUserLogout(); setIsMobileMenuOpen(false); }}
+                      className="w-full py-2.5 px-4 rounded-xl bg-white border border-[#E5DAD0] text-rose-700 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Sign Out</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => { setRoute({ page: 'login', accountType: 'resident' }); setIsMobileMenuOpen(false); }}
+                      className="w-full py-3 px-4 rounded-xl bg-[#541D26] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs"
+                    >
+                      <LogIn className="w-4 h-4 text-[#C8A878]" />
+                      <span>Log In</span>
+                    </button>
+                    <button
+                      onClick={() => { handleVendorButtonClick(); setIsMobileMenuOpen(false); }}
+                      className="w-full py-3 px-4 rounded-xl bg-white border border-[#541D26] text-[#541D26] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"
+                    >
+                      <Store className="w-4 h-4" />
+                      <span>Register As Merchant</span>
+                    </button>
+                  </>
+                )}
+              </div>
 
             </div>
           </div>

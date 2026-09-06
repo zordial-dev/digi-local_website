@@ -6,12 +6,12 @@ import { api } from '../services/api';
 export const CITY_STATE_MAP = {
   jaipur: { city: 'Jaipur', state: 'Rajasthan', pincode: '302001' },
   mansarovar: { city: 'Jaipur', state: 'Rajasthan', pincode: '302020' },
+  jagatpura: { city: 'Jaipur', state: 'Rajasthan', pincode: '302017' },
   sitapura: { city: 'Jaipur', state: 'Rajasthan', pincode: '302022' },
   malviyanagar: { city: 'Jaipur', state: 'Rajasthan', pincode: '302017' },
   vaishalinagar: { city: 'Jaipur', state: 'Rajasthan', pincode: '302021' },
   rajapark: { city: 'Jaipur', state: 'Rajasthan', pincode: '302004' },
   cscheme: { city: 'Jaipur', state: 'Rajasthan', pincode: '302001' },
-  jagatpura: { city: 'Jaipur', state: 'Rajasthan', pincode: '302017' },
   tonkroad: { city: 'Jaipur', state: 'Rajasthan', pincode: '302018' },
   sanganer: { city: 'Jaipur', state: 'Rajasthan', pincode: '302029' },
   pratapnagar: { city: 'Jaipur', state: 'Rajasthan', pincode: '302033' },
@@ -301,3 +301,100 @@ export async function fetchDetailsByPincode(pin) {
 
   return null;
 }
+
+/**
+ * Sanitize society location fields to guarantee correct city, state, and official Indian postal pincode.
+ */
+export function sanitizeSocietyLocation(soc) {
+  if (!soc || typeof soc !== 'object') return soc;
+
+  const copy = { ...soc };
+  const name = String(copy.society_name || copy.name || '').trim();
+  const city = String(copy.city || '').trim();
+  const state = String(copy.state || '').trim();
+  const rawPin = String(copy.pincode || copy.pin || copy.zip || '').trim();
+  const fullLoc = String(copy.location || '').trim();
+
+  const combinedStr = `${name} ${city} ${state} ${fullLoc}`.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  if (combinedStr.includes('chandni') || combinedStr.includes('chandnichowk')) {
+    copy.city = 'North Delhi';
+    copy.state = 'Delhi';
+    copy.pincode = '110006';
+    return copy;
+  }
+  if (combinedStr.includes('mansarovar')) {
+    copy.city = 'Jaipur';
+    copy.state = 'Rajasthan';
+    copy.pincode = '302020';
+    return copy;
+  }
+  if (combinedStr.includes('rajapark') || combinedStr.includes('raja park')) {
+    copy.city = 'Jaipur';
+    copy.state = 'Rajasthan';
+    copy.pincode = '302004';
+    return copy;
+  }
+  if (combinedStr.includes('jagatpura')) {
+    copy.city = 'Jaipur';
+    copy.state = 'Rajasthan';
+    copy.pincode = '302017';
+    return copy;
+  }
+  if (combinedStr.includes('sitapura') && !combinedStr.includes('jagatpura')) {
+    copy.city = 'Jaipur';
+    copy.state = 'Rajasthan';
+    copy.pincode = '302022';
+    return copy;
+  }
+  if (combinedStr.includes('malviyanagar') || combinedStr.includes('malviya')) {
+    copy.city = 'Jaipur';
+    copy.state = 'Rajasthan';
+    copy.pincode = '302017';
+    return copy;
+  }
+  if (combinedStr.includes('vaishalinagar') || combinedStr.includes('vaishali')) {
+    copy.city = 'Jaipur';
+    copy.state = 'Rajasthan';
+    copy.pincode = '302021';
+    return copy;
+  }
+  if (combinedStr.includes('pratapnagar') || combinedStr.includes('pratap')) {
+    copy.city = 'Jaipur';
+    copy.state = 'Rajasthan';
+    copy.pincode = '302033';
+    return copy;
+  }
+  if (combinedStr.includes('cscheme')) {
+    copy.city = 'Jaipur';
+    copy.state = 'Rajasthan';
+    copy.pincode = '302001';
+    return copy;
+  }
+
+  // General dictionary token lookup fallback
+  for (const [key, val] of Object.entries(CITY_STATE_MAP)) {
+    if (key.length >= 4 && combinedStr.includes(key)) {
+      copy.city = val.city;
+      copy.state = val.state;
+      copy.pincode = val.pincode;
+      return copy;
+    }
+  }
+
+  // If raw pin is 201310 (placeholder) and city is Jaipur or Delhi
+  if (rawPin === '201310') {
+    if (combinedStr.includes('delhi')) {
+      copy.city = 'New Delhi';
+      copy.state = 'Delhi';
+      copy.pincode = '110001';
+    } else if (combinedStr.includes('jaipur')) {
+      copy.city = 'Jaipur';
+      copy.state = 'Rajasthan';
+      copy.pincode = '302001';
+    }
+  }
+
+  return copy;
+}
+

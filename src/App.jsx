@@ -11,7 +11,6 @@ import InfoPages from './pages/InfoPages';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import UserProfilePage from './pages/UserProfilePage';
-import ZordialPartnerPage from './pages/ZordialPartnerPage';
 import LoginModal from './components/LoginModal';
 import SupportDeskModal from './components/SupportDeskModal';
 import BlockedAccountModal from './components/BlockedAccountModal';
@@ -427,15 +426,11 @@ export default function App() {
           <AdminDashboardPage setRoute={setRoute} />
         )}
 
-        {route.page === 'zordial' && (
-          <ZordialPartnerPage setRoute={setRoute} />
-        )}
-
         {route.page === 'info' && (
           <InfoPages currentRoute={route} tab={route.tab} setRoute={setRoute} onOpenSupportDesk={() => setIsSupportDeskOpen(true)} />
         )}
 
-        {!['home', 'login', 'register', 'profile', 'societyVendors', 'vendorStorefront', 'vendorRegister', 'vendorDashboard', 'admin', 'zordial', 'info'].includes(route.page) && (
+        {!['home', 'login', 'register', 'profile', 'societyVendors', 'vendorStorefront', 'vendorRegister', 'vendorDashboard', 'admin', 'info'].includes(route.page) && (
           <HomePage currentRoute={route} setRoute={setRoute} onOpenLogin={() => setRoute({ page: 'login' })} />
         )}
       </main>

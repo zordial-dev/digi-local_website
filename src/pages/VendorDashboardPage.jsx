@@ -134,9 +134,40 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     }
 
     try {
-      const sug = await fetchLocationSuggestions(val);
-      setLocationSuggestions(sug);
+      const [sug, resolved] = await Promise.all([
+        fetchLocationSuggestions(val).catch(() => []),
+        resolveLocationFromInput(val).catch(() => null)
+      ]);
+      setLocationSuggestions(sug || []);
+      if (resolved && (resolved.city || resolved.state || resolved.pincode)) {
+        setSettingsForm(prev => ({
+          ...prev,
+          city: resolved.city || prev.city,
+          state: resolved.state || prev.state,
+          pincode: resolved.pincode || prev.pincode
+        }));
+      }
     } catch (_) {}
+  };
+
+  const handleStoreLocationBlur = async () => {
+    setTimeout(async () => {
+      setShowLocationDropdown(false);
+      if (settingsForm.location && settingsForm.location.trim().length >= 2) {
+        try {
+          const resolved = await resolveLocationFromInput(settingsForm.location);
+          if (resolved) {
+            setSettingsForm(prev => ({
+              ...prev,
+              city: resolved.city || prev.city,
+              state: resolved.state || prev.state,
+              pincode: resolved.pincode || prev.pincode
+            }));
+            setAutoLocationBadge(`✨ Auto-detected: ${resolved.city || ''}${resolved.state ? ', ' + resolved.state : ''}${resolved.pincode ? ' (' + resolved.pincode + ')' : ''}`);
+          }
+        } catch (_) {}
+      }
+    }, 250);
   };
 
   const handleSelectLocationSuggestion = (item) => {
@@ -1852,9 +1883,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                               setShowLocationDropdown(true);
                             }
                           }}
-                          onBlur={() => {
-                            setTimeout(() => setShowLocationDropdown(false), 200);
-                          }}
+                          onBlur={handleStoreLocationBlur}
                           className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                         />
 
@@ -1927,20 +1956,6 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           />
                         </div>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={handleSaveSettings}
-                        disabled={savingSettings}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer border flex items-center gap-2 ${
-                          saveSuccess
-                            ? 'bg-emerald-700 text-white border-emerald-500'
-                            : 'bg-[#541D26] hover:bg-[#6B2732] text-white border-[#C8A878]/30'
-                        }`}
-                      >
-                        <MapPin className="w-3.5 h-3.5 text-[#C8A878]" />
-                        <span>{savingSettings ? 'Saving...' : saveSuccess ? '✓ Location Saved!' : 'Save Location Details'}</span>
-                      </button>
                     </div>
                   </div>
 
@@ -2025,20 +2040,6 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           />
                         </div>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={handleSaveSettings}
-                        disabled={savingSettings}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer border flex items-center gap-2 ${
-                          saveSuccess
-                            ? 'bg-emerald-700 text-white border-emerald-500'
-                            : 'bg-[#541D26] hover:bg-[#6B2732] text-white border-[#C8A878]/30'
-                        }`}
-                      >
-                        <CreditCard className="w-3.5 h-3.5 text-[#C8A878]" />
-                        <span>{savingSettings ? 'Saving...' : saveSuccess ? '✓ Payment Details Saved!' : 'Save Bank & Payment Details'}</span>
-                      </button>
                     </div>
                   </div>
                   <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">

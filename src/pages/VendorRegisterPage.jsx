@@ -928,7 +928,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         {/* LEFT COLUMN: Clean Branded Panel (50% equal width, md:col-span-6) */}
         <div 
           ref={leftPanelRef}
-          className="md:col-span-6 bg-[#FAF8F5] md:border-r border-border/50 p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px]"
+          className="hidden md:flex md:col-span-6 bg-[#FAF8F5] md:border-r border-border/50 p-6 sm:p-8 lg:p-10 flex-col justify-between items-center relative overflow-hidden min-h-[580px]"
         >
           <div className="w-full flex items-center space-x-3 z-10">
             {/* 1. Back Button */}
@@ -1244,17 +1244,6 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                           Type to search any Area, Sector or Housing Society...
                         </div>
                       )}
-
-                      <div 
-                        onClick={() => {
-                          setShowSocietyDropdown(false);
-                          setShowCustomSocietyModal(true);
-                        }}
-                        className="px-3 py-2.5 text-xs font-bold text-[#541D26] bg-[#EEE5DA] hover:bg-[#541D26] hover:text-white rounded-xl cursor-pointer transition-all flex items-center justify-center space-x-1.5 mt-1 border border-[#C8A878]/30"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-[#C8A878]" />
-                        <span>+ Register Unlisted Society / Area</span>
-                      </div>
                     </div>
                   )}
                 </div>

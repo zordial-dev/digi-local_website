@@ -229,3 +229,69 @@ button:active:not(:disabled),
 .animate-float-watery-3 {
   animation: floatWatery3 12.5s ease-in-out infinite alternate;
 }
+
+/* STANDARDIZED UI LAYOUT DESIGN SYSTEM UTILITIES */
+.ui-container {
+  width: 100%;
+  max-width: 80rem; /* max-w-7xl */
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .ui-container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .ui-container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+.ui-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .ui-grid-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .ui-grid-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .ui-grid-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.ui-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 1rem; /* 16px rounded-2xl */
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.ui-card:hover {
+  border-color: rgba(84, 29, 38, 0.25);
+  box-shadow: 0 10px 25px -5px rgba(33, 26, 25, 0.08);
+}

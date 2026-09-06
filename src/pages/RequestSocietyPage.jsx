@@ -91,7 +91,7 @@ export default function RequestSocietyPage({ setRoute }) {
       
       {/* Header Banner */}
       <div className="bg-white border-b border-[#C5A880]/20 py-8 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <button
             onClick={() => setRoute({ page: 'home' })}
             className="inline-flex items-center space-x-2 text-xs font-bold text-[#787F8C] hover:text-[#C5A880] mb-3 transition-colors uppercase tracking-wider"
@@ -116,7 +116,7 @@ export default function RequestSocietyPage({ setRoute }) {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-8">
         
         {/* SUCCESS INSTANT ACTIVATION STATE */}
         {submittedRequest ? (

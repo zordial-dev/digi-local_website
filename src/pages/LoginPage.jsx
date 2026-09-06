@@ -626,7 +626,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         {/* LEFT COLUMN: Clean Branded Panel (50% equal width, md:col-span-6) */}
         <div 
           ref={leftPanelRef}
-          className="md:col-span-6 bg-[#FAF8F5] md:border-r border-border/50 p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px]"
+          className="hidden md:flex md:col-span-6 bg-[#FAF8F5] md:border-r border-border/50 p-6 sm:p-8 lg:p-10 flex-col justify-between items-center relative overflow-hidden min-h-[580px]"
         >
           <div className="w-full flex items-center space-x-3 z-10">
             <button

@@ -7,6 +7,7 @@ import ScrollStoryAnimation from '../components/ScrollStoryAnimation';
 import StrokeText from '../components/StrokeText';
 import ZordialLogo from '../components/ZordialLogo';
 import FloatingDoodles from '../components/FloatingDoodles';
+import ScrollTextReveal from '../components/common/ScrollTextReveal';
 
 const POLAROID_SETS = [
   {
@@ -166,10 +167,10 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
             className="relative z-10 w-full max-w-5xl mx-auto flex flex-col items-center text-center space-y-4 sm:space-y-5"
           >
 
-            {/* Top Badge: Oxblood & Nude Accent */}
-            <motion.div variants={itemVariants} className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-[#541D26]/10 text-[#541D26] text-xs font-extrabold shadow-xs border border-[#541D26]/20">
-              <Sparkles className="w-3.5 h-3.5 text-[#541D26] fill-[#541D26]" />
-              <span>DigiLocal • Hyperlocal Lifestyle Marketplace</span>
+            {/* Top Badge */}
+            <motion.div variants={itemVariants} className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-md bg-[#541D26]/10 text-[#541D26] text-[11px] font-bold tracking-widest uppercase border border-[#541D26]/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#541D26] animate-pulse" />
+              <span>Hyperlocal Lifestyle Network</span>
             </motion.div>
 
             {/* Headline with Espresso text & Oxblood highlights */}
@@ -195,9 +196,14 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
             </motion.div>
 
             {/* Subtitle Description */}
-            <motion.p variants={itemVariants} className="text-xs sm:text-sm lg:text-base text-[#211A19]/80 font-medium leading-relaxed text-center max-w-2xl mx-auto">
+            <ScrollTextReveal
+              as="p"
+              mode="word"
+              delay={0.3}
+              className="text-xs sm:text-sm lg:text-base text-[#211A19]/80 font-medium leading-relaxed text-center max-w-2xl mx-auto"
+            >
               DigiLocal connects residents directly with verified neighborhood stores, organic growers, artisanal bakeries, pharmacies, and daily service providers.
-            </motion.p>
+            </ScrollTextReveal>
 
             {/* Action Buttons (Primary Oxblood #541D26 & Secondary Transparent/Oxblood) */}
             <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-center gap-3.5 sm:gap-4 pt-2 pb-4 z-20">
@@ -240,12 +246,12 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                           delay: index * 0.08,
                           ease: [0.25, 0.1, 0.25, 1]
                         }}
-                        whileHover={{ scale: 1.07, rotate: 0, zIndex: 30 }}
-                        className="w-full md:w-56 lg:w-60 bg-white p-2.5 sm:p-3 pb-7 sm:pb-8 shadow-[0_10px_25px_rgba(33,26,25,0.08)] rounded-md border border-[#E5DAD0] -mx-1 sm:-mx-2 lg:-mx-3 transition-all hover:shadow-[0_16px_36px_rgba(33,26,25,0.15)] cursor-pointer shrink-0"
+                        whileHover={{ scale: 1.07, rotate: 0, zIndex: 30, transition: { duration: 0.15, ease: 'easeOut' } }}
+                        className="w-full md:w-56 lg:w-60 bg-white p-2.5 sm:p-3 pb-7 sm:pb-8 shadow-[0_10px_25px_rgba(33,26,25,0.08)] rounded-md border border-[#E5DAD0] -mx-1 sm:-mx-2 lg:-mx-3 transition-all duration-200 hover:shadow-[0_18px_40px_rgba(33,26,25,0.18)] cursor-pointer shrink-0"
                         onClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
                       >
                         <div className="w-full aspect-[4/3] overflow-hidden rounded-xs bg-[#EEE5DA] relative">
-                          <img src={item.image} alt={item.text} className="w-full h-full object-cover transition-transform duration-500 hover:scale-110" />
+                          <img src={item.image} alt={item.text} className="w-full h-full object-cover transition-transform duration-200 ease-out hover:scale-108" />
                         </div>
                         <div className="mt-3 text-center font-serif italic text-[#211A19] font-bold text-sm sm:text-base tracking-wide">
                           {item.text}
@@ -288,17 +294,27 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
         >
           <FloatingDoodles section="bento" />
-          <motion.div variants={itemVariants} className="text-center max-w-2xl mx-auto mb-8">
-            <span className="text-[11px] font-extrabold text-[#541D26] uppercase tracking-widest block mb-1">
-              Why DigiLocal?
+          <div className="text-center max-w-2xl mx-auto mb-8 space-y-2 flex flex-col items-center">
+            <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#541D26]" />
+              <span>Why DigiLocal</span>
             </span>
-            <h2 className="text-2xl sm:text-3xl font-serif font-black text-[#211A19] uppercase tracking-tight">
+            <ScrollTextReveal
+              as="h2"
+              mode="word"
+              className="text-2xl sm:text-3xl font-serif font-black text-[#211A19] uppercase tracking-tight justify-center"
+            >
               The Hyperlocal Advantage
-            </h2>
-            <p className="text-xs sm:text-sm text-[#211A19]/75 font-medium mt-1">
+            </ScrollTextReveal>
+            <ScrollTextReveal
+              as="p"
+              mode="word"
+              delay={0.15}
+              className="text-xs sm:text-sm text-[#211A19]/75 font-medium justify-center"
+            >
               Designed for residential communities to empower local commerce with zero friction.
-            </p>
-          </motion.div>
+            </ScrollTextReveal>
+          </div>
 
           <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
             {/* Card 1: 15-Min Delivery */}
@@ -391,15 +407,25 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           <div className="bg-[#211A19] text-white rounded-[2.5rem] p-8 sm:p-12 shadow-2xl relative overflow-hidden border border-white/10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
               <motion.div variants={itemVariants} className="lg:col-span-7 space-y-4">
-                <span className="px-3.5 py-1 text-[11px] font-extrabold bg-[#D6B7A5] text-[#211A19] rounded-full inline-block">
-                  Company Vision & Mission
+                <span className="inline-flex items-center space-x-2 px-3 py-1 rounded-md bg-white/10 text-[#D6B7A5] text-[10px] font-bold tracking-widest uppercase border border-[#D6B7A5]/30 backdrop-blur-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C8A878] animate-pulse" />
+                  <span>Company Vision & Mission</span>
                 </span>
-                <h2 className="text-2xl sm:text-4xl font-serif font-black text-white leading-tight">
+                <ScrollTextReveal
+                  as="h2"
+                  mode="word"
+                  className="text-2xl sm:text-4xl font-serif font-black text-white leading-tight"
+                >
                   Empowering Local Merchants, Enriching Residential Communities.
-                </h2>
-                <p className="text-xs sm:text-sm text-[#D6B7A5] leading-relaxed font-medium">
+                </ScrollTextReveal>
+                <ScrollTextReveal
+                  as="p"
+                  mode="word"
+                  delay={0.15}
+                  className="text-xs sm:text-sm text-[#D6B7A5] leading-relaxed font-medium"
+                >
                   DigiLocal was built to bridge the gap between residents and neighborhood vendors. By eliminating middleman markups and giving local store owners digital tools, we foster thriving, self-sustaining community economies.
-                </p>
+                </ScrollTextReveal>
                 <div className="pt-2 flex items-center gap-4 flex-wrap">
                   <button
                     onClick={() => setRoute({ page: 'info', tab: 'about-us' })}
@@ -454,17 +480,27 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
         >
           <FloatingDoodles section="howItWorks" />
-          <motion.div variants={itemVariants} className="text-center max-w-2xl mx-auto mb-10">
-            <span className="text-[11px] font-extrabold text-[#541D26] uppercase tracking-widest block mb-1">
-              Simple & Transparent Process
+          <div className="text-center max-w-2xl mx-auto mb-10 space-y-2 flex flex-col items-center">
+            <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#541D26]" />
+              <span>Simple & Transparent Process</span>
             </span>
-            <h2 className="text-2xl sm:text-3xl font-serif font-black text-[#211A19] uppercase tracking-tight">
+            <ScrollTextReveal
+              as="h2"
+              mode="word"
+              className="text-2xl sm:text-3xl font-serif font-black text-[#211A19] uppercase tracking-tight justify-center"
+            >
               How DigiLocal Works
-            </h2>
-            <p className="text-xs sm:text-sm text-[#211A19]/75 font-medium mt-1">
+            </ScrollTextReveal>
+            <ScrollTextReveal
+              as="p"
+              mode="word"
+              delay={0.15}
+              className="text-xs sm:text-sm text-[#211A19]/75 font-medium justify-center"
+            >
               Experience effortless shopping from neighborhood stores in 3 simple steps.
-            </p>
-          </motion.div>
+            </ScrollTextReveal>
+          </div>
 
           <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Step 1 */}
@@ -571,18 +607,27 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
 
             {/* Left Column: Product Information & Architectural Story */}
             <motion.div variants={itemVariants} className="lg:col-span-7 space-y-4 sm:space-y-5 text-left">
-              <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 text-[#541D26] text-xs font-extrabold shadow-2xs">
+              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
                 <Building2 className="w-3.5 h-3.5 text-[#541D26]" />
                 <span>Product of Zordial Technologies</span>
               </div>
 
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-black text-[#211A19] leading-tight">
-                Engineered & Powered by <span className="text-[#541D26] underline decoration-[#C8A878]/50 underline-offset-4">Zordial Technologies</span>
-              </h2>
+              <ScrollTextReveal
+                as="h2"
+                mode="word"
+                className="text-2xl sm:text-3xl lg:text-4xl font-serif font-black text-[#211A19] leading-tight"
+              >
+                Engineered & Powered by Zordial Technologies
+              </ScrollTextReveal>
 
-              <p className="text-xs sm:text-sm text-[#211A19]/80 font-medium leading-relaxed">
-                DigiLocal was conceived, architected, and engineered by <strong>Zordial</strong> — a premier software technology company specializing in transforming ambitious ideas into enterprise-grade applications. Zordial provides the underlying core technology stack and infrastructure that powers DigiLocal.
-              </p>
+              <ScrollTextReveal
+                as="p"
+                mode="word"
+                delay={0.12}
+                className="text-xs sm:text-sm text-[#211A19]/80 font-medium leading-relaxed"
+              >
+                DigiLocal was conceived, architected, and engineered by Zordial — a premier software technology company specializing in transforming ambitious ideas into enterprise-grade applications. Zordial provides the underlying core technology stack and infrastructure that powers DigiLocal.
+              </ScrollTextReveal>
 
               {/* 3 Key Capabilities Pills */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
@@ -617,28 +662,17 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Action Button */}
               <div className="flex flex-wrap items-center gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setRoute({ page: 'zordial' });
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="px-6 py-3 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center space-x-2 border border-[#C8A878]/30 transition-all cursor-pointer"
-                >
-                  <span>Explore Partnership</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#C8A878]" />
-                </button>
-
                 <a
                   href="https://zordial.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-5 py-3 rounded-full bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[#211A19] border border-[#E7DFD5] font-extrabold text-xs flex items-center space-x-1.5 transition-all shadow-2xs cursor-pointer"
+                  className="px-6 py-3 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center space-x-2 border border-[#C8A878]/30 transition-all cursor-pointer"
                 >
-                  <Globe className="w-3.5 h-3.5 text-[#541D26]" />
+                  <Globe className="w-4 h-4 text-[#C8A878]" />
                   <span>Visit zordial.com</span>
-                  <ExternalLink className="w-3 h-3 text-[#78716C]" />
+                  <ExternalLink className="w-3.5 h-3.5 text-[#C8A878]" />
                 </a>
               </div>
             </motion.div>
@@ -683,15 +717,24 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           <FloatingDoodles section="cta" />
           <div className="bg-[#EEE5DA] border border-[#E5DAD0] rounded-[2.5rem] p-8 sm:p-12 text-center relative overflow-hidden shadow-xs">
             <motion.div variants={itemVariants} className="max-w-2xl mx-auto space-y-4">
-              <span className="px-3.5 py-1 text-[11px] font-extrabold bg-[#541D26] text-white rounded-full inline-block shadow-xs">
-                Get Started Today
+              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-md bg-[#541D26] text-white text-[10px] font-bold tracking-widest uppercase border border-[#541D26] shadow-xs">
+                <span>Get Started Today</span>
               </span>
-              <h2 className="text-2xl sm:text-4xl font-serif font-black text-[#211A19]">
+              <ScrollTextReveal
+                as="h2"
+                mode="word"
+                className="text-2xl sm:text-4xl font-serif font-black text-[#211A19] justify-center"
+              >
                 Ready to Explore Your Neighborhood Marketplace?
-              </h2>
-              <p className="text-xs sm:text-sm text-[#211A19]/75 font-medium leading-relaxed">
+              </ScrollTextReveal>
+              <ScrollTextReveal
+                as="p"
+                mode="word"
+                delay={0.15}
+                className="text-xs sm:text-sm text-[#211A19]/75 font-medium leading-relaxed justify-center"
+              >
                 Whether you're a resident looking for fresh local products or a merchant wanting to expand your business, DigiLocal is your platform.
-              </p>
+              </ScrollTextReveal>
               <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
                 <button
                   onClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}

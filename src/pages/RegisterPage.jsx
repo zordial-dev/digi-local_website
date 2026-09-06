@@ -285,7 +285,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
       <div className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/60 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[640px]">
         
         {/* LEFT COLUMN: Clean Branded Panel (50% equal width, md:col-span-6) */}
-        <div className="md:col-span-6 bg-[#FAF8F5] md:border-r border-border/50 p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center relative overflow-hidden min-h-[320px] md:min-h-[580px]">
+        <div className="hidden md:flex md:col-span-6 bg-[#FAF8F5] md:border-r border-border/50 p-6 sm:p-8 lg:p-10 flex-col justify-between items-center relative overflow-hidden min-h-[580px]">
           <div className="w-full flex items-center space-x-3 z-10">
             {/* Back Button */}
             <button

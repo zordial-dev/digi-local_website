@@ -93,12 +93,12 @@ export const UserLocationPromptModal = ({ isOpen = true, onClose, onLocationSet 
   const saveLocationObj = (locObj) => {
     const formattedAddress = locObj.address || `${locObj.area}${locObj.city ? `, ${locObj.city}` : ''}${locObj.state ? `, ${locObj.state}` : ''}`;
     const fullLocation = {
-      area: locObj.area || areaInput.trim() || 'Pratap Nagar',
-      city: locObj.city || cityInput.trim() || 'Jaipur',
-      state: locObj.state || stateInput.trim() || 'Rajasthan',
-      pincode: locObj.pincode || pincodeInput.trim() || '302033',
+      area: locObj.area || areaInput.trim() || '',
+      city: locObj.city || cityInput.trim() || '',
+      state: locObj.state || stateInput.trim() || '',
+      pincode: locObj.pincode || pincodeInput.trim() || '',
       address: formattedAddress,
-      name: locObj.area || areaInput.trim() || 'Pratap Nagar'
+      name: locObj.area || areaInput.trim() || ''
     };
 
     try {

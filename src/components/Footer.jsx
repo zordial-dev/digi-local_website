@@ -41,7 +41,7 @@ export default function Footer({ setRoute, onOpenSupportDesk }) {
     <footer className="w-full py-8 px-2 sm:px-4 md:px-6 bg-[#F6F0E8] font-sans">
       
       {/* Outer Bento Container in Dark Espresso #211A19 */}
-      <div className="w-full max-w-[96%] xl:max-w-[1520px] mx-auto bg-[#211A19] text-white rounded-[2.5rem] p-8 md:p-12 lg:p-14 shadow-2xl relative overflow-hidden space-y-10 border border-white/10">
+      <div className="w-full max-w-7xl mx-auto bg-[#211A19] text-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 lg:p-12 shadow-2xl relative overflow-hidden space-y-10 border border-white/10">
         
         {/* MAIN SPLIT CONTENT GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start relative z-10">
@@ -79,14 +79,6 @@ export default function Footer({ setRoute, onOpenSupportDesk }) {
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-3.5 pt-2">
               <button
-                onClick={() => setRoute({ page: 'home' })}
-                className="px-6 py-2.5 rounded-full border border-[#D6B7A5]/40 hover:bg-[#D6B7A5]/15 text-white text-xs font-bold transition-all flex items-center space-x-2 backdrop-blur-md"
-              >
-                <MapPin className="w-3.5 h-3.5 text-[#C8A878]" />
-                <span>Find My Society</span>
-              </button>
-
-              <button
                 onClick={() => setRoute({ page: 'vendorRegister' })}
                 className="px-6 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-extrabold shadow-lg flex items-center space-x-2 transition-all"
               >
@@ -112,15 +104,6 @@ export default function Footer({ setRoute, onOpenSupportDesk }) {
               <ul className="space-y-3.5 text-xs sm:text-sm text-white">
                 <li>
                   <button 
-                    onClick={() => setRoute({ page: 'home' })}
-                    className="hover:text-[#C8A878] transition-colors flex items-center space-x-2 text-left group"
-                  >
-                    <MapPin className="w-4 h-4 text-[#D6B7A5] group-hover:text-[#C8A878] shrink-0 group-hover:scale-110 transition-all" />
-                    <span>Find My Society</span>
-                  </button>
-                </li>
-                <li>
-                  <button 
                     onClick={() => setRoute({ page: 'vendorRegister' })}
                     className="hover:text-[#C8A878] transition-colors flex items-center space-x-2 text-left group"
                   >
@@ -130,11 +113,11 @@ export default function Footer({ setRoute, onOpenSupportDesk }) {
                 </li>
                 <li>
                   <button 
-                    onClick={() => setRoute({ page: 'home', openRequestModal: true, _ts: Date.now() })}
-                    className="hover:text-[#C8A878] transition-colors flex items-center space-x-2 text-left group cursor-pointer"
+                    onClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
+                    className="hover:text-[#C8A878] transition-colors flex items-center space-x-2 text-left group"
                   >
-                    <PlusCircle className="w-4 h-4 text-[#D6B7A5] group-hover:text-[#C8A878] shrink-0 group-hover:scale-110 transition-all" />
-                    <span>Add Your Society</span>
+                    <ShoppingBag className="w-4 h-4 text-[#D6B7A5] group-hover:text-[#C8A878] shrink-0 group-hover:scale-110 transition-all" />
+                    <span>Browse All Vendors</span>
                   </button>
                 </li>
               </ul>
@@ -210,15 +193,6 @@ export default function Footer({ setRoute, onOpenSupportDesk }) {
                 </li>
                 <li>
                   <button 
-                    onClick={() => { setRoute({ page: 'zordial' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                    className="hover:text-[#C8A878] transition-colors flex items-center space-x-2 text-left group font-bold"
-                  >
-                    <Sparkles className="w-4 h-4 text-[#C8A878] shrink-0 group-hover:scale-110 transition-all" />
-                    <span>Zordial Technologies ↗</span>
-                  </button>
-                </li>
-                <li>
-                  <button 
                     onClick={() => navTo('privacy-policy')}
                     className="hover:text-[#C8A878] transition-colors flex items-center space-x-2 text-left group"
                   >
@@ -252,12 +226,14 @@ export default function Footer({ setRoute, onOpenSupportDesk }) {
           <div className="text-center md:text-left space-y-0.5">
             <p className="text-xs sm:text-sm font-semibold text-white">
               © {new Date().getFullYear()} DigiLocal Network • Engineered by{' '}
-              <button 
-                onClick={() => { setRoute({ page: 'zordial' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              <a 
+                href="https://zordial.com"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-[#C8A878] hover:underline font-bold"
               >
                 Zordial Technologies
-              </button>
+              </a>
             </p>
             <p className="text-xs text-[#D6B7A5] font-medium">Transforming Ideas Into Applications • Built for connected gated communities.</p>
           </div>
