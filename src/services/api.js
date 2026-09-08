@@ -647,12 +647,16 @@ export const api = {
 
     const fullAddrStr = rawData.address || rawData.full_address || [cleanFlat, cleanArea, cleanCity, cleanPincode].filter(Boolean).join(', ');
 
+    const cleanLabel = rawData.label || rawData.address_type || 'Home';
+
     const payload = {
       user_id: userId || rawData.phone,
       userId: userId || rawData.phone,
       phone: rawData.phone || rawData.mobile,
       name: rawData.name,
       email: rawData.email,
+      label: cleanLabel,
+      address_type: cleanLabel,
       flat: cleanFlat,
       house_number: cleanFlat,
       unit: cleanFlat,
@@ -689,6 +693,15 @@ export const api = {
         if (contentType && contentType.includes('application/json')) {
           const data = await res.json();
           if (res.ok && data.success !== false) {
+            const returnedUser = data.user || data.data || payload;
+            try {
+              const sessionStr = localStorage.getItem('digilocal_user_session');
+              if (sessionStr) {
+                const parsed = JSON.parse(sessionStr);
+                localStorage.setItem('digilocal_user_session', JSON.stringify({ ...parsed, user: { ...(parsed.user || {}), ...returnedUser } }));
+              }
+              localStorage.setItem('digilocal_resident_session', JSON.stringify(returnedUser));
+            } catch (_) {}
             return data;
           }
         }
@@ -714,17 +727,23 @@ export const api = {
     };
   },
 
-  // 1.8 Single Status & Profile Check on App Launch (GET /api/users/status/:userId, GET /api/users/profile)
-  getUserProfile: async (userId, token) => {
+  // -------------------------------------------------------------
+  // User Moderation, Strike Warning & Auto-Ban APIs (v4.0.0 Spec)
+  // -------------------------------------------------------------
+
+  // User Profile with Strike Info (GET /api/users/profile or GET /api/users/me)
+  getUserProfile: async (userIdOrToken = '', maybeToken = '') => {
     try {
-      const headers = { 'Content-Type': 'application/json' };
-      const authToken = token || getStoredToken();
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      const token = (typeof userIdOrToken === 'string' && userIdOrToken.startsWith('eyJ')) ? userIdOrToken : (maybeToken || getStoredToken());
+      const userId = (typeof userIdOrToken === 'string' && !userIdOrToken.startsWith('eyJ')) ? userIdOrToken : '';
+      const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const endpoints = [
-        userId ? `${API_BASE}/users/status/${userId}` : null,
         userId ? `${API_BASE}/users/profile/${userId}` : null,
-        `${API_BASE}/users/profile`
+        userId ? `${API_BASE}/users/status/${userId}` : null,
+        `${API_BASE}/users/profile`,
+        `${API_BASE}/users/me`
       ].filter(Boolean);
 
       for (const url of endpoints) {
@@ -745,43 +764,285 @@ export const api = {
   fetchUserProfile: async (userId, token) => {
     return api.getUserProfile(userId, token);
   },
-
-  checkUserStatus: async (userId, token) => {
-    try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const endpoints = [
-        userId ? `${API_BASE}/users/status/${userId}` : null,
-        userId ? `${API_BASE}/users/${userId}/status` : null,
-        `${API_BASE}/users/status`
-      ].filter(Boolean);
-
-      for (const url of endpoints) {
-        try {
-          const res = await fetchWithTimeout(url, { headers }, 5000);
-          const data = await res.json().catch(() => null);
-          if (res.status === 403 || (data && (data.code === 'USER_BLOCKED' || data.action === 'logout' || data.is_blocked))) {
-            return {
-              is_blocked: true,
-              status: 'blocked',
-              code: data?.code || 'USER_BLOCKED',
-              action: 'logout',
-              error: data?.error || 'Resident user account has been blocked by administrator.',
-              message: data?.message || 'Your resident user account has been blocked. Please log out and contact customer support.',
-              block_reason: data?.block_reason || data?.hold_reason || 'Violation of community rules'
-            };
-          }
-          if (res.ok && data) {
-            return data;
-          }
-        } catch (_) {}
-      }
-    } catch (err) {
-      console.warn('checkUserStatus check notice:', err);
-    }
-    return { success: true, is_blocked: false, status: 'active' };
+  getMe: async (token) => {
+    return api.getUserProfile('', token);
   },
+
+  // 1. User Panel Status & Strike Check (GET /api/users/status or GET /api/users/status/:userId)
+  checkUserStatus: async (userId, token) => {
+    const userToken = token || getStoredToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(userToken ? { 'Authorization': `Bearer ${userToken}` } : {})
+    };
+
+    const endpoints = [
+      userId ? `${API_BASE}/users/status/${userId}` : null,
+      userId ? `${API_BASE}/users/${userId}/status` : null,
+      `${API_BASE}/users/status`,
+      userId ? `${API_BASE}/users/profile/${userId}` : null,
+      `${API_BASE}/users/profile`
+    ].filter(Boolean);
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, { headers }, 5000);
+        const data = await res.json().catch(() => null);
+
+        // Handle 403 Forbidden or Auto-Blocked User (Strike 3)
+        if (res.status === 403 || (data && (data.code === 'USER_BLOCKED' || data.action === 'logout' || data.is_blocked || data.status === 'blocked'))) {
+          const defaultStrikeReasons = [
+            "First strike: Repeated fake or unpaid order placements",
+            "Second strike: Abusive communication with vendor/support",
+            "Third strike: Fraudulent cancellation request"
+          ];
+          const reasonsList = Array.isArray(data?.strike_reasons_list) && data.strike_reasons_list.length > 0
+            ? data.strike_reasons_list
+            : (Array.isArray(data?.strike_reasons) ? data.strike_reasons.map(s => typeof s === 'string' ? s : s.reason) : defaultStrikeReasons);
+
+          const reasonsObj = Array.isArray(data?.strike_reasons) && data.strike_reasons.length > 0
+            ? data.strike_reasons
+            : reasonsList.map((r, i) => ({
+                strike_number: i + 1,
+                reason: r,
+                created_at: new Date().toISOString()
+              }));
+
+          return {
+            success: false,
+            user_id: data?.user_id || userId || 'usr_current',
+            status: 'blocked',
+            code: data?.code || 'USER_BLOCKED',
+            is_blocked: true,
+            is_auto_banned: true,
+            strikes: data?.strikes !== undefined ? data.strikes : 3,
+            max_strikes_allowed: 3,
+            action: 'logout',
+            error: data?.error || data?.message || 'Resident user account has been blocked due to policy violations or 3 strikes limit.',
+            message: data?.message || 'Your resident user account has been blocked due to policy violations or 3 strikes limit. Please log out and contact customer support.',
+            recommended_ui_text: data?.recommended_ui_text || 'Your user account has been blocked by admin. Access denied.',
+            block_reason: data?.block_reason || reasonsList[reasonsList.length - 1] || 'Exceeded 3 Strikes Moderation Limit',
+            strike_reasons_list: reasonsList,
+            strike_reasons: reasonsObj
+          };
+        }
+
+        if (res.ok && data) {
+          const strikesCount = Number(data.strikes || 0);
+          const isSecondStrike = strikesCount === 2 || data.show_second_strike_warning === true;
+          return {
+            ...data,
+            success: true,
+            strikes: strikesCount,
+            max_strikes_allowed: data.max_strikes_allowed || 3,
+            show_second_strike_warning: isSecondStrike,
+            show_strike_warning: strikesCount > 0,
+            warning_title: data.warning_title || (isSecondStrike ? "Second Strike Warning" : (strikesCount === 1 ? "First Strike Notice" : "")),
+            warning_message: data.warning_message || (isSecondStrike
+              ? "Warning: You have received 2 strikes on your account due to policy violations. Receiving a 3rd strike will result in your account being automatically blocked!"
+              : (strikesCount === 1 ? "Notice: You have received 1 strike on your account due to a policy violation." : "")),
+            strike_reasons_list: data.strike_reasons_list || [],
+            strike_reasons: data.strike_reasons || []
+          };
+        }
+      } catch (_) {}
+    }
+
+    // Local Storage / Offline Simulation Fallback
+    try {
+      const storageKey = userId ? `digilocal_user_strikes_${userId}` : 'digilocal_user_strikes';
+      const strikesDataStr = localStorage.getItem(storageKey) || localStorage.getItem('digilocal_user_strikes');
+      if (strikesDataStr) {
+        const parsed = JSON.parse(strikesDataStr);
+        if (parsed) return parsed;
+      }
+    } catch (_) {}
+
+    return {
+      success: true,
+      user_id: userId || 'usr_current',
+      status: 'active',
+      is_blocked: false,
+      strikes: 0,
+      max_strikes_allowed: 3,
+      show_second_strike_warning: false,
+      show_strike_warning: false,
+      strike_reasons_list: [],
+      strike_reasons: []
+    };
+  },
+
+  getUserStatus: async (userId, token) => {
+    return api.checkUserStatus(userId, token);
+  },
+
+  // 2. Dedicated User Strikes Info Endpoint (GET /api/users/strikes or GET /api/users/strikes/:userId)
+  getUserStrikes: async (userId, token) => {
+    const userToken = token || getStoredToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(userToken ? { 'Authorization': `Bearer ${userToken}` } : {})
+    };
+
+    const endpoints = [
+      userId ? `${API_BASE}/users/strikes/${userId}` : null,
+      userId ? `${API_BASE}/users/${userId}/strikes` : null,
+      `${API_BASE}/users/strikes`
+    ].filter(Boolean);
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, { headers }, 5000);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success !== false) return data;
+        }
+      } catch (_) {}
+    }
+
+    // Fallback to checkUserStatus response
+    return await api.checkUserStatus(userId, token);
+  },
+
+  fetchUserStrikes: async (userId, token) => api.getUserStrikes(userId, token),
+
+  // 4. Admin Panel Endpoint: Issue Strike (POST /api/admin/users/:userId/strike or POST /api/people/:id/strike)
+  issueUserStrike: async (userId, strikePayload = {}) => {
+    const reason = typeof strikePayload === 'string' ? strikePayload : (strikePayload.reason || 'Violation of DigiLocal community policies');
+    const token = getStoredToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    const endpoints = [
+      userId ? `${API_BASE}/admin/users/${userId}/strike` : null,
+      userId ? `${API_BASE}/people/${userId}/strike` : null,
+      userId ? `${API_BASE}/users/${userId}/strike` : null
+    ].filter(Boolean);
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ reason })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return data;
+        }
+      } catch (_) {}
+    }
+
+    // Local Storage / Offline Simulation Update
+    try {
+      const storageKey = userId ? `digilocal_user_strikes_${userId}` : 'digilocal_user_strikes';
+      const existingStr = localStorage.getItem(storageKey);
+      let current = existingStr ? JSON.parse(existingStr) : {
+        strikes: 0,
+        strike_reasons_list: [],
+        strike_reasons: []
+      };
+
+      const nextStrikes = Math.min(3, (Number(current.strikes) || 0) + 1);
+      const newReasonItem = {
+        strike_number: nextStrikes,
+        reason,
+        created_at: new Date().toISOString()
+      };
+
+      const updatedReasons = [...(current.strike_reasons || []), newReasonItem];
+      const updatedReasonsList = [...(current.strike_reasons_list || []), reason];
+      const isBlocked = nextStrikes >= 3;
+
+      const updatedPayload = {
+        success: true,
+        user_id: userId,
+        strikes: nextStrikes,
+        max_strikes_allowed: 3,
+        status: isBlocked ? 'blocked' : 'active',
+        is_blocked: isBlocked,
+        is_auto_banned: isBlocked,
+        show_second_strike_warning: nextStrikes === 2,
+        show_strike_warning: nextStrikes > 0,
+        warning_title: nextStrikes === 2 ? "Second Strike Warning" : (nextStrikes === 1 ? "First Strike Notice" : "Account Blocked"),
+        warning_message: nextStrikes === 2
+          ? "Warning: You have received 2 strikes on your account due to policy violations. Receiving a 3rd strike will result in your account being automatically blocked!"
+          : (nextStrikes === 1 ? "Notice: You have received 1 strike on your account due to a policy violation." : "Your account has been automatically blocked due to receiving 3 strikes."),
+        strike_reasons_list: updatedReasonsList,
+        strike_reasons: updatedReasons,
+        message: `Strike #${nextStrikes} issued successfully.`
+      };
+
+      localStorage.setItem(storageKey, JSON.stringify(updatedPayload));
+      localStorage.setItem('digilocal_user_strikes', JSON.stringify(updatedPayload));
+      return { code: 200, status: 'success', message: `Strike #${nextStrikes} issued successfully.`, data: updatedPayload };
+    } catch (_) {}
+
+    return { code: 200, status: 'success', message: 'Strike issued.' };
+  },
+
+  addStrikeToUser: async (userId, payload) => api.issueUserStrike(userId, payload),
+
+  // 5. Admin Panel Endpoint: Remove / Reset Strikes (DELETE /api/admin/users/:userId/strike or POST /api/people/:id/unstrike)
+  removeUserStrike: async (userId, resetPayload = { reset_all: true }) => {
+    const token = getStoredToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    const endpoints = [
+      userId ? `${API_BASE}/admin/users/${userId}/strike` : null,
+      userId ? `${API_BASE}/people/${userId}/unstrike` : null,
+      userId ? `${API_BASE}/users/${userId}/unstrike` : null
+    ].filter(Boolean);
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: 'DELETE',
+          headers,
+          body: JSON.stringify(resetPayload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return data;
+        }
+      } catch (_) {}
+    }
+
+    // Local Storage / Offline Simulation Update
+    try {
+      const storageKey = userId ? `digilocal_user_strikes_${userId}` : 'digilocal_user_strikes';
+      const resetData = {
+        success: true,
+        user_id: userId,
+        strikes: 0,
+        max_strikes_allowed: 3,
+        status: 'active',
+        is_blocked: false,
+        is_auto_banned: false,
+        show_second_strike_warning: false,
+        show_strike_warning: false,
+        strike_reasons_list: [],
+        strike_reasons: []
+      };
+      localStorage.setItem(storageKey, JSON.stringify(resetData));
+      localStorage.setItem('digilocal_user_strikes', JSON.stringify(resetData));
+      return { code: 200, status: 'success', message: 'User strikes count updated to 0.', data: resetData };
+    } catch (_) {}
+
+    return { code: 200, status: 'success', message: 'User strikes reset successfully.' };
+  },
+
+  resetUserStrikes: async (userId, payload) => api.removeUserStrike(userId, payload),
+  unstrikeUser: async (userId, payload) => api.removeUserStrike(userId, payload),
 
   getUserOrders: async (userIdOrPhone) => {
     const rawInput = String(userIdOrPhone || '').trim();
@@ -2470,6 +2731,17 @@ export const api = {
         const society_name = v.society_name || v.societyName || v.society || v.area || 'Neighborhood Complex';
         const society_id = v.society_id || v.societyId || v.location_id || 'all';
 
+        let vendorRating = (v.rating !== undefined && v.rating !== null && v.rating !== '') ? v.rating : (v.avg_rating !== undefined ? v.avg_rating : (v.store_rating || ''));
+        if (!vendorRating && vId) {
+          try {
+            const cachedSum = localStorage.getItem(`digilocal_vendor_rating_summary_${vId}`);
+            if (cachedSum) {
+              const p = JSON.parse(cachedSum);
+              if (p?.avg_rating !== undefined) vendorRating = p.avg_rating;
+            }
+          } catch (_) {}
+        }
+
         combinedMap.set(vId, {
           ...v,
           vendor_id: vId,
@@ -2481,7 +2753,7 @@ export const api = {
           society_id: String(society_id),
           opening_time: v.opening_time || v.openingTime || v.open_time || '07:00 AM',
           closing_time: v.closing_time || v.closingTime || v.close_time || '10:00 PM',
-          rating: v.rating || v.store_rating || '4.9',
+          rating: vendorRating,
           delivery_time: v.delivery_time || v.deliveryTime || '15 mins'
         });
       });
@@ -4674,6 +4946,201 @@ export const api = {
       console.warn('Backend fetch failed for getAllCmsPages, returning list:', err);
     }
 
+    return {
+      success: true,
+      message: "Ticket priority escalated successfully",
+      data: {
+        ticket_id: ticketId,
+        priority: "urgent",
+        sla_minutes: 120,
+        updated_at: new Date().toISOString()
+      }
+    };
+  },
+
+  // -------------------------------------------------------------
+  // 8. Global Platform Config APIs
+  // -------------------------------------------------------------
+  getPlatformConfig: async () => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/config`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.data || data;
+      }
+    } catch (err) {
+      console.warn('Backend fetch failed for platform config:', err);
+    }
+    return {
+      platform_name: "DigiLocal",
+      platform_logo: "https://imgh.in/host/ucila6",
+      maintenance_mode: false,
+      support_email: "support@digilocal.in",
+      support_phone: "+91 1800 123 4567"
+    };
+  },
+
+  updatePlatformConfig: async (configData) => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configData)
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Backend fetch failed for update config:', err);
+    }
+    return { success: true, data: configData };
+  },
+
+  // -------------------------------------------------------------
+  // 9. CMS, Legal Pages & Support Contacts REST APIs
+  // -------------------------------------------------------------
+  getCmsContacts: async () => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/cms/contacts`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && (data.success || data.data)) {
+          return data.data || data;
+        }
+      }
+      const aliasRes = await fetchWithTimeout(`${API_BASE}/support/contact-info`);
+      if (aliasRes.ok) {
+        const data = await aliasRes.json();
+        if (data && (data.success || data.data)) {
+          return data.data || data;
+        }
+      }
+    } catch (err) {
+      console.warn('Backend fetch failed for CMS contacts:', err);
+    }
+
+    try {
+      const stored = localStorage.getItem('digilocal_support_contacts');
+      if (stored) return JSON.parse(stored);
+    } catch (_) {}
+
+    return {
+      phone: "",
+      email: "",
+      toll_free: "",
+      whatsapp: "",
+      address: "",
+      working_hours: "",
+      updated_at: new Date().toISOString()
+    };
+  },
+
+  updateSupportContacts: async (contactData) => {
+    try {
+      const token = getStoredToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetchWithTimeout(`${API_BASE}/cms/contacts`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(contactData)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data) {
+          localStorage.setItem('digilocal_support_contacts', JSON.stringify(data.data));
+        }
+        return data;
+      }
+    } catch (err) {
+      console.warn('Backend fetch failed for updateSupportContacts:', err);
+    }
+
+    const updated = {
+      phone: contactData.phone || "",
+      email: contactData.email || "",
+      toll_free: contactData.toll_free || "",
+      whatsapp: contactData.whatsapp || "",
+      address: contactData.address || "",
+      working_hours: contactData.working_hours || "",
+      updated_at: new Date().toISOString()
+    };
+    localStorage.setItem('digilocal_support_contacts', JSON.stringify(updated));
+
+    return {
+      success: true,
+      message: "Support contact information updated.",
+      data: updated
+    };
+  },
+
+  getCmsPage: async (slug) => {
+    let cleanSlug = String(slug || 'help-support').toLowerCase().trim();
+    if (cleanSlug === 'terms-and-conditions' || cleanSlug === 'terms') cleanSlug = 'terms-conditions';
+    if (cleanSlug === 'privacy') cleanSlug = 'privacy-policy';
+    if (cleanSlug === 'help' || cleanSlug === 'faqs' || cleanSlug === 'contact-support') cleanSlug = 'help-support';
+
+    try {
+      const directRes = await fetchWithTimeout(`${API_BASE}/${cleanSlug}`);
+      if (directRes.ok) {
+        const data = await directRes.json();
+        if (data && (data.success || data.data)) {
+          return data.data || data;
+        }
+      }
+      const cmsRes = await fetchWithTimeout(`${API_BASE}/cms/pages/${cleanSlug}`);
+      if (cmsRes.ok) {
+        const data = await cmsRes.json();
+        if (data && (data.success || data.data)) {
+          return data.data || data;
+        }
+      }
+    } catch (err) {
+      console.warn(`Backend fetch failed for CMS page ${cleanSlug}:`, err);
+    }
+
+    try {
+      const stored = localStorage.getItem(`digilocal_cms_${cleanSlug}`);
+      if (stored) return JSON.parse(stored);
+    } catch (_) {}
+
+    return {
+      slug: cleanSlug,
+      title: cleanSlug.replace('-', ' ').toUpperCase(),
+      meta_description: "",
+      content: "",
+      updated_at: new Date().toISOString()
+    };
+  },
+
+  getHelpSupport: async () => {
+    return await api.getCmsPage('help-support');
+  },
+
+  getAboutUs: async () => {
+    return await api.getCmsPage('about-us');
+  },
+
+  getPrivacyPolicy: async () => {
+    return await api.getCmsPage('privacy-policy');
+  },
+
+  getTermsConditions: async () => {
+    return await api.getCmsPage('terms-conditions');
+  },
+
+  getAllCmsPages: async () => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/cms/pages`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && (data.success || Array.isArray(data.data))) {
+          return data.data || data;
+        }
+      }
+    } catch (err) {
+      console.warn('Backend fetch failed for getAllCmsPages, returning list:', err);
+    }
+
     const slugs = ['help-support', 'about-us', 'privacy-policy', 'terms-conditions'];
     const pages = [];
     for (const slug of slugs) {
@@ -4698,7 +5165,6 @@ export const api = {
       const token = getStoredToken();
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
-
       const res = await fetchWithTimeout(`${API_BASE}/cms/pages/${cleanSlug}`, {
         method: 'PUT',
         headers,
@@ -4734,30 +5200,93 @@ export const api = {
   },
 
   // -------------------------------------------------------------
-  // 10. Vendor Ratings & Reviews REST APIs
+  // 10. Vendor Ratings & Reviews REST APIs (Per Official Documentation)
   // -------------------------------------------------------------
 
-  // 10.1 Submit Rating & Review (POST /api/vendors/:vendorId/ratings)
+  // Helper to normalize any incoming review / rating item across different backend schemas
+  _normalizeRatingItem: (r) => {
+    if (!r || typeof r !== 'object') return r;
+    const reviewText = String(
+      r.review_text ||
+      r.comment ||
+      r.review ||
+      r.feedback ||
+      r.notes ||
+      r.message ||
+      r.text ||
+      r.rating_comment ||
+      ''
+    ).trim();
+
+    const replyText = String(
+      r.reply_text ||
+      r.reply ||
+      r.response ||
+      r.merchant_reply ||
+      r.vendor_reply ||
+      r.merchant_response ||
+      (r.replyObj ? (r.replyObj.reply_text || r.replyObj.reply) : '') ||
+      ''
+    ).trim();
+
+    const userName = r.user_name || r.userName || r.customer_name || r.customerName || r.resident_name || r.name || 'Resident Customer';
+    const orderId = r.order_id || r.orderId || r.order_ref || null;
+    const ratingVal = parseFloat(r.rating || r.rating_val || r.stars || r.score || 5);
+
+    return {
+      ...r,
+      rating_id: r.rating_id || r.id || r._id || Date.now(),
+      rating: isNaN(ratingVal) ? 5.0 : ratingVal,
+      review_text: reviewText,
+      comment: reviewText,
+      review: reviewText,
+      feedback: reviewText,
+      user_name: userName,
+      order_id: orderId,
+      reply_text: replyText || null,
+      replied_at: r.replied_at || r.repliedAt || r.reply_created_at || (r.replyObj ? r.replyObj.created_at : null),
+      created_at: r.created_at || r.createdAt || new Date().toISOString()
+    };
+  },
+
+  // 10.1 Submit Rating & Review (POST /api/vendorPanel/:vendorId/ratings, POST /api/vendors/:vendorId/ratings, or POST /api/ratings)
   submitVendorRating: async (vendorIdOrPayload, maybePayload = {}) => {
     const payload = (typeof vendorIdOrPayload === 'object' && vendorIdOrPayload !== null) ? vendorIdOrPayload : (maybePayload || {});
     const vId = (typeof vendorIdOrPayload !== 'object' && vendorIdOrPayload) ? vendorIdOrPayload : (payload.vendor_id || payload.vendorId);
+    const reviewContent = String(
+      payload.review_text ||
+      payload.comment ||
+      payload.review ||
+      payload.feedback ||
+      payload.notes ||
+      payload.message ||
+      ''
+    ).trim();
+
     const ratingPayload = {
       vendor_id: Number(vId) || vId,
       rating: parseFloat(payload.rating || 5.0),
-      review_text: payload.review_text || payload.review || '',
+      review_text: reviewContent,
+      comment: reviewContent,
+      review: reviewContent,
+      feedback: reviewContent,
+      notes: reviewContent,
+      message: reviewContent,
       user_id: payload.user_id || payload.userId || 'usr_guest',
-      user_name: payload.user_name || payload.userName || payload.name || 'Resident Customer',
+      user_name: payload.user_name || payload.userName || payload.customer_name || payload.customerName || payload.name || 'Resident Customer',
+      customer_name: payload.user_name || payload.userName || payload.customer_name || payload.customerName || payload.name || 'Resident Customer',
       order_id: payload.order_id || payload.orderId || null
     };
 
     const token = getStoredToken();
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (vId) headers['X-Vendor-ID'] = String(vId);
 
     const endpoints = [
-      `${API_BASE}/vendors/${vId}/ratings`,
+      ...(vId ? [`${API_BASE}/vendorPanel/${vId}/ratings`, `${API_BASE}/vendors/${vId}/ratings`] : []),
       `${API_BASE}/ratings`,
-      `${API_BASE}/vendorPanel/${vId}/ratings`
+      `${API_BASE}/vendor/ratings`
     ];
 
     for (const url of endpoints) {
@@ -4770,6 +5299,8 @@ export const api = {
         if (res.ok) {
           const data = await res.json();
           invalidateApiCache(`ratings`);
+          invalidateApiCache(`reviews`);
+          invalidateApiCache(`vendorPanel`);
           return data;
         }
       } catch (err) {
@@ -4777,56 +5308,17 @@ export const api = {
       }
     }
 
-    // Offline / local storage fallback
-    try {
-      const storageKey = `digilocal_vendor_ratings_${vId}`;
-      const existingStr = localStorage.getItem(storageKey);
-      const existing = existingStr ? JSON.parse(existingStr) : [];
-      const newRating = {
-        rating_id: Date.now(),
-        ...ratingPayload,
-        status: 'PUBLISHED',
-        reply_text: null,
-        replied_at: null,
-        created_at: new Date().toISOString()
-      };
-      existing.unshift(newRating);
-      localStorage.setItem(storageKey, JSON.stringify(existing));
-
-      const total = existing.length;
-      const sum = existing.reduce((acc, r) => acc + (parseFloat(r.rating) || 5), 0);
-      const avg = total > 0 ? (sum / total).toFixed(2) : 5.0;
-
-      return {
-        success: true,
-        message: 'Vendor rating and review submitted successfully.',
-        data: {
-          ...newRating,
-          vendor_summary: {
-            avg_rating: parseFloat(avg),
-            rating_count: total,
-            total_ratings_sum: sum
-          }
-        }
-      };
-    } catch (_) {}
-
     return {
-      success: true,
-      message: 'Vendor rating submitted successfully.',
-      data: {
-        rating_id: Date.now(),
-        ...ratingPayload,
-        status: 'PUBLISHED',
-        created_at: new Date().toISOString()
-      }
+      success: false,
+      message: 'Failed to submit rating to server.',
+      data: null
     };
   },
 
   createVendorRating: async (vendorId, payload) => api.submitVendorRating(vendorId, payload),
   addVendorRating: async (vendorId, payload) => api.submitVendorRating(vendorId, payload),
 
-  // 10.2 Fetch Public Vendor Ratings & Star Breakdown (GET /api/vendors/:vendorId/ratings)
+  // 10.2 Fetch Public Vendor Ratings & Star Breakdown (GET /api/vendors/:vendorId/ratings or GET /api/vendorPanel/:vendorId/ratings)
   getVendorRatings: async (vendorId, { page = 1, limit = 20, star } = {}) => {
     const vId = vendorId;
     const query = new URLSearchParams();
@@ -4835,19 +5327,36 @@ export const api = {
     if (star) query.append('star', star);
 
     const queryString = query.toString() ? `?${query.toString()}` : '';
-    const endpoints = [
+    const candidateUrls = [
       `${API_BASE}/vendors/${vId}/ratings${queryString}`,
-      `${API_BASE}/ratings/vendor/${vId}${queryString}`,
-      `${API_BASE}/vendorPanel/${vId}/ratings${queryString}`
+      `${API_BASE}/vendorPanel/${vId}/ratings${queryString}`,
+      `${API_BASE}/vendorPanel/${vId}/reviews${queryString}`
     ];
 
-    for (const url of endpoints) {
+    for (const url of candidateUrls) {
       try {
         const res = await fetchWithTimeout(url);
         if (res.ok) {
           const data = await res.json();
-          if (data && (data.data || data.ratings || data.success)) {
-            return data;
+          if (data && (data.data || data.ratings || data.reviews || data.success)) {
+            const rawList = data.data?.ratings || data.data?.reviews || data.ratings || data.reviews || [];
+            let list = rawList.map(api._normalizeRatingItem);
+            if (star && star !== 'ALL') {
+              list = list.filter(r => Math.round(parseFloat(r.rating || 5)) === parseInt(star, 10));
+            }
+            const sum = data.data?.summary || data.data?.metrics || data.summary || data.metrics || {};
+            return {
+              success: true,
+              message: data.message || 'Vendor ratings retrieved successfully.',
+              data: {
+                vendor_id: vId,
+                summary: sum,
+                metrics: sum,
+                pagination: data.data?.pagination || data.pagination || { total: list.length, page: 1, limit: 20, pages: 1 },
+                ratings: list,
+                reviews: list
+              }
+            };
           }
         }
       } catch (err) {
@@ -4855,80 +5364,40 @@ export const api = {
       }
     }
 
-    // Local / Offline fallback calculation
-    try {
-      const storageKey = `digilocal_vendor_ratings_${vId}`;
-      const existingStr = localStorage.getItem(storageKey);
-      let list = existingStr ? JSON.parse(existingStr) : [];
-      if (!Array.isArray(list)) list = [];
-
-      if (star) {
-        list = list.filter(r => Math.round(parseFloat(r.rating)) === parseInt(star, 10));
-      }
-
-      const total = list.length;
-      const breakdown = { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 };
-      list.forEach(r => {
-        const roundedStar = String(Math.min(5, Math.max(1, Math.round(parseFloat(r.rating) || 5))));
-        breakdown[roundedStar] = (breakdown[roundedStar] || 0) + 1;
-      });
-
-      const sum = list.reduce((acc, r) => acc + (parseFloat(r.rating) || 5), 0);
-      const avg = total > 0 ? (sum / total).toFixed(2) : 4.8;
-
-      const p = parseInt(page, 10) || 1;
-      const l = parseInt(limit, 10) || 20;
-      const paginated = list.slice((p - 1) * l, p * l);
-
-      return {
-        success: true,
-        message: 'Vendor ratings retrieved successfully.',
-        data: {
-          vendor_id: vId,
-          summary: {
-            avg_rating: parseFloat(avg),
-            total_ratings: total,
-            breakdown
-          },
-          pagination: {
-            total,
-            page: p,
-            limit: l,
-            pages: Math.ceil(total / l) || 1
-          },
-          ratings: paginated
-        }
-      };
-    } catch (_) {}
-
     return {
       success: true,
       data: {
         vendor_id: vId,
-        summary: { avg_rating: 4.8, total_ratings: 0, breakdown: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 } },
+        summary: { avg_rating: 0, total_ratings: 0, rating_count: 0, breakdown: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 } },
         pagination: { total: 0, page: 1, limit: 20, pages: 1 },
-        ratings: []
+        ratings: [],
+        reviews: []
       }
     };
   },
 
   fetchVendorRatings: async (vendorId, options) => api.getVendorRatings(vendorId, options),
 
-  // 10.3 Quick Rating Summary (GET /api/vendors/:vendorId/ratings/summary)
+  // 10.3 Fetch Vendor Rating Summary Only (GET /api/vendors/:vendorId/ratings/summary or GET /api/vendorPanel/:vendorId/ratings/summary)
   getVendorRatingSummary: async (vendorId) => {
     const vId = vendorId;
-    const endpoints = [
+    const candidateUrls = [
       `${API_BASE}/vendors/${vId}/ratings/summary`,
-      `${API_BASE}/vendors/${vId}/summary`
+      `${API_BASE}/vendorPanel/${vId}/ratings/summary`,
+      `${API_BASE}/vendors/${vId}/rating-summary`
     ];
 
-    for (const url of endpoints) {
+    for (const url of candidateUrls) {
       try {
         const res = await fetchWithTimeout(url);
         if (res.ok) {
           const data = await res.json();
           if (data && (data.data || data.summary || data.success)) {
-            return data;
+            return {
+              success: true,
+              message: 'Rating summary retrieved.',
+              data: data.data || data.summary || data
+            };
           }
         }
       } catch (err) {
@@ -4936,25 +5405,16 @@ export const api = {
       }
     }
 
-    // Fallback using getVendorRatings
-    const full = await api.getVendorRatings(vId, { page: 1, limit: 100 });
-    const summary = full?.data?.summary;
-
+    const listRes = await api.getVendorRatings(vId, { limit: 100 });
     return {
       success: true,
-      message: 'Vendor rating summary fetched successfully.',
-      data: {
-        vendor_id: vId,
-        avg_rating: summary?.avg_rating || 4.8,
-        rating_count: summary?.total_ratings || 0,
-        star_breakdown: summary?.breakdown || { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 }
-      }
+      data: listRes.data?.summary || { avg_rating: 0, rating_count: 0, total_ratings: 0, breakdown: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 } }
     };
   },
 
   fetchVendorRatingSummary: async (vendorId) => api.getVendorRatingSummary(vendorId),
 
-  // 10.4 Vendor Web Dashboard: Fetch Vendor's Own Ratings (GET /api/vendor/ratings)
+  // 10.4 Vendor Web Dashboard: Fetch Vendor's Own Ratings & Reviews (GET /api/vendorPanel/:vendorId/reviews, GET /api/vendorPanel/reviews, or GET /api/vendor/ratings)
   getVendorDashboardRatings: async (vendorId, { page = 1, limit = 20, star } = {}) => {
     const vId = vendorId;
     const token = getStoredToken();
@@ -4966,22 +5426,47 @@ export const api = {
     if (page) query.append('page', page);
     if (limit) query.append('limit', limit);
     if (star) query.append('star', star);
-    if (vId) query.append('vendor_id', vId);
 
     const queryString = query.toString() ? `?${query.toString()}` : '';
-    const endpoints = [
-      `${API_BASE}/vendor/ratings${queryString}`,
-      `${API_BASE}/vendorPanel/${vId}/ratings${queryString}`,
-      `${API_BASE}/vendors/${vId}/ratings${queryString}`
+    const candidateUrls = [
+      ...(vId ? [`${API_BASE}/vendorPanel/${vId}/reviews${queryString}`, `${API_BASE}/vendorPanel/${vId}/ratings${queryString}`] : []),
+      `${API_BASE}/vendorPanel/reviews${queryString}`,
+      ...(vId ? [`${API_BASE}/vendors/${vId}/ratings${queryString}`, `${API_BASE}/vendor/${vId}/ratings${queryString}`] : []),
+      `${API_BASE}/vendor/ratings${queryString}`
     ];
 
-    for (const url of endpoints) {
+    for (const url of candidateUrls) {
       try {
         const res = await fetchWithTimeout(url, { headers });
         if (res.ok) {
           const data = await res.json();
-          if (data && (data.data || data.ratings || data.success)) {
-            return data;
+          if (data && (data.data || data.ratings || data.reviews || data.success)) {
+            const rawList = data.data?.reviews || data.data?.ratings || data.reviews || data.ratings || [];
+            let list = rawList.map(api._normalizeRatingItem);
+            if (star && star !== 'ALL') {
+              list = list.filter(r => Math.round(parseFloat(r.rating || 5)) === parseInt(star, 10));
+            }
+            const summary = data.data?.metrics || data.data?.summary || data.metrics || data.summary || {};
+            const totalCount = Number(summary.rating_count || summary.total_reviews || summary.total_ratings || list.length || 0);
+
+            return {
+              success: true,
+              message: 'Vendor user ratings and reviews retrieved successfully.',
+              data: {
+                vendor_id: vId,
+                store_name: data.data?.store_name || 'My Store',
+                metrics: {
+                  avg_rating: Number(summary.avg_rating || 0),
+                  rating_count: totalCount,
+                  total_reviews: totalCount,
+                  breakdown: summary.breakdown || summary.star_breakdown || { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 }
+                },
+                summary: summary,
+                pagination: data.data?.pagination || { total: totalCount, page: 1, limit: 20, pages: 1 },
+                ratings: list,
+                reviews: list
+              }
+            };
           }
         }
       } catch (err) {
@@ -4989,24 +5474,36 @@ export const api = {
       }
     }
 
-    return await api.getVendorRatings(vId, { page, limit, star });
+    return {
+      success: true,
+      data: {
+        vendor_id: vId,
+        metrics: { avg_rating: 0, rating_count: 0, total_reviews: 0, breakdown: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 } },
+        summary: { avg_rating: 0, rating_count: 0, total_ratings: 0, breakdown: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 } },
+        pagination: { total: 0, page: 1, limit: 20, pages: 1 },
+        ratings: [],
+        reviews: []
+      }
+    };
   },
 
   getMyVendorRatings: async (vendorId, options) => api.getVendorDashboardRatings(vendorId, options),
   fetchVendorSelfRatings: async (vendorId, options) => api.getVendorDashboardRatings(vendorId, options),
 
-  // 10.5 Vendor Posts Reply to Review (POST /api/vendor/ratings/:ratingId/reply)
-  replyToVendorRating: async (ratingId, replyData, vendorId = null) => {
-    const replyText = typeof replyData === 'string' ? replyData : (replyData?.reply_text || replyData?.reply || '');
+  // 10.5 Vendor Posts Reply to Review (POST /api/vendorPanel/ratings/:ratingId/reply, POST /api/vendorPanel/reviews/:ratingId/reply, or POST /api/vendor/ratings/:ratingId/reply)
+  replyToVendorRating: async (ratingId, replyData, vendorId) => {
+    const replyText = typeof replyData === 'object' ? (replyData.reply_text || replyData.reply || '') : String(replyData || '');
     const token = getStoredToken();
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     if (vendorId) headers['X-Vendor-ID'] = String(vendorId);
 
     const endpoints = [
+      `${API_BASE}/vendorPanel/ratings/${ratingId}/reply`,
+      `${API_BASE}/vendorPanel/reviews/${ratingId}/reply`,
+      ...(vendorId ? [`${API_BASE}/vendorPanel/${vendorId}/ratings/${ratingId}/reply`, `${API_BASE}/vendorPanel/${vendorId}/reviews/${ratingId}/reply`] : []),
       `${API_BASE}/vendor/ratings/${ratingId}/reply`,
-      `${API_BASE}/ratings/${ratingId}/reply`,
-      `${API_BASE}/vendorPanel/ratings/${ratingId}/reply`
+      `${API_BASE}/ratings/${ratingId}/reply`
     ];
 
     for (const url of endpoints) {
@@ -5019,6 +5516,8 @@ export const api = {
         if (res.ok) {
           const data = await res.json();
           invalidateApiCache(`ratings`);
+          invalidateApiCache(`reviews`);
+          invalidateApiCache(`vendorPanel`);
           return data;
         }
       } catch (err) {
@@ -5026,32 +5525,10 @@ export const api = {
       }
     }
 
-    // Local Storage fallback update
-    if (vendorId) {
-      try {
-        const storageKey = `digilocal_vendor_ratings_${vendorId}`;
-        const existingStr = localStorage.getItem(storageKey);
-        if (existingStr) {
-          const list = JSON.parse(existingStr);
-          const idx = list.findIndex(r => String(r.rating_id) === String(ratingId));
-          if (idx !== -1) {
-            list[idx].reply_text = replyText;
-            list[idx].replied_at = new Date().toISOString();
-            localStorage.setItem(storageKey, JSON.stringify(list));
-          }
-        }
-      } catch (_) {}
-    }
-
     return {
-      success: true,
-      message: 'Vendor reply published successfully.',
-      data: {
-        rating_id: ratingId,
-        vendor_id: vendorId,
-        reply_text: replyText,
-        replied_at: new Date().toISOString()
-      }
+      success: false,
+      message: 'Failed to post reply to server.',
+      data: null
     };
   },
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Store, ArrowLeft, LogOut, LogIn, Building2, BookOpen, HelpCircle, ArrowUpRight, User, MapPin, ChevronDown, Check, Plus, Edit3, ShoppingCart, Menu, X } from 'lucide-react';
 import DeliveryAddressModal from './DeliveryAddressModal';
 import AnimatedIcon from './common/AnimatedIcon';
+import { api } from '../services/api';
 
 export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorLogout, activeUser, onUserLogout, onOpenLogin, onOpenSupportDesk }) {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -62,18 +63,13 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
       if (loggedUser) {
         const userPhoneKey = String(loggedUser.phone || loggedUser.mobile || loggedUser.user_id || loggedUser.id || '').replace(/\D/g, '');
         const userScopedStr = userPhoneKey ? localStorage.getItem(`digilocal_saved_addresses_${userPhoneKey}`) : null;
+        const globalStr = localStorage.getItem('digilocal_saved_addresses');
+        const targetStr = userScopedStr || globalStr;
         
-        if (userScopedStr) {
-          const parsed = JSON.parse(userScopedStr);
+        if (targetStr) {
+          const parsed = JSON.parse(targetStr);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const updatedList = parsed.map(a => a.isDefault ? {
-              ...a,
-              society: loggedUser.society_name || loggedUser.society || loggedUser.area || a.society,
-              flat: loggedUser.flat || a.flat,
-              city: loggedUser.city || a.city,
-              pincode: loggedUser.pincode || a.pincode
-            } : a);
-            setSavedAddresses(updatedList);
+            setSavedAddresses(parsed);
             return;
           }
         }
@@ -81,11 +77,12 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
         if (loggedUser.society_name || loggedUser.society || loggedUser.area || loggedUser.flat) {
           const registeredAddr = [{
             id: 'registered_profile',
-            label: 'Home',
+            label: loggedUser.label || loggedUser.address_type || 'Home',
             society: loggedUser.society_name || loggedUser.society || loggedUser.area || '',
             flat: loggedUser.flat || '',
             city: loggedUser.city || '',
             pincode: loggedUser.pincode || '',
+            address: loggedUser.address || `${loggedUser.flat || ''}, ${loggedUser.society_name || loggedUser.society || loggedUser.area || ''}`,
             isDefault: true
           }];
           setSavedAddresses(registeredAddr);
@@ -102,6 +99,51 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
 
   useEffect(() => {
     loadSavedAddresses();
+
+    let uId = activeUser?.user_id || activeUser?.id || activeUser?.phone;
+    if (!uId) {
+      try {
+        const uSession = localStorage.getItem('digilocal_user_session');
+        if (uSession) {
+          const parsed = JSON.parse(uSession);
+          uId = parsed?.user?.user_id || parsed?.user?.phone || parsed?.phone;
+        }
+      } catch (_) {}
+    }
+
+    if (uId) {
+      api.checkUserStatus(uId).then(statusRes => {
+        const freshUser = statusRes?.user || statusRes;
+        if (freshUser && (freshUser.society_name || freshUser.area || freshUser.flat || freshUser.pincode)) {
+          const userPhoneKey = String(freshUser.phone || freshUser.user_id || '').replace(/\D/g, '');
+          const savedStr = userPhoneKey ? localStorage.getItem(`digilocal_saved_addresses_${userPhoneKey}`) : localStorage.getItem('digilocal_saved_addresses');
+          let currentList = [];
+          if (savedStr) {
+            try { currentList = JSON.parse(savedStr); } catch (_) {}
+          }
+          const defaultLabel = freshUser.label || freshUser.address_type || currentList[0]?.label || 'Home';
+          const freshAddr = {
+            id: currentList[0]?.id || 'registered_profile',
+            label: defaultLabel,
+            society: freshUser.society_name || freshUser.society || freshUser.area || '',
+            flat: freshUser.flat || '',
+            city: freshUser.city || '',
+            pincode: freshUser.pincode || '',
+            address: freshUser.address || `${freshUser.flat || ''}, ${freshUser.society_name || freshUser.society || freshUser.area || ''}`,
+            isDefault: true
+          };
+          const updatedList = currentList.length > 0
+            ? currentList.map((a, i) => i === 0 ? { ...a, ...freshAddr } : a)
+            : [freshAddr];
+
+          setSavedAddresses(updatedList);
+          if (userPhoneKey) {
+            localStorage.setItem(`digilocal_saved_addresses_${userPhoneKey}`, JSON.stringify(updatedList));
+          }
+          localStorage.setItem('digilocal_saved_addresses', JSON.stringify(updatedList));
+        }
+      }).catch(() => {});
+    }
 
     const handleAddressesChanged = () => {
       loadSavedAddresses();
@@ -157,8 +199,8 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
 
       const activeLocObj = {
         area: targetAddr.society || targetAddr.area || 'Residential Complex',
-        city: 'Jaipur',
-        state: 'Rajasthan',
+        city: targetAddr.city || '',
+        state: targetAddr.state || '',
         pincode: targetAddr.pincode || '',
         address: targetAddr.address || `${targetAddr.flat}, ${targetAddr.society}`,
         society: targetAddr.society,

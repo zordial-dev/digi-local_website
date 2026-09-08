@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { api, getNormalizedImageUrl, getItemUnitLabel, formatItemQuantityBadge } from '../services/api';
-import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, ShieldAlert, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight, Briefcase } from 'lucide-react';
+import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, ShieldAlert, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight, Briefcase, Star, MessageSquare, Send } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import VendorStatusBanner from '../components/VendorStatusBanner';
 import { QRCodeSVG } from 'qrcode.react';
@@ -27,6 +27,67 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   const [enquiries, setEnquiries] = useState([]);
   const [enquiryFilter, setEnquiryFilter] = useState('ALL'); // 'ALL' | 'NEW' | 'CONTACTED' | 'SCHEDULED' | 'COMPLETED'
   const [updatingEnquiryId, setUpdatingEnquiryId] = useState(null);
+
+  // Vendor Dashboard Ratings & Customer Feedback State (Section 2.1 & 2.2 Specs)
+  const [vendorRatingsData, setVendorRatingsData] = useState({ metrics: { avg_rating: 0, rating_count: 0, breakdown: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 } }, ratings: [] });
+  const [vendorRatingsLoading, setVendorRatingsLoading] = useState(false);
+  const [vendorRatingsFilter, setVendorRatingsFilter] = useState('ALL');
+  const [activeRatingReplyId, setActiveRatingReplyId] = useState(null);
+  const [replyTextDrafts, setReplyTextDrafts] = useState({});
+  const [submittingReply, setSubmittingReply] = useState(false);
+
+  const loadVendorDashboardRatings = async (star = null) => {
+    const targetVendorId = vendorId || panelData?.vendor?.vendor_id;
+    if (!targetVendorId) return;
+    try {
+      setVendorRatingsLoading(true);
+      const res = await api.getVendorDashboardRatings(targetVendorId, {
+        page: 1,
+        limit: 50,
+        star: star === 'ALL' ? null : star
+      });
+      if (res?.data) {
+        setVendorRatingsData(res.data);
+      }
+    } catch (err) {
+      console.warn('Failed to load vendor ratings:', err);
+    } finally {
+      setVendorRatingsLoading(false);
+    }
+  };
+
+  const handlePostVendorReply = async (ratingId) => {
+    const targetVendorId = vendorId || panelData?.vendor?.vendor_id;
+    const text = (replyTextDrafts[ratingId] || '').trim();
+    if (!text) return;
+    try {
+      setSubmittingReply(true);
+      await api.replyToVendorRating(ratingId, { reply_text: text }, targetVendorId);
+      setActiveRatingReplyId(null);
+      loadVendorDashboardRatings(vendorRatingsFilter);
+      setModalConfig({
+        isOpen: true,
+        title: '✓ Reply Published',
+        message: 'Your official merchant response has been published and is visible to customers.',
+        type: 'success'
+      });
+    } catch (err) {
+      setModalConfig({
+        isOpen: true,
+        title: 'Reply Failed',
+        message: err.message || 'Could not post reply.',
+        type: 'error'
+      });
+    } finally {
+      setSubmittingReply(false);
+    }
+  };
+
+  useEffect(() => {
+    if (vendorId || panelData?.vendor?.vendor_id) {
+      loadVendorDashboardRatings(vendorRatingsFilter === 'ALL' ? null : vendorRatingsFilter);
+    }
+  }, [vendorId, panelData?.vendor?.vendor_id, vendorRatingsFilter]);
 
   // Vendor Purchases & B2B Orders Made State (v1.0.0 Spec)
   const [purchases, setPurchases] = useState([]);
@@ -914,6 +975,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
             (vendor?.vendor_type === 'service' || vendor?.can_add_items === false)
               ? { id: 'enquiries', label: `Enquiries (${enquiries.length})`, icon: Briefcase }
               : { id: 'items', label: `Items (${items.length})`, icon: Package },
+            { id: 'ratings', label: `Reviews (${vendorRatingsData?.metrics?.rating_count || vendorRatingsData?.pagination?.total || 0})`, icon: Star },
             { id: 'settings', label: 'Store Settings', icon: Settings },
             { id: 'subscription', label: 'Subscription Plan', icon: CreditCard },
           ].map((tab) => {
@@ -1103,6 +1165,117 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             )}
                           </div>
                         </div>
+
+                        {/* Customer Review on this Specific Order */}
+                        {(() => {
+                          const orderIdClean = String(order.order_id || order.id || '');
+                          const cleanNum = orderIdClean.replace(/^ORD[-_]?/i, '');
+                          const orderReview = (vendorRatingsData?.ratings || vendorRatingsData?.reviews || []).find(r => {
+                            if (!r) return false;
+                            const rOrderId = String(r.order_id || '');
+                            if (!rOrderId) return false;
+                            const rClean = rOrderId.replace(/^ORD[-_]?/i, '');
+                            return rOrderId === orderIdClean || rClean === cleanNum;
+                          });
+
+                          if (!orderReview) return null;
+
+                          return (
+                            <div className="pt-2">
+                              <div className="bg-[#FAF6EE] p-3.5 rounded-2xl border border-amber-200/90 space-y-2.5 shadow-2xs">
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-2">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="w-6 h-6 rounded-full bg-[#541D26] text-white flex items-center justify-center text-[10px] font-bold font-serif shrink-0">
+                                      {(orderReview.user_name || customerName || 'C').charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center space-x-1.5">
+                                        <span className="text-xs font-bold text-[#211A19]">
+                                          {orderReview.user_name || customerName || 'Resident Customer'}
+                                        </span>
+                                        <span className="px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-800 text-[8.5px] font-black border border-emerald-200">
+                                          Verified Order Review
+                                        </span>
+                                      </div>
+                                      <span className="text-[10px] text-muted-foreground">
+                                        {orderReview.created_at ? new Date(orderReview.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently'}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center space-x-1 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full text-amber-950 font-black text-xs shrink-0">
+                                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                    <span>{parseFloat(orderReview.rating || 5).toFixed(1)} / 5.0</span>
+                                  </div>
+                                </div>
+
+                                {(orderReview.review_text || orderReview.comment || orderReview.review || orderReview.feedback || orderReview.notes || orderReview.message) && (
+                                  <p className="text-xs text-[#211A19] italic bg-white/90 p-2.5 rounded-xl border border-amber-200/60 leading-relaxed font-medium">
+                                    "{orderReview.review_text || orderReview.comment || orderReview.review || orderReview.feedback || orderReview.notes || orderReview.message}"
+                                  </p>
+                                )}
+
+                                {(orderReview.reply_text || orderReview.reply || orderReview.response || orderReview.merchant_reply || orderReview.vendor_reply || orderReview.merchant_response) ? (
+                                  <div className="text-[11px] text-emerald-950 bg-emerald-50/90 p-2.5 rounded-xl border border-emerald-200 space-y-1">
+                                    <div className="flex items-center justify-between font-bold text-emerald-900">
+                                      <span>🏪 Your Merchant Response:</span>
+                                      {(orderReview.replied_at || orderReview.repliedAt || orderReview.reply_created_at) && (
+                                        <span className="text-[9.5px] text-emerald-700 font-normal">
+                                          {new Date(orderReview.replied_at || orderReview.repliedAt || orderReview.reply_created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="italic text-emerald-900 leading-relaxed">
+                                      "{orderReview.reply_text || orderReview.reply || orderReview.response || orderReview.merchant_reply || orderReview.vendor_reply || orderReview.merchant_response}"
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <div className="pt-0.5">
+                                    {activeRatingReplyId === orderReview.rating_id ? (
+                                      <div className="space-y-2 bg-white p-3 rounded-xl border border-[#E5DAD0]">
+                                        <label className="block text-[10.5px] font-bold text-[#211A19] uppercase tracking-wider">
+                                          Reply to {orderReview.user_name || customerName || 'Customer'}
+                                        </label>
+                                        <textarea
+                                          rows={2}
+                                          placeholder="Write your public merchant response..."
+                                          value={replyTextDrafts[orderReview.rating_id] || ''}
+                                          onChange={(e) => setReplyTextDrafts({ ...replyTextDrafts, [orderReview.rating_id]: e.target.value })}
+                                          className="w-full p-2 text-xs rounded-lg border border-border bg-[#FAF6EE] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#541D26]"
+                                        />
+                                        <div className="flex items-center justify-end space-x-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => setActiveRatingReplyId(null)}
+                                            className="px-3 py-1 text-xs text-muted-foreground hover:text-ink font-bold cursor-pointer"
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={submittingReply}
+                                            onClick={() => handlePostVendorReply(orderReview.rating_id)}
+                                            className="px-3.5 py-1.5 rounded-lg bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold uppercase tracking-wider shadow-xs cursor-pointer"
+                                          >
+                                            {submittingReply ? 'Posting...' : 'Post Reply'}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => setActiveRatingReplyId(orderReview.rating_id)}
+                                        className="text-[11px] font-bold text-[#541D26] hover:underline flex items-center space-x-1 cursor-pointer"
+                                      >
+                                        <span>💬 Reply to Customer Review</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Right Side: Total Amount & Order Lifecycle Action Buttons */}
@@ -2278,6 +2451,268 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* 5. RATINGS & REVIEWS TAB (Section 2.1 & 2.2 Vendor Ratings Spec) */}
+        {activeTab === 'ratings' && (
+          <div className="space-y-6 animate-fadeIn font-sans">
+            {/* Header / Intro Banner */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#E5DAD0] rounded-2xl p-5 shadow-xs">
+              <div>
+                <h2 className="text-lg font-serif font-black text-[#211A19] uppercase tracking-wider flex items-center gap-2">
+                  <Star className="w-5 h-5 text-[#C8A878] fill-[#C8A878]" />
+                  Customer Ratings & Reviews
+                </h2>
+                <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                  Track resident satisfaction, analyze star distribution, and publish official merchant replies.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => loadVendorDashboardRatings(vendorRatingsFilter)}
+                className="px-3.5 py-1.5 rounded-full bg-[#FAF8F5] hover:bg-[#EEE5DA] border border-[#E5DAD0] text-[#211A19] font-bold text-xs flex items-center gap-1.5 transition-all self-start sm:self-auto cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-[#541D26] ${vendorRatingsLoading ? 'animate-spin' : ''}`} />
+                <span>Refresh Reviews</span>
+              </button>
+            </div>
+
+            {/* Metrics & Analytics Overview Card */}
+            <div className="bg-white border border-[#E5DAD0] rounded-3xl p-6 shadow-xs">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                {/* Overall Score Badge */}
+                <div className="md:col-span-4 flex flex-col items-center justify-center p-6 bg-[#FAF8F5] rounded-2xl border border-[#E5DAD0]/80 text-center">
+                  <span className="text-xs font-black uppercase tracking-widest text-[#78716C] mb-1">
+                    Store Rating Score
+                  </span>
+                  <div className="text-5xl font-serif font-black text-[#211A19] tracking-tight">
+                    {Number(vendorRatingsData?.metrics?.avg_rating || 0).toFixed(1)}
+                  </div>
+                  <div className="flex items-center gap-1 my-2">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        className={`w-4 h-4 ${
+                          s <= Math.round(Number(vendorRatingsData?.metrics?.avg_rating || 0))
+                            ? 'text-amber-500 fill-amber-500'
+                            : 'text-stone-300'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs font-bold text-[#541D26]">
+                    Based on {vendorRatingsData?.metrics?.rating_count || vendorRatingsData?.ratings?.length || 0} customer reviews
+                  </p>
+                </div>
+
+                {/* Star Distribution Breakdown */}
+                <div className="md:col-span-8 space-y-2.5">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-[#211A19] mb-3">
+                    Rating Breakdown Distribution
+                  </h4>
+                  {[5, 4, 3, 2, 1].map((starNum) => {
+                    const totalReviews = vendorRatingsData?.metrics?.rating_count || (vendorRatingsData?.ratings?.length || 1);
+                    const starCount = vendorRatingsData?.metrics?.breakdown?.[String(starNum)] ?? 0;
+                    const percent = totalReviews > 0 ? Math.round((starCount / totalReviews) * 100) : 0;
+
+                    return (
+                      <div key={starNum} className="flex items-center gap-3 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setVendorRatingsFilter(starNum === vendorRatingsFilter ? 'ALL' : starNum)}
+                          className={`flex items-center gap-1 font-extrabold w-14 shrink-0 transition-colors ${
+                            vendorRatingsFilter === starNum ? 'text-[#541D26]' : 'text-[#78716C] hover:text-[#211A19]'
+                          }`}
+                        >
+                          <span>{starNum}</span>
+                          <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                        </button>
+                        <div className="flex-1 h-3 rounded-full bg-stone-100 overflow-hidden border border-stone-200">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-amber-500 to-[#C8A878] transition-all duration-500"
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                        <span className="w-12 text-right font-mono font-bold text-[#78716C] text-[11px] shrink-0">
+                          {starCount} ({percent}%)
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <span className="text-xs font-black uppercase tracking-wider text-[#78716C] shrink-0 mr-1">
+                Filter:
+              </span>
+              {['ALL', 5, 4, 3, 2, 1].map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setVendorRatingsFilter(f)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
+                    vendorRatingsFilter === f
+                      ? 'bg-[#541D26] text-[#C8A878] shadow-xs'
+                      : 'bg-white border border-[#E5DAD0] text-[#78716C] hover:text-[#211A19] hover:bg-[#FAF8F5]'
+                  }`}
+                >
+                  {f === 'ALL' ? 'All Reviews' : `${f} Stars`}
+                  {f !== 'ALL' && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
+                </button>
+              ))}
+            </div>
+
+            {/* Customer Feedback Listing */}
+            {vendorRatingsLoading ? (
+              <div className="py-16 text-center text-[#78716C] bg-white rounded-3xl border border-[#E5DAD0]">
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#541D26]" />
+                <p className="text-xs font-bold uppercase tracking-wider">Loading reviews...</p>
+              </div>
+            ) : (!vendorRatingsData?.ratings || vendorRatingsData.ratings.length === 0) ? (
+              <div className="text-center py-16 bg-white rounded-3xl border border-[#E5DAD0] p-8 shadow-xs space-y-3">
+                <div className="w-16 h-16 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 flex items-center justify-center text-[#541D26] mx-auto shadow-2xs">
+                  <MessageSquare className="w-8 h-8 text-[#541D26]" />
+                </div>
+                <h3 className="text-base font-serif font-bold text-[#211A19]">No customer reviews found</h3>
+                <p className="text-muted-foreground text-xs font-medium max-w-sm mx-auto leading-relaxed">
+                  {vendorRatingsFilter !== 'ALL'
+                    ? `There are currently no ${vendorRatingsFilter}-star reviews for your store.`
+                    : 'When residents submit ratings and feedback from their orders, they will appear here.'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {vendorRatingsData.ratings
+                  .filter((r) => vendorRatingsFilter === 'ALL' || Math.round(Number(r.rating || 0)) === Number(vendorRatingsFilter))
+                  .map((rating) => {
+                    const ratingScore = Number(rating.rating || 0);
+                    const ratingId = rating.rating_id || rating.id;
+                    const replyObj = rating.reply || (rating.reply_text ? { reply_text: rating.reply_text, created_at: rating.reply_date } : null);
+                    const isReplying = activeRatingReplyId === ratingId;
+
+                    return (
+                      <div
+                        key={ratingId}
+                        className="rounded-3xl bg-white border border-[#E5DAD0] p-5 sm:p-6 shadow-xs hover:shadow-md transition-all space-y-4"
+                      >
+                        {/* Review Header: User Name, Star Badge, Date */}
+                        <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-[#E5DAD0]/60">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-[#541D26] text-[#C8A878] flex items-center justify-center font-bold text-xs shrink-0">
+                              {(rating.user_name || 'Resident Customer').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-serif font-extrabold text-[#211A19]">
+                                  {rating.user_name || 'Resident Customer'}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  Verified Resident
+                                </span>
+                              </div>
+                              <span className="text-[11px] text-[#78716C] font-medium">
+                                {rating.created_at ? new Date(rating.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Star Score Pill */}
+                          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-900 font-extrabold text-xs">
+                            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                            <span>{ratingScore.toFixed(1)} / 5.0</span>
+                          </div>
+                        </div>
+
+                        {/* Review Body Text */}
+                        <p className="text-xs sm:text-sm text-[#211A19] font-medium leading-relaxed">
+                          {rating.review_text || rating.comment || rating.review || rating.feedback || rating.notes || rating.message || <em className="text-stone-400 font-normal">No text feedback provided.</em>}
+                        </p>
+
+                        {/* Order Reference if present */}
+                        {rating.order_id && (
+                          <div className="text-[11px] text-[#78716C] font-semibold flex items-center gap-1">
+                            <ShoppingBag className="w-3.5 h-3.5 text-[#541D26]" />
+                            <span>Order Ref: #{rating.order_id}</span>
+                          </div>
+                        )}
+
+                        {/* Merchant Reply Section (Section 2.2 Spec) */}
+                        <div className="pt-2">
+                          {replyObj?.reply_text ? (
+                            <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#C8A878]/40 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-[#541D26] flex items-center gap-1.5">
+                                  <MessageSquare className="w-3 h-3 text-[#C8A878]" />
+                                  Your Merchant Response
+                                </span>
+                                {replyObj.created_at && (
+                                  <span className="text-[10px] text-[#78716C] font-medium">
+                                    {new Date(replyObj.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-[#211A19] font-medium leading-relaxed italic">
+                                "{replyObj.reply_text}"
+                              </p>
+                            </div>
+                          ) : isReplying ? (
+                            <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#541D26]/30 space-y-3 animate-in fade-in duration-200">
+                              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#211A19]">
+                                Write Merchant Response to {rating.user_name || 'Customer'}:
+                              </label>
+                              <textarea
+                                value={replyTextDrafts[ratingId] || ''}
+                                onChange={(e) => setReplyTextDrafts({ ...replyTextDrafts, [ratingId]: e.target.value })}
+                                placeholder="Thank the customer or address their feedback professionally..."
+                                rows={3}
+                                className="w-full text-xs p-3 rounded-xl border border-[#E5DAD0] bg-white focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                              />
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveRatingReplyId(null)}
+                                  disabled={submittingReply}
+                                  className="px-3.5 py-1.5 rounded-full text-xs font-bold text-[#78716C] hover:text-[#211A19] bg-white border border-[#E5DAD0] cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePostVendorReply(ratingId)}
+                                  disabled={submittingReply || !replyTextDrafts[ratingId]?.trim()}
+                                  className="px-4 py-1.5 rounded-full text-xs font-extrabold text-[#C8A878] bg-[#541D26] hover:bg-[#6B2732] flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                                >
+                                  <Send className="w-3 h-3 text-[#C8A878]" />
+                                  <span>{submittingReply ? 'Publishing...' : 'Publish Response'}</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveRatingReplyId(ratingId);
+                                if (!replyTextDrafts[ratingId]) {
+                                  setReplyTextDrafts({ ...replyTextDrafts, [ratingId]: '' });
+                                }
+                              }}
+                              className="px-3.5 py-1.5 rounded-full bg-[#FAF8F5] hover:bg-[#EEE5DA] border border-[#E5DAD0] text-[#541D26] font-extrabold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 text-[#C8A878]" />
+                              <span>Reply to Resident</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
         )}
 

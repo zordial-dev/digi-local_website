@@ -11,26 +11,36 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
   const [building, setBuilding] = useState('');
   const [flat, setFlat] = useState('');
   const [pincode, setPincode] = useState('');
+  const [city, setCity] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [availableSocieties, setAvailableSocieties] = useState([]);
 
   useEffect(() => {
     setMounted(true);
+    api.getSocieties().then(res => {
+      const list = Array.isArray(res) ? res : (res?.societies || res?.data || []);
+      if (Array.isArray(list) && list.length > 0) {
+        setAvailableSocieties(list);
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
     if (addressToEdit) {
-      setLabel(addressToEdit.label || 'Home');
-      setSociety(addressToEdit.society || addressToEdit.area || '');
+      setLabel(addressToEdit.label || addressToEdit.address_type || 'Home');
+      setSociety(addressToEdit.society || addressToEdit.society_name || addressToEdit.area || '');
       setBuilding(addressToEdit.building || '');
       setFlat(addressToEdit.flat || '');
       setPincode(addressToEdit.pincode || '');
+      setCity(addressToEdit.city || '');
     } else {
       setLabel('Home');
       setSociety('');
       setBuilding('');
       setFlat('');
       setPincode('');
+      setCity('');
     }
   }, [addressToEdit, isOpen]);
 
@@ -65,6 +75,7 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
     const cleanBuilding = building.trim();
     const cleanFlat = flat.trim();
     const cleanPincode = pincode.trim();
+    const cleanCity = city.trim() || addressToEdit?.city || '';
     const cleanLabel = label.trim() || 'Home';
 
     const fullAddrString = `${cleanFlat}${cleanBuilding ? ` (${cleanBuilding})` : ''}, ${cleanSociety}`;
@@ -74,9 +85,11 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
       id: targetId,
       label: cleanLabel,
       society: cleanSociety,
+      society_name: cleanSociety,
       building: cleanBuilding,
       flat: cleanFlat,
       pincode: cleanPincode,
+      city: cleanCity,
       address: fullAddrString,
       isDefault: addressToEdit ? Boolean(addressToEdit.isDefault) : true
     };
@@ -91,7 +104,7 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
           if (parsed && (parsed.user || parsed.name)) {
             const u = parsed.user || parsed;
             userPhoneKey = String(u.phone || u.mobile || u.user_id || u.id || '').replace(/\D/g, '');
-            const updatedUser = { ...u, society_name: cleanSociety, flat: cleanFlat };
+            const updatedUser = { ...u, society_name: cleanSociety, flat: cleanFlat, pincode: cleanPincode || u.pincode };
             localStorage.setItem('digilocal_user_session', JSON.stringify({ ...parsed, user: updatedUser }));
             localStorage.setItem('digilocal_resident_session', JSON.stringify(updatedUser));
           }
@@ -127,9 +140,13 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
       // 3. Persist address to backend database via PUT /api/users/profile or PUT /api/users/address
       api.saveUserAddress({
         user_id: userPhoneKey || 'usr_profile',
+        label: cleanLabel,
+        address_type: cleanLabel,
         flat: cleanFlat,
         area: cleanSociety,
-        city: 'Jaipur',
+        society: cleanSociety,
+        society_name: cleanSociety,
+        city: cleanCity,
         pincode: cleanPincode,
         address: fullAddrString
       }).catch(err => console.warn('Backend address save notice:', err));
@@ -137,8 +154,7 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
       // 4. Update user active location in localStorage
       const activeLocObj = {
         area: cleanSociety,
-        city: 'Jaipur',
-        state: 'Rajasthan',
+        city: cleanCity,
         pincode: cleanPincode,
         address: fullAddrString,
         society: cleanSociety,
@@ -147,7 +163,7 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
       };
       localStorage.setItem('digilocal_user_location', JSON.stringify(activeLocObj));
 
-      // 4. Dispatch custom window events so Navbar & open pages update instantly
+      // 5. Dispatch custom window events so Navbar & open pages update instantly
       window.dispatchEvent(new CustomEvent('digilocal_saved_addresses_updated', { detail: updatedAddresses }));
       window.dispatchEvent(new CustomEvent('digilocal_location_changed', { detail: activeLocObj }));
     } catch (err) {
@@ -264,11 +280,9 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
                 className="w-full pl-10 pr-3.5 py-2.5 bg-white/10 border border-white/20 rounded-xl text-xs font-semibold text-white placeholder:text-white/40 focus:outline-none focus:border-[#C8A878]"
               />
               <datalist id="delivery-societies-datalist-root">
-                <option value="Anupam Apartments" />
-                <option value="Bais Godam" />
-                <option value="Sector 62" />
-                <option value="Omaxe Greenwood Residency" />
-                <option value="Palm Meadows Residency" />
+                {availableSocieties.map((s, idx) => (
+                  <option key={s.society_id || s.id || idx} value={s.society_name || s.name || s} />
+                ))}
               </datalist>
             </div>
           </div>

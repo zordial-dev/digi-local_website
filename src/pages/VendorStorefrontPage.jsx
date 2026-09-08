@@ -1,12 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api, getNormalizedImageUrl, getStoreTimeStatus } from '../services/api';
-import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn, Clock, Heart } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn, Clock, Heart, Star, Sparkles, CheckCircle2, ChevronDown, Calendar } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import DummyPaymentModal from '../components/DummyPaymentModal';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
 import LoginModal from '../components/LoginModal';
 import DeliveryAddressModal from '../components/DeliveryAddressModal';
 import { ProductCardSkeleton } from '../components/Skeletons';
+
+const TIME_SLOT_OPTIONS = [
+  { value: 'Today (ASAP)', label: 'Today (ASAP)', badge: 'Fastest' },
+  { value: 'Today Evening (4 PM - 8 PM)', label: 'Today Evening (4 PM - 8 PM)', badge: 'Evening' },
+  { value: 'Tomorrow Morning (9 AM - 1 PM)', label: 'Tomorrow Morning (9 AM - 1 PM)', badge: 'Morning' },
+  { value: 'Tomorrow Evening (4 PM - 8 PM)', label: 'Tomorrow Evening (4 PM - 8 PM)', badge: 'Evening' },
+  { value: 'Weekend Slot', label: 'Weekend Slot', badge: 'Weekend' },
+];
+
+const REVIEW_QUICK_TAGS = [
+  'On-Time Arrival',
+  'Fair Pricing',
+  'Expert Workmanship',
+  'Polite & Professional',
+  'Clean & Tidy',
+  'Quick Response'
+];
 
 export default function VendorStorefrontPage({ currentRoute, societyId, vendorId, setRoute, onOpenLoginModal, activeUser }) {
   const [vendorData, setVendorData] = useState(null);
@@ -18,6 +35,121 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
   // Favorite Vendor State (Con-04)
   const [isFavorite, setIsFavorite] = useState(false);
+
+  // Ratings & Reviews State (Section 1.2 & 1.3 Specs)
+  const [storefrontTab, setStorefrontTab] = useState('catalog'); // 'catalog' | 'reviews'
+  const [ratingSummary, setRatingSummary] = useState({ avg_rating: 0, rating_count: 0, star_breakdown: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 } });
+  const [ratingsData, setRatingsData] = useState({ ratings: [], summary: {}, pagination: {} });
+  const [ratingStarFilter, setRatingStarFilter] = useState('ALL');
+  const [loadingRatings, setLoadingRatings] = useState(false);
+
+  // Write Review Modal State
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewStars, setReviewStars] = useState(5);
+  const [reviewHoverStars, setReviewHoverStars] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+  const [selectedReviewTags, setSelectedReviewTags] = useState([]);
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!checkResidentAuth()) {
+      setIsLoginModalOpen(true);
+      return;
+    }
+    try {
+      setSubmittingReview(true);
+      let currentUser = null;
+      try {
+        const uStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
+        if (uStr) {
+          const parsed = JSON.parse(uStr);
+          currentUser = parsed.user || parsed.resident || parsed;
+        }
+      } catch (_) {}
+
+      const userName = currentUser?.name || currentUser?.full_name || (currentUser?.phone ? `Resident (+91 ${String(currentUser.phone).slice(-4)})` : 'Resident Customer');
+      const userId = currentUser?.user_id || currentUser?.id || 'usr_resident';
+
+      let combinedText = reviewComment.trim();
+      if (selectedReviewTags.length > 0) {
+        const tagsStr = selectedReviewTags.join(' • ');
+        combinedText = combinedText ? `${tagsStr}\n\n${combinedText}` : tagsStr;
+      }
+
+      const res = await api.submitVendorRating({
+        vendor_id: vendorId,
+        rating: reviewStars,
+        review_text: combinedText,
+        user_name: userName,
+        user_id: userId
+      });
+
+      setModalConfig({
+        isOpen: true,
+        title: 'Review Submitted!',
+        message: 'Thank you! Your rating and feedback have been published.',
+        type: 'success'
+      });
+
+      setShowReviewModal(false);
+      setReviewComment('');
+      setSelectedReviewTags([]);
+      setReviewStars(5);
+
+      await loadRatingSummary();
+      await loadRatings(ratingStarFilter === 'ALL' ? null : ratingStarFilter);
+    } catch (err) {
+      setModalConfig({
+        isOpen: true,
+        title: 'Submission Failed',
+        message: 'Could not submit your review. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const loadRatingSummary = async () => {
+    if (!vendorId) return;
+    try {
+      const res = await api.getVendorRatingSummary(vendorId);
+      if (res?.data) {
+        setRatingSummary(res.data);
+      }
+    } catch (_) {}
+  };
+
+  const loadRatings = async (star = null) => {
+    if (!vendorId) return;
+    try {
+      setLoadingRatings(true);
+      const res = await api.getVendorRatings(vendorId, { page: 1, limit: 30, star: star === 'ALL' ? null : star });
+      if (res?.data) {
+        setRatingsData(res.data);
+        if (res.data.summary) {
+          setRatingSummary(prev => ({
+            ...prev,
+            avg_rating: res.data.summary.avg_rating || prev.avg_rating,
+            rating_count: res.data.summary.total_ratings !== undefined ? res.data.summary.total_ratings : prev.rating_count,
+            star_breakdown: res.data.summary.breakdown || prev.star_breakdown
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load ratings list:', err);
+    } finally {
+      setLoadingRatings(false);
+    }
+  };
+
+  useEffect(() => {
+    if (vendorId) {
+      loadRatingSummary();
+      loadRatings(ratingStarFilter === 'ALL' ? null : ratingStarFilter);
+    }
+  }, [vendorId, ratingStarFilter]);
 
   useEffect(() => {
     if (vendorData?.vendor_id) {
@@ -115,7 +247,20 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
   const [serviceTitle, setServiceTitle] = useState('');
   const [serviceDescription, setServiceDescription] = useState('');
   const [preferredTime, setPreferredTime] = useState('Today (ASAP)');
+  const [isTimeSlotDropdownOpen, setIsTimeSlotDropdownOpen] = useState(false);
   const [submittingEnquiry, setSubmittingEnquiry] = useState(false);
+  const timeSlotDropdownRef = useRef(null);
+
+  // Click outside listener for time slot dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (timeSlotDropdownRef.current && !timeSlotDropdownRef.current.contains(e.target)) {
+        setIsTimeSlotDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleServiceEnquirySubmit = async (e) => {
     e.preventDefault();
@@ -903,6 +1048,23 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                         </span>
                       );
                     })()}
+
+                    {/* Quick Rating Summary Badge (Section 1.3 Spec) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStorefrontTab('reviews');
+                        loadRatings(ratingStarFilter === 'ALL' ? null : ratingStarFilter);
+                      }}
+                      className="flex items-center space-x-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-950 border border-amber-400/40 px-3 py-1 rounded-full text-[11px] font-extrabold transition-all cursor-pointer shadow-2xs"
+                    >
+                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                      <span>
+                        {Number(ratingSummary.rating_count || 0) > 0
+                          ? `${Number(ratingSummary.avg_rating || 0).toFixed(1)} (${ratingSummary.rating_count} Review${ratingSummary.rating_count === 1 ? '' : 's'})`
+                          : 'New (0 Reviews)'}
+                      </span>
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-3 flex-wrap my-1">
@@ -957,69 +1119,383 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       </div>
 
       <div className="max-w-7xl mx-auto">
-        {(vendorData?.vendor_type === 'service' || vendorData?.can_add_items === false) ? (
-          <div className="bg-white border border-[#315C45]/20 rounded-3xl p-6 sm:p-8 max-w-xl mx-auto shadow-md space-y-5">
-            <div className="text-center space-y-1.5 border-b border-border/60 pb-4">
-              <span className="px-3 py-1 bg-emerald-50 text-emerald-900 text-xs font-bold rounded-full border border-emerald-200 inline-block uppercase tracking-wider">
-                🛠️ Verified Service Provider
-              </span>
-              <h2 className="text-xl font-serif font-extrabold text-[#202622]">
-                Book Service Request with {vendorData?.store_name}
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Submit your requirement to receive instant phone call / WhatsApp assistance at your flat.
-              </p>
+        {/* Main Storefront Navigation Tabs */}
+        <div className="flex items-center space-x-2 border-b border-border mb-6">
+          <button
+            type="button"
+            onClick={() => setStorefrontTab('catalog')}
+            className={`pb-3 px-4 text-xs font-bold transition-all border-b-2 flex items-center space-x-2 cursor-pointer ${
+              storefrontTab === 'catalog'
+                ? 'border-[#541D26] text-[#541D26]'
+                : 'border-transparent text-muted-foreground hover:text-ink'
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>Products & Catalog ({items.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStorefrontTab('reviews');
+              loadRatings(ratingStarFilter === 'ALL' ? null : ratingStarFilter);
+            }}
+            className={`pb-3 px-4 text-xs font-bold transition-all border-b-2 flex items-center space-x-2 cursor-pointer ${
+              storefrontTab === 'reviews'
+                ? 'border-[#541D26] text-[#541D26]'
+                : 'border-transparent text-muted-foreground hover:text-ink'
+            }`}
+          >
+            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+            <span>Customer Reviews ({ratingSummary.rating_count || ratingsData.pagination?.total || 0})</span>
+          </button>
+        </div>
+
+        {storefrontTab === 'reviews' ? (
+          /* ------------------------------------------------------------- */
+          /* SECTION 1.2 & 1.3: STOREFRONT REVIEWS & STAR BREAKDOWN        */
+          /* ------------------------------------------------------------- */
+          <div className="space-y-6 animate-fadeIn">
+            {/* Top Row: Overall Score & Star Breakdown Card */}
+            <div className="bg-card border border-border rounded-3xl p-6 sm:p-8 shadow-xs grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+              {/* Left Column: Big Average Number */}
+              <div className="md:col-span-4 text-center md:text-left border-b md:border-b-0 md:border-r border-border pb-6 md:pb-0 md:pr-6 space-y-2">
+                <div className="flex items-center justify-center md:justify-start gap-2">
+                  <span className="text-4xl sm:text-5xl font-serif font-black text-ink">
+                    {Number(ratingSummary.rating_count || 0) > 0 ? Number(ratingSummary.avg_rating || 0).toFixed(1) : '0.0'}
+                  </span>
+                  <span className="text-xs text-muted-foreground font-bold">/ 5.0</span>
+                </div>
+                <div className="flex items-center justify-center md:justify-start gap-1 text-amber-400">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      className={`w-5 h-5 ${
+                        Number(ratingSummary.rating_count || 0) > 0 && s <= Math.round(Number(ratingSummary.avg_rating || 0))
+                          ? 'text-amber-400 fill-amber-400'
+                          : 'text-gray-300 fill-transparent'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs font-semibold text-muted-foreground">
+                  {Number(ratingSummary.rating_count || 0) > 0
+                    ? `Based on ${ratingSummary.rating_count} verified customer review${ratingSummary.rating_count === 1 ? '' : 's'}`
+                    : 'No customer reviews yet'}
+                </p>
+              </div>
+
+              {/* Right Column: 5-to-1 Star Progress Breakdown Bars */}
+              <div className="md:col-span-8 space-y-2">
+                {[5, 4, 3, 2, 1].map((starNum) => {
+                  const breakdownObj = ratingSummary.star_breakdown || ratingSummary.breakdown || {};
+                  const count = breakdownObj[String(starNum)] || 0;
+                  const total = ratingSummary.rating_count || 1;
+                  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+
+                  return (
+                    <div key={starNum} className="flex items-center gap-3 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRatingStarFilter(String(starNum));
+                          loadRatings(String(starNum));
+                        }}
+                        className="w-12 text-left font-bold text-ink hover:text-[#541D26] cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <span>{starNum}</span>
+                        <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                      </button>
+                      <div className="flex-1 h-2.5 bg-secondary rounded-full overflow-hidden border border-border">
+                        <div
+                          className="h-full bg-amber-400 rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="w-12 text-right font-semibold text-muted-foreground text-[11px] shrink-0">
+                        {count} ({pct}%)
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            <form onSubmit={handleServiceEnquirySubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-[#202622] uppercase mb-1">Service Required *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. AC Servicing, Electrical Repair, Tap Leakage..."
-                  value={serviceTitle}
-                  onChange={(e) => setServiceTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#F7F3E8] border border-border text-xs font-medium focus:outline-none focus:border-[#315C45]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#202622] uppercase mb-1">Issue / Request Description</label>
-                <textarea
-                  rows={3}
-                  placeholder="Describe your issue or custom requirements in detail..."
-                  value={serviceDescription}
-                  onChange={(e) => setServiceDescription(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#F7F3E8] border border-border text-xs font-medium focus:outline-none focus:border-[#315C45]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#202622] uppercase mb-1">Preferred Date / Time Slot</label>
-                <select
-                  value={preferredTime}
-                  onChange={(e) => setPreferredTime(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#F7F3E8] border border-border text-xs font-medium focus:outline-none focus:border-[#315C45]"
-                >
-                  <option value="Today (ASAP)">Today (ASAP)</option>
-                  <option value="Today Evening (4 PM - 8 PM)">Today Evening (4 PM - 8 PM)</option>
-                  <option value="Tomorrow Morning (9 AM - 1 PM)">Tomorrow Morning (9 AM - 1 PM)</option>
-                  <option value="Tomorrow Evening (4 PM - 8 PM)">Tomorrow Evening (4 PM - 8 PM)</option>
-                  <option value="Weekend Slot">Weekend Slot</option>
-                </select>
+            {/* Star Filter Pills & Write a Review CTA Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
+                {['ALL', '5', '4', '3', '2', '1'].map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => {
+                      setRatingStarFilter(st);
+                      loadRatings(st);
+                    }}
+                    className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all uppercase tracking-wider cursor-pointer ${
+                      ratingStarFilter === st
+                        ? 'bg-[#541D26] text-white shadow-xs'
+                        : 'bg-card text-muted-foreground hover:text-ink border border-border'
+                    }`}
+                  >
+                    {st === 'ALL' ? 'All Reviews' : `${st} Stars`}
+                  </button>
+                ))}
               </div>
 
               <button
-                type="submit"
-                disabled={submittingEnquiry}
-                className="w-full py-3.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                type="button"
+                onClick={() => {
+                  if (!checkResidentAuth()) {
+                    setIsLoginModalOpen(true);
+                    return;
+                  }
+                  setShowReviewModal(true);
+                }}
+                className="px-5 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer uppercase tracking-wider shrink-0"
               >
-                <span>{submittingEnquiry ? 'Sending Request...' : 'Submit Service Enquiry & Open WhatsApp'}</span>
+                <Star className="w-3.5 h-3.5 text-[#C8A878] fill-[#C8A878]" />
+                <span>Write a Review</span>
               </button>
-            </form>
+            </div>
+
+            {/* Customer Reviews Listing */}
+            {loadingRatings ? (
+              <div className="p-12 text-center text-muted-foreground text-xs font-semibold">
+                Loading reviews...
+              </div>
+            ) : (ratingsData.ratings || []).length === 0 ? (
+              <div className="bg-card rounded-3xl p-12 text-center border border-border space-y-3 shadow-xs">
+                <div className="w-14 h-14 rounded-full bg-secondary text-amber-500 flex items-center justify-center mx-auto border border-border">
+                  <Star className="w-7 h-7 text-amber-400 fill-amber-400" />
+                </div>
+                <h3 className="text-base font-serif font-bold text-ink">
+                  {ratingStarFilter === 'ALL' ? 'No Reviews Yet for this Vendor' : `No ${ratingStarFilter}-Star Reviews Found`}
+                </h3>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto font-medium">
+                  {ratingStarFilter === 'ALL'
+                    ? 'Be the first resident to share your experience with this merchant!'
+                    : 'Try selecting "All Reviews" to see other ratings.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(ratingsData.ratings || []).map((rev, idx) => {
+                  const ratingVal = parseFloat(rev.rating || 5);
+                  return (
+                    <div
+                      key={rev.rating_id ? `${rev.rating_id}_${idx}` : `rev_${idx}`}
+                      className="bg-card rounded-2xl p-5 border border-border hover:border-[#541D26]/30 hover:shadow-xs transition-all space-y-3 flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Header: Customer Name + Date + Rating Badge */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center space-x-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-[#541D26] text-white flex items-center justify-center text-xs font-bold font-serif shrink-0">
+                              {(rev.user_name || 'U').slice(0, 1).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="text-xs font-bold text-ink truncate flex items-center gap-1.5">
+                                <span>{rev.user_name || 'Resident Customer'}</span>
+                                <span className="px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-800 text-[9px] font-black border border-emerald-200">
+                                  Verified
+                                </span>
+                              </h4>
+                              <p className="text-[10px] text-muted-foreground">
+                                {rev.created_at ? new Date(rev.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently'}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full text-amber-950 text-xs font-black shrink-0">
+                            <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                            <span>{ratingVal.toFixed(1)}</span>
+                          </div>
+                        </div>
+
+                        {/* Stars */}
+                        <div className="flex items-center gap-0.5 mt-2">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={`w-3.5 h-3.5 ${
+                                s <= ratingVal
+                                  ? 'text-amber-400 fill-amber-400'
+                                  : 'text-gray-300 fill-transparent'
+                              }`}
+                            />
+                          ))}
+                          {rev.order_id && (
+                            <span className="text-[10px] font-mono text-muted-foreground ml-2">
+                              Order #{rev.order_id}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Review text */}
+                        {(rev.review_text || rev.comment || rev.review || rev.feedback || rev.notes || rev.message) && (
+                          <p className="text-xs text-ink/90 mt-2 bg-secondary/30 p-2.5 rounded-xl border border-border/60 italic leading-relaxed">
+                            "{rev.review_text || rev.comment || rev.review || rev.feedback || rev.notes || rev.message}"
+                          </p>
+                        )}
+
+                        {/* Merchant Response (VendorReplyCard - Section 3.3 Spec) */}
+                        {(rev.reply_text || rev.reply || rev.response || rev.merchant_reply || rev.vendor_reply || rev.merchant_response) && (
+                          <div className="mt-2.5 text-[11px] text-emerald-950 bg-emerald-50/90 p-3 rounded-xl border border-emerald-200 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <strong className="font-bold text-emerald-900 flex items-center gap-1">
+                                <span>🏪 Merchant Response:</span>
+                              </strong>
+                              {(rev.replied_at || rev.repliedAt || rev.reply_created_at) && (
+                                <span className="text-[10px] text-emerald-700">
+                                  {new Date(rev.replied_at || rev.repliedAt || rev.reply_created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                                </span>
+                              )}
+                            </div>
+                            <p className="italic text-emerald-900 leading-relaxed">
+                              "{rev.reply_text || rev.reply || rev.response || rev.merchant_reply || rev.vendor_reply || rev.merchant_response}"
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : (
+          /* ------------------------------------------------------------- */
+          /* CATALOG / SERVICE VIEW                                        */
+          /* ------------------------------------------------------------- */
+          (vendorData?.vendor_type === 'service' || vendorData?.can_add_items === false) ? (
+            <div className="bg-white border border-[#315C45]/20 rounded-3xl p-6 sm:p-8 max-w-xl mx-auto shadow-md space-y-5">
+              <div className="text-center space-y-1.5 border-b border-border/60 pb-4">
+                <span className="px-3 py-1 bg-emerald-50 text-emerald-900 text-xs font-bold rounded-full border border-emerald-200 inline-block uppercase tracking-wider">
+                  🛠️ Verified Service Provider
+                </span>
+                <h2 className="text-xl font-serif font-extrabold text-[#202622]">
+                  Book Service Request with {vendorData?.store_name}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Submit your requirement to receive instant phone call / WhatsApp assistance at your flat.
+                </p>
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStorefrontTab('reviews');
+                      loadRatings();
+                    }}
+                    className="text-[11px] font-bold text-[#541D26] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                    <span>View Reviews ({ratingSummary.rating_count || 0})</span>
+                  </button>
+                  <span className="text-stone-300">•</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!checkResidentAuth()) {
+                        setIsLoginModalOpen(true);
+                        return;
+                      }
+                      setShowReviewModal(true);
+                    }}
+                    className="text-[11px] font-extrabold text-[#541D26] hover:text-[#7A2B37] flex items-center gap-1 bg-amber-50 hover:bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-200 cursor-pointer"
+                  >
+                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                    <span>Rate Service Provider</span>
+                  </button>
+                </div>
+              </div>
+
+              <form onSubmit={handleServiceEnquirySubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#202622] uppercase mb-1">Service Required *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. AC Servicing, Electrical Repair, Tap Leakage..."
+                    value={serviceTitle}
+                    onChange={(e) => setServiceTitle(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#F7F3E8] border border-border text-xs font-medium focus:outline-none focus:border-[#315C45]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#202622] uppercase mb-1">Issue / Request Description</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Describe your issue or custom requirements in detail..."
+                    value={serviceDescription}
+                    onChange={(e) => setServiceDescription(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#F7F3E8] border border-border text-xs font-medium focus:outline-none focus:border-[#315C45]"
+                  />
+                </div>
+
+                <div className="relative" ref={timeSlotDropdownRef}>
+                  <label className="block text-xs font-bold text-[#202622] uppercase mb-1.5 flex items-center justify-between">
+                    <span>Preferred Date / Time Slot</span>
+                    <span className="text-[10px] font-semibold text-[#541D26] bg-[#541D26]/10 px-2 py-0.5 rounded-full">Flexible</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsTimeSlotDropdownOpen(!isTimeSlotDropdownOpen)}
+                    className="w-full px-4 py-3 rounded-xl bg-[#F7F4EE] hover:bg-white border border-[#E5DAD0] text-xs font-bold text-[#211A19] flex items-center justify-between transition-all shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#541D26]/20 focus:border-[#541D26] group"
+                  >
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <Clock className="w-4 h-4 text-[#541D26] shrink-0" />
+                      <span className="truncate font-bold text-[#211A19]">{preferredTime}</span>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-muted-foreground group-hover:text-[#541D26] transition-transform duration-200 shrink-0 ${isTimeSlotDropdownOpen ? 'rotate-180 text-[#541D26]' : ''}`} />
+                  </button>
+
+                  {isTimeSlotDropdownOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E5DAD0] rounded-2xl shadow-xl z-50 overflow-hidden p-1.5 space-y-1 animate-fadeIn">
+                      {TIME_SLOT_OPTIONS.map((slot) => {
+                        const isSelected = preferredTime === slot.value;
+                        return (
+                          <button
+                            key={slot.value}
+                            type="button"
+                            onClick={() => {
+                              setPreferredTime(slot.value);
+                              setIsTimeSlotDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                              isSelected
+                                ? 'bg-[#541D26] text-white shadow-xs'
+                                : 'hover:bg-[#FAF6EE] text-[#211A19]'
+                            }`}
+                          >
+                            <span className="font-bold text-xs">{slot.label}</span>
+                            <div className="flex items-center space-x-2">
+                              <span className={`text-[9.5px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                isSelected ? 'bg-white/20 text-[#C8A878]' : 'bg-[#541D26]/10 text-[#541D26]'
+                              }`}>
+                                {slot.badge}
+                              </span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#C8A878]" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submittingEnquiry}
+                  className="w-full py-3.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                >
+                  <span>{submittingEnquiry ? 'Sending Request...' : 'Submit Service Enquiry & Open WhatsApp'}</span>
+                </button>
+              </form>
+            </div>
+          ) : (
           <>
             {/* Category Navigation Pills & Search Input */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6 bg-card border border-border p-3 rounded-2xl shadow-sm">
@@ -1171,7 +1647,8 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
           </div>
         )}
           </>
-        )}
+        )
+      )}
       </div>
 
       {/* Floating Bottom Cart Bar */}
@@ -1508,6 +1985,142 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rate & Review Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-[#E5DAD0] space-y-5 animate-scaleUp relative max-h-[90vh] overflow-y-auto">
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowReviewModal(false)}
+              className="absolute right-5 top-5 w-8 h-8 rounded-full bg-[#FAF6EE] hover:bg-[#F0E6DD] text-[#211A19] flex items-center justify-center text-sm font-bold transition-all cursor-pointer"
+            >
+              ✕
+            </button>
+
+            {/* Modal Header */}
+            <div>
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 mb-1.5">
+                <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                Customer Feedback
+              </span>
+              <h3 className="text-lg sm:text-xl font-serif font-black text-[#211A19]">
+                Rate & Review {vendorData?.store_name || 'Service Provider'}
+              </h3>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                Share your authentic service experience with your society community.
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmitReview} className="space-y-4">
+              {/* Star Rating Selector */}
+              <div className="bg-[#FAF6EE] p-4 rounded-2xl border border-[#E5DAD0]/80 text-center space-y-2">
+                <label className="block text-xs font-bold text-[#211A19] uppercase tracking-wider">
+                  Select Your Overall Rating
+                </label>
+                <div className="flex items-center justify-center gap-2 py-1">
+                  {[1, 2, 3, 4, 5].map((starVal) => {
+                    const activeRating = reviewHoverStars || reviewStars;
+                    const isFilled = starVal <= activeRating;
+                    return (
+                      <button
+                        key={starVal}
+                        type="button"
+                        onMouseEnter={() => setReviewHoverStars(starVal)}
+                        onMouseLeave={() => setReviewHoverStars(0)}
+                        onClick={() => setReviewStars(starVal)}
+                        className="p-1.5 transition-transform hover:scale-125 cursor-pointer focus:outline-none"
+                      >
+                        <Star
+                          className={`w-8 h-8 transition-colors ${
+                            isFilled
+                              ? 'text-amber-500 fill-amber-500 drop-shadow-xs'
+                              : 'text-stone-300 fill-transparent hover:text-amber-300'
+                          }`}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="text-xs font-extrabold text-[#541D26]">
+                  {(reviewHoverStars || reviewStars) === 5 && '🌟 Excellent (5.0 / 5.0)'}
+                  {(reviewHoverStars || reviewStars) === 4 && '😊 Very Good (4.0 / 5.0)'}
+                  {(reviewHoverStars || reviewStars) === 3 && '🙂 Good (3.0 / 5.0)'}
+                  {(reviewHoverStars || reviewStars) === 2 && '😕 Fair (2.0 / 5.0)'}
+                  {(reviewHoverStars || reviewStars) === 1 && '😠 Poor (1.0 / 5.0)'}
+                </div>
+              </div>
+
+              {/* Quick Feedback Tags */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#211A19] uppercase tracking-wider">
+                  What did you like about the service? <span className="font-normal text-muted-foreground">(Optional)</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {REVIEW_QUICK_TAGS.map((tag) => {
+                    const isSelected = selectedReviewTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedReviewTags(selectedReviewTags.filter((t) => t !== tag));
+                          } else {
+                            setSelectedReviewTags([...selectedReviewTags, tag]);
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#541D26] text-white shadow-xs'
+                            : 'bg-[#F7F4EE] text-[#211A19] hover:bg-[#EAE2D5] border border-[#E5DAD0]'
+                        }`}
+                      >
+                        <span>{tag}</span>
+                        {isSelected && <Check className="w-3 h-3 text-[#C8A878]" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Review Text */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#211A19] uppercase tracking-wider">
+                  Your Review Details <span className="font-normal text-muted-foreground">(Optional)</span>
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Describe what went well, service punctuality, pricing transparency, or areas of improvement..."
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  className="w-full px-4 py-3 rounded-2xl bg-[#F7F4EE] border border-[#E5DAD0] text-xs font-medium text-[#211A19] placeholder:text-[#211A19]/50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#541D26]/20 focus:border-[#541D26] transition-all"
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex items-center space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowReviewModal(false)}
+                  className="flex-1 py-3 rounded-2xl bg-[#FAF6EE] hover:bg-[#F0E6DD] text-[#211A19] font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingReview}
+                  className="flex-1 py-3 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Star className="w-3.5 h-3.5 text-[#C8A878] fill-[#C8A878]" />
+                  <span>{submittingReview ? 'Submitting...' : 'Post Review'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

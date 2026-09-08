@@ -140,6 +140,31 @@ export function getCategoryCoverImage(vendor) {
   return null;
 }
 
+export function getVendorRating(vendor, liveRatingsMap = {}) {
+  if (!vendor) return 0;
+  const vId = String(vendor.vendor_id || vendor.id || '');
+  if (liveRatingsMap && liveRatingsMap[vId] !== undefined && liveRatingsMap[vId] !== null) {
+    const num = parseFloat(liveRatingsMap[vId]);
+    if (!isNaN(num)) return num;
+  }
+  try {
+    const cached = localStorage.getItem(`digilocal_vendor_rating_summary_${vId}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed?.avg_rating !== undefined && parsed?.avg_rating !== null) {
+        const num = parseFloat(parsed.avg_rating);
+        if (!isNaN(num)) return num;
+      }
+    }
+  } catch (_) {}
+  const raw = vendor.rating ?? vendor.avg_rating ?? vendor.store_rating ?? vendor.vendor_rating ?? vendor.rating_score;
+  if (raw !== undefined && raw !== null && raw !== '') {
+    const num = parseFloat(raw);
+    if (!isNaN(num)) return num;
+  }
+  return 0;
+}
+
 export default function SocietyVendorsPage({ societyId: initialSocietyId, setRoute, onOpenLoginModal }) {
   const [currentSocietyId, setCurrentSocietyId] = useState(initialSocietyId || 'all');
   const [society, setSociety] = useState(null);
@@ -147,6 +172,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
   const [allMasterVendors, setAllMasterVendors] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [liveRatingsMap, setLiveRatingsMap] = useState({});
   const [showLoginPromptModal, setShowLoginPromptModal] = useState(false);
   const [selectedVendorForPrompt, setSelectedVendorForPrompt] = useState(null);
 
@@ -187,7 +213,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
           store_name: vendor.store_name,
           category: vendor.category || 'General Store',
           logo: vendor.logo || vendor.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
-          rating: vendor.rating || '4.9',
+          rating: vendor.rating || (getVendorRating(vendor, liveRatingsMap) > 0 ? getVendorRating(vendor, liveRatingsMap).toFixed(1) : ''),
           delivery_time: vendor.delivery_time || '15 mins'
         });
       }
@@ -200,7 +226,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
   // Custom Dropdown & Sort State
   const [isSocietyDropdownOpen, setIsSocietyDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
-  const [sortBy, setSortBy] = useState('rating_high'); // 'rating_high' | 'rating_low' | 'nearest' | 'farthest'
+  const [sortBy, setSortBy] = useState('rating_high'); // 'rating_high' | 'rating_low'
   const [vendorTypeTab, setVendorTypeTab] = useState('all'); // 'all' | 'products' | 'services'
   const [societyFilterSearch, setSocietyFilterSearch] = useState('');
   const dropdownRef = useRef(null);
@@ -323,6 +349,33 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
       }
 
       setAllMasterVendors(Array.isArray(venData) ? venData : []);
+
+      // Fetch live rating summaries for all loaded vendors to ensure 100% sync with backend reviews
+      if (Array.isArray(venData) && venData.length > 0) {
+        Promise.allSettled(
+          venData.map(async (v) => {
+            const vId = String(v.vendor_id || v.id || '');
+            if (!vId) return null;
+            try {
+              const res = await api.getVendorRatingSummary(vId);
+              if (res?.data && res.data.avg_rating !== undefined) {
+                return { vId, avg_rating: Number(res.data.avg_rating) };
+              }
+            } catch (_) {}
+            return null;
+          })
+        ).then((results) => {
+          const map = {};
+          results.forEach((r) => {
+            if (r.status === 'fulfilled' && r.value) {
+              map[r.value.vId] = r.value.avg_rating;
+            }
+          });
+          if (Object.keys(map).length > 0) {
+            setLiveRatingsMap((prev) => ({ ...prev, ...map }));
+          }
+        });
+      }
     } catch (err) {
       console.error('Failed to load vendors:', err);
     } finally {
@@ -355,30 +408,23 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
       });
     }
 
-    // Sort Options Processing
+    // Sort Options Processing - Rating sort
     if (sortBy === 'rating_high') {
-      list.sort((a, b) => (parseFloat(b.rating || b.vendor_rating || 4.5) - parseFloat(a.rating || a.vendor_rating || 4.5)));
-    } else if (sortBy === 'rating_low') {
-      list.sort((a, b) => (parseFloat(a.rating || a.vendor_rating || 4.5) - parseFloat(b.rating || b.vendor_rating || 4.5)));
-    } else if (sortBy === 'nearest') {
       list.sort((a, b) => {
-        const isANear = (a.is_local || a.inside_society || String(a.society_id) === String(currentSocietyId)) ? 1 : 0;
-        const isBNear = (b.is_local || b.inside_society || String(b.society_id) === String(currentSocietyId)) ? 1 : 0;
-        if (isANear !== isBNear) return isBNear - isANear;
-        const distA = parseFloat(a.distance_km || a.delivery_distance_km || 0.5);
-        const distB = parseFloat(b.distance_km || b.delivery_distance_km || 0.5);
-        return distA - distB;
+        const ratingA = getVendorRating(a, liveRatingsMap);
+        const ratingB = getVendorRating(b, liveRatingsMap);
+        return ratingB - ratingA;
       });
-    } else if (sortBy === 'farthest') {
+    } else if (sortBy === 'rating_low') {
       list.sort((a, b) => {
-        const distA = parseFloat(a.distance_km || a.delivery_distance_km || 0.5);
-        const distB = parseFloat(b.distance_km || b.delivery_distance_km || 0.5);
-        return distB - distA;
+        const ratingA = getVendorRating(a, liveRatingsMap);
+        const ratingB = getVendorRating(b, liveRatingsMap);
+        return ratingA - ratingB;
       });
     }
 
     return list;
-  }, [allMasterVendors, search, currentSocietyId, sortBy]);
+  }, [allMasterVendors, search, currentSocietyId, sortBy, liveRatingsMap]);
 
   const filteredVendors = useMemo(() => {
     let list = sortedVendors;
@@ -720,16 +766,13 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                 className="w-full sm:w-auto px-3 py-1.5 rounded-xl border border-border bg-[#F7F4EE] hover:bg-white text-ink text-xs font-bold transition-all shadow-2xs flex items-center justify-between gap-1.5 cursor-pointer group"
               >
                 <span className="truncate">
-                  {sortBy === 'rating_high' && '⭐ High Rated'}
-                  {sortBy === 'rating_low' && '⭐ Low Rated'}
-                  {sortBy === 'nearest' && '📍 Nearest First'}
-                  {sortBy === 'farthest' && '📍 Farthest First'}
+                  {sortBy === 'rating_high' ? '⭐ Highest Rated' : '⭐ Lowest Rated'}
                 </span>
                 <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground group-hover:text-ink transition-transform duration-200 ${isSortDropdownOpen ? 'rotate-180 text-[#541D26]' : ''}`} />
               </button>
 
               {isSortDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-[#E4DCC9] rounded-xl shadow-2xl z-50 overflow-hidden p-1 space-y-0.5 animate-fadeIn">
+                <div className="absolute right-0 top-full mt-1.5 w-44 bg-white border border-[#E4DCC9] rounded-xl shadow-2xl z-50 overflow-hidden p-1 space-y-0.5 animate-fadeIn">
                   <button
                     type="button"
                     onClick={() => { setSortBy('rating_high'); setIsSortDropdownOpen(false); }}
@@ -752,30 +795,6 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                       <span>Lowest Rated</span>
                     </div>
                     {sortBy === 'rating_low' && <Check className="w-3 h-3 text-[#C8A878]" />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setSortBy('nearest'); setIsSortDropdownOpen(false); }}
-                    className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${sortBy === 'nearest' ? 'bg-[#541D26] text-white shadow-xs' : 'hover:bg-[#EEE5DA] text-[#211A19]'}`}
-                  >
-                    <div className="flex items-center space-x-1.5">
-                      <MapPin className="w-3 h-3 text-emerald-600" />
-                      <span>Nearest First</span>
-                    </div>
-                    {sortBy === 'nearest' && <Check className="w-3 h-3 text-[#C8A878]" />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setSortBy('farthest'); setIsSortDropdownOpen(false); }}
-                    className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${sortBy === 'farthest' ? 'bg-[#541D26] text-white shadow-xs' : 'hover:bg-[#EEE5DA] text-[#211A19]'}`}
-                  >
-                    <div className="flex items-center space-x-1.5">
-                      <MapPin className="w-3 h-3 text-rose-600" />
-                      <span>Farthest First</span>
-                    </div>
-                    {sortBy === 'farthest' && <Check className="w-3 h-3 text-[#C8A878]" />}
                   </button>
                 </div>
               )}
@@ -911,10 +930,16 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                                 <h3 className="font-serif font-black text-sm sm:text-base text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight truncate">
                                   {vendor.store_name}
                                 </h3>
-                                <span className="inline-flex items-center space-x-0.5 px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[8.5px] font-extrabold shrink-0">
-                                  <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
-                                  <span>Verified</span>
-                                </span>
+                                <div className="flex items-center space-x-1 shrink-0">
+                                  <span className="inline-flex items-center space-x-0.5 px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[8.5px] font-extrabold">
+                                    <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500 shrink-0" />
+                                    <span>{getVendorRating(vendor, liveRatingsMap) > 0 ? getVendorRating(vendor, liveRatingsMap).toFixed(1) : 'New'}</span>
+                                  </span>
+                                  <span className="inline-flex items-center space-x-0.5 px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[8.5px] font-extrabold">
+                                    <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                    <span>Verified</span>
+                                  </span>
+                                </div>
                               </div>
                               <p className="text-[11px] text-muted-foreground font-medium truncate mt-0.5">
                                 By {vendor.vendor_name || 'Vendor Merchant'} • <span className="text-[#541D26] font-semibold">{vendor.category || (isService ? 'Services' : 'Essentials')}</span>

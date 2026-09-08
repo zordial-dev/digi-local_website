@@ -47,18 +47,55 @@ export default function BlockedAccountModal({ isOpen = true, onClose, onOpenSupp
           {message}
         </p>
 
-        {/* Reason Box */}
-        <div className="p-4 bg-rose-950/40 border border-rose-500/25 rounded-2xl space-y-1.5 text-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-rose-400">
-            Official Block Notice & Reason:
-          </span>
-          <p className="font-semibold text-white/95">
-            "{reason}"
-          </p>
-          <p className="text-[11px] text-[#D6B7A5] pt-1">
-            Account Type: <strong className="text-white">{accountType}</strong>
-          </p>
-        </div>
+        {/* Reason Box / Strikes List */}
+        {Array.isArray(blockInfo?.strike_reasons_list) && blockInfo.strike_reasons_list.length > 0 ? (
+          <div className="p-4 bg-rose-950/40 border border-rose-500/25 rounded-2xl space-y-2.5 text-xs">
+            <div className="flex items-center justify-between border-b border-rose-500/20 pb-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-rose-400">
+                {blockInfo.is_auto_banned || blockInfo.strikes >= 3 ? '⚡ 3-Strike Auto-Ban Record' : 'Official Strike Reasons:'}
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                {blockInfo.strikes || blockInfo.strike_reasons_list.length}/3 Strikes
+              </span>
+            </div>
+
+            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+              {(blockInfo.strike_reasons || blockInfo.strike_reasons_list).map((st, i) => {
+                const strikeNumber = typeof st === 'object' ? (st.strike_number || i + 1) : i + 1;
+                const reasonText = typeof st === 'object' ? (st.reason || '') : st;
+                const dateText = typeof st === 'object' && st.created_at ? new Date(st.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : null;
+
+                return (
+                  <div key={i} className="p-2 rounded-xl bg-black/40 border border-rose-500/20 text-[11px] space-y-0.5">
+                    <div className="flex items-center justify-between text-rose-400 font-extrabold text-[10px] uppercase">
+                      <span>Strike #{strikeNumber}</span>
+                      {dateText && <span className="text-white/40">{dateText}</span>}
+                    </div>
+                    <p className="text-white/95 font-medium leading-tight">
+                      {reasonText}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="text-[11px] text-[#D6B7A5] pt-0.5">
+              Account Type: <strong className="text-white">{accountType}</strong>
+            </p>
+          </div>
+        ) : (
+          <div className="p-4 bg-rose-950/40 border border-rose-500/25 rounded-2xl space-y-1.5 text-xs">
+            <span className="text-[10px] font-black uppercase tracking-wider text-rose-400">
+              Official Block Notice & Reason:
+            </span>
+            <p className="font-semibold text-white/95">
+              "{reason}"
+            </p>
+            <p className="text-[11px] text-[#D6B7A5] pt-1">
+              Account Type: <strong className="text-white">{accountType}</strong>
+            </p>
+          </div>
+        )}
 
         {/* Support Instructions */}
         <div className="space-y-2.5 pt-1">

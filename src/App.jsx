@@ -14,6 +14,7 @@ import UserProfilePage from './pages/UserProfilePage';
 import LoginModal from './components/LoginModal';
 import SupportDeskModal from './components/SupportDeskModal';
 import BlockedAccountModal from './components/BlockedAccountModal';
+import UserStrikeWarningModal from './components/UserStrikeWarningModal';
 import FloatingCartBar from './components/FloatingCartBar';
 import { api } from './services/api';
 
@@ -137,6 +138,7 @@ export default function App() {
   const [isSupportDeskOpen, setIsSupportDeskOpen] = useState(false);
   const [platformConfig, setPlatformConfig] = useState(null);
   const [blockedAccountInfo, setBlockedAccountInfo] = useState(null);
+  const [userStrikeWarningInfo, setUserStrikeWarningInfo] = useState(null);
 
   // Restore Active User & Vendor sessions on mount & check status ONCE
   useEffect(() => {
@@ -188,11 +190,20 @@ export default function App() {
               code: statusRes.code || 'USER_BLOCKED',
               title: 'Resident Account Blocked',
               error: statusRes.error || statusRes.message,
-              message: statusRes.message || 'Your resident user account has been blocked by administrator.',
-              blockReason: statusRes.block_reason || 'Violation of community rules'
+              message: statusRes.message || 'Your resident user account has been blocked due to policy violations or 3 strikes limit. Please log out and contact customer support.',
+              blockReason: statusRes.block_reason || 'Exceeded 3 Strikes Moderation Limit',
+              is_auto_banned: statusRes.is_auto_banned || statusRes.strikes >= 3,
+              strikes: statusRes.strikes || 3,
+              strike_reasons_list: statusRes.strike_reasons_list || [],
+              strike_reasons: statusRes.strike_reasons || []
             });
             setRoute({ page: 'login', accountType: 'resident' });
-          } else if (statusRes && (statusRes.success || statusRes.name || statusRes.user)) {
+          } else if (statusRes && (statusRes.show_second_strike_warning || statusRes.strikes === 2)) {
+            // Trigger 2nd Strike Warning Modal for Resident User
+            setUserStrikeWarningInfo(statusRes);
+          }
+          
+          if (statusRes && (statusRes.success || statusRes.name || statusRes.user)) {
             // Sync complete v2.5.0 profile & address attributes
             const uData = statusRes.user || statusRes;
             const freshName = uData.name;
@@ -464,6 +475,16 @@ export default function App() {
           setIsSupportDeskOpen(true);
         }}
         blockInfo={blockedAccountInfo}
+      />
+
+      <UserStrikeWarningModal
+        isOpen={Boolean(userStrikeWarningInfo)}
+        onClose={() => setUserStrikeWarningInfo(null)}
+        onOpenSupport={() => {
+          setUserStrikeWarningInfo(null);
+          setIsSupportDeskOpen(true);
+        }}
+        strikeInfo={userStrikeWarningInfo}
       />
 
       {/* Floating Bottom Cart Bar (Sticky View Cart Bar) */}
