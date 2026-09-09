@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="burgundyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#63222D" />
+      <stop offset="100%" stopColor="#4A151D" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#D8BA8C" />
+      <stop offset="100%" stopColor="#B38D56" />
+    </linearGradient>
+  </defs>
+
+  <!-- Arched Basket Handle -->
+  <path d="M 128 220 C 128 140 185 80 256 80 C 327 80 384 140 384 220" stroke="url(#burgundyGrad)" stroke-width="26" stroke-linecap="round" fill="none" />
+  
+  <!-- Top Gold Pearl -->
+  <circle cx="256" cy="74" r="16" fill="url(#goldGrad)" />
+
+  <!-- Central Sprout Leaves -->
+  <path d="M 244 205 C 244 175 220 150 196 150 C 196 180 220 205 244 205 Z" fill="url(#burgundyGrad)" />
+  <path d="M 268 205 C 268 175 292 150 316 150 C 316 180 292 205 268 205 Z" fill="url(#burgundyGrad)" />
+
+  <!-- Horizontal Main Basket Rim -->
+  <rect x="52" y="218" width="408" height="28" rx="14" fill="url(#burgundyGrad)" />
+
+  <!-- Left Woven Basket Curve -->
+  <path d="M 88 246 C 92 290 108 360 148 410 C 160 425 178 434 200 434" stroke="url(#burgundyGrad)" stroke-width="24" stroke-linecap="round" fill="none" />
+  
+  <!-- Right Woven Basket Curve -->
+  <path d="M 424 246 C 420 290 404 360 364 410 C 352 425 334 434 312 434" stroke="url(#burgundyGrad)" stroke-width="24" stroke-linecap="round" fill="none" />
+
+  <!-- Horizontal Weave Bars -->
+  <path d="M 98 288 L 414 288" stroke="url(#burgundyGrad)" stroke-width="20" stroke-linecap="round" />
+  <path d="M 118 350 L 394 350" stroke="url(#burgundyGrad)" stroke-width="20" stroke-linecap="round" />
+
+  <!-- Base Gold Accent Strip -->
+  <rect x="238" y="420" width="36" height="18" rx="4" fill="url(#goldGrad)" />
+  <rect x="180" y="278" width="20" height="20" rx="3" fill="url(#goldGrad)" />
+
+  <!-- Center 'D' Monogram in Burgundy & Gold -->
+  <path d="M 218 270 L 258 270 C 292 270 314 290 314 324 C 314 358 292 378 258 378 L 218 378 Z" fill="none" stroke="url(#burgundyGrad)" stroke-width="22" stroke-linejoin="round" />
+  <line x1="218" y1="264" x2="218" y2="384" stroke="url(#burgundyGrad)" stroke-width="22" stroke-linecap="round" />
+</svg>

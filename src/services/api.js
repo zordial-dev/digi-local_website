@@ -525,13 +525,27 @@ export const api = {
 
           if (match) {
             if (!isOtpLogin && inputPassword && match.password && match.password !== inputPassword) {
-              throw new Error('Incorrect password. Please check your password and try again.');
+              throw new Error('Incorrect password. Please check your credentials and try again.');
             }
             return {
               message: 'User login successful',
               user: match,
               token: `user_jwt_token_${Date.now()}`
             };
+          }
+        }
+      }
+
+      // Also check saved resident session if exists
+      const sessionUserStr = localStorage.getItem('digilocal_resident_session') || localStorage.getItem('digilocal_user_session');
+      if (sessionUserStr) {
+        const parsed = JSON.parse(sessionUserStr);
+        const u = parsed.user || parsed;
+        const uPhone = String(u.phone || u.mobile || '').replace(/[^0-9]/g, '');
+        const uEmail = String(u.email || '').toLowerCase().trim();
+        if ((inputPhone && uPhone === inputPhone) || (inputEmail && uEmail === inputEmail)) {
+          if (!isOtpLogin && inputPassword && u.password && u.password !== inputPassword) {
+            throw new Error('Incorrect password. Please check your credentials and try again.');
           }
         }
       }
@@ -3537,7 +3551,7 @@ export const api = {
           if (v && String(v.vendor_id || v.id) === String(vendorId)) {
             const updatedVendor = { ...v, ...updatedFields };
             const finalObj = parsed.vendor ? { ...parsed, vendor: updatedVendor } : updatedVendor;
-            localStorage.setItem(key, JSON.stringify(finalObj));
+        localStorage.setItem(key, JSON.stringify(finalObj));
           }
         }
       }
@@ -3546,6 +3560,9 @@ export const api = {
 
   // 4.5 Update Store Settings
   updateVendorSettings: async (vendorId, settingsData, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const targetVendorId = vendorId || settingsData.vendor_id || settingsData.vendorId || 1;
+
     const storeName = settingsData.store_name || settingsData.shop_business_name || settingsData.shop_name || settingsData.vendor_name || '';
     const ownerName = settingsData.vendor_name || settingsData.owner_name || settingsData.merchant_name || '';
     const emailVal = settingsData.email || settingsData.store_email || '';
@@ -3560,6 +3577,8 @@ export const api = {
 
     const normalizedPayload = {
       ...settingsData,
+      vendor_id: targetVendorId,
+      vendorId: targetVendorId,
       store_name: storeName,
       shop_business_name: storeName,
       shop_name: storeName,
@@ -3604,6 +3623,11 @@ export const api = {
       closing_timing: closeTime,
       closing_time: closeTime,
 
+      min_order_value: Number(settingsData.min_order_value) || 0,
+      delivery_charge: Number(settingsData.delivery_charge) || 0,
+      gst_percentage: Number(settingsData.gst_percentage) || 0,
+      service_charge_percentage: Number(settingsData.service_charge_percentage) || 0,
+
       location: settingsData.location || settingsData.area || '',
       area: settingsData.area || settingsData.location || '',
       city: settingsData.city || '',
@@ -3628,20 +3652,24 @@ export const api = {
       }
     };
 
-    if (vendorId) {
+    if (targetVendorId) {
       try {
-        localStorage.setItem('digilocal_vendor_saved_settings_' + vendorId, JSON.stringify(normalizedPayload));
-        if (rawPan) localStorage.setItem('digilocal_pan_' + vendorId, rawPan);
-        if (rawGst) localStorage.setItem('digilocal_gst_' + vendorId, rawGst);
+        localStorage.setItem('digilocal_vendor_saved_settings_' + targetVendorId, JSON.stringify(normalizedPayload));
+        if (rawPan) localStorage.setItem('digilocal_pan_' + targetVendorId, rawPan);
+        if (rawGst) localStorage.setItem('digilocal_gst_' + targetVendorId, rawGst);
       } catch (_) {}
     }
 
     const endpointsToTry = [
-      { url: `${API_BASE}/vendorPanel/${vendorId}/settings`, method: 'PUT' },
-      { url: `${API_BASE}/vendors/${vendorId}`, method: 'PUT' },
-      { url: `${API_BASE}/vendors/${vendorId}`, method: 'PATCH' },
-      { url: `${API_BASE}/vendorPanel/${vendorId}`, method: 'PUT' },
-      { url: `${API_BASE}/vendor/${vendorId}`, method: 'PUT' }
+      { url: `${API_BASE}/vendorPanel/${targetVendorId}/settings`, method: 'PUT' },
+      { url: `${API_BASE}/vendorPanel/${targetVendorId}/settings`, method: 'POST' },
+      { url: `${API_BASE}/vendors/${targetVendorId}/settings`, method: 'PUT' },
+      { url: `${API_BASE}/vendors/${targetVendorId}/settings`, method: 'POST' },
+      { url: `${API_BASE}/vendors/${targetVendorId}`, method: 'PUT' },
+      { url: `${API_BASE}/vendors/${targetVendorId}`, method: 'POST' },
+      { url: `${API_BASE}/vendors/${targetVendorId}`, method: 'PATCH' },
+      { url: `${API_BASE}/vendorPanel/${targetVendorId}`, method: 'PUT' },
+      { url: `${API_BASE}/vendor/settings`, method: 'POST' }
     ];
 
     let responseData = null;
@@ -3657,14 +3685,15 @@ export const api = {
           body: JSON.stringify(normalizedPayload)
         });
         if (res.ok) {
-          const contentType = res.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
+          try {
             responseData = await res.json();
-            break;
+          } catch (_) {
+            responseData = { success: true };
           }
+          break;
         }
       } catch (err) {
-        console.warn(`Attempt failed for ${ep.url}:`, err);
+        console.warn(`Attempt failed for ${ep.method} ${ep.url}:`, err);
       }
     }
 
@@ -3672,14 +3701,14 @@ export const api = {
     if (settingsData.account_number || settingsData.bank_name) {
       try {
         api.updateVendorPaymentDetails({
-          vendor_id: vendorId,
+          vendor_id: targetVendorId,
           ...normalizedPayload
         }, jwtToken).catch(() => {});
       } catch (_) {}
     }
 
     // Synchronize into all local session keys (digilocal_vendor_session, vendor_profile, activeVendor)
-    api._syncLocalVendorSession(vendorId, normalizedPayload);
+    api._syncLocalVendorSession(targetVendorId, normalizedPayload);
 
     return responseData || {
       message: 'Store settings updated successfully',

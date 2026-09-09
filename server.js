@@ -962,6 +962,141 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
+  // Update Vendor Settings (POST, PUT, PATCH /api/vendorPanel/:vendorId/settings or /api/vendors/:vendorId/settings or /api/vendors/:vendorId)
+  if ((method === 'POST' || method === 'PUT' || method === 'PATCH') && (pathname.includes('/settings') || (pathname.startsWith('/api/vendors/') && !pathname.includes('/coverage') && !pathname.includes('/enquiries') && !pathname.includes('/ratings') && !pathname.includes('/check-coverage') && !pathname.includes('/register') && !pathname.includes('/login') && !pathname.includes('/send-otp') && !pathname.includes('/verify-otp') && !pathname.includes('/reset-password')) || pathname.startsWith('/api/vendorPanel/'))) {
+    const parts = pathname.split('/');
+    let targetVendorId = null;
+    for (let p of parts) {
+      if (p && !isNaN(Number(p))) {
+        targetVendorId = Number(p);
+        break;
+      }
+      if (p && p.startsWith('VEN-')) {
+        targetVendorId = p;
+        break;
+      }
+    }
+    const body = await getRequestBody(req);
+    targetVendorId = targetVendorId || body.vendor_id || body.vendorId || 1;
+    
+    let vendor = vendors.find(v => String(v.vendor_id) === String(targetVendorId));
+    if (!vendor && vendors.length > 0) {
+      vendor = vendors[0];
+    }
+    
+    if (vendor) {
+      if (body.store_name || body.shop_business_name || body.shop_name || body.name) {
+        vendor.store_name = body.store_name || body.shop_business_name || body.shop_name || body.name;
+      }
+      if (body.vendor_name || body.owner_name || body.merchant_name) {
+        vendor.vendor_name = body.vendor_name || body.owner_name || body.merchant_name;
+      }
+      if (body.email || body.store_email) vendor.email = body.email || body.store_email;
+      if (body.phone_number || body.phone || body.mobile || body.whatsapp_number) {
+        vendor.phone_number = body.phone_number || body.phone || body.mobile || body.whatsapp_number;
+      }
+      if (body.shop_number || body.shop_no || body.shopNumber) {
+        vendor.shop_number = body.shop_number || body.shop_no || body.shopNumber;
+      }
+      if (body.gstin || body.gst_number || body.gstNumber || body.gst) {
+        vendor.gstin = body.gstin || body.gst_number || body.gstNumber || body.gst;
+      }
+      if (body.pan_number || body.pan || body.panNumber || body.pan_no) {
+        vendor.pan_number = body.pan_number || body.pan || body.panNumber || body.pan_no;
+      }
+      if (body.logo || body.logo_url || body.shop_image) {
+        vendor.logo = body.logo || body.logo_url || body.shop_image;
+      }
+      if (body.description || body.store_description) {
+        vendor.description = body.description || body.store_description;
+      }
+      if (body.opening_timing || body.opening_time) {
+        vendor.opening_timing = body.opening_timing || body.opening_time;
+      }
+      if (body.closing_timing || body.closing_time) {
+        vendor.closing_timing = body.closing_timing || body.closing_time;
+      }
+      if (body.min_order_value !== undefined) vendor.min_order_value = Number(body.min_order_value) || 0;
+      if (body.delivery_charge !== undefined) vendor.delivery_charge = Number(body.delivery_charge) || 0;
+      if (body.gst_percentage !== undefined) vendor.gst_percentage = Number(body.gst_percentage) || 0;
+      if (body.service_charge_percentage !== undefined) vendor.service_charge_percentage = Number(body.service_charge_percentage) || 0;
+      if (body.location || body.area) vendor.location = body.location || body.area;
+      if (body.area) vendor.area = body.area;
+      if (body.city) vendor.city = body.city;
+      if (body.state) vendor.state = body.state;
+      if (body.pincode) vendor.pincode = body.pincode;
+      
+      // Payment details sync
+      if (body.account_holder_name || body.bank_name || body.account_number || body.ifsc_code || body.upi_id || body.qr_code_url || body.payment_details) {
+        const pd = body.payment_details || {};
+        vendor.account_holder_name = body.account_holder_name || pd.account_holder_name || vendor.account_holder_name || '';
+        vendor.bank_name = body.bank_name || pd.bank_name || vendor.bank_name || '';
+        vendor.account_number = body.account_number || pd.account_number || vendor.account_number || '';
+        vendor.ifsc_code = body.ifsc_code || pd.ifsc_code || vendor.ifsc_code || '';
+        vendor.upi_id = body.upi_id || pd.upi_id || vendor.upi_id || '';
+        vendor.qr_code_url = body.qr_code_url || pd.qr_code_url || vendor.qr_code_url || '';
+        vendor.payment_details = {
+          account_holder_name: vendor.account_holder_name,
+          bank_name: vendor.bank_name,
+          account_number: vendor.account_number,
+          ifsc_code: vendor.ifsc_code,
+          upi_id: vendor.upi_id,
+          qr_code_url: vendor.qr_code_url
+        };
+      }
+      
+      saveDB();
+      return sendJSON(res, 200, {
+        success: true,
+        message: "Store settings updated successfully",
+        vendor
+      });
+    }
+
+    return sendJSON(res, 200, {
+      success: true,
+      message: "Store settings saved",
+      vendor: { vendor_id: targetVendorId, ...body }
+    });
+  }
+
+  // Update User Profile / Settings (POST, PUT /api/users/profile or /api/users/:userId)
+  if ((method === 'POST' || method === 'PUT') && (pathname === '/api/users/profile' || pathname === '/api/users/settings' || pathname === '/api/users/address' || (pathname.startsWith('/api/users/') && !pathname.includes('/send-otp') && !pathname.includes('/verify-otp') && !pathname.includes('/login') && !pathname.includes('/register') && !pathname.includes('/orders')))) {
+    const body = await getRequestBody(req);
+    const parts = pathname.split('/');
+    let targetUserId = parts.length > 3 ? parts[3] : (body.user_id || body.userId || body.phone);
+    
+    let user = users.find(u => String(u.user_id) === String(targetUserId) || (body.phone && String(u.phone) === String(body.phone)));
+    if (!user) {
+      user = {
+        user_id: targetUserId || `usr_${Date.now()}`,
+        name: body.name || "Resident User",
+        email: body.email || "",
+        phone: body.phone || body.mobile || "",
+        society_name: body.society_name || body.society || "",
+        flat: body.flat || "",
+        created_at: new Date().toISOString()
+      };
+      users.push(user);
+    }
+    
+    if (body.name) user.name = body.name;
+    if (body.email) user.email = body.email;
+    if (body.phone || body.mobile) user.phone = body.phone || body.mobile;
+    if (body.society_name || body.society) user.society_name = body.society_name || body.society;
+    if (body.flat) user.flat = body.flat;
+    if (body.avatar) user.avatar = body.avatar;
+    if (body.password) user.password = body.password;
+    if (body.new_password) user.password = body.new_password;
+    
+    saveDB();
+    return sendJSON(res, 200, {
+      success: true,
+      message: "User profile updated successfully",
+      user
+    });
+  }
+
   if (method === 'GET' && pathname.startsWith('/api/vendors/')) {
     const parts = pathname.split('/');
     const targetVendorId = parts[3];

@@ -615,15 +615,29 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     try {
       setSavingSettings(true);
 
-      if (vendorId && settingsForm) {
+      const targetId = vendorId || panelData?.vendor?.vendor_id || 1;
+      if (targetId && settingsForm) {
         try {
-          localStorage.setItem('digilocal_vendor_saved_settings_' + vendorId, JSON.stringify(settingsForm));
+          localStorage.setItem('digilocal_vendor_saved_settings_' + targetId, JSON.stringify(settingsForm));
+          
+          // Update vendor session storage if present
+          const sessionStr = localStorage.getItem('digilocal_vendor_session');
+          if (sessionStr) {
+            const parsedSession = JSON.parse(sessionStr);
+            const updatedVendor = {
+              ...(parsedSession.vendor || parsedSession),
+              ...settingsForm,
+              vendor_id: targetId
+            };
+            parsedSession.vendor = updatedVendor;
+            localStorage.setItem('digilocal_vendor_session', JSON.stringify(parsedSession));
+          }
         } catch (_) {}
       }
 
-      await api.updateVendorSettings(vendorId, settingsForm);
+      await api.updateVendorSettings(targetId, settingsForm);
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3500);
+      setTimeout(() => setSaveSuccess(false), 4000);
 
       setPanelData(prev => {
         if (!prev) return prev;
@@ -636,6 +650,11 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           }
         };
       });
+
+      // Dispatch custom event for instant UI sync
+      try {
+        window.dispatchEvent(new CustomEvent('digilocal_vendor_settings_saved', { detail: settingsForm }));
+      } catch (_) {}
 
       loadPanelData();
     } catch (err) {
@@ -2290,14 +2309,22 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               </div>
 
               {/* Save All Settings Footer Button */}
-              <div className="p-4 bg-white border border-[#C5A880]/30 rounded-2xl shadow-sm flex justify-end">
+              <div className="p-4 bg-white border border-[#C5A880]/30 rounded-2xl shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+                {saveSuccess ? (
+                  <div className="flex items-center gap-2 text-emerald-800 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-xl text-xs font-bold animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>✓ Store configuration & settings saved successfully!</span>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#78716C] font-medium">All store info, timings, delivery fees, and banking details will be updated across DigiLocal.</p>
+                )}
                 <button
                   type="submit"
                   disabled={savingSettings}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all border border-[#C8A878]/30 cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all border border-[#C8A878]/30 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   <CheckCircle2 className="w-4 h-4 text-[#C8A878]" />
-                  <span>{savingSettings ? 'Saving All Store Settings...' : 'Save Store Configuration'}</span>
+                  <span>{savingSettings ? 'Saving Store Settings...' : 'Save Store Configuration'}</span>
                 </button>
               </div>
             </form>

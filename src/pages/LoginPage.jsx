@@ -986,7 +986,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                       onClick={() => setShowAltNewPassword(!showAltNewPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1"
                     >
-                      {showAltNewPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
+                      {showAltNewPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -1007,7 +1007,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                       onClick={() => setShowAltConfirmPassword(!showAltConfirmPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1"
                     >
-                      {showAltConfirmPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
+                      {showAltConfirmPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -1074,7 +1074,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                       onClick={() => setShowOtpNewPassword(!showOtpNewPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1"
                     >
-                      {showOtpNewPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
+                      {showOtpNewPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -1094,7 +1094,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                       onClick={() => setShowOtpConfirmPassword(!showOtpConfirmPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1"
                     >
-                      {showOtpConfirmPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
+                      {showOtpConfirmPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>

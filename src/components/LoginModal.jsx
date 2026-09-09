@@ -317,7 +317,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
                     onClick={() => setShowVendorPassword(!showVendorPassword)}
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1"
                   >
-                    {showVendorPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
+                    {showVendorPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
                   </button>
                 </div>
               </div>

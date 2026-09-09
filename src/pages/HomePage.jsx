@@ -6,16 +6,42 @@ import AnimatedIcon from '../components/common/AnimatedIcon';
 import ScrollStoryAnimation from '../components/ScrollStoryAnimation';
 import StrokeText from '../components/StrokeText';
 import ZordialLogo from '../components/ZordialLogo';
-import FloatingDoodles from '../components/FloatingDoodles';
 import ScrollTextReveal from '../components/common/ScrollTextReveal';
+import FloatingDoodles from '../components/FloatingDoodles';
 
 const POLAROID_SETS = [
+  {
+    categoryLabel: "🌸 Specialty Stores & Healthcare",
+    badge: "Specialty Merchant",
+    items: [
+      {
+        image: "/polaroid_organic_dairy.jpg",
+        text: "Organic Dairy",
+        angle: -4
+      },
+      {
+        image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=80",
+        text: "Gourmet Coffee",
+        angle: 3
+      },
+      {
+        image: "/polaroid_pharmacy_wellness.jpg",
+        text: "Pharmacy & Care",
+        angle: -3
+      },
+      {
+        image: "/polaroid_resin_crafts.jpg",
+        text: "Resin & Crafts",
+        angle: 4
+      }
+    ]
+  },
   {
     categoryLabel: "🛒 Daily Goods & Fresh Produce",
     badge: "Product Merchant",
     items: [
       {
-        image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&auto=format&fit=crop&q=80",
+        image: "/polaroid_fresh_produce.jpg",
         text: "Fresh Produce",
         angle: -4
       },
@@ -30,8 +56,8 @@ const POLAROID_SETS = [
         angle: -3
       },
       {
-        image: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800&auto=format&fit=crop&q=80",
-        text: "Farm Fresh",
+        image: "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=800&auto=format&fit=crop&q=80",
+        text: "Orchard Fruits",
         angle: 4
       }
     ]
@@ -61,32 +87,6 @@ const POLAROID_SETS = [
         angle: 4
       }
     ]
-  },
-  {
-    categoryLabel: "🌸 Specialty Stores & Healthcare",
-    badge: "Specialty Merchant",
-    items: [
-      {
-        image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80",
-        text: "Organic Dairy",
-        angle: -4
-      },
-      {
-        image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=80",
-        text: "Gourmet Coffee",
-        angle: 3
-      },
-      {
-        image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
-        text: "Pharmacy & Care",
-        angle: -3
-      },
-      {
-        image: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&auto=format&fit=crop&q=80",
-        text: "Resin & Crafts",
-        angle: 4
-      }
-    ]
   }
 ];
 
@@ -100,7 +100,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
     if (isPaused) return;
     const timer = setInterval(() => {
       setActiveSetIndex((prev) => (prev + 1) % POLAROID_SETS.length);
-    }, 2800);
+    }, 3500);
     return () => clearInterval(timer);
   }, [isPaused]);
 
@@ -152,45 +152,45 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
     <div className="w-full bg-[#F6F0E8] min-h-screen font-sans -mt-px overflow-x-hidden text-[#211A19] pb-16 relative">
       
       {/* HERO SECTION */}
-      <div className="w-full pt-8 sm:pt-12 lg:pt-14 pb-10 sm:pb-14 px-4 sm:px-8 lg:px-12 relative overflow-hidden flex flex-col items-center justify-center text-center bg-[#F6F0E8]">
+      <div className="w-full pt-8 sm:pt-10 lg:pt-14 pb-0 px-4 sm:px-6 lg:px-8 relative overflow-hidden flex flex-col items-center justify-between text-center bg-[#F6F0E8] min-h-[620px] lg:min-h-[690px]">
 
-          {/* Floating Transparent Watery Doodles Background */}
+          {/* Background Floating Line-Art Doodles */}
           <FloatingDoodles section="hero" />
 
           {/* Decorative subtle ambient Nude radial glow */}
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-[#D6B7A5]/30 rounded-full blur-[100px] pointer-events-none" />
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-[#D6B7A5]/25 rounded-full blur-[100px] pointer-events-none z-0" />
 
           <motion.div
             initial="hidden"
             animate="visible"
             variants={containerVariants}
-            className="relative z-10 w-full max-w-5xl mx-auto flex flex-col items-center text-center space-y-4 sm:space-y-5"
+            className="relative z-10 w-full max-w-6xl mx-auto flex flex-col items-center text-center"
           >
 
             {/* Top Badge */}
-            <motion.div variants={itemVariants} className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-md bg-[#541D26]/10 text-[#541D26] text-[11px] font-bold tracking-widest uppercase border border-[#541D26]/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#541D26] animate-pulse" />
+            <motion.div variants={itemVariants} className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-md bg-[#541D26]/10 text-[#541D26] text-[11px] font-bold tracking-widest uppercase border border-[#541D26]/20 mb-3 sm:mb-4 lg:mb-5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#541D26]" />
               <span>Hyperlocal Lifestyle Network</span>
             </motion.div>
 
-            {/* Headline with Espresso text & Oxblood highlights */}
-            <motion.div variants={itemVariants} className="w-full max-w-5xl mx-auto py-1">
+            {/* Headline with Animated StrokeText Component */}
+            <motion.div variants={itemVariants} className="w-full max-w-6xl mx-auto my-1 sm:my-2 lg:my-3">
               <StrokeText
                 text="YOUR SOCIETY. YOUR VENDORS. DELIVERED."
                 strokeColor="#211A19"
                 fillColor="#211A19"
-                strokeWidth={1.5}
+                strokeWidth={1.4}
                 drawDuration={1.6}
                 fillDelay={0.2}
                 stagger={0.035}
                 ease="power2.out"
                 trigger="mount"
                 fillMode="wipe"
-                fontSize={72}
+                fontSize={76}
                 fontWeight={900}
-                fontFamily="'Cormorant Garamond', 'Playfair Display', Georgia, serif"
                 letterSpacing={0}
-                style={{ '--stroke-text-height': 'clamp(1.8rem, 4.5vw, 3.2rem)' }}
+                fontFamily="'Playfair Display', 'Cormorant Garamond', Georgia, serif"
+                style={{ '--stroke-text-height': 'clamp(2.2rem, 4.8vw, 3.6rem)' }}
                 className="w-full"
               />
             </motion.div>
@@ -199,27 +199,27 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
             <ScrollTextReveal
               as="p"
               mode="word"
-              delay={0.3}
-              className="text-xs sm:text-sm lg:text-base text-[#211A19]/80 font-medium leading-relaxed text-center max-w-2xl mx-auto"
+              delay={0.2}
+              className="text-xs sm:text-sm lg:text-[15px] text-[#211A19]/80 font-medium leading-[1.65] sm:leading-[1.75] text-center max-w-2xl sm:max-w-3xl mx-auto mt-2 sm:mt-3 mb-5 sm:mb-7 px-4"
             >
               DigiLocal connects residents directly with verified neighborhood stores, organic growers, artisanal bakeries, pharmacies, and daily service providers.
             </ScrollTextReveal>
 
             {/* Action Buttons (Primary Oxblood #541D26 & Secondary Transparent/Oxblood) */}
-            <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-center gap-3.5 sm:gap-4 pt-2 pb-4 z-20">
+            <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-center gap-4 sm:gap-5 mb-4 sm:mb-6 z-20">
               <button
                 onClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
-                className="px-7 py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center space-x-2 cursor-pointer transition-all"
+                className="px-8 py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center space-x-2 cursor-pointer transition-all hover:scale-102"
               >
                 <span>Browse All Vendors</span>
-                <AnimatedIcon icon={ArrowUpRight} animation="scale" size={14} className="currentColor text-white" />
+                <ArrowUpRight className="w-4 h-4 text-white" />
               </button>
 
               <button
                 onClick={() => setRoute({ page: 'vendorRegister' })}
-                className="px-7 py-3.5 rounded-full bg-transparent border border-[#541D26] text-[#541D26] hover:bg-[#541D26] hover:text-white font-extrabold text-xs uppercase tracking-wider shadow-xs flex items-center space-x-2 cursor-pointer transition-all"
+                className="px-8 py-3.5 rounded-full bg-transparent border border-[#541D26]/70 text-[#541D26] hover:bg-[#541D26] hover:text-white font-extrabold text-xs uppercase tracking-wider shadow-xs flex items-center space-x-2 cursor-pointer transition-all hover:scale-102"
               >
-                <AnimatedIcon icon={Store} animation="pulse" size={14} className="currentColor" />
+                <Store className="w-4 h-4 currentColor" />
                 <span>Register As Vendor</span>
               </button>
             </motion.div>
@@ -227,13 +227,13 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
             {/* 4 TILTED POLAROID CARDS ROW WITH PURE WHITE CARDS */}
             <motion.div
               variants={itemVariants}
-              className="w-full max-w-5xl mx-auto pt-4 sm:pt-6 pb-2 flex flex-col items-center select-none"
+              className="w-full max-w-5xl mx-auto pt-2 sm:pt-4 pb-0 flex flex-col items-center select-none translate-y-6 sm:translate-y-10 lg:translate-y-14 -mb-4 sm:-mb-8 lg:-mb-10"
               onMouseEnter={() => setIsPaused(true)}
               onMouseLeave={() => setIsPaused(false)}
             >
               {/* Tilted Polaroid Cards Grid */}
-              <div className="w-full min-h-[220px] sm:min-h-[260px] flex items-center justify-center">
-                <div className="w-full grid grid-cols-2 md:flex md:flex-row items-center justify-center gap-4 sm:gap-6 md:gap-0">
+              <div className="w-full min-h-[220px] sm:min-h-[260px] flex items-end justify-center">
+                <div className="w-full grid grid-cols-2 md:flex md:flex-row items-end justify-center gap-3 sm:gap-4 md:gap-0">
                   <AnimatePresence mode="wait">
                     {currentSet.items.map((item, index) => (
                       <motion.div
@@ -247,33 +247,19 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                           ease: [0.25, 0.1, 0.25, 1]
                         }}
                         whileHover={{ scale: 1.07, rotate: 0, zIndex: 30, transition: { duration: 0.15, ease: 'easeOut' } }}
-                        className="w-full md:w-56 lg:w-60 bg-white p-2.5 sm:p-3 pb-7 sm:pb-8 shadow-[0_10px_25px_rgba(33,26,25,0.08)] rounded-md border border-[#E5DAD0] -mx-1 sm:-mx-2 lg:-mx-3 transition-all duration-200 hover:shadow-[0_18px_40px_rgba(33,26,25,0.18)] cursor-pointer shrink-0"
+                        className="w-full md:w-56 lg:w-60 bg-white p-2 sm:p-2.5 pb-6 sm:pb-7 shadow-[0_10px_25px_rgba(33,26,25,0.08)] rounded-md border border-[#E5DAD0] -mx-1 sm:-mx-2 lg:-mx-3 transition-all duration-200 hover:shadow-[0_18px_40px_rgba(33,26,25,0.18)] cursor-pointer shrink-0"
                         onClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
                       >
                         <div className="w-full aspect-[4/3] overflow-hidden rounded-xs bg-[#EEE5DA] relative">
                           <img src={item.image} alt={item.text} className="w-full h-full object-cover transition-transform duration-200 ease-out hover:scale-108" />
                         </div>
-                        <div className="mt-3 text-center font-serif italic text-[#211A19] font-bold text-sm sm:text-base tracking-wide">
+                        <div className="mt-2.5 text-center font-serif italic text-[#211A19] font-bold text-sm sm:text-base tracking-wide">
                           {item.text}
                         </div>
                       </motion.div>
                     ))}
                   </AnimatePresence>
                 </div>
-              </div>
-
-              {/* Category Dot Indicators */}
-              <div className="flex items-center justify-center space-x-2 mt-5">
-                {POLAROID_SETS.map((set, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveSetIndex(idx)}
-                    className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                      activeSetIndex === idx ? 'w-7 bg-[#541D26]' : 'w-2 bg-[#541D26]/25 hover:bg-[#541D26]/50'
-                    }`}
-                    title={set.categoryLabel}
-                  />
-                ))}
               </div>
             </motion.div>
 
@@ -293,7 +279,6 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           variants={containerVariants}
           className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
         >
-          <FloatingDoodles section="bento" />
           <div className="text-center max-w-2xl mx-auto mb-8 space-y-2 flex flex-col items-center">
             <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
               <span className="w-1.5 h-1.5 rounded-full bg-[#541D26]" />
@@ -403,7 +388,6 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           variants={containerVariants}
           className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
         >
-          <FloatingDoodles section="mission" />
           <div className="bg-[#211A19] text-white rounded-[2.5rem] p-8 sm:p-12 shadow-2xl relative overflow-hidden border border-white/10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
               <motion.div variants={itemVariants} className="lg:col-span-7 space-y-4">
@@ -479,7 +463,6 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           variants={containerVariants}
           className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
         >
-          <FloatingDoodles section="howItWorks" />
           <div className="text-center max-w-2xl mx-auto mb-10 space-y-2 flex flex-col items-center">
             <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
               <span className="w-1.5 h-1.5 rounded-full bg-[#541D26]" />
@@ -549,7 +532,6 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           variants={containerVariants}
           className="max-w-4xl mx-auto bg-white border border-[#E5DAD0] rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 shadow-xs grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 my-8 relative"
         >
-          <FloatingDoodles section="trust" />
           <motion.div variants={itemVariants} className="flex items-center space-x-2.5 sm:space-x-3 border-r border-[#E5DAD0] pr-2 sm:pr-4 justify-center">
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#541D26]/10 flex items-center justify-center text-[#541D26] flex-shrink-0">
               <ShieldCheck className="w-4 h-4 text-[#541D26]" />
@@ -599,7 +581,6 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           variants={containerVariants}
           className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
         >
-          <FloatingDoodles section="zordial" />
           <div className="bg-white border border-[#E7DFD5] rounded-[2.5rem] p-6 sm:p-10 lg:p-12 shadow-sm relative overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             
             {/* Background ambient glow */}
@@ -714,7 +695,6 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           variants={containerVariants}
           className="w-full max-w-[97%] xl:max-w-[95%] mx-auto mt-10 px-4 relative"
         >
-          <FloatingDoodles section="cta" />
           <div className="bg-[#EEE5DA] border border-[#E5DAD0] rounded-[2.5rem] p-8 sm:p-12 text-center relative overflow-hidden shadow-xs">
             <motion.div variants={itemVariants} className="max-w-2xl mx-auto space-y-4">
               <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-md bg-[#541D26] text-white text-[10px] font-bold tracking-widest uppercase border border-[#541D26] shadow-xs">

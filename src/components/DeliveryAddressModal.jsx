@@ -124,6 +124,19 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
         }
       }
 
+      // Check for duplicate address (Con-01)
+      const isDuplicate = existingList.some(item => {
+        if (addressToEdit && String(item.id) === String(addressToEdit.id)) return false;
+        const itemFlat = String(item.flat || '').trim().toLowerCase();
+        const itemSociety = String(item.society || item.society_name || '').trim().toLowerCase();
+        return itemFlat === cleanFlat.toLowerCase() && itemSociety === cleanSociety.toLowerCase();
+      });
+
+      if (isDuplicate) {
+        setError(`Address already exists for Flat "${cleanFlat}" in "${cleanSociety}". Duplicate addresses cannot be added.`);
+        return;
+      }
+
       let updatedAddresses = [];
       if (addressToEdit) {
         updatedAddresses = existingList.map(item => String(item.id) === String(addressToEdit.id) ? newAddressObj : item);

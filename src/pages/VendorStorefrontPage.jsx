@@ -165,6 +165,36 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
     }
   }, [vendorData]);
 
+  const handleToggleStoreFavorite = () => {
+    if (!vendorData) return;
+    try {
+      const saved = localStorage.getItem('digilocal_favorite_vendors');
+      let list = saved ? JSON.parse(saved) : [];
+      if (!Array.isArray(list)) list = [];
+
+      const vId = String(vendorData.vendor_id || vendorId);
+      const exists = list.some(f => String(f.vendor_id) === vId);
+
+      if (exists) {
+        list = list.filter(f => String(f.vendor_id) !== vId);
+        setIsFavorite(false);
+      } else {
+        list.push({
+          vendor_id: vendorData.vendor_id || vendorId,
+          store_name: vendorData.store_name || vendorData.name || 'Vendor Store',
+          category: vendorData.category || vendorData.business_type || 'General Store',
+          logo: vendorData.logo || vendorData.image_url || '',
+          rating: ratingSummary?.avg_rating ? Number(ratingSummary.avg_rating).toFixed(1) : (vendorData.rating || '4.8'),
+          delivery_time: vendorData.delivery_time || '15 mins',
+          society_id: societyId || vendorData.society_id || 'all'
+        });
+        setIsFavorite(true);
+      }
+      localStorage.setItem('digilocal_favorite_vendors', JSON.stringify(list));
+      window.dispatchEvent(new CustomEvent('digilocal_favorite_vendors_updated', { detail: list }));
+    } catch (_) {}
+  };
+
   // Flat & Location Entry State
   const [flatNumber, setFlatNumber] = useState('');
   const [buildingNumber, setBuildingNumber] = useState('');
@@ -1071,6 +1101,18 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                     <h1 className="text-2xl sm:text-3xl font-serif font-black text-[#151415] uppercase tracking-tight block">
                       {vendorData.store_name || vendorData.name || vendorData.vendor_name || vendorData.business_name || vendorData.shop_name || vendorData.title || `Vendor #${vendorId}`}
                     </h1>
+                    <button
+                      type="button"
+                      onClick={handleToggleStoreFavorite}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shadow-xs border ${
+                        isFavorite
+                          ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+                          : 'bg-[#151415]/5 hover:bg-[#151415]/10 border-[#151415]/15 text-[#151415]'
+                      }`}
+                    >
+                      <Heart className={`w-3.5 h-3.5 ${isFavorite ? 'fill-rose-500 text-rose-500' : ''}`} />
+                      <span>{isFavorite ? 'Favorited' : 'Favorite Store'}</span>
+                    </button>
                   </div>
 
                   {(vendorData.description || vendorData.bio || vendorData.details || vendorData.about) && (

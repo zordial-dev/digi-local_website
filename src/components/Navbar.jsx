@@ -429,11 +429,11 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                 className="flex items-center space-x-2 cursor-pointer select-none group shrink-0 py-0.5"
                 onClick={() => setRoute({ page: 'home' })}
               >
-                <div className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center shrink-0 overflow-hidden group-hover:scale-105 transition-all bg-[#F6F0E8] rounded-lg p-0.5 shadow-xs border border-[#E5DAD0]">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center shrink-0 overflow-hidden group-hover:scale-105 transition-all bg-[#F6F0E8] rounded-lg p-1 shadow-xs border border-[#E5DAD0]">
                   <img
-                    src="/logo.png"
+                    src="/logo_icon.png"
                     alt="DigiLocal Logo"
-                    className="w-full h-full object-contain scale-[1.9]"
+                    className="w-full h-full object-contain"
                   />
                 </div>
                 <span className="font-serif italic text-xl sm:text-2xl font-black text-[#211A19] leading-none tracking-tight group-hover:opacity-80 transition-opacity">

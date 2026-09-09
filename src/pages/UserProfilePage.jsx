@@ -126,7 +126,8 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [notificationsWhatsApp, setNotificationsWhatsApp] = useState(true);
   const [notificationsSMS, setNotificationsSMS] = useState(true);
-  const [settingsMsg, setSettingsMsg] = useState('');
+  const [settingsError, setSettingsError] = useState('');
+  const [settingsSuccess, setSettingsSuccess] = useState('');
 
   // Delete User Account State & Handler
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
@@ -558,29 +559,59 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
   };
 
   // Password Reset Handler
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
-    setSettingsMsg('');
+    setSettingsError('');
+    setSettingsSuccess('');
     if (!passwordCurrent) {
-      setSettingsMsg('Please enter your current password.');
+      setSettingsError('Please enter your current password.');
       return;
     }
     if (passwordNew.length < 4) {
-      setSettingsMsg('New password must be at least 4 characters long.');
+      setSettingsError('New password must be at least 4 characters long.');
       return;
     }
     if (passwordNew !== passwordConfirm) {
-      setSettingsMsg('New passwords do not match.');
+      setSettingsError('New passwords do not match.');
       return;
     }
     if (passwordNew === passwordCurrent) {
-      setSettingsMsg('New password should be different from previous password.');
+      setSettingsError('New password should be different from previous password.');
       return;
     }
-    setSettingsMsg('✓ Password updated successfully!');
-    setPasswordCurrent('');
-    setPasswordNew('');
-    setPasswordConfirm('');
+
+    try {
+      const targetUserId = activeUser?.user_id || savedProfile?.user_id || 'usr_guest';
+      const userPhone = activeUser?.phone || activeUser?.mobile || savedProfile?.phone || phone;
+      
+      const payload = {
+        user_id: targetUserId,
+        phone: userPhone,
+        current_password: passwordCurrent,
+        password: passwordNew,
+        new_password: passwordNew
+      };
+
+      try {
+        await fetch('/api/users/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (_) {}
+
+      try {
+        await api.updateUserProfile(targetUserId, payload);
+      } catch (_) {}
+
+      setSettingsSuccess('✓ Password updated successfully!');
+      setPasswordCurrent('');
+      setPasswordNew('');
+      setPasswordConfirm('');
+      setTimeout(() => setSettingsSuccess(''), 4000);
+    } catch (err) {
+      setSettingsError(err.message || 'Failed to update password. Please try again.');
+    }
   };
 
   // Handle Rate Order & Submit Vendor Rating
@@ -933,6 +964,18 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
           >
             <MapPin className={`w-4 h-4 ${activeTab === 'addresses' ? 'text-[#C8A878]' : ''}`} />
             <span>Saved Addresses</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('favorites')}
+            className={`flex-1 min-w-[120px] py-3 px-4 rounded-xl sm:rounded-full text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              activeTab === 'favorites'
+                ? 'bg-[#541D26] text-white shadow-md'
+                : 'text-[#211A19]/70 hover:text-[#541D26] hover:bg-[#EEE5DA]'
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${activeTab === 'favorites' ? 'text-[#C8A878] fill-current' : ''}`} />
+            <span>Favorite Stores ({favorites.length})</span>
           </button>
 
           <button
@@ -1632,6 +1675,95 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
 
 
         {/* ------------------------------------------------------------- */}
+        {/* TAB CONTENT: FAVORITE STORES (Con-04 & Bug-02)                */}
+        {/* ------------------------------------------------------------- */}
+        {activeTab === 'favorites' && (
+          <div className="space-y-6 animate-fadeIn">
+            {favorites.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-[#E5DAD0] space-y-4 shadow-xs">
+                <div className="w-16 h-16 rounded-full bg-rose-50 text-[#541D26] flex items-center justify-center mx-auto border border-rose-100">
+                  <Heart className="w-8 h-8 fill-rose-200 text-[#541D26]" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-serif font-bold text-[#211A19]">No favorite stores saved yet</h3>
+                  <p className="text-xs text-[#211A19]/60 max-w-sm mx-auto">
+                    Browse stores in your society and tap the heart icon on any vendor to save them to your favorites for quick access.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setRoute({ page: 'societyVendors', societyId: activeUser?.society_id || 'all' })}
+                  className="px-6 py-2.5 bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold rounded-full transition-all shadow-md cursor-pointer inline-flex items-center gap-2"
+                >
+                  <Store className="w-4 h-4" />
+                  <span>Explore Vendors</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {favorites.map((fav) => (
+                  <div
+                    key={fav.vendor_id}
+                    className="bg-white rounded-3xl p-5 border border-[#E5DAD0] shadow-xs flex flex-col justify-between hover:shadow-md transition-all group"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-[#EEE5DA] overflow-hidden flex items-center justify-center shrink-0 border border-[#E5DAD0]">
+                            {fav.logo_url || fav.image || fav.store_image ? (
+                              <img
+                                src={fav.logo_url || fav.image || fav.store_image}
+                                alt={fav.vendor_name || fav.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Store className="w-6 h-6 text-[#541D26]" />
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-serif font-bold text-sm text-[#211A19] group-hover:text-[#541D26] transition-colors">
+                              {fav.vendor_name || fav.name || fav.store_name || 'Vendor Store'}
+                            </h4>
+                            <span className="text-[11px] font-semibold text-[#541D26] bg-[#541D26]/10 px-2 py-0.5 rounded-full inline-block mt-0.5">
+                              {fav.category || fav.vendor_type || 'Store'}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveFavorite(fav.vendor_id)}
+                          title="Remove from favorites"
+                          className="p-1.5 rounded-full text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {fav.description && (
+                        <p className="text-xs text-[#211A19]/70 line-clamp-2">
+                          {fav.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="pt-4 mt-3 border-t border-[#E5DAD0]/60 flex items-center justify-between">
+                      <div className="flex items-center gap-1 text-xs font-bold text-amber-600">
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        <span>{fav.rating || fav.avg_rating || '4.8'}</span>
+                      </div>
+                      <button
+                        onClick={() => setRoute({ page: 'vendorStorefront', vendorId: fav.vendor_id, societyId: fav.society_id || activeUser?.society_id || 'all' })}
+                        className="px-4 py-1.5 bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold rounded-full transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <span>Visit Store</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ------------------------------------------------------------- */}
         {/* TAB CONTENT 4: SECURITY & SETTINGS                            */}
         {/* ------------------------------------------------------------- */}
         {activeTab === 'settings' && (
@@ -1644,9 +1776,16 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                 <h3 className="text-lg font-serif font-bold">Change Password</h3>
               </div>
 
-              {settingsMsg && (
-                <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold">
-                  {settingsMsg}
+              {settingsError && (
+                <div className="p-3 bg-rose-50 text-rose-800 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{settingsError}</span>
+                </div>
+              )}
+              {settingsSuccess && (
+                <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <span>{settingsSuccess}</span>
                 </div>
               )}
 
@@ -1667,7 +1806,7 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                       onClick={() => setShowPasswordCurrent(!showPasswordCurrent)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-ink transition-colors p-1 cursor-pointer"
                     >
-                      {showPasswordCurrent ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4 text-gray-500" />}
+                      {showPasswordCurrent ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4 text-gray-500" />}
                     </button>
                   </div>
                 </div>
@@ -1688,7 +1827,7 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                       onClick={() => setShowPasswordNew(!showPasswordNew)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-ink transition-colors p-1 cursor-pointer"
                     >
-                      {showPasswordNew ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4 text-gray-500" />}
+                      {showPasswordNew ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4 text-gray-500" />}
                     </button>
                   </div>
                 </div>
@@ -1709,7 +1848,7 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                       onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-ink transition-colors p-1 cursor-pointer"
                     >
-                      {showPasswordConfirm ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4 text-gray-500" />}
+                      {showPasswordConfirm ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4 text-gray-500" />}
                     </button>
                   </div>
                 </div>

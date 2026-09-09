@@ -910,15 +910,30 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                                 </span>
                               </div>
 
-                              <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-extrabold flex items-center space-x-1 backdrop-blur-md shadow-xs border uppercase shrink-0 ${!status.isOpen
-                                  ? 'bg-rose-950/85 text-rose-300 border-rose-500/50'
-                                  : status.closingCountdown
-                                    ? 'bg-amber-950/85 text-amber-300 border-amber-500/50'
-                                    : 'bg-emerald-950/85 text-emerald-300 border-emerald-500/50'
-                                }`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${!status.isOpen ? 'bg-rose-400' : status.closingCountdown ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
-                                <span>{status.statusText}</span>
-                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-extrabold flex items-center space-x-1 backdrop-blur-md shadow-xs border uppercase shrink-0 ${!status.isOpen
+                                    ? 'bg-rose-950/85 text-rose-300 border-rose-500/50'
+                                    : status.closingCountdown
+                                      ? 'bg-amber-950/85 text-amber-300 border-amber-500/50'
+                                      : 'bg-emerald-950/85 text-emerald-300 border-emerald-500/50'
+                                  }`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${!status.isOpen ? 'bg-rose-400' : status.closingCountdown ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+                                  <span>{status.statusText}</span>
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => toggleFavorite(e, vendor)}
+                                  title={favoriteIds.includes(String(vendor.vendor_id)) ? "Remove from Favorites" : "Add to Favorites"}
+                                  className={`p-1.5 rounded-full backdrop-blur-md border transition-all cursor-pointer shadow-xs ${
+                                    favoriteIds.includes(String(vendor.vendor_id))
+                                      ? 'bg-rose-500/90 border-rose-300 text-white'
+                                      : 'bg-black/50 border-white/30 text-white hover:bg-black/80 hover:text-rose-400'
+                                  }`}
+                                >
+                                  <Heart className={`w-3.5 h-3.5 ${favoriteIds.includes(String(vendor.vendor_id)) ? 'fill-current' : ''}`} />
+                                </button>
+                              </div>
                             </div>
                           </div>
 

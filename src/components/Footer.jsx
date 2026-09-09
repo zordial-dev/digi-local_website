@@ -54,11 +54,11 @@ export default function Footer({ setRoute, onOpenSupportDesk }) {
               onClick={() => setRoute({ page: 'home' })}
               className="flex items-center space-x-3.5 cursor-pointer group w-fit"
             >
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white flex items-center justify-center overflow-hidden p-1 shadow-lg group-hover:scale-105 transition-transform shrink-0 border border-white/20">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#F6F0E8] flex items-center justify-center overflow-hidden p-2 shadow-lg group-hover:scale-105 transition-transform shrink-0 border border-white/20">
                 <img 
-                  src="/logo.png" 
+                  src="/logo_icon.png" 
                   alt="DigiLocal Logo" 
-                  className="w-full h-full object-contain scale-[1.8]" 
+                  className="w-full h-full object-contain" 
                 />
               </div>
               <span className="font-serif italic text-3xl sm:text-4xl font-bold text-white group-hover:text-[#C8A878] transition-colors leading-none tracking-tight">
