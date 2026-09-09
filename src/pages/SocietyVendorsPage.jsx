@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { api, getSocietyImage, getNormalizedImageUrl } from '../services/api';
 import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, ChevronLeft, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock, LogIn, Heart, SlidersHorizontal, Star } from 'lucide-react';
 import { getStoreStatus } from '../utils/storeHours';
@@ -1070,9 +1071,30 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
       </div>
 
       {/* LOGIN REQUIRED POPUP MODAL (MATCHES USER DESIGN SPECIFICATION EXACTLY) */}
-      {showLoginPromptModal && !checkUserLoggedIn() && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md bg-white rounded-[2.2rem] p-7 sm:p-8 shadow-2xl border border-[#E8E2D5] text-center space-y-5 animate-in zoom-in-95 duration-200">
+      {showLoginPromptModal && !checkUserLoggedIn() && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
+          onClick={() => setShowLoginPromptModal(false)}
+        >
+          <div 
+            className="relative w-full max-w-md max-h-[85vh] overflow-hidden bg-white rounded-3xl p-7 sm:p-8 shadow-2xl border border-[#E8E2D5] text-center space-y-5 animate-in zoom-in-95 duration-150 flex flex-col" 
+            style={{ margin: 'auto', maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
 
             {/* Top Right Close Button */}
             <button
@@ -1121,7 +1143,8 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

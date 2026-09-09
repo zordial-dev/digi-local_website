@@ -9,6 +9,47 @@ import { DashboardSkeleton } from '../components/Skeletons';
 import { resolveLocationFromInput, fetchLocationSuggestions } from '../utils/locationResolver';
 import { useScrollLock } from '../hooks/useScrollLock';
 
+export const MASTER_STORE_CATEGORIES = [
+  'Fresh Flowers, Bouquets & Puja Floral Supplies',
+  'Resin Art, Handicrafts & Custom Gifts',
+  'Grocery & Organic Essentials',
+  'Dairy, Fresh Milk & Breakfast Supplies',
+  'Bakery, Cakes & Artisan Bakes',
+  'Fruits & Farm-Fresh Vegetables',
+  'Sweet Shop, Mithai & Traditional Snacks',
+  'Fast Food, Cloud Kitchen & Evening Snacks',
+  'Homemade Tiffin & Catering Services',
+  'Apparel, Clothing, Tailoring & Boutiques',
+  'Jewelry, Artificial Accessories & Ornaments',
+  'Footwear, Shoes & Leather Goods',
+  'Pharmacy, Medicines & Healthcare Supplies',
+  'Cosmetics, Skincare & Beauty Products',
+  'Toys, Baby Care & Kids Accessories',
+  'Stationery, Office Supplies & Printing Services',
+  'Electronics, Mobile Accessories & Repairs',
+  'Home Appliances, Kitchenware & Utensils',
+  'Home Decor, Furnishings, Curtains & Lighting',
+  'Nursery, Indoor Plants, Seeds & Gardening',
+  'Pet Care, Food & Grooming Supplies',
+  'Sports Goods, Cycles & Fitness Equipment',
+  'Hardware, Sanitaryware, Paints & Tools',
+  'General Community Supermarket & Mart',
+  'Electrician & Electrical Services',
+  'Plumber & Sanitary Services',
+  'Laundry, Dry Cleaning & Ironing',
+  'AC & Appliance Repair',
+  'Home Cleaning & Pest Control',
+  'Tuition, Home Coaching & Hobbies',
+  'Clinic & Doctor Healthcare',
+  'Salon, Beauty & Personal Grooming',
+  'Carpentry & Furniture Repair',
+  'CA, Legal & Financial Advisory',
+  'Painting & Home Renovation',
+  'Car & Bike Washing, Accessories & Detailing',
+  'General Service Provider',
+  'Custom Variety / Specialized Local Business'
+];
+
 export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendor, onVendorLogout }) {
   const [activeTab, setActiveTab] = useState('orders');
   const [panelData, setPanelData] = useState(null);
@@ -22,6 +63,34 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [deletingStore, setDeletingStore] = useState(false);
   const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info' });
+
+  // Lock body scroll when any dashboard modal is open
+  useScrollLock(showAddItemModal || showSettingsSuccessModal || showDeleteConfirmModal || showLogoutModal || modalConfig.isOpen);
+
+  // Custom Dropdowns for Add/Edit Item Modal & Settings
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [showSettingsCategoryDropdown, setShowSettingsCategoryDropdown] = useState(false);
+  const [settingsCategorySearch, setSettingsCategorySearch] = useState('');
+  const unitDropdownRef = useRef(null);
+  const categoryDropdownRef = useRef(null);
+  const settingsCategoryDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (unitDropdownRef.current && !unitDropdownRef.current.contains(event.target)) {
+        setShowUnitDropdown(false);
+      }
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target)) {
+        setShowCategoryDropdown(false);
+      }
+      if (settingsCategoryDropdownRef.current && !settingsCategoryDropdownRef.current.contains(event.target)) {
+        setShowSettingsCategoryDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Service Enquiries State
   const [enquiries, setEnquiries] = useState([]);
@@ -114,41 +183,13 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     image_url: ''
   });
 
-  // Custom Dropdowns for Add/Edit Item Modal
-  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const unitDropdownRef = useRef(null);
-  const categoryDropdownRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (unitDropdownRef.current && !unitDropdownRef.current.contains(event.target)) {
-        setShowUnitDropdown(false);
-      }
-      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target)) {
-        setShowCategoryDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Strict Background Freeze for all Vendor Dashboard Modals
-  const isAnyVendorModalOpen = Boolean(
-    showAddItemModal || 
-    showSettingsSuccessModal || 
-    showDeleteConfirmModal || 
-    showLogoutModal || 
-    modalConfig.isOpen || 
-    editingItem
-  );
-  useScrollLock(isAnyVendorModalOpen);
-
   // Settings State (DigiCafe style complete settings)
   const [settingsForm, setSettingsForm] = useState({
     store_name: '',
     vendor_name: '',
     email: '',
+    category: '',
+    business_category: '',
     logo: '',
     description: '',
     phone_number: '',
@@ -408,6 +449,8 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           store_name: userSaved.store_name || v.store_name || v.vendor_name || v.shop_business_name || '',
           vendor_name: userSaved.vendor_name || v.vendor_name || v.owner_name || '',
           email: userSaved.email || v.email || '',
+          category: userSaved.category || userSaved.business_category || v.category || v.business_category || 'General Community Supermarket & Mart',
+          business_category: userSaved.category || userSaved.business_category || v.category || v.business_category || 'General Community Supermarket & Mart',
           logo: userSaved.logo || v.logo || '',
           description: userSaved.description || v.description || '',
           phone_number: userSaved.phone_number || v.phone_number || v.phone || v.mobile || '',
@@ -497,6 +540,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       const isAvail = stockNum > 0 ? (itemForm.is_available !== false && itemForm.is_available !== 0) : false;
       const payload = {
         ...itemForm,
+        unit: (itemForm.unit || '').trim() || 'Piece',
         stock: stockNum,
         is_available: isAvail ? 1 : 0
       };
@@ -627,10 +671,34 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
             const updatedVendor = {
               ...(parsedSession.vendor || parsedSession),
               ...settingsForm,
+              category: settingsForm.category || settingsForm.business_category,
+              business_category: settingsForm.category || settingsForm.business_category,
               vendor_id: targetId
             };
             parsedSession.vendor = updatedVendor;
             localStorage.setItem('digilocal_vendor_session', JSON.stringify(parsedSession));
+          }
+
+          // Update vendor_profile if present
+          const profStr = localStorage.getItem('vendor_profile');
+          if (profStr) {
+            const prof = JSON.parse(profStr);
+            localStorage.setItem('vendor_profile', JSON.stringify({
+              ...prof,
+              ...settingsForm,
+              category: settingsForm.category || settingsForm.business_category,
+              business_category: settingsForm.category || settingsForm.business_category
+            }));
+          }
+
+          // Update registered vendors pool
+          const regStr = localStorage.getItem('digilocal_registered_vendors');
+          if (regStr) {
+            let list = JSON.parse(regStr);
+            if (Array.isArray(list)) {
+              list = list.map(v => (v && String(v.vendor_id) === String(targetId) ? { ...v, ...settingsForm, category: settingsForm.category || settingsForm.business_category, business_category: settingsForm.category || settingsForm.business_category } : v));
+              localStorage.setItem('digilocal_registered_vendors', JSON.stringify(list));
+            }
           }
         } catch (_) {}
       }
@@ -987,7 +1055,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
         )}
 
         {/* Navigation Tabs */}
-        <div className="flex items-center space-x-2 border-b border-border overflow-x-auto">
+        <div className="flex items-center space-x-2 border-b border-border overflow-x-auto scroll-touch-x scrollbar-none pb-1">
           {[
             { id: 'orders', label: `Store Sales (${orders.length})`, icon: ShoppingBag },
             { id: 'purchases', label: `My Purchases (${purchases.length})`, icon: ShoppingBag },
@@ -1781,17 +1849,90 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     </div>
 
                     <div className="space-y-4">
-                      {/* ROW 1: STORE / BUSINESS NAME */}
-                      <div>
-                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Store / Business Name</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Flower's Point"
-                          value={settingsForm.store_name}
-                          onChange={(e) => setSettingsForm({ ...settingsForm, store_name: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
-                        />
+                      {/* ROW 1: STORE / BUSINESS NAME & STORE CATEGORY */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Store / Business Name *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Flower's Point"
+                            value={settingsForm.store_name}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, store_name: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                          />
+                        </div>
+
+                        {/* STORE CATEGORY SELECTOR */}
+                        <div ref={settingsCategoryDropdownRef} className="relative">
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-bold text-[#211A19] uppercase">Store Category *</label>
+                            <span className="text-[10px] text-[#541D26] font-bold">Change anytime</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowSettingsCategoryDropdown(!showSettingsCategoryDropdown)}
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-bold text-[#211A19] flex items-center justify-between shadow-2xs cursor-pointer hover:bg-white hover:border-[#541D26] transition-all"
+                          >
+                            <div className="flex items-center space-x-2 min-w-0">
+                              <Tag className="w-3.5 h-3.5 text-[#541D26] shrink-0" />
+                              <span className="truncate">{settingsForm.category || 'Select Store Category'}</span>
+                            </div>
+                            <ChevronDown className={`w-3.5 h-3.5 text-[#541D26] transition-transform shrink-0 ml-1.5 ${showSettingsCategoryDropdown ? 'rotate-180' : ''}`} />
+                          </button>
+
+                          {showSettingsCategoryDropdown && (
+                            <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E7DFD5] rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto p-2 space-y-1 scrollbar-thin">
+                              <div className="sticky top-0 bg-white pb-1.5 z-10 border-b border-[#E7DFD5]">
+                                <input
+                                  type="text"
+                                  placeholder="Search or type custom category..."
+                                  value={settingsCategorySearch}
+                                  onChange={(e) => setSettingsCategorySearch(e.target.value)}
+                                  className="w-full px-3 py-1.5 text-xs rounded-lg bg-[#FAF8F5] border border-[#E7DFD5] focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                                />
+                              </div>
+
+                              <div className="pt-1 space-y-0.5">
+                                {MASTER_STORE_CATEGORIES
+                                  .filter(cat => !settingsCategorySearch || cat.toLowerCase().includes(settingsCategorySearch.toLowerCase().trim()))
+                                  .map(cat => (
+                                    <div
+                                      key={cat}
+                                      onClick={() => {
+                                        setSettingsForm({ ...settingsForm, category: cat, business_category: cat });
+                                        setShowSettingsCategoryDropdown(false);
+                                        setSettingsCategorySearch('');
+                                      }}
+                                      className={`px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-colors flex items-center justify-between ${
+                                        settingsForm.category === cat 
+                                          ? 'bg-[#541D26] text-white' 
+                                          : 'text-[#211A19] hover:bg-[#EEE5DA]'
+                                      }`}
+                                    >
+                                      <span className="truncate">{cat}</span>
+                                      {settingsForm.category === cat && <Check className="w-3.5 h-3.5 text-[#C8A878] shrink-0 ml-2" />}
+                                    </div>
+                                  ))}
+
+                                {settingsCategorySearch && !MASTER_STORE_CATEGORIES.some(c => c.toLowerCase() === settingsCategorySearch.trim().toLowerCase()) && (
+                                  <div
+                                    onClick={() => {
+                                      const customCat = settingsCategorySearch.trim();
+                                      setSettingsForm({ ...settingsForm, category: customCat, business_category: customCat });
+                                      setShowSettingsCategoryDropdown(false);
+                                      setSettingsCategorySearch('');
+                                    }}
+                                    className="px-3 py-2 text-xs font-bold text-[#541D26] bg-[#FAF8F5] hover:bg-[#EEE5DA] rounded-xl cursor-pointer border border-dashed border-[#C8A878] mt-1 flex items-center justify-between"
+                                  >
+                                    <span className="truncate">Set custom: &ldquo;{settingsCategorySearch.trim()}&rdquo;</span>
+                                    <Check className="w-3.5 h-3.5 text-[#541D26] shrink-0" />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* ROW 2: OWNER NAME & STORE EMAIL */}
@@ -2749,12 +2890,26 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       {/* Add / Edit Product Modal (Centered, Portaled to Body, Brand Color Scheme) */}
       {showAddItemModal && createPortal(
         <div 
-          className="fixed inset-0 z-[99999999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md transition-all duration-300 ease-out"
-          style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0 }}
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowAddItemModal(false); }}
         >
           <div 
-            className="bg-white border border-[#E7DFD5] rounded-[2rem] max-w-md w-full max-h-[85vh] shadow-2xl flex flex-col overflow-hidden text-[#211A19] relative my-auto animate-in zoom-in-95 duration-200"
+            className="bg-white border border-[#E7DFD5] rounded-3xl max-w-md w-full max-h-[85vh] shadow-2xl flex flex-col overflow-hidden text-[#211A19] relative animate-in zoom-in-95 duration-150"
+            style={{ margin: 'auto', maxHeight: '85vh' }}
             onClick={(e) => e.stopPropagation()}
           >
             
@@ -2893,7 +3048,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 {/* 3. CATEGORY & PRICE (2 COLUMNS) */}
                 <div className="grid grid-cols-2 gap-2.5">
                   {/* Category Selection */}
-                  <div>
+                  <div ref={categoryDropdownRef}>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
                       CATEGORY *
                     </label>
@@ -2978,23 +3133,39 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
                 {/* 4. UNIT & STOCK QUANTITY (2 COLUMNS) */}
                 <div className="grid grid-cols-2 gap-2.5">
-                  {/* Unit Select Dropdown */}
-                  <div>
+                  {/* Unit Select & Custom Typing Combobox */}
+                  <div ref={unitDropdownRef}>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
                       UNIT *
                     </label>
                     <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Piece, 1 kg, Strip..."
+                        value={itemForm.unit || ''}
+                        onChange={(e) => {
+                          setItemForm({ ...itemForm, unit: e.target.value });
+                          setShowUnitDropdown(true);
+                        }}
+                        onFocus={() => setShowUnitDropdown(true)}
+                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-[#211A19] focus:outline-none placeholder:text-gray-400 placeholder:font-normal"
+                      />
                       <button
                         type="button"
                         onClick={() => setShowUnitDropdown(!showUnitDropdown)}
-                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] hover:border-[#541D26] rounded-xl px-3 py-2 text-xs font-bold text-[#211A19] flex items-center justify-between cursor-pointer"
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-[#541D26] hover:bg-[#EEE5DA] rounded-lg transition-colors cursor-pointer"
+                        title="Select from standard units"
                       >
-                        <span className="truncate">{itemForm.unit || 'Piece'}</span>
-                        <ChevronDown className={`w-3 h-3 text-[#541D26] shrink-0 transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showUnitDropdown ? 'rotate-180' : ''}`} />
                       </button>
 
                       {showUnitDropdown && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E7DFD5] rounded-xl shadow-xl z-50 max-h-36 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E7DFD5] rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto p-1.5 space-y-0.5 scrollbar-thin">
+                          <div className="px-2 py-1 text-[9px] font-extrabold uppercase tracking-wider text-[#8A7A70] border-b border-[#E7DFD5] mb-1 flex items-center justify-between">
+                            <span>Suggestions</span>
+                            <span className="text-[8px] font-semibold text-[#541D26] lowercase">type any custom unit</span>
+                          </div>
                           {[
                             'Piece',
                             'Set',
@@ -3003,29 +3174,57 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             '1 kg',
                             '500g',
                             '250g',
+                            '100g',
                             '1L',
                             '500ml',
+                            '200ml',
                             'Dozen',
-                            'Bunch'
-                          ].map((u) => (
+                            'Bunch',
+                            'Plate',
+                            'Pair',
+                            'Bottle',
+                            'Strip',
+                            'Roll',
+                            'Serving',
+                            'Meter'
+                          ]
+                            .filter((u) => !itemForm.unit || u.toLowerCase().includes(itemForm.unit.toLowerCase().trim()))
+                            .map((u) => (
+                              <div
+                                key={u}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setItemForm({ ...itemForm, unit: u });
+                                  setShowUnitDropdown(false);
+                                }}
+                                className={`px-2.5 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
+                                  itemForm.unit?.trim().toLowerCase() === u.toLowerCase()
+                                    ? 'bg-[#541D26] text-white' 
+                                    : 'text-[#211A19] hover:bg-[#EEE5DA]'
+                                }`}
+                              >
+                                <span>{u}</span>
+                                {itemForm.unit?.trim().toLowerCase() === u.toLowerCase() && (
+                                  <Check className="w-3 h-3 text-[#C8A878] shrink-0" />
+                                )}
+                              </div>
+                            ))}
+                          {itemForm.unit && 
+                           ![
+                            'Piece', 'Set', 'Packet', 'Box', '1 kg', '500g', '250g', '100g', 
+                            '1L', '500ml', '200ml', 'Dozen', 'Bunch', 'Plate', 'Pair', 'Bottle', 'Strip', 'Roll', 'Serving', 'Meter'
+                           ].some(u => u.toLowerCase() === itemForm.unit.trim().toLowerCase()) && (
                             <div
-                              key={u}
-                              onClick={() => {
-                                setItemForm({ ...itemForm, unit: u });
+                              onMouseDown={(e) => {
+                                e.preventDefault();
                                 setShowUnitDropdown(false);
                               }}
-                              className={`px-2.5 py-1 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
-                                itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()
-                                  ? 'bg-[#541D26] text-white' 
-                                  : 'text-[#211A19] hover:bg-[#EEE5DA]'
-                              }`}
+                              className="px-2.5 py-1.5 text-xs font-bold text-[#541D26] bg-[#FAF8F5] rounded-lg border border-dashed border-[#C8A878] mt-1 cursor-pointer flex items-center justify-between hover:bg-[#EEE5DA]"
                             >
-                              <span>{u}</span>
-                              {(itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()) && (
-                                <Check className="w-3 h-3 text-[#C8A878]" />
-                              )}
+                              <span className="truncate">Use custom: &ldquo;{itemForm.unit}&rdquo;</span>
+                              <Check className="w-3 h-3 text-[#541D26] shrink-0 ml-1" />
                             </div>
-                          ))}
+                          )}
                         </div>
                       )}
                     </div>
@@ -3110,29 +3309,44 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       {/* In-Website Settings Success Modal (Portaled, Brand Colors) */}
       {showSettingsSuccessModal && createPortal(
         <div 
-          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto"
-          style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0 }}
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
           onClick={() => setShowSettingsSuccessModal(false)}
         >
           <div 
-            className="relative bg-white border border-[#C8A878]/40 rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center flex flex-col items-center my-auto shrink-0 max-h-[90vh] overflow-y-auto animate-in zoom-in-95"
+            className="relative bg-white border border-[#C8A878]/40 rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center flex flex-col items-center max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-150"
+            style={{ margin: 'auto', maxHeight: '85vh' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mb-4 shadow-sm">
+            <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mb-4 shadow-sm shrink-0">
               <CheckCircle2 className="w-8 h-8" />
             </div>
 
-            <h3 className="text-lg font-serif font-extrabold text-[#211A19] uppercase tracking-wide mb-1">
+            <h3 className="text-lg font-serif font-extrabold text-[#211A19] uppercase tracking-wide mb-1 shrink-0">
               Settings Saved Successfully!
             </h3>
             
-            <p className="text-xs text-[#78716C] leading-relaxed mb-6 font-medium">
+            <p className="text-xs text-[#78716C] leading-relaxed mb-6 font-medium overflow-y-auto">
               Your store profile, operating hours, taxes, charges, and order limits have been updated in DigiLocal.
             </p>
 
             <button
+              type="button"
               onClick={() => setShowSettingsSuccessModal(false)}
-              className="w-full py-3.5 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all border border-[#C8A878]/30 cursor-pointer"
+              className="w-full py-3.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all border border-[#C8A878]/30 cursor-pointer shrink-0"
             >
               Continue to Vendor Panel
             </button>
@@ -3144,35 +3358,49 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       {/* Delete Store Confirmation Modal (Portaled, Centered) */}
       {showDeleteConfirmModal && createPortal(
         <div 
-          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto"
-          style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0 }}
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
           onClick={() => setShowDeleteConfirmModal(false)}
         >
           <div 
-            className="relative bg-white border border-rose-200 rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 text-center my-auto shrink-0 max-h-[90vh] overflow-y-auto animate-in zoom-in-95"
+            className="relative bg-white border border-rose-200 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 text-center max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+            style={{ margin: 'auto', maxHeight: '85vh' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-16 h-16 rounded-full bg-rose-100 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto shadow-sm">
-              <Trash2 className="w-8 h-8" />
+            <div className="w-14 h-14 rounded-full bg-rose-100 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto shadow-sm shrink-0">
+              <Trash2 className="w-7 h-7" />
             </div>
 
-            <div>
+            <div className="overflow-y-auto space-y-2">
               <span className="px-3 py-1 bg-rose-100 text-rose-800 text-[10px] font-black uppercase tracking-wider rounded-full border border-rose-200">
                 Permanent Action
               </span>
-              <h3 className="text-xl font-serif font-bold text-[#211A19] mt-2">
+              <h3 className="text-lg font-serif font-bold text-[#211A19]">
                 Are you sure to delete account?
               </h3>
-              <p className="text-xs text-[#78716C] mt-2 leading-relaxed font-medium">
+              <p className="text-xs text-[#78716C] leading-relaxed font-medium">
                 Deleting your vendor shop storefront is permanent and cannot be undone. All your listed catalog items, store configuration, pricing details, and historical order records will be permanently removed from DigiLocal.
               </p>
             </div>
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-3 pt-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirmModal(false)}
-                className="flex-1 py-3 px-4 rounded-full bg-[#FAF8F5] border border-[#E7DFD5] text-[#211A19] font-bold text-xs uppercase tracking-wider hover:bg-[#EEE5DA] transition-colors cursor-pointer"
+                className="flex-1 py-3 px-4 rounded-xl bg-[#FAF8F5] border border-[#E7DFD5] text-[#211A19] font-bold text-xs uppercase tracking-wider hover:bg-[#EEE5DA] transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -3180,7 +3408,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 type="button"
                 disabled={deletingStore}
                 onClick={handleDeleteVendorStore}
-                className="flex-1 py-3 px-4 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center space-x-2"
+                className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center space-x-2"
               >
                 <Trash2 className="w-4 h-4 text-white" />
                 <span>{deletingStore ? 'Deleting Account...' : 'Yes, Delete Account'}</span>
@@ -3194,35 +3422,49 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       {/* Log Out Confirmation Modal (Portaled, Centered) */}
       {showLogoutModal && createPortal(
         <div 
-          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto"
-          style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0 }}
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
           onClick={() => setShowLogoutModal(false)}
         >
           <div 
-            className="relative bg-white border border-[#C5A880]/40 rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 text-center my-auto shrink-0 max-h-[90vh] overflow-y-auto animate-in zoom-in-95"
+            className="relative bg-white border border-[#C5A880]/40 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 text-center max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+            style={{ margin: 'auto', maxHeight: '85vh' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-16 h-16 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 text-[#541D26] flex items-center justify-center mx-auto shadow-sm">
-              <LogOut className="w-8 h-8 text-[#541D26]" />
+            <div className="w-14 h-14 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 text-[#541D26] flex items-center justify-center mx-auto shadow-sm shrink-0">
+              <LogOut className="w-7 h-7 text-[#541D26]" />
             </div>
 
-            <div>
+            <div className="overflow-y-auto space-y-2">
               <span className="px-3 py-1 bg-[#541D26]/10 text-[#541D26] text-[10px] font-black uppercase tracking-wider rounded-full border border-[#541D26]/20">
                 Session Action
               </span>
-              <h3 className="text-xl font-serif font-bold text-[#211A19] mt-2">
+              <h3 className="text-lg font-serif font-bold text-[#211A19]">
                 Are you sure to logout?
               </h3>
-              <p className="text-xs text-[#78716C] mt-2 leading-relaxed font-medium">
+              <p className="text-xs text-[#78716C] leading-relaxed font-medium">
                 Logging out will safely end your active merchant session on this device. You will need to re-authenticate with your registered phone number or credentials to access your store dashboard, manage catalog items, and process incoming orders.
               </p>
             </div>
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-3 pt-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowLogoutModal(false)}
-                className="flex-1 py-3 px-4 rounded-full bg-[#FAF8F5] border border-[#E7DFD5] text-[#211A19] font-bold text-xs uppercase tracking-wider hover:bg-[#EEE5DA] transition-colors cursor-pointer"
+                className="flex-1 py-3 px-4 rounded-xl bg-[#FAF8F5] border border-[#E7DFD5] text-[#211A19] font-bold text-xs uppercase tracking-wider hover:bg-[#EEE5DA] transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -3236,7 +3478,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   } catch (_) {}
                   if (typeof onVendorLogout === 'function') onVendorLogout();
                 }}
-                className="flex-1 py-3 px-4 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center space-x-2"
+                className="flex-1 py-3 px-4 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center space-x-2"
               >
                 <LogOut className="w-4 h-4 text-white" />
                 <span>Yes, Log Out</span>

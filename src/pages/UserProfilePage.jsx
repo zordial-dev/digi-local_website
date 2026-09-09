@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import DeliveryAddressModal from '../components/DeliveryAddressModal';
 import { 
   User, 
@@ -929,10 +930,10 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         {/* ------------------------------------------------------------- */}
         {/* NAVIGATION TABS BAR (Oxblood #541D26 Active Pill)             */}
         {/* ------------------------------------------------------------- */}
-        <div className="bg-white rounded-2xl sm:rounded-full p-1.5 shadow-md border border-[#E5DAD0] flex flex-wrap sm:flex-nowrap items-center gap-1 overflow-x-auto">
+        <div className="bg-white rounded-2xl sm:rounded-full p-1.5 shadow-md border border-[#E5DAD0] flex items-center gap-1 overflow-x-auto scroll-touch-x scrollbar-none">
           <button
             onClick={() => setActiveTab('orders')}
-            className={`flex-1 min-w-[120px] py-3 px-4 rounded-xl sm:rounded-full text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex-1 min-w-[120px] py-2.5 sm:py-3 px-3.5 sm:px-4 rounded-xl sm:rounded-full text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'orders'
                 ? 'bg-[#541D26] text-white shadow-md'
                 : 'text-[#211A19]/70 hover:text-[#541D26] hover:bg-[#EEE5DA]'
@@ -1944,18 +1945,39 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
       {/* ------------------------------------------------------------- */}
       {/* MODAL 2: RECEIPT MODAL                                         */}
       {/* ------------------------------------------------------------- */}
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#E5DAD0] space-y-4 text-[#211A19]">
-            <div className="flex items-center justify-between border-b border-[#E5DAD0] pb-3">
+      {selectedOrder && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
+          onClick={() => setSelectedOrder(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#E5DAD0] space-y-4 text-[#211A19] max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150" 
+            style={{ margin: 'auto', maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[#E5DAD0] pb-3 shrink-0">
               <div>
                 <h3 className="text-lg font-serif font-bold text-[#211A19]">Order Receipt</h3>
                 <p className="text-[11px] text-muted-foreground font-mono">{selectedOrder.order_id}</p>
               </div>
-              <button onClick={() => setSelectedOrder(null)} className="text-muted-foreground hover:text-ink font-bold cursor-pointer">✕</button>
+              <button onClick={() => setSelectedOrder(null)} className="text-muted-foreground hover:text-ink font-bold cursor-pointer p-1">✕</button>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="space-y-3 text-xs overflow-y-auto flex-1 scrollbar-thin">
               <div className="flex justify-between font-medium">
                 <span className="text-muted-foreground">Store:</span>
                 <span className="font-bold">{selectedOrder.store_name}</span>
@@ -1989,32 +2011,54 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
 
             <button
               onClick={() => setSelectedOrder(null)}
-              className="w-full py-3 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-full font-bold text-xs uppercase tracking-wider cursor-pointer"
+              className="w-full py-3 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-full font-bold text-xs uppercase tracking-wider cursor-pointer shrink-0"
             >
               Close Receipt
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ------------------------------------------------------------- */}
       {/* MODAL 3: DELETE ACCOUNT CONFIRMATION MODAL                     */}
       {/* ------------------------------------------------------------- */}
-      {showDeleteAccountModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-rose-200 text-ink space-y-5">
-            <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 mx-auto">
+      {showDeleteAccountModal && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
+          onClick={() => setShowDeleteAccountModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-rose-200 text-ink space-y-5 max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150" 
+            style={{ margin: 'auto', maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 mx-auto shrink-0">
               <Trash2 className="w-6 h-6" />
             </div>
 
-            <div className="text-center space-y-2">
+            <div className="text-center space-y-2 overflow-y-auto">
               <h3 className="text-xl font-serif font-bold text-rose-950">Delete Account Permanently?</h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Are you sure you want to delete your resident account <strong className="text-ink">{savedProfile.name || name || 'User'}</strong>? Your saved addresses, favorites, and profile data will be permanently removed.
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowDeleteAccountModal(false)}
@@ -2026,13 +2070,15 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                 type="button"
                 disabled={isDeletingAccount}
                 onClick={handleDeleteUserAccount}
-                className="w-full sm:w-1/2 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full sm:w-1/2 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                {isDeletingAccount ? 'Deleting Account...' : 'Yes, Delete Account'}
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeletingAccount ? 'Deleting...' : 'Delete Account'}</span>
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Delivery Address Modal (Supports Add New & Edit Address) */}

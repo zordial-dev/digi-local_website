@@ -58,7 +58,6 @@ body {
   width: 100%;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-  transform: translateZ(0);
 }
 
 #root {
@@ -96,12 +95,10 @@ body {
 /* Surface Texture Utilities */
 .cream-paper {
   background-color: #F6F0E8;
-  transform: translateZ(0);
 }
 
 .soft-section-bg {
   background-color: #EEE5DA;
-  transform: translateZ(0);
 }
 
 .card-white {
@@ -294,4 +291,49 @@ button:active:not(:disabled),
 .ui-card:hover {
   border-color: rgba(84, 29, 38, 0.25);
   box-shadow: 0 10px 25px -5px rgba(33, 26, 25, 0.08);
+}
+
+/* Responsive Touch & Scroll Ergonomics */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scroll-touch-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Safe Area Inset Support for Mobile Devices */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.pt-safe {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+/* Fluid responsive headings */
+.fluid-h1 {
+  font-size: clamp(2rem, 5vw + 1rem, 3.75rem);
+  line-height: 1.15;
+}
+
+.fluid-h2 {
+  font-size: clamp(1.5rem, 3vw + 0.75rem, 2.5rem);
+  line-height: 1.2;
+}
+
+.fluid-h3 {
+  font-size: clamp(1.15rem, 2vw + 0.5rem, 1.75rem);
+  line-height: 1.25;
 }

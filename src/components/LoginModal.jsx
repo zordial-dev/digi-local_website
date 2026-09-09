@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Store, 
   User, 
@@ -209,9 +210,30 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
     setInfoMsg(`Verification OTP resent to +91 ${userPhone}`);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-card border border-border rounded-[2.5rem] max-w-md w-full shadow-2xl overflow-hidden relative text-foreground">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 99999999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: 0
+      }}
+      onClick={() => { handleResetModal(); onClose(); }}
+    >
+      <div 
+        className="bg-card border border-border rounded-3xl max-w-md w-full shadow-2xl overflow-hidden relative text-foreground max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-150"
+        style={{ margin: 'auto', maxHeight: '85vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Header */}
         <div className="bg-[#211A19] text-[#F6F0E8] px-6 py-5 flex items-center justify-between border-b border-[#C8A878]/30">
@@ -456,6 +478,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

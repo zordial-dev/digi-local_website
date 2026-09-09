@@ -193,14 +193,27 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
 
   const modalContent = (
     <div 
-      className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md transition-all duration-300 ease-out"
-      style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0 }}
+      className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 99999999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: 0
+      }}
       onClick={onClose}
     >
       <div 
-        className="relative w-full max-w-md bg-[#211A19] text-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-white/20 space-y-4 font-sans max-h-[88vh] overflow-y-auto transform transition-all duration-300 ease-out scale-100 opacity-100"
+        className="relative w-full max-w-md bg-[#211A19] text-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-white/20 space-y-4 font-sans max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-150"
+        style={{ margin: 'auto', maxHeight: '85vh' }}
         onClick={(e) => e.stopPropagation()}
-        style={{ animation: 'modalPopupIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}
       >
         <style>{`
           @keyframes modalPopupIn {

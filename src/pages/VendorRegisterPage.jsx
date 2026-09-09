@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   User, 
   Store, 
@@ -246,7 +247,8 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     isVendorContactVerified && verifiedContactValue.includes(mobileNumber.trim()) &&
     emailAddress && emailAddress.trim().includes('@') &&
     shopBusinessName && shopBusinessName.trim().length > 0 &&
-    gstNumber && gstNumber.trim().length >= 5 &&
+    shopNumber && shopNumber.trim().length > 0 &&
+    (taxIdType === 'pan' ? (panNumber && panNumber.trim().length >= 5) : (gstNumber && gstNumber.trim().length >= 5)) &&
     Array.isArray(shopImages) && shopImages.length > 0
   );
 
@@ -837,6 +839,8 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         vendor_name: ownerName.trim() || serverVendor.vendor_name || cleanEmail.split('@')[0],
         email: cleanEmail || serverVendor.email || '',
         phone_number: mainPhone || verifiedContactValue || serverVendor.phone_number || '',
+        mobile_number: mainPhone || verifiedContactValue || serverVendor.mobile_number || '',
+        password: password,
         category: businessCategory || serverVendor.category || '',
         location: areaName.trim() || shopAddress.trim() || societySearch.trim() || serverVendor.location || serverVendor.area || '',
         area: areaName.trim() || serverVendor.area || '',
@@ -1890,8 +1894,8 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                       <span className="font-bold text-[#211A19]">{shopNumber || 'Shop 101'}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground font-medium">GST / PAN:</span>
-                      <span className="font-bold text-[#211A19]">{gstNumber}</span>
+                      <span className="text-muted-foreground font-medium">{taxIdType === 'pan' ? 'PAN Number:' : 'GSTIN Number:'}</span>
+                      <span className="font-bold text-[#211A19]">{taxIdType === 'pan' ? (panNumber || 'N/A') : (gstNumber || 'N/A')}</span>
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-1">
@@ -1956,9 +1960,30 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
       </div>
 
       {/* CUSTOM SOCIETY REGISTRATION MODAL */}
-      {showCustomSocietyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-border/80 p-6 max-w-md w-full shadow-2xl relative space-y-4 text-left">
+      {showCustomSocietyModal && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
+          onClick={() => setShowCustomSocietyModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl border border-border/80 p-6 max-w-md w-full shadow-2xl relative space-y-4 text-left max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150" 
+            style={{ margin: 'auto', maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => setShowCustomSocietyModal(false)}
@@ -1967,7 +1992,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 shrink-0">
               <div className="w-10 h-10 rounded-2xl bg-[#EEE5DA] border border-[#C8A878]/40 flex items-center justify-center text-[#541D26]">
                 <Building2 className="w-5 h-5" />
               </div>
@@ -1978,13 +2003,13 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
             </div>
 
             {customSocietyError && (
-              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center space-x-2">
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center space-x-2 shrink-0">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{customSocietyError}</span>
               </div>
             )}
 
-            <form onSubmit={handleAddCustomSociety} className="space-y-3">
+            <form onSubmit={handleAddCustomSociety} className="space-y-3 overflow-y-auto flex-1">
               <div>
                 <label className="block text-xs font-bold text-[#211A19] mb-1">
                   Society Name *
@@ -2055,7 +2080,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-end space-x-2">
+              <div className="pt-2 flex items-center justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowCustomSocietyModal(false)}
@@ -2073,13 +2098,35 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 6-DIGIT VENDOR OTP VERIFICATION MODAL */}
-      {showVendorOtpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-border/80 p-6 max-w-md w-full shadow-2xl relative space-y-4 text-left">
+      {showVendorOtpModal && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
+          onClick={() => setShowVendorOtpModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl border border-border/80 p-4 sm:p-6 max-w-md w-full shadow-2xl relative space-y-4 text-left max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150" 
+            style={{ margin: 'auto', maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => setShowVendorOtpModal(false)}
@@ -2088,7 +2135,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 shrink-0">
               <div className="w-10 h-10 rounded-2xl bg-[#EEE5DA] border border-[#C8A878]/40 flex items-center justify-center text-[#541D26]">
                 <ShieldCheck className="w-5 h-5 text-[#541D26]" />
               </div>
@@ -2103,20 +2150,20 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
             </div>
 
             {error && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center space-x-2">
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center space-x-2 shrink-0">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleVerifyVendorOtpCode} className="space-y-4">
+            <form onSubmit={handleVerifyVendorOtpCode} className="space-y-4 overflow-y-auto flex-1">
               <div className="py-2">
                 <label className="block text-xs font-bold text-center text-[#211A19] mb-3">
                   Enter 6-Digit Security Code
                 </label>
 
                 {/* 6 Single-Digit Input Blocks */}
-                <div className="flex justify-center items-center gap-2 sm:gap-2.5">
+                <div className="flex justify-center items-center gap-1.5 sm:gap-2.5">
                   {vendorOtpValues.map((digit, idx) => (
                     <input
                       key={idx}
@@ -2128,7 +2175,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                       onChange={(e) => handleVendorOtpChange(idx, e.target.value)}
                       onKeyDown={(e) => handleVendorOtpKeyDown(idx, e)}
                       onPaste={idx === 0 ? handleVendorOtpPaste : undefined}
-                      className="w-10 h-12 sm:w-11 sm:h-13 text-center text-lg font-bold rounded-2xl bg-[#FAF9F6] border-2 border-border/80 text-[#211A19] focus:outline-none focus:border-[#541D26] focus:bg-white focus:ring-4 focus:ring-[#541D26]/10 transition-all shadow-xs"
+                      className="w-9 h-11 sm:w-11 sm:h-13 text-center text-base sm:text-lg font-bold rounded-xl sm:rounded-2xl bg-[#FAF9F6] border-2 border-border/80 text-[#211A19] focus:outline-none focus:border-[#541D26] focus:bg-white focus:ring-4 focus:ring-[#541D26]/10 transition-all shadow-xs"
                     />
                   ))}
                 </div>
@@ -2168,13 +2215,35 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
               </button>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CUSTOM SHOP PHOTO UPLOADER MODAL */}
-      {showPhotoUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-border/80 p-6 max-w-lg w-full shadow-2xl relative space-y-4 text-left overflow-hidden">
+      {showPhotoUploadModal && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
+          onClick={() => setShowPhotoUploadModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl border border-border/80 p-6 max-w-lg w-full shadow-2xl relative space-y-4 text-left max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150" 
+            style={{ margin: 'auto', maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => setShowPhotoUploadModal(false)}
@@ -2298,7 +2367,8 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

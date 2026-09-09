@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { MapPin, Search, Check, X, Building2, Navigation, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -34,18 +35,17 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
   );
 
   const handleSelect = (loc) => {
-    const formatted = `${loc.name}, ${loc.city}`;
+    const labelText = flatNumber ? `Flat ${flatNumber}, ${loc.name}` : loc.name;
     onSelectLocation({
-      label: formatted,
-      name: loc.name,
-      city: loc.city,
-      pincode: loc.pincode,
-      society_id: loc.society_id
+      ...loc,
+      label: labelText,
+      flatNumber
     });
     try {
       localStorage.setItem('digilocal_delivery_location', JSON.stringify({
-        label: formatted,
-        society_id: loc.society_id
+        ...loc,
+        label: labelText,
+        flatNumber
       }));
     } catch (_) {}
     onClose();
@@ -69,9 +69,30 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-card border border-border rounded-[2.5rem] max-w-lg w-full shadow-2xl overflow-hidden relative text-foreground">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 99999999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: 0
+      }}
+      onClick={onClose}
+    >
+      <div 
+        className="bg-card border border-border rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden relative text-foreground max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-150"
+        style={{ margin: 'auto', maxHeight: '85vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Header */}
         <div className="bg-[#541D26] text-[#F7F4EE] px-6 py-5 flex items-center justify-between border-b border-[#C8A878]/30">
@@ -194,6 +215,7 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

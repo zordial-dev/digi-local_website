@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Store, User, Phone, CheckCircle2, ShieldCheck, AlertCircle, Sparkles, KeyRound, Smartphone, ChevronDown } from 'lucide-react';
 import { gsap } from 'gsap';
 import { api } from '../services/api';
@@ -287,7 +288,20 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         let vendorObj = res?.vendor;
         try {
           const pool = JSON.parse(localStorage.getItem('digilocal_registered_vendors') || '[]');
-          const match = pool.find(v => String(v.phone_number).trim() === rawContact || String(v.email).trim().toLowerCase() === rawContact.toLowerCase());
+          const inputPhoneDigits = rawContact.replace(/[^0-9]/g, '');
+          const cleanPhone10 = inputPhoneDigits.length >= 10 ? inputPhoneDigits.slice(-10) : inputPhoneDigits;
+          const cleanEmailLower = rawContact.toLowerCase().trim();
+
+          const match = Array.isArray(pool) && pool.find(v => {
+            if (!v) return false;
+            const vDigits = String(v.phone_number || v.mobile_number || v.phone || '').replace(/[^0-9]/g, '');
+            const vPhone10 = vDigits.length >= 10 ? vDigits.slice(-10) : vDigits;
+            const vEmail = String(v.email || '').toLowerCase().trim();
+
+            return (cleanPhone10 && vPhone10 === cleanPhone10) || 
+                   (cleanEmailLower && vEmail === cleanEmailLower) || 
+                   (String(v.phone_number || '').trim() === rawContact);
+          });
           if (match) vendorObj = match;
         } catch (_) {}
 
@@ -902,9 +916,30 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
       </div>
 
       {/* Post-OTP Verification Password Update Choice Modal */}
-      {showAltModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-border space-y-5 relative">
+      {showAltModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
+          onClick={() => setShowAltModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-border space-y-5 relative max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150" 
+            style={{ margin: 'auto', maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => setShowAltModal(false)}
@@ -914,7 +949,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
             </button>
 
             {/* Modal Header */}
-            <div>
+            <div className="shrink-0">
               <span className="px-3 py-1 bg-[#541D26]/10 text-[#541D26] text-[10px] font-black uppercase tracking-wider rounded-full border border-[#541D26]/20">
                 OTP Verified
               </span>
@@ -930,7 +965,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
             {/* Alert Message */}
             {altMsg && (
-              <div className={`p-3 rounded-2xl text-xs font-bold flex items-center space-x-2 ${
+              <div className={`p-3 rounded-2xl text-xs font-bold flex items-center space-x-2 shrink-0 ${
                 altMsgType === 'error' 
                   ? 'bg-rose-50 border border-rose-200 text-rose-700' 
                   : 'bg-[#EEE5DA] border border-[#C8A878]/40 text-[#541D26]'
@@ -942,77 +977,64 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
             {/* STEP 3: Choice - Update Password or Skip */}
             {altStep === 3 && (
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3 pt-2 shrink-0">
                 <button
                   type="button"
-                  onClick={handleSendPasswordResetOTP}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-between cursor-pointer group border border-[#C8A878]/30"
+                  onClick={() => setAltStep(4)}
+                  className="w-full py-3.5 bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider rounded-full shadow-md transition-all flex items-center justify-center space-x-2 border border-[#C8A878]/30 cursor-pointer"
                 >
-                  <span className="flex items-center space-x-2">
-                    <KeyRound className="w-4 h-4 text-[#C8A878] group-hover:rotate-12 transition-transform" />
-                    <span>Send Verification Code</span>
-                  </span>
-                  <ArrowRight className="w-4 h-4 text-[#C8A878] group-hover:translate-x-0.5 transition-transform" />
+                  <span>Yes, Set New Password</span>
+                  <ArrowRight className="w-4 h-4 text-[#C8A878]" />
                 </button>
-
                 <button
                   type="button"
-                  onClick={() => handleCompleteDirectLogin()}
-                  className="w-full py-3 px-4 rounded-2xl bg-[#EEE5DA] hover:bg-[#D6B7A5] text-[#211A19] font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer"
+                  onClick={handleCompleteLoginFlow}
+                  className="w-full py-3 bg-secondary/80 hover:bg-secondary text-ink font-bold text-xs uppercase tracking-wider rounded-full transition-all cursor-pointer border border-border"
                 >
-                  <span>No, Skip & Log In Now</span>
-                  <ArrowRight className="w-4 h-4 text-[#211A19]" />
+                  Skip & Continue to Dashboard
                 </button>
               </div>
             )}
 
-            {/* STEP 4: Enter New Password */}
+            {/* STEP 4: Set New Password Form */}
             {altStep === 4 && (
-              <form onSubmit={handleSaveNewPassword} className="space-y-3">
+              <form onSubmit={handleSaveNewPassword} className="space-y-4 overflow-y-auto flex-1">
                 <div>
-                  <label className="block text-xs font-bold text-[#211A19] mb-1">New Password *</label>
+                  <label className="text-xs font-bold text-ink block mb-1">New Password</label>
                   <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
-                      type={showAltNewPassword ? 'text' : 'password'}
-                      required
-                      placeholder="••••••••"
+                      type={showAltPassword ? 'text' : 'password'}
+                      placeholder="Min. 6 characters"
                       value={altNewPassword}
                       onChange={(e) => setAltNewPassword(e.target.value)}
-                      className="w-full pl-11 pr-10 py-3 rounded-2xl bg-[#FAF9F6] border border-border text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink"
+                      className="w-full pl-10 pr-10 py-3 bg-secondary/40 border border-border rounded-xl text-xs font-medium focus:outline-none focus:border-[#541D26]"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowAltNewPassword(!showAltNewPassword)}
+                      onClick={() => setShowAltPassword(!showAltPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1"
                     >
-                      {showAltNewPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#211A19] mb-1">Confirm New Password *</label>
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type={showAltConfirmPassword ? 'text' : 'password'}
-                      required
-                      placeholder="••••••••"
-                      value={altConfirmPassword}
-                      onChange={(e) => setAltConfirmPassword(e.target.value)}
-                      className="w-full pl-11 pr-10 py-3 rounded-2xl bg-[#FAF9F6] border border-border text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowAltConfirmPassword(!showAltConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1"
-                    >
-                      {showAltConfirmPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
+                      {showAltPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
-                <div className="pt-2 flex gap-2">
+                <div>
+                  <label className="text-xs font-bold text-ink block mb-1">Confirm Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type={showAltPassword ? 'text' : 'password'}
+                      placeholder="Repeat password"
+                      value={altConfirmPassword}
+                      onChange={(e) => setAltConfirmPassword(e.target.value)}
+                      className="w-full pl-10 pr-10 py-3 bg-secondary/40 border border-border rounded-xl text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 pt-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => setAltStep(3)}
@@ -1023,28 +1045,49 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center space-x-2 border border-[#C8A878]/30"
+                    className="flex-1 py-3 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center border border-[#C8A878]/30"
                   >
-                    <span>{loading ? 'Saving...' : 'Save Password & Log In'}</span>
-                    <CheckCircle2 className="w-4 h-4 text-[#C8A878]" />
+                    {loading ? 'Saving...' : 'Save Password & Log In'}
                   </button>
                 </div>
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ------------------------------------------------------------- */}
       {/* MODAL 2: POST-OTP LOGIN SET PASSWORD OR SKIP POPUP             */}
       {/* ------------------------------------------------------------- */}
-      {showOtpPasswordModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-border space-y-6 text-center animate-in fade-in zoom-in duration-200">
-            <div className="w-16 h-16 rounded-full bg-[#EEE5DA] border border-[#C8A878]/40 flex items-center justify-center mx-auto text-[#541D26]">
+      {showOtpPasswordModal && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/75 backdrop-blur-xs z-[99999999] flex items-center justify-center p-4" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
+          onClick={() => setShowOtpPasswordModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-border space-y-6 text-center animate-in zoom-in-95 duration-150 max-h-[85vh] overflow-hidden flex flex-col" 
+            style={{ margin: 'auto', maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-16 h-16 rounded-full bg-[#EEE5DA] border border-[#C8A878]/40 flex items-center justify-center mx-auto text-[#541D26] shrink-0">
               <KeyRound className="w-8 h-8 text-[#541D26]" />
             </div>
-            <div>
+            <div className="shrink-0">
               <h3 className="text-xl font-bold text-ink">Set Account Password?</h3>
               <p className="text-xs text-muted-foreground mt-2">
                 You logged in successfully via OTP. Would you like to set a password now so you can login faster next time?
@@ -1052,12 +1095,12 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
             </div>
 
             {otpPasswordSuccess ? (
-              <div className="p-3.5 bg-[#EEE5DA] border border-[#C8A878]/40 rounded-2xl text-xs font-bold text-[#541D26] flex items-center justify-center gap-2">
+              <div className="p-3.5 bg-[#EEE5DA] border border-[#C8A878]/40 rounded-2xl text-xs font-bold text-[#541D26] flex items-center justify-center gap-2 shrink-0">
                 <CheckCircle2 className="w-4 h-4 text-[#541D26]" />
                 <span>Password set successfully! Opening your profile...</span>
               </div>
             ) : (
-              <form onSubmit={handleSaveOtpPassword} className="space-y-4 text-left">
+              <form onSubmit={handleSaveOtpPassword} className="space-y-4 text-left overflow-y-auto flex-1">
                 <div>
                   <label className="text-xs font-bold text-ink block mb-1">New Password</label>
                   <div className="relative">
@@ -1102,26 +1145,28 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                   <p className="text-xs text-red-600 font-semibold">{otpPasswordError}</p>
                 )}
 
-                <div className="flex items-center gap-3 pt-2">
+                <div className="flex items-center gap-3 pt-2 shrink-0">
                   <button
                     type="button"
                     onClick={handleSkipOtpPassword}
-                    className="flex-1 py-3 px-4 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:text-ink hover:bg-secondary/60 transition-all cursor-pointer"
+                    className="w-1/2 py-3 bg-secondary/80 hover:bg-secondary text-ink rounded-full text-xs font-bold transition-all cursor-pointer"
                   >
                     Skip for Now
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-3 px-4 rounded-xl bg-[#541D26] text-white text-xs font-bold shadow-md hover:bg-[#6B2732] transition-all cursor-pointer flex items-center justify-center gap-2 border border-[#C8A878]/30"
+                    disabled={isSavingPassword}
+                    className="w-1/2 py-3 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-full text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
-                    <span>Save Password</span>
+                    <span>{isSavingPassword ? 'Saving...' : 'Set Password'}</span>
                     <ArrowRight className="w-4 h-4 text-[#C8A878]" />
                   </button>
                 </div>
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Blocked Account Alert Modal */}

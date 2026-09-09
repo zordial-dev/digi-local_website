@@ -316,11 +316,11 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
-        className="bg-[#EEE5DA] hover:bg-[#D6B7A5]/60 text-[#211A19] px-3 sm:px-3.5 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all border border-[#E5DAD0] shadow-xs shrink-0 cursor-pointer"
+        className="bg-[#EEE5DA] hover:bg-[#D6B7A5]/60 text-[#211A19] px-2.5 sm:px-3.5 py-1.5 rounded-full flex items-center space-x-1 sm:space-x-1.5 text-xs font-bold transition-all border border-[#E5DAD0] shadow-xs shrink-0 cursor-pointer"
         title="Delivery Address"
       >
         <MapPin className="w-3.5 h-3.5 text-[#541D26] shrink-0" />
-        <span className="truncate max-w-[110px] sm:max-w-[150px]">
+        <span className="truncate max-w-[75px] min-[400px]:max-w-[105px] sm:max-w-[150px]">
           {defaultAddress
             ? `${defaultAddress.society || defaultAddress.area}${defaultAddress.flat ? ` • ${defaultAddress.flat}` : ''}`
             : 'Delivery Address'}
@@ -501,7 +501,7 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                   <div className="flex items-center space-x-1.5">
                     <button
                       onClick={() => setRoute({ page: 'login', accountType: 'resident' })}
-                      className="bg-transparent hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26] px-3.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+                      className="bg-transparent hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26] px-2.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1 sm:space-x-1.5 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
                     >
                       <AnimatedIcon icon={LogIn} animation="scale" size={14} />
                       <span>Log In</span>
@@ -509,7 +509,7 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
 
                     <button
                       onClick={handleVendorButtonClick}
-                      className="bg-[#541D26] hover:bg-[#6B2732] text-white px-3.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1 text-xs font-bold transition-all shadow-xs group shrink-0 cursor-pointer"
+                      className="hidden md:flex bg-[#541D26] hover:bg-[#6B2732] text-white px-3.5 sm:px-4 py-1.5 rounded-full items-center space-x-1 text-xs font-bold transition-all shadow-xs group shrink-0 cursor-pointer"
                     >
                       <AnimatedIcon icon={Store} animation="pulse" size={13} className="text-white" />
                       <span className="whitespace-nowrap">Vendor Portal</span>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   CreditCard, 
   Smartphone, 
@@ -26,11 +27,11 @@ export default function DummyPaymentModal({
 }) {
   useScrollLock(isOpen);
   const [activeTab, setActiveTab] = useState('upi'); // 'upi' | 'card' | 'netbanking' | 'cod'
-  const [upiId, setUpiId] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-  const [cardName, setCardName] = useState('');
+  const [upiId, setUpiId] = useState('digilocal.resident@okicici');
+  const [cardNumber, setCardNumber] = useState('4532 8901 2345 6789');
+  const [cardExpiry, setCardExpiry] = useState('12/28');
+  const [cardCvv, setCardCvv] = useState('789');
+  const [cardName, setCardName] = useState('Demo Resident');
   const [selectedBank, setSelectedBank] = useState('HDFC');
   
   const [isProcessing, setIsProcessing] = useState(false);
@@ -98,9 +99,30 @@ export default function DummyPaymentModal({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-card border border-border rounded-[2.5rem] max-w-lg w-full shadow-2xl overflow-hidden relative text-foreground">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 99999999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: 0
+      }}
+      onClick={handleResetAndClose}
+    >
+      <div 
+        className="bg-card border border-border rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden relative text-foreground max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-150"
+        style={{ margin: 'auto', maxHeight: '85vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Gateway Header */}
         <div className="bg-[#541D26] text-[#F7F4EE] px-6 py-5 flex items-center justify-between border-b border-[#C8A878]/30">
@@ -443,6 +465,7 @@ export default function DummyPaymentModal({
         )}
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

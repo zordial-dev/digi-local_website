@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api, getSocietyImage } from '../services/api';
 import { ShieldCheck, Search, Check, Store, Calendar, CreditCard, ChevronDown, ChevronUp, User, MapPin, Clock, RefreshCw, Building2, Plus, X, Image, LogOut, FileText, Headphones, PhoneCall, Mail } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
@@ -981,17 +982,38 @@ export default function AdminDashboardPage({ setRoute }) {
       </div>
 
       {/* Add Society Modal */}
-      {showAddSocietyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A1428]/50 backdrop-blur-sm">
-          <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
+      {showAddSocietyModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
+          onClick={() => setShowAddSocietyModal(false)}
+        >
+          <div 
+            className="bg-white border border-[#C5A880]/30 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 text-[#0A1428]" 
+            style={{ margin: 'auto', maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4 border-b border-[#C5A880]/15 pb-3 shrink-0">
               <h3 className="text-lg font-serif font-bold text-[#0A1428] uppercase">Add New Society</h3>
-              <button onClick={() => setShowAddSocietyModal(false)} className="text-[#787F8C] hover:text-[#0A1428]">
+              <button onClick={() => setShowAddSocietyModal(false)} className="text-[#787F8C] hover:text-[#0A1428] p-1 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAddSocietySubmit} className="space-y-4">
+            <form onSubmit={handleAddSocietySubmit} className="space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Society Name</label>
                 <input
@@ -1000,7 +1022,7 @@ export default function AdminDashboardPage({ setRoute }) {
                   placeholder="e.g. Palm Meadows Apartment"
                   value={newSociety.society_name}
                   onChange={(e) => setNewSociety({ ...newSociety, society_name: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
                 />
               </div>
 
@@ -1012,28 +1034,29 @@ export default function AdminDashboardPage({ setRoute }) {
                   placeholder="e.g. Whitefield, Bangalore"
                   value={newSociety.location}
                   onChange={(e) => setNewSociety({ ...newSociety, location: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
                 />
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#C5A880]/15">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#C5A880]/15 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddSocietyModal(false)}
-                  className="px-4 py-2 text-[#787F8C] hover:text-[#0A1428] text-xs font-semibold uppercase"
+                  className="px-4 py-2 text-[#787F8C] hover:text-[#0A1428] text-xs font-semibold uppercase cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider"
+                  className="px-5 py-2.5 rounded-xl bg-[#0A1428] hover:bg-[#541D26] text-white font-bold text-xs shadow-md uppercase tracking-wider cursor-pointer"
                 >
                   Save Society
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* In-Website Generic Notification / Confirm Modal */}

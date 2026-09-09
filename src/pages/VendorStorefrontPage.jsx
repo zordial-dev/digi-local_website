@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { api, getNormalizedImageUrl, getStoreTimeStatus } from '../services/api';
 import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn, Clock, Heart, Star, Sparkles, CheckCircle2, ChevronDown, Calendar } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
@@ -935,9 +936,28 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
   }
 
   if (!checkResidentAuth()) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="relative w-full max-w-md bg-white rounded-[2.2rem] p-7 sm:p-8 shadow-2xl border border-[#E8E2D5] text-center space-y-5 animate-in zoom-in-95 duration-200">
+    return createPortal(
+      <div 
+        className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 99999999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: 0
+        }}
+      >
+        <div 
+          className="relative w-full max-w-md max-h-[85vh] overflow-hidden bg-white rounded-3xl p-7 sm:p-8 shadow-2xl border border-[#E8E2D5] text-center space-y-5 animate-in zoom-in-95 duration-150 flex flex-col"
+          style={{ margin: 'auto', maxHeight: '85vh' }}
+        >
           
           {/* Top Right Close Button */}
           <button
@@ -992,7 +1012,8 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
           </div>
 
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
@@ -1938,16 +1959,37 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       />
 
       {/* Replace Cart Conflict Warning Modal */}
-      {showReplaceCartModal && (
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-[#211A19] text-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-white/10 space-y-4 font-sans text-center">
+      {showReplaceCartModal && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
+          onClick={() => { setShowReplaceCartModal(false); setPendingReplaceItem(null); }}
+        >
+          <div 
+            className="bg-[#211A19] text-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-white/10 space-y-4 font-sans text-center max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150" 
+            style={{ margin: 'auto', maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             
             {/* Warning Icon */}
-            <div className="w-14 h-14 rounded-full bg-[#C8A878]/20 border border-[#C8A878]/40 flex items-center justify-center mx-auto text-[#C8A878]">
+            <div className="w-14 h-14 rounded-full bg-[#C8A878]/20 border border-[#C8A878]/40 flex items-center justify-center mx-auto text-[#C8A878] shrink-0">
               <AlertTriangle className="w-7 h-7" />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 overflow-y-auto">
               <h3 className="text-lg font-serif font-black text-white">Replace Items in Cart?</h3>
               <p className="text-xs text-white/80 leading-relaxed">
                 Your cart already contains items from <strong className="text-[#C8A878] font-bold">{existingCartVendorName}</strong>. 
@@ -1955,8 +1997,9 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               </p>
             </div>
 
-            <div className="pt-3 grid grid-cols-2 gap-3 text-xs font-black uppercase tracking-wider">
+            <div className="pt-3 grid grid-cols-2 gap-3 text-xs font-black uppercase tracking-wider shrink-0">
               <button
+                type="button"
                 onClick={() => {
                   setShowReplaceCartModal(false);
                   setPendingReplaceItem(null);
@@ -1967,6 +2010,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               </button>
 
               <button
+                type="button"
                 onClick={handleConfirmReplaceCart}
                 className="py-3 px-4 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white border border-[#C8A878]/40 shadow-md transition-all cursor-pointer hover:scale-105"
               >
@@ -1974,21 +2018,45 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Order Confirmation Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 w-screen h-screen z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
-          <div className="bg-[#FAF8F5] text-[#211A19] border border-[#E5DAD0] rounded-[2.5rem] p-7 max-w-sm w-full shadow-2xl text-center flex flex-col items-center animate-in zoom-in-95 my-auto">
-            <div className="w-14 h-14 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 flex items-center justify-center mb-3 text-[#541D26]">
+      {showConfirmModal && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
+          onClick={() => setShowConfirmModal(false)}
+        >
+          <div 
+            className="bg-[#FAF8F5] text-[#211A19] border border-[#E5DAD0] rounded-3xl p-7 max-w-sm w-full shadow-2xl text-center flex flex-col items-center animate-in zoom-in-95 duration-150 max-h-[85vh] overflow-hidden" 
+            style={{ margin: 'auto', maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-14 h-14 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 flex items-center justify-center mb-3 text-[#541D26] shrink-0">
               <HelpCircle className="w-7 h-7 text-[#541D26]" />
             </div>
 
-            <h3 className="text-lg font-serif font-black text-[#211A19] mb-1">Order Sent via WhatsApp?</h3>
-            <p className="text-xs text-[#211A19]/70 font-medium mb-5">Did you send your order message to the vendor on WhatsApp?</p>
+            <div className="overflow-y-auto w-full mb-4">
+              <h3 className="text-lg font-serif font-black text-[#211A19] mb-1">Order Sent via WhatsApp?</h3>
+              <p className="text-xs text-[#211A19]/70 font-medium">Did you send your order message to the vendor on WhatsApp?</p>
+            </div>
 
-            <div className="flex flex-col gap-2.5 w-full text-xs font-bold uppercase tracking-wider">
+            <div className="flex flex-col gap-2.5 w-full text-xs font-bold uppercase tracking-wider shrink-0">
               {pendingWhatsappUrl && (
                 <a
                   href={pendingWhatsappUrl}
@@ -2001,12 +2069,14 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               )}
               <div className="flex space-x-2.5 w-full">
                 <button
+                  type="button"
                   onClick={() => setShowConfirmModal(false)}
                   className="flex-1 py-2.5 rounded-full bg-[#EEE5DA] text-[#211A19] border border-[#E5DAD0] hover:bg-[#D6B7A5]/60 transition-all cursor-pointer"
                 >
                   No, Not Yet
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setShowConfirmModal(false);
                     if (lastPlacedOrder) {
@@ -2028,13 +2098,35 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Rate & Review Modal */}
-      {showReviewModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-[#E5DAD0] space-y-5 animate-scaleUp relative max-h-[90vh] overflow-y-auto">
+      {showReviewModal && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/75 backdrop-blur-xs z-[99999999] flex items-center justify-center p-4" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0
+          }}
+          onClick={() => setShowReviewModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-[#E5DAD0] space-y-5 animate-in zoom-in-95 duration-150 relative max-h-[85vh] overflow-hidden flex flex-col" 
+            style={{ margin: 'auto', maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Close Button */}
             <button
               type="button"
@@ -2045,7 +2137,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             </button>
 
             {/* Modal Header */}
-            <div>
+            <div className="shrink-0">
               <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 mb-1.5">
                 <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                 Customer Feedback
@@ -2164,7 +2256,8 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Notification Modal */}

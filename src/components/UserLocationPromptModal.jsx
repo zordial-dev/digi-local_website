@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { MapPin, Search, X, Loader2, Building2, Sparkles, Check } from 'lucide-react';
 import { api } from '../services/api';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -123,10 +124,30 @@ export const UserLocationPromptModal = ({ isOpen = true, onClose, onLocationSet 
   };
 
   if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg overflow-visible bg-white dark:bg-[#131C2E] shadow-2xl rounded-3xl border border-slate-200 dark:border-white/10 font-sans text-slate-900 dark:text-white">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 99999999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: 0
+      }}
+    >
+      <div 
+        className="relative w-full max-w-lg max-h-[85vh] overflow-hidden bg-white dark:bg-[#131C2E] shadow-2xl rounded-3xl border border-slate-200 dark:border-white/10 font-sans text-slate-900 dark:text-white animate-in zoom-in-95 duration-150 flex flex-col"
+        style={{ margin: 'auto', maxHeight: '85vh' }}
+      >
 
         {/* Header Banner */}
         <div className="p-6 bg-gradient-to-r from-emerald-900 via-slate-900 to-emerald-950 text-white relative rounded-t-3xl overflow-hidden">
@@ -277,7 +298,8 @@ export const UserLocationPromptModal = ({ isOpen = true, onClose, onLocationSet 
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

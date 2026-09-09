@@ -214,11 +214,26 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[99999999] flex items-start justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md overflow-y-auto w-full h-full min-h-screen top-0 left-0 right-0 bottom-0 animate-in fade-in"
+      className="fixed inset-0 z-[99999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 99999999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: 0
+      }}
       onClick={onClose}
     >
       <div 
-        className="bg-white text-ink rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-border flex flex-col max-h-[85vh] overflow-hidden relative my-3 sm:my-6 shrink-0 animate-in zoom-in-95"
+        className="bg-white text-ink rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-border flex flex-col max-h-[85vh] overflow-hidden relative animate-in zoom-in-95 duration-150"
+        style={{ margin: 'auto', maxHeight: '85vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         
