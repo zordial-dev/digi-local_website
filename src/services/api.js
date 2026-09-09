@@ -404,8 +404,6 @@ export function getSocietyImage(soc) {
 }
 
 const MASTER_LOCATIONS = [];
-const MOCK_SOCIETIES = [];
-const MOCK_VENDORS = [];
 
 export const api = {
   getValidImageUrl: getValidImageUrl,
@@ -1690,19 +1688,16 @@ export const api = {
 
   // 1.3 Refresh Access Token
   refreshVendorToken: async (refreshToken) => {
-    try {
-      const res = await fetch(`${API_BASE}/vendors/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken })
-      });
-      if (res.ok) return await res.json();
-    } catch (_) { }
-    return {
-      message: 'Access token refreshed successfully',
-      accessToken: `mock_refreshed_access_${Date.now()}`,
-      token: `mock_refreshed_token_${Date.now()}`
-    };
+    const res = await fetch(`${API_BASE}/vendors/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || data.error || 'Failed to refresh token');
+    }
+    return data;
   },
 
   // 1.4 Vendor Logout (POST /api/vendors/logout per v4.2.0 Specification)
@@ -2485,47 +2480,23 @@ export const api = {
 
   // 1.9 User Registration (with Firebase Token)
   userRegister: async (payload) => {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/users/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.message || 'Registration failed');
+    const res = await fetchWithTimeout(`${API_BASE}/users/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.message || 'Registration failed');
 
-      const accessToken = data.accessToken || data.token || data.data?.accessToken;
-      const refreshToken = data.refreshToken || data.data?.refreshToken;
-      const user = data.user || data.data?.user || { name: payload.name, phone: payload.phone };
+    const accessToken = data.accessToken || data.token || data.data?.accessToken;
+    const refreshToken = data.refreshToken || data.data?.refreshToken;
+    const user = data.user || data.data?.user || { name: payload.name, phone: payload.phone };
 
-      if (accessToken) localStorage.setItem('accessToken', accessToken);
-      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-      if (user) localStorage.setItem('user', JSON.stringify(user));
+    if (accessToken) localStorage.setItem('accessToken', accessToken);
+    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+    if (user) localStorage.setItem('user', JSON.stringify(user));
 
-      return data;
-    } catch (err) {
-      if (err.message && !err.message.includes('fetch')) throw err;
-    }
-
-    // Fallback simulation mode if server offline
-    const mockUser = {
-      user_id: Math.floor(Math.random() * 1000 + 1),
-      name: payload.name || 'User',
-      phone: payload.phone || payload.mobile || ''
-    };
-    const mockAccess = `access_token_${Date.now()}`;
-    const mockRefresh = `refresh_token_${Date.now()}`;
-
-    localStorage.setItem('accessToken', mockAccess);
-    localStorage.setItem('refreshToken', mockRefresh);
-    localStorage.setItem('user', JSON.stringify(mockUser));
-
-    return {
-      message: 'User registered successfully',
-      accessToken: mockAccess,
-      refreshToken: mockRefresh,
-      user: mockUser
-    };
+    return data;
   },
 
   registerUser: async (payload) => {
@@ -2561,7 +2532,7 @@ export const api = {
     }
 
     if (!isBackendLive || list === null) {
-      list = MOCK_SOCIETIES;
+      list = [];
     }
 
     list = (list || []).map(s => sanitizeSocietyLocation(s));
@@ -4547,66 +4518,56 @@ export const api = {
         if (contentType && contentType.includes('application/json')) {
           const data = await res.json();
           if (res.ok && data.status !== 'error') return data;
+          if (data && (data.message || data.error)) {
+            throw new Error(data.message || data.error);
+          }
         }
       } catch (err) {
+        if (!err.message?.includes('fetch')) throw err;
         console.warn(`Resident ticket endpoint failed (${url}):`, err);
       }
     }
 
-    const mockTickNum = `TICK-${Math.floor(1000 + Math.random() * 9000)}`;
-    const mockTickId = `t-${Date.now()}`;
-    const ts = formatIstTimestamp(new Date().toISOString());
-
-    const newTicketObj = {
-      ticket_id: mockTickId,
-      ticket_number: mockTickNum,
-      subject: payload.subject,
-      description: payload.description,
-      category: payload.category,
-      order_id: payload.order_id,
-      target_vendor: payload.target_vendor,
-      reporter_name: payload.reporter_name,
-      reporter_email: payload.reporter_email,
-      status: 'open',
-      sla_minutes_remaining: 45,
-      unread_messages_count: 0,
-      created_at_readable: ts.created_at_readable,
-      updated_at_readable: ts.created_at_readable
-    };
-
-    try {
-      const stored = JSON.parse(localStorage.getItem('digilocal_user_tickets') || '[]');
-      stored.unshift(newTicketObj);
-      localStorage.setItem('digilocal_user_tickets', JSON.stringify(stored));
-    } catch (_) {}
-
-    return {
-      code: 201,
-      status: 'success',
-      message: `Your support ticket ${mockTickNum} has been submitted. Our team will respond within 45 minutes.`,
-      data: newTicketObj
-    };
+    throw new Error('Failed to submit support ticket. Please check your network connection.');
   },
 
-  // 7.2 Fetch Resident User Ticket History (GET /api/user/tickets or /api/users/tickets)
+  // 7.2 Fetch Resident User Ticket History (GET /api/user/tickets)
   getResidentTickets: async (token = '') => {
-    const jwtToken = token || getStoredToken();
+    let jwtToken = token;
+    if (!jwtToken) {
+      try {
+        jwtToken = localStorage.getItem('token') || localStorage.getItem('accessToken') || localStorage.getItem('digilocal_user_token');
+        if (!jwtToken) {
+          const uSession = localStorage.getItem('digilocal_user_session');
+          if (uSession) {
+            const parsed = JSON.parse(uSession);
+            jwtToken = parsed.token || parsed.accessToken || parsed.jwt || parsed.user?.token || '';
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Only fetch tickets if a valid resident user token exists
+    if (!jwtToken) {
+      return [];
+    }
+
     const endpoints = [
       `${API_BASE}/user/tickets`,
-      `${API_BASE}/users/tickets`,
-      `${API_BASE}/support/tickets?user_type=user`
+      `${API_BASE}/users/tickets`
     ];
 
     for (const url of endpoints) {
       try {
         const res = await fetchWithTimeout(url, {
-          headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${jwtToken}` }
         });
         const contentType = res.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const data = await res.json();
           if (res.ok) {
-            const list = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+            const list = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : (data.tickets || []));
             return list.map(t => {
               const ts = formatIstTimestamp(t.created_at || t.createdAt);
               const tsUp = formatIstTimestamp(t.updated_at || t.updatedAt || t.created_at);
@@ -4626,11 +4587,6 @@ export const api = {
         console.warn(`Fetch resident tickets endpoint failed (${url}):`, err);
       }
     }
-
-    try {
-      const stored = localStorage.getItem('digilocal_user_tickets');
-      if (stored) return JSON.parse(stored);
-    } catch (_) {}
 
     return [];
   },
@@ -4732,42 +4688,18 @@ export const api = {
     };
   },
 
-  // 7.4 Legacy Support Ticket API Fallback
+  // 7.4 Support Ticket API
   createSupportTicket: async (ticketData) => {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/support/tickets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ticketData)
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data;
-      }
-      console.warn(`Backend endpoint ${API_BASE}/support/tickets returned HTTP ${res.status}. Falling back to ticket manager.`);
-    } catch (err) {
-      console.warn('Backend unavailable for support ticket creation:', err);
+    const res = await fetchWithTimeout(`${API_BASE}/support/tickets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ticketData)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || data.error || 'Failed to create support ticket');
     }
-    const mockId = `TCK-${Math.floor(100000 + Math.random() * 900000)}`;
-    return {
-      success: true,
-      status_code: 201,
-      message: "Support ticket created successfully",
-      data: {
-        ticket_id: mockId,
-        user_type: ticketData.user_type || "user",
-        source: ticketData.source || "user_app",
-        reporter_name: ticketData.reporter_name || "Applicant",
-        reporter_email: ticketData.reporter_email || "",
-        subject: ticketData.subject,
-        description: ticketData.description,
-        category: ticketData.category || "general",
-        priority: ticketData.priority || "medium",
-        status: "OPEN",
-        sla_minutes: 1440,
-        created_at: new Date().toISOString()
-      }
-    };
+    return data;
   },
 
   getSupportTickets: async (userType = '', email = '') => {

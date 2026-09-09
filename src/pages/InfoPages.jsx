@@ -82,6 +82,25 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
   const [cmsContacts, setCmsContacts] = useState({ email: 'support@digilocal.network', phone: '+91 800-562-5999', working_hours: 'Mon-Sun: 7:00 AM - 11:00 PM' });
   const [navTabs, setNavTabs] = useState(DEFAULT_NAV_TABS);
   const [isVendorLoggedIn, setIsVendorLoggedIn] = useState(false);
+  
+  const getResidentAuthToken = () => {
+    try {
+      const directToken = localStorage.getItem('token') || localStorage.getItem('accessToken') || localStorage.getItem('digilocal_user_token');
+      if (directToken) return directToken;
+      const uSession = localStorage.getItem('digilocal_user_session');
+      if (uSession) {
+        const parsed = JSON.parse(uSession);
+        return parsed.token || parsed.accessToken || parsed.jwt || parsed.user?.token || '';
+      }
+    } catch (_) {}
+    return '';
+  };
+
+  const [isResidentLoggedIn, setIsResidentLoggedIn] = useState(() => Boolean(getResidentAuthToken()));
+
+  useEffect(() => {
+    setIsResidentLoggedIn(Boolean(getResidentAuthToken()));
+  }, [activeTab]);
 
   useEffect(() => {
     try {
@@ -109,9 +128,16 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
     };
     fetchCmsData();
     if (activeTab === 'contact-support') {
-      api.getResidentTickets().then(data => {
-        if (Array.isArray(data)) setPageTicketsList(data);
-      }).catch(() => {});
+      const token = getResidentAuthToken();
+      if (token) {
+        setIsResidentLoggedIn(true);
+        api.getResidentTickets(token).then(data => {
+          if (Array.isArray(data)) setPageTicketsList(data);
+        }).catch(() => {});
+      } else {
+        setIsResidentLoggedIn(false);
+        setPageTicketsList([]);
+      }
     }
   }, [activeTab]);
 
@@ -1172,26 +1198,39 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
                       </div>
                     </div>
 
-                    {/* My Tickets Button */}
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const nextTab = supportSubTab === 'history' ? 'submit' : 'history';
-                        setSupportSubTab(nextTab);
-                        if (nextTab === 'history') {
-                          try {
-                            const list = await api.getResidentTickets();
-                            if (Array.isArray(list)) setPageTicketsList(list);
-                          } catch (_) {}
-                        }
-                      }}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border self-start sm:self-auto ${
-                        supportSubTab === 'history' ? 'bg-[#541D26] text-white border-[#541D26] shadow-xs' : 'bg-[#EEE5DA]/60 text-[#211A19] border-[#E5DAD0] hover:bg-white'
-                      }`}
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>{supportSubTab === 'history' ? '← Back to Support Form' : `My Tickets (${pageTicketsList.length})`}</span>
-                    </button>
+                    {/* My Tickets Button (Only shown / enabled if logged in) */}
+                    {isResidentLoggedIn ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const nextTab = supportSubTab === 'history' ? 'submit' : 'history';
+                          setSupportSubTab(nextTab);
+                          if (nextTab === 'history') {
+                            try {
+                              const token = getResidentAuthToken();
+                              const list = await api.getResidentTickets(token);
+                              if (Array.isArray(list)) setPageTicketsList(list);
+                            } catch (_) {}
+                          }
+                        }}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border self-start sm:self-auto ${
+                          supportSubTab === 'history' ? 'bg-[#541D26] text-white border-[#541D26] shadow-xs' : 'bg-[#EEE5DA]/60 text-[#211A19] border-[#E5DAD0] hover:bg-white'
+                        }`}
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>{supportSubTab === 'history' ? '← Back to Support Form' : `My Tickets (${pageTicketsList.length})`}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setRoute ? setRoute({ page: 'login', accountType: 'resident' }) : null}
+                        className="px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border border-[#E5DAD0] bg-white text-muted-foreground hover:text-[#541D26] hover:border-[#541D26] self-start sm:self-auto cursor-pointer"
+                        title="Log in to view your submitted support tickets"
+                      >
+                        <Lock className="w-3.5 h-3.5 text-[#541D26]" />
+                        <span>Log in to view My Tickets</span>
+                      </button>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1291,7 +1330,10 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
                             });
                             setContactSubmitted(true);
                             setPageAttachmentFile(null);
-                            api.getResidentTickets().then(list => { if (Array.isArray(list)) setPageTicketsList(list); }).catch(() => {});
+                            const rTok = getResidentAuthToken();
+                            if (rTok) {
+                              api.getResidentTickets(rTok).then(list => { if (Array.isArray(list)) setPageTicketsList(list); }).catch(() => {});
+                            }
                           } catch (err) {
                             alert(err.message || 'Failed to submit support request');
                           } finally {
@@ -1503,7 +1545,23 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
                         <MessageSquare className="w-4 h-4 text-[#541D26]" /> My Support Ticket History
                       </h3>
 
-                      {!selectedPageTicket ? (
+                      {!isResidentLoggedIn ? (
+                        <div className="p-8 text-center bg-white rounded-3xl space-y-3 border border-[#E5DAD0] shadow-2xs">
+                          <Lock className="w-8 h-8 text-[#541D26] mx-auto opacity-70" />
+                          <p className="font-serif font-bold text-sm text-[#211A19]">Please log in to view your submitted support tickets.</p>
+                          <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                            Support tickets and resolution history are tied strictly to your registered resident account.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setRoute ? setRoute({ page: 'login', accountType: 'resident' }) : null}
+                            className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
+                            <span>Log In to View Tickets</span>
+                          </button>
+                        </div>
+                      ) : !selectedPageTicket ? (
                         <div>
                           {pageTicketsList.length === 0 ? (
                             <div className="p-8 text-center bg-white rounded-3xl space-y-2 border border-[#E5DAD0] shadow-2xs">

@@ -64,17 +64,16 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
         password: vendorPassword 
       });
 
-      const vendorObj = res.vendor || {
-        vendor_id: 1,
-        vendor_name: vendorEmail.split('@')[0],
-        store_name: `${vendorEmail.split('@')[0]}'s Store`,
-        email: vendorEmail.trim(),
-        status: 'ACTIVE'
-      };
+      const vendorObj = res.vendor || res.data?.vendor;
+      const token = res.token || res.accessToken || res.data?.token || res.data?.accessToken;
+
+      if (!vendorObj || !token) {
+        throw new Error(res.message || res.error || 'Invalid vendor login credentials.');
+      }
 
       const session = {
         vendor: vendorObj,
-        token: res.token || res.accessToken || `mock_jwt_${Date.now()}`,
+        token: token,
         expiresAt: Date.now() + 86400000
       };
 

@@ -59,11 +59,29 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
     }
   }, [isOpen, initialEmail, initialName, entityName, ticketUserType]);
 
+  const getResidentUserToken = () => {
+    try {
+      const direct = localStorage.getItem('token') || localStorage.getItem('accessToken') || localStorage.getItem('digilocal_user_token');
+      if (direct) return direct;
+      const sessionStr = localStorage.getItem('digilocal_user_session');
+      if (sessionStr) {
+        const parsed = JSON.parse(sessionStr);
+        return parsed.token || parsed.accessToken || parsed.jwt || parsed.user?.token || '';
+      }
+    } catch (_) {}
+    return '';
+  };
+
   const loadTickets = async () => {
     try {
       let data = [];
       if (ticketUserType === 'user') {
-        data = await api.getResidentTickets();
+        const token = getResidentUserToken();
+        if (token) {
+          data = await api.getResidentTickets(token);
+        } else {
+          data = [];
+        }
       } else {
         data = await api.getSupportTickets(ticketUserType, reporterEmail);
       }
@@ -568,7 +586,13 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
           {/* ------------------------------------------------------------- */}
           {activeTab === 'history' && (
             <div className="space-y-4">
-              {!selectedTicket ? (
+              {ticketUserType === 'user' && !getResidentUserToken() ? (
+                <div className="p-8 text-center bg-secondary/20 rounded-3xl space-y-3 border border-border">
+                  <User className="w-8 h-8 text-[#541D26] mx-auto opacity-70" />
+                  <p className="font-serif font-bold text-sm text-ink">Please log in to view your submitted support tickets.</p>
+                  <p className="text-xs text-muted-foreground">Support tickets and conversation history are tied directly to your registered resident account.</p>
+                </div>
+              ) : !selectedTicket ? (
                 <div>
                   {ticketsList.length === 0 ? (
                     <div className="p-8 text-center bg-secondary/20 rounded-3xl space-y-2 border border-border">

@@ -12,55 +12,35 @@ interface Society {
   activeVendorsCount: number;
 }
 
-const MOCK_SOCIETIES: Society[] = [
-  {
-    id: '101',
-    name: 'Greenwood Heights',
-    pincode: '201301',
-    location: 'Sector 128, Noida',
-    bannerImage: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&auto=format&fit=crop&q=80',
-    activeVendorsCount: 14,
-  },
-  {
-    id: '102',
-    name: 'Silver Oak Residency',
-    pincode: '201304',
-    location: 'Expressway, Noida',
-    bannerImage: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&auto=format&fit=crop&q=80',
-    activeVendorsCount: 8,
-  },
-  {
-    id: '103',
-    name: 'Palm Grove Apartments',
-    pincode: '110075',
-    location: 'Dwarka Sector 10, New Delhi',
-    bannerImage: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&auto=format&fit=crop&q=80',
-    activeVendorsCount: 22,
-  },
-  {
-    id: '104',
-    name: 'Royal Palms Gated Community',
-    pincode: '560103',
-    location: 'Bellandur, Bengaluru',
-    bannerImage: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800&auto=format&fit=crop&q=80',
-    activeVendorsCount: 19,
-  },
-  {
-    id: '105',
-    name: 'Sun City Towers',
-    pincode: '400053',
-    location: 'Andheri West, Mumbai',
-    bannerImage: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&auto=format&fit=crop&q=80',
-    activeVendorsCount: 11,
-  },
-];
-
 export default function LandingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [filteredSocieties, setFilteredSocieties] = useState<Society[]>(MOCK_SOCIETIES);
+  const [societiesList, setSocietiesList] = useState<Society[]>([]);
+  const [filteredSocieties, setFilteredSocieties] = useState<Society[]>([]);
   const [isUnlistedModalOpen, setIsUnlistedModalOpen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch('/api/societies')
+      .then(res => res.json())
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.data || data.societies || []);
+        const formatted = list.map((s: any) => ({
+          id: String(s.society_id || s.id),
+          name: s.society_name || s.name || 'Society',
+          pincode: s.pincode || s.pin || '',
+          location: s.location || s.city || s.area || '',
+          bannerImage: s.banner_image || s.image_url || '',
+          activeVendorsCount: s.vendors_count || s.activeVendorsCount || 0
+        }));
+        setSocietiesList(formatted);
+        setFilteredSocieties(formatted);
+      })
+      .catch(() => {
+        setSocietiesList([]);
+        setFilteredSocieties([]);
+      });
+  }, []);
 
   // Unlisted Society Form State
   const [unlistedForm, setUnlistedForm] = useState({
@@ -76,10 +56,10 @@ export default function LandingPage() {
   // Handle Search Filtering
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setFilteredSocieties(MOCK_SOCIETIES);
+      setFilteredSocieties(societiesList);
     } else {
       const query = searchQuery.toLowerCase().trim();
-      const results = MOCK_SOCIETIES.filter(
+      const results = societiesList.filter(
         (soc) =>
           soc.name.toLowerCase().includes(query) ||
           soc.pincode.includes(query) ||
@@ -87,7 +67,7 @@ export default function LandingPage() {
       );
       setFilteredSocieties(results);
     }
-  }, [searchQuery]);
+  }, [searchQuery, societiesList]);
 
   // Click Outside Handler for Autocomplete Dropdown
   useEffect(() => {
