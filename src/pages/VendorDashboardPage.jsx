@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { api, getNormalizedImageUrl, getItemUnitLabel, formatItemQuantityBadge } from '../services/api';
-import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, ShieldAlert, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight, Briefcase, Star, MessageSquare, Send } from 'lucide-react';
+import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, ShieldAlert, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight, Briefcase, Star, MessageSquare, Send, Lock, Key, Eye, EyeOff } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import VendorStatusBanner from '../components/VendorStatusBanner';
 import { QRCodeSVG } from 'qrcode.react';
@@ -216,6 +216,17 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     qr_code_url: ''
   });
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Vendor Password Change State
+  const [vendorPassCurrent, setVendorPassCurrent] = useState('');
+  const [vendorPassNew, setVendorPassNew] = useState('');
+  const [vendorPassConfirm, setVendorPassConfirm] = useState('');
+  const [showVendorPassCurrent, setShowVendorPassCurrent] = useState(false);
+  const [showVendorPassNew, setShowVendorPassNew] = useState(false);
+  const [showVendorPassConfirm, setShowVendorPassConfirm] = useState(false);
+  const [vendorPassLoading, setVendorPassLoading] = useState(false);
+  const [vendorPassError, setVendorPassError] = useState('');
+  const [vendorPassSuccess, setVendorPassSuccess] = useState('');
 
   // Store Location Auto-Fetching & Autocomplete State
   const [locationSuggestions, setLocationSuggestions] = useState([]);
@@ -734,6 +745,47 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       });
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  // Vendor Password Change Handler
+  const handleVendorPasswordChange = async (e) => {
+    if (e) e.preventDefault();
+    setVendorPassError('');
+    setVendorPassSuccess('');
+
+    if (!vendorPassCurrent.trim()) {
+      setVendorPassError('Please enter your current password.');
+      return;
+    }
+    if (!vendorPassNew.trim() || vendorPassNew.length < 6) {
+      setVendorPassError('New password must be at least 6 characters long.');
+      return;
+    }
+    if (vendorPassNew !== vendorPassConfirm) {
+      setVendorPassError('New password and confirm password do not match.');
+      return;
+    }
+
+    try {
+      setVendorPassLoading(true);
+      const targetId = vendorId || panelData?.vendor?.vendor_id || 1;
+      await api.changeVendorPassword({
+        vendorId: targetId,
+        current_password: vendorPassCurrent,
+        new_password: vendorPassNew,
+        confirm_password: vendorPassConfirm
+      });
+
+      setVendorPassSuccess('✓ Password updated successfully!');
+      setVendorPassCurrent('');
+      setVendorPassNew('');
+      setVendorPassConfirm('');
+      setTimeout(() => setVendorPassSuccess(''), 5000);
+    } catch (err) {
+      setVendorPassError(err.message || 'Failed to update password. Please try again.');
+    } finally {
+      setVendorPassLoading(false);
     }
   };
 
@@ -1966,10 +2018,10 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">WhatsApp / Phone</label>
                           <input
                             type="text"
+                            readOnly
                             placeholder="e.g. 9784319840"
                             value={settingsForm.phone_number}
-                            onChange={(e) => setSettingsForm({ ...settingsForm, phone_number: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium text-gray-400 dark:text-gray-500 focus:outline-none cursor-default select-none"
                           />
                         </div>
 
@@ -2409,6 +2461,107 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           className="w-4 h-4 accent-[#541D26] cursor-pointer"
                         />
                       </div>
+                    </div>
+                  </div>
+
+                  {/* STORE SECURITY & CHANGE PASSWORD SECTION */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
+                    <div className="border-b border-[#C5A880]/15 pb-2.5">
+                      <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
+                        <Key className="w-4 h-4 text-[#541D26]" />
+                        <span>Store Security & Change Password</span>
+                      </h3>
+                      <p className="text-[11px] text-[#78716C] font-medium mt-0.5">
+                        Update your vendor portal account login password.
+                      </p>
+                    </div>
+
+                    {vendorPassError && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>{vendorPassError}</span>
+                      </div>
+                    )}
+
+                    {vendorPassSuccess && (
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{vendorPassSuccess}</span>
+                      </div>
+                    )}
+
+                    <div className="space-y-3 pt-1">
+                      <div>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Current Password</label>
+                        <div className="relative">
+                          <input
+                            type={showVendorPassCurrent ? 'text' : 'password'}
+                            placeholder="Enter current password"
+                            value={vendorPassCurrent}
+                            onChange={(e) => { setVendorPassCurrent(e.target.value); setVendorPassError(''); }}
+                            className="w-full px-4 py-2.5 pr-10 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowVendorPassCurrent(!showVendorPassCurrent)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-ink transition-colors p-1 cursor-pointer"
+                          >
+                            {showVendorPassCurrent ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4 text-gray-400" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">New Password</label>
+                          <div className="relative">
+                            <input
+                              type={showVendorPassNew ? 'text' : 'password'}
+                              placeholder="At least 6 characters"
+                              value={vendorPassNew}
+                              onChange={(e) => { setVendorPassNew(e.target.value); setVendorPassError(''); }}
+                              className="w-full px-4 py-2.5 pr-10 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowVendorPassNew(!showVendorPassNew)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-ink transition-colors p-1 cursor-pointer"
+                            >
+                              {showVendorPassNew ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4 text-gray-400" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Confirm New Password</label>
+                          <div className="relative">
+                            <input
+                              type={showVendorPassConfirm ? 'text' : 'password'}
+                              placeholder="Re-enter new password"
+                              value={vendorPassConfirm}
+                              onChange={(e) => { setVendorPassConfirm(e.target.value); setVendorPassError(''); }}
+                              className="w-full px-4 py-2.5 pr-10 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowVendorPassConfirm(!showVendorPassConfirm)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-ink transition-colors p-1 cursor-pointer"
+                            >
+                              {showVendorPassConfirm ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4 text-gray-400" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={vendorPassLoading || !vendorPassCurrent || !vendorPassNew || !vendorPassConfirm}
+                        onClick={handleVendorPasswordChange}
+                        className="w-full py-2.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
+                      >
+                        <Key className="w-3.5 h-3.5 text-[#C8A878]" />
+                        <span>{vendorPassLoading ? 'Updating Password...' : 'Update Password'}</span>
+                      </button>
                     </div>
                   </div>
 

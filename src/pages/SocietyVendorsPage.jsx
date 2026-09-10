@@ -273,11 +273,21 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
     }
   }, [initialSocietyId]);
 
-  // Load all societies list for filter dropdown
-  useEffect(() => {
+  // Load all societies list for filter dropdown and listen for additions
+  const fetchSocietiesList = () => {
     api.getSocieties().then(data => {
       if (Array.isArray(data)) setAllSocieties(data);
     }).catch(() => { });
+  };
+
+  useEffect(() => {
+    fetchSocietiesList();
+    window.addEventListener('storage', fetchSocietiesList);
+    window.addEventListener('digilocal_added_societies_changed', fetchSocietiesList);
+    return () => {
+      window.removeEventListener('storage', fetchSocietiesList);
+      window.removeEventListener('digilocal_added_societies_changed', fetchSocietiesList);
+    };
   }, []);
 
   // Load Active Society Details & Vendors (runs when societyId changes)
@@ -442,7 +452,88 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
   const productVendorsCount = useMemo(() => sortedVendors.filter(v => !isServiceVendor(v)).length, [sortedVendors]);
   const serviceVendorsCount = useMemo(() => sortedVendors.filter(v => isServiceVendor(v)).length, [sortedVendors]);
 
-  const currentSocietyName = society?.society_name || (currentSocietyId !== 'all' ? (allSocieties.find(s => String(s.society_id) === String(currentSocietyId))?.society_name || 'Society') : '');
+  // Master Combined Societies List (combines API societies, local created/added societies, and any societies referenced in master vendors)
+  const combinedSocietiesList = useMemo(() => {
+    const list = [...allSocieties];
+    const seenIds = new Set(list.map(s => String(s.society_id || s.id || s._id).toLowerCase()));
+    const seenNames = new Set(list.map(s => String(s.society_name || s.name || s.area_name || '').toLowerCase().trim()));
+
+    // 1. Check persistent localStorage for locally added societies
+    try {
+      const addedStr = localStorage.getItem('digilocal_added_societies') || localStorage.getItem('digilocal_custom_societies');
+      if (addedStr) {
+        const addedList = JSON.parse(addedStr);
+        if (Array.isArray(addedList)) {
+          addedList.forEach(s => {
+            const sId = String(s.society_id || s.id || s._id || `soc-${Math.floor(Math.random() * 10000)}`);
+            const sName = String(s.society_name || s.name || s.area_name || '').trim();
+            if (sName && !seenNames.has(sName.toLowerCase())) {
+              seenNames.add(sName.toLowerCase());
+              seenIds.add(sId.toLowerCase());
+              list.unshift({
+                ...s,
+                society_id: sId,
+                society_name: sName,
+                location: s.location || s.city || 'Residential Area',
+                is_area: Boolean(s.is_area)
+              });
+            }
+          });
+        }
+      }
+    } catch (_) {}
+
+    // 2. Extract societies / areas from loaded master vendors
+    if (Array.isArray(allMasterVendors)) {
+      allMasterVendors.forEach(v => {
+        if (!v) return;
+        const vSocs = Array.isArray(v.societies) ? v.societies : (Array.isArray(v.servicing_societies) ? v.servicing_societies : []);
+        vSocs.forEach(s => {
+          if (!s) return;
+          const sName = (typeof s === 'string' ? s : (s.society_name || s.name || s.area_name || '')).trim();
+          if (sName && !seenNames.has(sName.toLowerCase())) {
+            const sId = (typeof s === 'object' && s.society_id) ? s.society_id : `soc-${sName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+            seenNames.add(sName.toLowerCase());
+            seenIds.add(String(sId).toLowerCase());
+            list.push({
+              society_id: sId,
+              society_name: sName,
+              location: (typeof s === 'object' && s.location) ? s.location : (v.city || v.address || 'Local Community'),
+              is_area: typeof s === 'object' ? Boolean(s.is_area) : false
+            });
+          }
+        });
+
+        if (v.society_name && typeof v.society_name === 'string') {
+          const sName = v.society_name.trim();
+          if (sName && !seenNames.has(sName.toLowerCase())) {
+            const sId = v.society_id || `soc-${sName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+            seenNames.add(sName.toLowerCase());
+            seenIds.add(String(sId).toLowerCase());
+            list.push({
+              society_id: sId,
+              society_name: sName,
+              location: v.city || v.address || 'Local Community',
+              is_area: false
+            });
+          }
+        }
+      });
+    }
+
+    return list;
+  }, [allSocieties, allMasterVendors]);
+
+  const activeFoundSociety = useMemo(() => {
+    if (currentSocietyId === 'all') return null;
+    return combinedSocietiesList.find(s => 
+      String(s.society_id).toLowerCase() === String(currentSocietyId).toLowerCase() ||
+      String(s.society_id).replace('SOC-', '').toLowerCase() === String(currentSocietyId).replace('SOC-', '').toLowerCase() ||
+      String(s.society_name || '').toLowerCase() === String(currentSocietyId).toLowerCase()
+    ) || null;
+  }, [combinedSocietiesList, currentSocietyId]);
+
+  const currentSocietyName = society?.society_name || activeFoundSociety?.society_name || activeFoundSociety?.name || (currentSocietyId !== 'all' ? 'Community' : '');
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 px-3 sm:px-6 font-sans">
@@ -456,21 +547,21 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border border-border shadow-xs shrink-0">
                   <img
-                    src={getSocietyImage(society, 0)}
+                    src={getSocietyImage(society || activeFoundSociety, 0)}
                     alt={currentSocietyName}
                     className="w-full h-full object-cover"
                   />
                 </div>
                 <div>
                   <span className="px-3 py-0.5 text-[10px] font-bold bg-[#541D26] text-white rounded-full inline-block mb-1">
-                    {society?.is_area ? '📍 Servicing Area' : '🏢 Housing Society'}
+                    {(society?.is_area || activeFoundSociety?.is_area) ? '📍 Servicing Area' : '🏢 Housing Society'}
                   </span>
                   <h1 className="text-xl sm:text-2xl font-serif font-black text-ink">
                     {currentSocietyName}
                   </h1>
                   <div className="flex items-center space-x-1.5 text-xs text-muted-foreground font-medium mt-0.5">
                     <MapPin className="w-3.5 h-3.5 text-[#C8A878] shrink-0" />
-                    <span>{society?.location || 'Gated Residential Community'}</span>
+                    <span>{society?.location || activeFoundSociety?.location || 'Gated Residential Community'}</span>
                   </div>
                 </div>
               </div>
@@ -487,7 +578,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                     <span className="truncate font-extrabold text-[#211A19]">
                       {currentSocietyId === 'all'
                         ? 'All Societies (Show All Vendors)'
-                        : (society?.society_name || 'Selected Society')}
+                        : (currentSocietyName || 'Selected Society')}
                     </span>
                   </div>
                   <ChevronDown className={`w-3.5 h-3.5 text-[#211A19] group-hover:text-[#541D26] transition-transform duration-200 shrink-0 ${isSocietyDropdownOpen ? 'rotate-180 text-[#541D26]' : ''}`} />
@@ -526,19 +617,22 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                         {currentSocietyId === 'all' && <Check className="w-4 h-4 text-[#C8A878]" />}
                       </button>
 
-                      {allSocieties
-                        .filter(s =>
-                          !societyFilterSearch.trim() ||
-                          s.society_name?.toLowerCase().includes(societyFilterSearch.toLowerCase()) ||
-                          s.location?.toLowerCase().includes(societyFilterSearch.toLowerCase())
-                        )
+                      {combinedSocietiesList
+                        .filter(s => {
+                          if (!societyFilterSearch.trim()) return true;
+                          const term = societyFilterSearch.toLowerCase().trim();
+                          const sName = (s.society_name || s.name || s.area_name || '').toLowerCase();
+                          const sLoc = (s.location || s.city || s.pincode || '').toLowerCase();
+                          return sName.includes(term) || sLoc.includes(term);
+                        })
                         .map((soc) => {
-                          const isSelected = String(currentSocietyId) === String(soc.society_id);
+                          const isSelected = String(currentSocietyId).toLowerCase() === String(soc.society_id).toLowerCase();
                           const subtitle = getDetailedLocationSubtitle(soc);
+                          const displayName = soc.society_name || soc.name || soc.area_name || 'Community';
                           return (
                             <button
                               type="button"
-                              key={soc.society_id}
+                              key={soc.society_id || displayName}
                               onClick={() => {
                                 setCurrentSocietyId(soc.society_id);
                                 setRoute({ page: 'societyVendors', societyId: soc.society_id });
@@ -553,7 +647,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                                   <Building2 className={`w-4 h-4 shrink-0 mt-0.5 ${isSelected ? 'text-[#C8A878]' : 'text-emerald-700'}`} />
                                 )}
                                 <div className="min-w-0">
-                                  <span className="block truncate font-bold text-xs">{soc.society_name}</span>
+                                  <span className="block truncate font-bold text-xs">{displayName}</span>
                                   {subtitle && (
                                     <span className={`block truncate text-[10.5px] mt-0.5 font-medium ${isSelected ? 'text-[#D6B7A5]' : 'text-muted-foreground'}`}>
                                       {subtitle}
@@ -606,7 +700,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                     <span className="truncate font-extrabold text-[#211A19]">
                       {currentSocietyId === 'all'
                         ? 'All Societies (Show All Vendors)'
-                        : (society?.society_name || 'Selected Society')}
+                        : (currentSocietyName || 'Selected Society')}
                     </span>
                   </div>
                   <ChevronDown className={`w-3.5 h-3.5 text-[#211A19] group-hover:text-[#541D26] transition-transform duration-200 shrink-0 ${isSocietyDropdownOpen ? 'rotate-180 text-[#541D26]' : ''}`} />
@@ -645,19 +739,22 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                         {currentSocietyId === 'all' && <Check className="w-4 h-4 text-[#C8A878]" />}
                       </button>
 
-                      {allSocieties
-                        .filter(s =>
-                          !societyFilterSearch.trim() ||
-                          s.society_name?.toLowerCase().includes(societyFilterSearch.toLowerCase()) ||
-                          s.location?.toLowerCase().includes(societyFilterSearch.toLowerCase())
-                        )
+                      {combinedSocietiesList
+                        .filter(s => {
+                          if (!societyFilterSearch.trim()) return true;
+                          const term = societyFilterSearch.toLowerCase().trim();
+                          const sName = (s.society_name || s.name || s.area_name || '').toLowerCase();
+                          const sLoc = (s.location || s.city || s.pincode || '').toLowerCase();
+                          return sName.includes(term) || sLoc.includes(term);
+                        })
                         .map((soc) => {
-                          const isSelected = String(currentSocietyId) === String(soc.society_id);
+                          const isSelected = String(currentSocietyId).toLowerCase() === String(soc.society_id).toLowerCase();
                           const subtitle = getDetailedLocationSubtitle(soc);
+                          const displayName = soc.society_name || soc.name || soc.area_name || 'Community';
                           return (
                             <button
                               type="button"
-                              key={soc.society_id}
+                              key={soc.society_id || displayName}
                               onClick={() => {
                                 setCurrentSocietyId(soc.society_id);
                                 setRoute({ page: 'societyVendors', societyId: soc.society_id });
@@ -672,7 +769,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                                   <Building2 className={`w-4 h-4 shrink-0 mt-0.5 ${isSelected ? 'text-[#C8A878]' : 'text-emerald-700'}`} />
                                 )}
                                 <div className="min-w-0">
-                                  <span className="block truncate font-bold text-xs">{soc.society_name}</span>
+                                  <span className="block truncate font-bold text-xs">{displayName}</span>
                                   {subtitle && (
                                     <span className={`block truncate text-[10.5px] mt-0.5 font-medium ${isSelected ? 'text-[#D6B7A5]' : 'text-muted-foreground'}`}>
                                       {subtitle}
