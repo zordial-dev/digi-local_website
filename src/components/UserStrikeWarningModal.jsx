@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, ShieldAlert, X, HelpCircle, AlertCircle, Clock, CheckCircle2, ChevronRight, Flame } from 'lucide-react';
 import { useScrollLock } from '../hooks/useScrollLock';
 
@@ -38,9 +39,15 @@ export default function UserStrikeWarningModal({ isOpen = true, onClose, onOpenS
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-[#1C1514] text-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-amber-500/40 space-y-5 font-sans relative overflow-hidden">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md font-sans animate-in fade-in duration-200 overflow-hidden"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-[#1C1514] text-white rounded-3xl max-w-lg w-full max-h-[90vh] p-5 sm:p-7 shadow-2xl border border-amber-500/40 space-y-4 sm:space-y-5 font-sans relative overflow-y-auto pointer-events-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Amber Emergency Top Glow */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
@@ -169,6 +176,7 @@ export default function UserStrikeWarningModal({ isOpen = true, onClose, onOpenS
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

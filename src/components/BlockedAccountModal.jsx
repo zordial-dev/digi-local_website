@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { AlertOctagon, Phone, MessageSquare, ShieldAlert, X, HelpCircle, ExternalLink } from 'lucide-react';
 import { useScrollLock } from '../hooks/useScrollLock';
 
@@ -12,9 +13,15 @@ export default function BlockedAccountModal({ isOpen = true, onClose, onOpenSupp
   const reason = blockInfo?.blockReason || blockInfo?.block_reason || blockInfo?.hold_reason || 'Violation of community policies or safety standards';
   const accountType = blockInfo?.accountType === 'vendor' ? 'Vendor Store' : 'Resident User';
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-[#211A19] text-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-rose-500/30 space-y-5 font-sans relative overflow-hidden">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden font-sans"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-[#211A19] text-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl border border-rose-500/30 space-y-5 font-sans relative animate-in zoom-in-95 duration-200 pointer-events-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Subtle red emergency glow */}
         <div className="absolute top-0 right-0 w-48 h-48 bg-rose-600/15 rounded-full blur-3xl pointer-events-none" />
@@ -121,6 +128,7 @@ export default function BlockedAccountModal({ isOpen = true, onClose, onOpenSupp
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

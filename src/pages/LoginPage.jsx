@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Store, User, Phone, CheckCircle2, ShieldCheck, AlertCircle, Sparkles, KeyRound, Smartphone, ChevronDown } from 'lucide-react';
 import { gsap } from 'gsap';
 import { api } from '../services/api';
@@ -6,6 +7,7 @@ import CountryCodePicker from '../components/CountryCodePicker';
 import BlockedAccountModal from '../components/BlockedAccountModal';
 import { sendFirebasePhoneOtp, verifyFirebasePhoneOtp } from '../firebase';
 import { formatUserFacingError } from '../utils/errorFormatter';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function LoginPage({ currentRoute, setRoute, setActiveVendor, setActiveUser }) {
   const [accountType, setAccountType] = useState(
@@ -84,6 +86,9 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   const [showOtpConfirmPassword, setShowOtpConfirmPassword] = useState(false);
   const [otpPasswordError, setOtpPasswordError] = useState('');
   const [otpPasswordSuccess, setOtpPasswordSuccess] = useState(false);
+
+  // Lock background scroll when any modal is open
+  useScrollLock(Boolean(showAltModal || showOtpPasswordModal || blockedModalInfo));
 
   const handleSaveOtpPassword = async (e) => {
     if (e) e.preventDefault();
@@ -710,9 +715,20 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
             {/* Notifications */}
             {error && (
-              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-xs">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{error}</span>
+              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+                <div className="flex items-center space-x-2 min-w-0">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+                {error.toLowerCase().includes('password') && authMethod === 'password' && (
+                  <button
+                    type="button"
+                    onClick={handleSwitchToOtpMethod}
+                    className="px-3 py-1.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white text-[11px] font-extrabold transition-all cursor-pointer shrink-0 self-start sm:self-center shadow-xs"
+                  >
+                    Login via OTP Instead →
+                  </button>
+                )}
               </div>
             )}
 
@@ -902,9 +918,15 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
       </div>
 
       {/* Post-OTP Verification Password Update Choice Modal */}
-      {showAltModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-border space-y-5 relative">
+      {showAltModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto font-sans"
+          onClick={() => setShowAltModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl border border-border space-y-5 relative my-auto shrink-0 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => setShowAltModal(false)}
@@ -1032,15 +1054,22 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ------------------------------------------------------------- */}
       {/* MODAL 2: POST-OTP LOGIN SET PASSWORD OR SKIP POPUP             */}
       {/* ------------------------------------------------------------- */}
-      {showOtpPasswordModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-border space-y-6 text-center animate-in fade-in zoom-in duration-200">
+      {showOtpPasswordModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto font-sans"
+          onClick={() => setShowOtpPasswordModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border space-y-6 text-center my-auto shrink-0 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-16 h-16 rounded-full bg-[#EEE5DA] border border-[#C8A878]/40 flex items-center justify-center mx-auto text-[#541D26]">
               <KeyRound className="w-8 h-8 text-[#541D26]" />
             </div>
@@ -1121,7 +1150,8 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Blocked Account Alert Modal */}

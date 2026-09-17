@@ -80,7 +80,8 @@ function getRouteFromPath(path = window.location.pathname) {
     return { page: 'vendorStorefront', societyId: parts[1], vendorId: parts[2] };
   }
   if (parts.length === 2) {
-    return { page: 'vendorStorefront', societyId: parts[0], vendorId: parts[1] };
+    const targetVendorId = parts[1] === '1242' ? '1296' : parts[1];
+    return { page: 'vendorStorefront', societyId: parts[0], vendorId: targetVendorId };
   }
   if (parts.length === 1 && parts[0] !== 'home') {
     return { page: 'societyVendors', societyId: parts[0] };
@@ -147,6 +148,16 @@ export default function App() {
     const path = getPathFromRoute(initialRoute);
     window.history.replaceState(initialRoute, '', path);
 
+    // Sanitize any stale local storage records from legacy test ID 1242 -> live 1296
+    try {
+      ['digilocal_registered_vendors', 'digilocal_favorite_vendors', 'digilocal_active_cart'].forEach(k => {
+        const str = localStorage.getItem(k);
+        if (str && str.includes('1242')) {
+          localStorage.setItem(k, str.replace(/1242/g, '1296'));
+        }
+      });
+    } catch (_) {}
+
     // Fetch Global Platform Config
     api.getPlatformConfig().then(cfg => {
       if (cfg) setPlatformConfig(cfg);
@@ -159,16 +170,19 @@ export default function App() {
       const userSessionStr = localStorage.getItem('digilocal_user_session');
       if (userSessionStr) {
         const parsed = JSON.parse(userSessionStr);
-        if (parsed && (parsed.user || parsed.name) && (!parsed.expiresAt || parsed.expiresAt > Date.now())) {
+        if (parsed && (parsed.user || parsed.name) && parsed.expiresAt && parsed.expiresAt > Date.now()) {
           savedUser = parsed.user || parsed;
           userToken = parsed.token || parsed.accessToken || userToken;
+        } else {
+          // Expired or malformed user session: clean up
+          localStorage.removeItem('digilocal_user_session');
+          localStorage.removeItem('digilocal_resident_session');
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('userToken');
         }
       } else {
-        const residentSessionStr = localStorage.getItem('digilocal_resident_session');
-        if (residentSessionStr) {
-          const parsedRes = JSON.parse(residentSessionStr);
-          if (parsedRes) savedUser = parsedRes.user || parsedRes;
-        }
+        // No active user session: clean up orphan keys
+        localStorage.removeItem('digilocal_resident_session');
       }
 
       if (savedUser) {
@@ -259,7 +273,7 @@ export default function App() {
       const savedVendorStr = localStorage.getItem('digilocal_vendor_session');
       if (savedVendorStr) {
         const parsedV = JSON.parse(savedVendorStr);
-        if (parsedV && parsedV.vendor && (!parsedV.expiresAt || parsedV.expiresAt > Date.now())) {
+        if (parsedV && parsedV.vendor && parsedV.expiresAt && parsedV.expiresAt > Date.now()) {
           const vendor = parsedV.vendor;
           const vendorToken = parsedV.token || parsedV.accessToken || localStorage.getItem('digilocal_vendor_token') || null;
           setActiveVendor(vendor);
@@ -284,6 +298,9 @@ export default function App() {
               setRoute({ page: 'login', accountType: 'vendor' });
             }
           }).catch(() => {});
+        } else {
+          localStorage.removeItem('digilocal_vendor_session');
+          localStorage.removeItem('digilocal_vendor_token');
         }
       }
     } catch (_) { }
@@ -404,6 +421,8 @@ export default function App() {
           <SocietyVendorsPage
             societyId={route.societyId}
             setRoute={setRoute}
+            activeUser={activeUser}
+            activeVendor={activeVendor}
             onOpenLoginModal={() => setIsLoginModalOpen(true)}
           />
         )}
@@ -416,6 +435,7 @@ export default function App() {
             setRoute={setRoute}
             onOpenLoginModal={() => setIsLoginModalOpen(true)}
             activeUser={activeUser}
+            activeVendor={activeVendor}
           />
         )}
 

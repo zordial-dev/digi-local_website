@@ -1,23 +1,30 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { api, getSocietyImage, getNormalizedImageUrl } from '../services/api';
 import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, ChevronLeft, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock, LogIn, Heart, SlidersHorizontal, Star } from 'lucide-react';
 import { getStoreStatus } from '../utils/storeHours';
 import { VendorCardSkeleton } from '../components/Skeletons';
 import { sanitizeSocietyLocation } from '../utils/locationResolver';
 
-const checkUserLoggedIn = () => {
+const checkUserLoggedIn = (activeUser = null, activeVendor = null) => {
+  if (activeUser && (activeUser.user_id || activeUser.id || activeUser.phone || activeUser.name)) {
+    return true;
+  }
+  if (activeVendor && (activeVendor.vendor_id || activeVendor.id || activeVendor.store_name)) {
+    return true;
+  }
   try {
-    const savedUser = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
-    const savedVendor = localStorage.getItem('digilocal_vendor_session');
+    const savedUser = localStorage.getItem('digilocal_user_session');
     if (savedUser) {
       const parsed = JSON.parse(savedUser);
       const u = parsed.user || parsed;
-      if (u && (u.user_id || u.email || u.name || u.phone)) return true;
+      if (u && (u.user_id || u.id || u.email || u.name || u.phone) && parsed.expiresAt && parsed.expiresAt > Date.now()) return true;
     }
+    const savedVendor = localStorage.getItem('digilocal_vendor_session');
     if (savedVendor) {
       const parsedV = JSON.parse(savedVendor);
       const v = parsedV.vendor || parsedV;
-      if (v && (v.vendor_id || v.email || v.vendor_name || v.store_name)) return true;
+      if (v && (v.vendor_id || v.id || v.email || v.vendor_name || v.store_name) && parsedV.expiresAt && parsedV.expiresAt > Date.now()) return true;
     }
   } catch (_) { }
   return false;
@@ -165,7 +172,8 @@ export function getVendorRating(vendor, liveRatingsMap = {}) {
   return 0;
 }
 
-export default function SocietyVendorsPage({ societyId: initialSocietyId, setRoute, onOpenLoginModal }) {
+export default function SocietyVendorsPage({ societyId: initialSocietyId, setRoute, onOpenLoginModal, activeUser, activeVendor }) {
+  const isLoggedIn = checkUserLoggedIn(activeUser, activeVendor);
   const [currentSocietyId, setCurrentSocietyId] = useState(initialSocietyId || 'all');
   const [society, setSociety] = useState(null);
   const [allSocieties, setAllSocieties] = useState([]);
@@ -194,6 +202,17 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
       }
     } catch (_) { }
   }, []);
+
+  useEffect(() => {
+    if (showLoginPromptModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showLoginPromptModal]);
 
   const toggleFavorite = (e, vendor) => {
     e.stopPropagation();
@@ -861,7 +880,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                     <div
                       key={vendor.vendor_id}
                       onClick={() => {
-                        if (!checkUserLoggedIn()) {
+                        if (!isLoggedIn) {
                           setSelectedVendorForPrompt(vendor);
                           setShowLoginPromptModal(true);
                           return;
@@ -948,7 +967,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
 
                             {/* Location & Time Info Bar */}
                             <div className="flex items-center justify-between pt-1.5 border-t border-[#F0E6DD] text-[10.5px]">
-                              {checkUserLoggedIn() ? (
+                              {isLoggedIn ? (
                                 <span className="flex items-center space-x-1 font-bold text-[#211A19]">
                                   <Phone className="w-2.5 h-2.5 text-[#541D26] shrink-0" />
                                   <span className="truncate">{vendor.phone_number || 'Contact Available'}</span>
@@ -1054,44 +1073,60 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
         })()}
       </div>
 
-      {/* LOGIN REQUIRED POPUP MODAL (MATCHES USER DESIGN SPECIFICATION EXACTLY) */}
-      {showLoginPromptModal && !checkUserLoggedIn() && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md bg-white rounded-[2.2rem] p-7 sm:p-8 shadow-2xl border border-[#E8E2D5] text-center space-y-5 animate-in zoom-in-95 duration-200">
-
+      {/* LOGIN REQUIRED POPUP MODAL (PORTALED DIRECTLY TO BODY FOR VIEWPORT CENTERING) */}
+      {showLoginPromptModal && !isLoggedIn && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md font-sans overflow-y-auto"
+          onClick={() => {
+            setShowLoginPromptModal(false);
+            setSelectedVendorForPrompt(null);
+          }}
+        >
+          <div 
+            className="relative w-full max-w-md bg-white rounded-[2rem] p-6 sm:p-8 shadow-2xl border border-[#E8E2D5] text-center space-y-4 my-auto shrink-0 max-h-[90vh] overflow-y-auto pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Top Right Close Button */}
             <button
-              onClick={() => setShowLoginPromptModal(false)}
-              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#FAF8F5] hover:bg-[#F3EFE6] text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-pointer"
+              onClick={() => {
+                setShowLoginPromptModal(false);
+                setSelectedVendorForPrompt(null);
+              }}
+              className="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 rounded-full bg-[#FAF8F5] hover:bg-[#F3EFE6] text-gray-500 hover:text-gray-800 flex items-center justify-center transition-colors cursor-pointer border border-[#E8E2D5]"
               aria-label="Close"
             >
-              <X className="w-4.5 h-4.5 text-gray-500" />
+              <X className="w-4 h-4 text-gray-600" />
             </button>
 
             {/* Center Gold Building Icon */}
-            <div className="w-16 h-16 rounded-2xl bg-[#FFFBF0] border border-[#F5E6C4] flex items-center justify-center mx-auto text-[#C4A066] shadow-xs">
-              <Building2 className="w-8 h-8 text-[#C4A066]" />
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#FFFBF0] border border-[#F5E6C4] flex items-center justify-center mx-auto text-[#C4A066] shadow-xs">
+              <Building2 className="w-7 h-7 sm:w-8 sm:h-8 text-[#C4A066]" />
             </div>
 
             {/* Pill Badge & Title */}
-            <div className="space-y-2">
-              <span className="inline-block px-4 py-1 rounded-full bg-[#FFF5E5] text-[#C47D14] border border-[#FFE3B5] text-[11px] font-extrabold uppercase tracking-widest">
+            <div className="space-y-1.5">
+              <span className="inline-block px-3.5 py-0.5 rounded-full bg-[#FFF5E5] text-[#C47D14] border border-[#FFE3B5] text-[10px] sm:text-[11px] font-extrabold uppercase tracking-widest">
                 LOGIN REQUIRED
               </span>
 
-              <h2 className="text-2xl sm:text-3xl font-serif font-black text-[#202622] leading-tight">
-                Log In to Access Your Gated Community Marketplace
+              <h2 className="text-xl sm:text-2xl font-serif font-black text-[#202622] leading-snug">
+                {selectedVendorForPrompt?.store_name ? `Log In to Open ${selectedVendorForPrompt.store_name}` : 'Log In to Access Community Storefronts'}
               </h2>
-              <p className="text-xs text-muted-foreground mt-2 font-medium leading-relaxed max-w-sm mx-auto">
-                Please log in as a resident user to order from verified local stores, organic farms, and artisan bakeries in your residential area.
+              <p className="text-xs text-muted-foreground pt-1 font-medium leading-relaxed max-w-sm mx-auto">
+                Please log in to your account to view verified local stores, browse product catalogs, and place orders in your residential area.
               </p>
             </div>
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <button
-                onClick={() => setRoute({ page: 'login', accountType: 'resident', redirectSocietyId: currentSocietyId })}
-                className="w-full sm:w-1/2 py-3.5 px-5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs shadow-md tracking-wider uppercase transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                onClick={() => setRoute({
+                  page: 'login',
+                  accountType: 'resident',
+                  redirectSocietyId: currentSocietyId,
+                  redirectVendorId: selectedVendorForPrompt?.vendor_id
+                })}
+                className="w-full sm:w-1/2 py-3 px-4 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs shadow-md tracking-wider uppercase transition-all flex items-center justify-center space-x-2 cursor-pointer"
               >
                 <LogIn className="w-4 h-4 text-white" />
                 <span>LOG IN NOW</span>
@@ -1099,14 +1134,15 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
 
               <button
                 onClick={() => setRoute({ page: 'register' })}
-                className="w-full sm:w-1/2 py-3.5 px-5 rounded-full bg-transparent border border-[#541D26] text-[#541D26] hover:bg-[#541D26] hover:text-white font-extrabold text-xs tracking-wider uppercase transition-all flex items-center justify-center cursor-pointer"
+                className="w-full sm:w-1/2 py-3 px-4 rounded-full bg-transparent border border-[#541D26] text-[#541D26] hover:bg-[#541D26] hover:text-white font-extrabold text-xs tracking-wider uppercase transition-all flex items-center justify-center cursor-pointer"
               >
                 <span>REGISTER</span>
               </button>
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

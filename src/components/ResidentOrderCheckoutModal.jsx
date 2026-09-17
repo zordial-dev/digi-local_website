@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ShoppingCart, Clock, Phone, MapPin, CheckCircle2, ShieldCheck, ArrowRight, X } from 'lucide-react';
 import { useScrollLock } from '../hooks/useScrollLock';
 
@@ -68,12 +69,18 @@ export default function ResidentOrderCheckoutModal({ isOpen, onClose, cartItems 
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden border border-[#C5A880]/30 relative flex flex-col max-h-[90vh]">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md font-sans animate-in fade-in duration-200 overflow-hidden"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-[2rem] max-w-lg w-full max-h-[90vh] shadow-2xl overflow-hidden border border-[#C5A880]/30 relative flex flex-col pointer-events-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Header */}
-        <div className="bg-[#0A1428] text-white p-5 flex items-center justify-between">
+        <div className="bg-[#0A1428] text-white p-5 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-xl bg-[#C5A880]/20 border border-[#C5A880]/30 flex items-center justify-center text-[#C5A880]">
               <ShoppingCart className="w-5 h-5" />
@@ -83,7 +90,7 @@ export default function ResidentOrderCheckoutModal({ isOpen, onClose, cartItems 
               <p className="text-[11px] text-[#C5A880]">Fulfilling store: {vendor?.store_name || 'Society Vendor Store'}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+          <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -112,13 +119,6 @@ export default function ResidentOrderCheckoutModal({ isOpen, onClose, cartItems 
                     ))
                   )}
                 </div>
-                
-                <div className="mt-3 flex items-center justify-between text-sm font-bold px-1">
-                  <span>Total Payable:</span>
-                  <span className="text-lg text-emerald-700 font-extrabold">₹{totalAmount.toFixed(2)}</span>
-                </div>
-              </div>
-
               {/* Delivery Address */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1 flex items-center space-x-1">
@@ -276,6 +276,7 @@ export default function ResidentOrderCheckoutModal({ isOpen, onClose, cartItems 
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

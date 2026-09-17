@@ -75,18 +75,22 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
         }
 
         if (loggedUser.society_name || loggedUser.society || loggedUser.area || loggedUser.flat) {
-          const registeredAddr = [{
-            id: 'registered_profile',
-            label: loggedUser.label || loggedUser.address_type || 'Home',
-            society: loggedUser.society_name || loggedUser.society || loggedUser.area || '',
-            flat: loggedUser.flat || '',
-            city: loggedUser.city || '',
-            pincode: loggedUser.pincode || '',
-            address: loggedUser.address || `${loggedUser.flat || ''}, ${loggedUser.society_name || loggedUser.society || loggedUser.area || ''}`,
-            isDefault: true
-          }];
-          setSavedAddresses(registeredAddr);
-          return;
+          const rawSoc = String(loggedUser.society_name || loggedUser.society || loggedUser.area || '').replace(/^undefined$/, '').replace(/^null$/, '');
+          const rawFlat = String(loggedUser.flat || '').replace(/^undefined$/, '').replace(/^null$/, '');
+          if (rawSoc || rawFlat) {
+            const registeredAddr = [{
+              id: 'registered_profile',
+              label: loggedUser.label || loggedUser.address_type || 'Home',
+              society: rawSoc,
+              flat: rawFlat,
+              city: loggedUser.city || '',
+              pincode: loggedUser.pincode || '',
+              address: loggedUser.address || `${rawFlat}${rawFlat && rawSoc ? ', ' : ''}${rawSoc}`,
+              isDefault: true
+            }];
+            setSavedAddresses(registeredAddr);
+            return;
+          }
         }
       }
 
@@ -122,14 +126,16 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
             try { currentList = JSON.parse(savedStr); } catch (_) {}
           }
           const defaultLabel = freshUser.label || freshUser.address_type || currentList[0]?.label || 'Home';
+          const rawSoc = String(freshUser.society_name || freshUser.society || freshUser.area || '').replace(/^undefined$/, '').replace(/^null$/, '');
+          const rawFlat = String(freshUser.flat || '').replace(/^undefined$/, '').replace(/^null$/, '');
           const freshAddr = {
             id: currentList[0]?.id || 'registered_profile',
             label: defaultLabel,
-            society: freshUser.society_name || freshUser.society || freshUser.area || '',
-            flat: freshUser.flat || '',
+            society: rawSoc,
+            flat: rawFlat,
             city: freshUser.city || '',
             pincode: freshUser.pincode || '',
-            address: freshUser.address || `${freshUser.flat || ''}, ${freshUser.society_name || freshUser.society || freshUser.area || ''}`,
+            address: freshUser.address || `${rawFlat}${rawFlat && rawSoc ? ', ' : ''}${rawSoc}`,
             isDefault: true
           };
           const updatedList = currentList.length > 0
@@ -280,26 +286,23 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
       const savedVendor = localStorage.getItem('digilocal_vendor_session');
       if (savedVendor) {
         const parsedV = JSON.parse(savedVendor);
-        if (parsedV && parsedV.vendor && parsedV.expiresAt > Date.now()) {
+        if (parsedV && parsedV.vendor && (!parsedV.expiresAt || parsedV.expiresAt > Date.now())) {
           currentVendor = parsedV.vendor;
         }
       }
     } catch (_) { }
+  }
 
-    if (!currentVendor) {
-      try {
-        const savedUser = localStorage.getItem('digilocal_user_session');
-        if (savedUser) {
-          const parsedU = JSON.parse(savedUser);
-          if (parsedU && (parsedU.user || parsedU.name) && parsedU.expiresAt > Date.now()) {
-            currentUser = parsedU.user || parsedU;
-          }
-        } else {
-          const savedRes = localStorage.getItem('digilocal_resident_session');
-          if (savedRes) currentUser = JSON.parse(savedRes);
+  if (!currentUser) {
+    try {
+      const savedUser = localStorage.getItem('digilocal_user_session');
+      if (savedUser) {
+        const parsedU = JSON.parse(savedUser);
+        if (parsedU && (parsedU.user || parsedU.name) && (!parsedU.expiresAt || parsedU.expiresAt > Date.now())) {
+          currentUser = parsedU.user || parsedU;
         }
-      } catch (_) { }
-    }
+      }
+    } catch (_) { }
   }
 
   if (currentUser && !currentUser.name) {
@@ -312,21 +315,29 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
   const defaultAddress = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
 
   // Helper renderer for Location Pill & Dropdown
-  const renderLocationPill = () => (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
-        className="bg-[#EEE5DA] hover:bg-[#D6B7A5]/60 text-[#211A19] px-3 sm:px-3.5 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all border border-[#E5DAD0] shadow-xs shrink-0 cursor-pointer"
-        title="Delivery Address"
-      >
-        <MapPin className="w-3.5 h-3.5 text-[#541D26] shrink-0" />
-        <span className="truncate max-w-[110px] sm:max-w-[150px]">
-          {defaultAddress
-            ? `${defaultAddress.society || defaultAddress.area}${defaultAddress.flat ? ` • ${defaultAddress.flat}` : ''}`
-            : 'Delivery Address'}
-        </span>
-        <ChevronDown className={`w-3.5 h-3.5 text-[#541D26] transition-transform duration-200 shrink-0 ${isLocationDropdownOpen ? 'rotate-180' : ''}`} />
-      </button>
+  const renderLocationPill = () => {
+    const rawSoc = defaultAddress?.society || defaultAddress?.area || defaultAddress?.address || '';
+    const cleanSoc = (rawSoc && rawSoc !== 'undefined' && rawSoc !== 'null') ? rawSoc : '';
+    const rawFlat = defaultAddress?.flat || '';
+    const cleanFlat = (rawFlat && rawFlat !== 'undefined' && rawFlat !== 'null') ? rawFlat : '';
+
+    const label = cleanSoc
+      ? `${cleanSoc}${cleanFlat ? ` • ${cleanFlat}` : ''}`
+      : (cleanFlat ? `Flat ${cleanFlat}` : 'Delivery Address');
+
+    return (
+      <div className="relative" ref={dropdownRef}>
+        <button
+          onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
+          className="bg-[#EEE5DA] hover:bg-[#D6B7A5]/60 text-[#211A19] px-3 sm:px-3.5 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all border border-[#E5DAD0] shadow-xs shrink-0 cursor-pointer"
+          title="Delivery Address"
+        >
+          <MapPin className="w-3.5 h-3.5 text-[#541D26] shrink-0" />
+          <span className="truncate max-w-[110px] sm:max-w-[150px]">
+            {label}
+          </span>
+          <ChevronDown className={`w-3.5 h-3.5 text-[#541D26] transition-transform duration-200 shrink-0 ${isLocationDropdownOpen ? 'rotate-180' : ''}`} />
+        </button>
 
       {/* Dropdown Menu for Saved Addresses */}
       {isLocationDropdownOpen && (
@@ -413,7 +424,8 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   return (
     <>
@@ -749,8 +761,11 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                       <span>My Profile & Orders</span>
                     </button>
                     <button
-                      onClick={() => { handleHeaderUserLogout(); setIsMobileMenuOpen(false); }}
-                      className="w-full py-2.5 px-4 rounded-xl bg-white border border-[#E5DAD0] text-rose-700 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"
+                      onClick={() => {
+                        if (typeof onUserLogout === 'function') onUserLogout();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full py-2.5 px-4 rounded-xl bg-white border border-[#E5DAD0] text-rose-700 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" />
                       <span>Sign Out</span>

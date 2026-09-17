@@ -3201,13 +3201,9 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   setShowLogoutModal(false);
-                  try {
-                    localStorage.removeItem('digilocal_vendor_session');
-                    localStorage.removeItem('digilocal_vendor_token');
-                  } catch (_) {}
-                  if (typeof onVendorLogout === 'function') onVendorLogout();
+                  await handleVendorLogout();
                 }}
                 className="flex-1 py-3 px-4 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center space-x-2"
               >

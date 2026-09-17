@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Store, 
   User, 
@@ -16,10 +17,18 @@ import {
   EyeOff
 } from 'lucide-react';
 import { api } from '../services/api';
-import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor, setActiveUser }) {
-  useScrollLock(isOpen);
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
   const [loginType, setLoginType] = useState('resident'); // 'resident' (default) | 'vendor'
   const [step, setStep] = useState(1); // For resident OTP login
   
@@ -209,12 +218,18 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
     setInfoMsg(`Verification OTP resent to +91 ${userPhone}`);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-card border border-border rounded-[2.5rem] max-w-md w-full shadow-2xl overflow-hidden relative text-foreground">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md font-sans animate-in fade-in duration-200"
+      onClick={() => { handleResetModal(); onClose(); }}
+    >
+      <div 
+        className="bg-card border border-border rounded-[2rem] max-w-md w-full max-h-[90vh] shadow-2xl overflow-hidden relative text-foreground flex flex-col animate-in zoom-in-95 duration-200 pointer-events-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Header */}
-        <div className="bg-[#211A19] text-[#F6F0E8] px-6 py-5 flex items-center justify-between border-b border-[#C8A878]/30">
+        <div className="bg-[#211A19] text-[#F6F0E8] px-5 sm:px-6 py-4 sm:py-5 flex items-center justify-between border-b border-[#C8A878]/30 shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-white/10 p-1 flex items-center justify-center border border-[#C8A878]/30">
               <img src="/logo.png" alt="DigiLocal Logo" className="w-full h-full object-contain" />
@@ -237,7 +252,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-5 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
           
           {/* Role Selector Tabs */}
           {step === 1 && (
@@ -456,6 +471,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { api, getNormalizedImageUrl, getStoreTimeStatus } from '../services/api';
-import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn, Clock, Heart, Star, Sparkles, CheckCircle2, ChevronDown, Calendar } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Store, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn, Clock, Heart, Star, Sparkles, CheckCircle2, ChevronDown, Calendar } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import DummyPaymentModal from '../components/DummyPaymentModal';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
@@ -25,7 +26,7 @@ const REVIEW_QUICK_TAGS = [
   'Quick Response'
 ];
 
-export default function VendorStorefrontPage({ currentRoute, societyId, vendorId, setRoute, onOpenLoginModal, activeUser }) {
+export default function VendorStorefrontPage({ currentRoute, societyId, vendorId, setRoute, onOpenLoginModal, activeUser, activeVendor }) {
   const [vendorData, setVendorData] = useState(null);
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -194,45 +195,11 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
   const [showCartDrawer, setShowCartDrawer] = useState(Boolean(currentRoute?.openCart));
   const [orderRemark, setOrderRemark] = useState('');
   const [pendingWhatsappUrl, setPendingWhatsappUrl] = useState('');
-
-  useEffect(() => {
-    if (currentRoute?.openCart) {
-      setShowCartDrawer(true);
-    }
-  }, [currentRoute?.openCart]);
-
-  // Lock background page scroll when Cart Side Panel Drawer is open
-  useEffect(() => {
-    if (showCartDrawer) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [showCartDrawer]);
   
   // Replace Cart Modal State
   const [showReplaceCartModal, setShowReplaceCartModal] = useState(false);
   const [pendingReplaceItem, setPendingReplaceItem] = useState(null);
   const [existingCartVendorName, setExistingCartVendorName] = useState('');
-
-  // Restore persisted active cart for THIS vendor on mount/vendorId change
-  useEffect(() => {
-    if (!vendorId) return;
-    try {
-      const activeCartStr = localStorage.getItem('digilocal_active_cart');
-      if (activeCartStr) {
-        const parsedCart = JSON.parse(activeCartStr);
-        if (parsedCart && parsedCart.vendor && String(parsedCart.vendor.vendor_id) === String(vendorId)) {
-          if (Array.isArray(parsedCart.items)) {
-            setCart(parsedCart.items);
-          }
-        }
-      }
-    } catch (_) {}
-  }, [vendorId]);
 
   // Modals & Tracking
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -250,6 +217,40 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
   const [isTimeSlotDropdownOpen, setIsTimeSlotDropdownOpen] = useState(false);
   const [submittingEnquiry, setSubmittingEnquiry] = useState(false);
   const timeSlotDropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (currentRoute?.openCart) {
+      setShowCartDrawer(true);
+    }
+  }, [currentRoute?.openCart]);
+
+  // Lock background page scroll when Cart Side Panel Drawer or any modal is open
+  useEffect(() => {
+    if (showCartDrawer || showReplaceCartModal || showConfirmModal || showReviewModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showCartDrawer, showReplaceCartModal, showConfirmModal, showReviewModal]);
+
+  // Restore persisted active cart for THIS vendor on mount/vendorId change
+  useEffect(() => {
+    if (!vendorId) return;
+    try {
+      const activeCartStr = localStorage.getItem('digilocal_active_cart');
+      if (activeCartStr) {
+        const parsedCart = JSON.parse(activeCartStr);
+        if (parsedCart && parsedCart.vendor && String(parsedCart.vendor.vendor_id) === String(vendorId)) {
+          if (Array.isArray(parsedCart.items)) {
+            setCart(parsedCart.items);
+          }
+        }
+      }
+    } catch (_) {}
+  }, [vendorId]);
 
   // Click outside listener for time slot dropdown
   useEffect(() => {
@@ -325,13 +326,30 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
     }
   };
 
-  // Auth Guard Helper: Check if user is logged in
+  // Auth Guard Helper: Check if user or vendor is actively logged in
   const checkResidentAuth = () => {
+    if (activeUser && (activeUser.user_id || activeUser.id || activeUser.phone || activeUser.name)) {
+      return true;
+    }
+    if (activeVendor && (activeVendor.vendor_id || activeVendor.id || activeVendor.store_name)) {
+      return true;
+    }
     try {
-      const resSession = localStorage.getItem('digilocal_resident_session');
+      const userSessionStr = localStorage.getItem('digilocal_user_session');
+      if (userSessionStr) {
+        const parsed = JSON.parse(userSessionStr);
+        const u = parsed.user || parsed;
+        if (u && (u.user_id || u.id || u.email || u.name || u.phone) && parsed.expiresAt && parsed.expiresAt > Date.now()) {
+          return true;
+        }
+      }
       const venSession = localStorage.getItem('digilocal_vendor_session');
-      if (resSession || venSession) {
-        return true;
+      if (venSession) {
+        const parsedV = JSON.parse(venSession);
+        const v = parsedV.vendor || parsedV;
+        if (v && (v.vendor_id || v.id || v.email || v.vendor_name || v.store_name) && parsedV.expiresAt && parsedV.expiresAt > Date.now()) {
+          return true;
+        }
       }
     } catch (_) {}
     return false;
@@ -494,6 +512,9 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
           if (i && i.category) catSet.add(i.category);
         });
         setCategories(Array.from(catSet));
+      } else {
+        setVendorData(null);
+        setItems([]);
       }
     } catch (err) {
       console.error("loadStorefront error:", err);
@@ -905,36 +926,36 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
   }
 
   if (!checkResidentAuth()) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="relative w-full max-w-md bg-white rounded-[2.2rem] p-7 sm:p-8 shadow-2xl border border-[#E8E2D5] text-center space-y-5 animate-in zoom-in-95 duration-200">
+    return createPortal(
+      <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md font-sans overflow-y-auto">
+        <div className="relative w-full max-w-md bg-white rounded-[2rem] p-6 sm:p-8 shadow-2xl border border-[#E8E2D5] text-center space-y-4 my-auto shrink-0 max-h-[90vh] overflow-y-auto pointer-events-auto">
           
           {/* Top Right Close Button */}
           <button
             onClick={() => setRoute({ page: 'societyVendors', societyId: societyId || 'all' })}
-            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#FAF8F5] hover:bg-[#F3EFE6] text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-pointer"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 rounded-full bg-[#FAF8F5] hover:bg-[#F3EFE6] text-gray-500 hover:text-gray-800 flex items-center justify-center transition-colors cursor-pointer border border-[#E8E2D5]"
             aria-label="Close"
           >
-            <X className="w-4.5 h-4.5 text-gray-500" />
+            <X className="w-4 h-4 text-gray-600" />
           </button>
 
           {/* Center Icon */}
-          <div className="w-16 h-16 rounded-2xl bg-[#EEE5DA] border border-[#E5DAD0] flex items-center justify-center mx-auto text-[#541D26] shadow-xs">
-            <Building2 className="w-8 h-8 text-[#541D26]" />
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#EEE5DA] border border-[#E5DAD0] flex items-center justify-center mx-auto text-[#541D26] shadow-xs">
+            <Building2 className="w-7 h-7 sm:w-8 sm:h-8 text-[#541D26]" />
           </div>
 
           {/* Pill Badge & Title */}
-          <div className="space-y-2">
-            <span className="inline-block px-4 py-1 rounded-full bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 text-[11px] font-extrabold uppercase tracking-widest">
+          <div className="space-y-1.5">
+            <span className="inline-block px-3.5 py-0.5 rounded-full bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-widest">
               LOGIN REQUIRED
             </span>
 
-            <h2 className="text-2xl sm:text-3xl font-serif font-black text-[#211A19] leading-tight">
-              Explore {vendorData?.store_name || 'Community Store'}
+            <h2 className="text-xl sm:text-2xl font-serif font-black text-[#211A19] leading-snug">
+              {vendorData?.store_name ? `Log In to Open ${vendorData.store_name}` : 'Log In to Open Store'}
             </h2>
 
-            <p className="text-xs sm:text-sm text-muted-foreground font-medium leading-relaxed max-w-xs mx-auto pt-1">
-              Please log in to your account to view approved local stores, products, and daily essentials for {vendorData?.store_name || 'this storefront'}.
+            <p className="text-xs text-muted-foreground font-medium leading-relaxed max-w-xs mx-auto pt-1">
+              Please log in to your account to explore approved local stores, browse product catalogs, and place orders.
             </p>
           </div>
 
@@ -947,7 +968,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                 redirectVendorId: vendorId,
                 redirectSocietyId: societyId
               })}
-              className="w-full sm:w-1/2 py-3.5 px-5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs shadow-md tracking-wider uppercase transition-all flex items-center justify-center space-x-2 cursor-pointer"
+              className="w-full sm:w-1/2 py-3 px-4 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs shadow-md tracking-wider uppercase transition-all flex items-center justify-center space-x-2 cursor-pointer"
             >
               <LogIn className="w-4 h-4 text-white" />
               <span>LOG IN NOW</span>
@@ -955,12 +976,37 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
             <button
               onClick={() => setRoute({ page: 'register' })}
-              className="w-full sm:w-1/2 py-3.5 px-5 rounded-full bg-transparent border border-[#541D26] text-[#541D26] hover:bg-[#541D26] hover:text-white font-extrabold text-xs tracking-wider uppercase transition-all flex items-center justify-center cursor-pointer"
+              className="w-full sm:w-1/2 py-3 px-4 rounded-full bg-transparent border border-[#541D26] text-[#541D26] hover:bg-[#541D26] hover:text-white font-extrabold text-xs tracking-wider uppercase transition-all flex items-center justify-center cursor-pointer"
             >
               <span>REGISTER</span>
             </button>
           </div>
 
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  if (!loading && !vendorData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4 font-sans text-foreground">
+        <div className="max-w-md w-full bg-card rounded-3xl p-6 sm:p-8 shadow-xl text-center border border-border space-y-5 animate-in fade-in">
+          <div className="w-16 h-16 bg-[#541D26]/10 text-[#541D26] rounded-2xl flex items-center justify-center mx-auto border border-[#541D26]/20">
+            <Store className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-serif font-bold text-ink">Store Not Found</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              We couldn't find an active store with ID <strong className="text-ink font-mono">{vendorId}</strong>. It may have been removed or the link is invalid.
+            </p>
+          </div>
+          <button
+            onClick={() => setRoute({ page: 'societyVendors', societyId: societyId || 'all' })}
+            className="w-full py-3.5 px-6 bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-[0.98] cursor-pointer"
+          >
+            Explore Available Stores
+          </button>
         </div>
       </div>
     );
@@ -983,7 +1029,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             </button>
 
             {/* Flat Delivery Badge (Per Cafe Visit) */}
-            {flatNumber ? (
+            {flatNumber && flatNumber.trim() && flatNumber !== 'undefined' && flatNumber !== 'null' ? (
               <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-secondary border border-border shadow-sm self-start sm:self-auto">
                 <Home className="w-4 h-4 text-gold" />
                 <span className="text-xs font-bold text-ink">
@@ -991,7 +1037,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                 </span>
                 <button
                   onClick={handleOpenChangeLocation}
-                  className="text-[11px] font-bold text-ink underline hover:text-primary ml-2"
+                  className="text-[11px] font-bold text-ink underline hover:text-primary ml-2 cursor-pointer"
                 >
                   Change
                 </button>
@@ -999,9 +1045,9 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             ) : (
               <button
                 onClick={handleOpenChangeLocation}
-                className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-sm flex items-center space-x-2 uppercase tracking-wider"
+                className="px-4 py-2 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold shadow-sm flex items-center space-x-2 uppercase tracking-wider cursor-pointer"
               >
-                <Home className="w-4 h-4 text-gold" />
+                <Home className="w-4 h-4 text-[#C8A878]" />
                 <span>Enter Flat & Tower Number</span>
               </button>
             )}
@@ -1679,9 +1725,9 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
 
       {/* Slide-out Shopping Cart Drawer */}
-      {showCartDrawer && (
+      {showCartDrawer && createPortal(
         <div 
-          className="fixed inset-0 z-[99999] flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999999] flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setShowCartDrawer(false)}
         >
           <div 
@@ -1810,7 +1856,8 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Dummy Payment Modal */}
@@ -1896,10 +1943,12 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       />
 
       {/* Replace Cart Conflict Warning Modal */}
-      {showReplaceCartModal && (
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-[#211A19] text-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-white/10 space-y-4 font-sans text-center">
-            
+      {showReplaceCartModal && createPortal(
+        <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden font-sans">
+          <div 
+            className="bg-[#211A19] text-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl border border-white/10 space-y-4 font-sans text-center animate-in zoom-in-95 duration-200 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Warning Icon */}
             <div className="w-14 h-14 rounded-full bg-[#C8A878]/20 border border-[#C8A878]/40 flex items-center justify-center mx-auto text-[#C8A878]">
               <AlertTriangle className="w-7 h-7" />
@@ -1932,13 +1981,17 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Order Confirmation Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 w-screen h-screen z-[99999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
-          <div className="bg-[#FAF8F5] text-[#211A19] border border-[#E5DAD0] rounded-[2.5rem] p-7 max-w-sm w-full shadow-2xl text-center flex flex-col items-center animate-in zoom-in-95 my-auto">
+      {showConfirmModal && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden font-sans">
+          <div 
+            className="bg-[#FAF8F5] text-[#211A19] border border-[#E5DAD0] rounded-[2.5rem] p-7 max-w-sm w-full max-h-[90vh] overflow-y-auto shadow-2xl text-center flex flex-col items-center animate-in zoom-in-95 duration-200 pointer-events-auto my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-14 h-14 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 flex items-center justify-center mb-3 text-[#541D26]">
               <HelpCircle className="w-7 h-7 text-[#541D26]" />
             </div>
@@ -1986,13 +2039,17 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Rate & Review Modal */}
-      {showReviewModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-[#E5DAD0] space-y-5 animate-scaleUp relative max-h-[90vh] overflow-y-auto">
+      {showReviewModal && createPortal(
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[9999999] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200 overflow-hidden font-sans">
+          <div 
+            className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-[#E5DAD0] space-y-5 animate-in zoom-in-95 duration-200 relative max-h-[90vh] overflow-y-auto pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Close Button */}
             <button
               type="button"
@@ -2122,7 +2179,8 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Notification Modal */}

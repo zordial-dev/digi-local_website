@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api, getSocietyImage } from '../services/api';
 import { ShieldCheck, Search, Check, Store, Calendar, CreditCard, ChevronDown, ChevronUp, User, MapPin, Clock, RefreshCw, Building2, Plus, X, Image, LogOut, FileText, Headphones, PhoneCall, Mail } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import { VendorCardSkeleton, TableRowSkeleton } from '../components/Skeletons';
+import { useScrollLock } from '../hooks/useScrollLock';
 
 export default function AdminDashboardPage({ setRoute }) {
   const [activeTab, setActiveTab] = useState('requests');
@@ -17,6 +19,8 @@ export default function AdminDashboardPage({ setRoute }) {
   const [showAddSocietyModal, setShowAddSocietyModal] = useState(false);
   const [newSociety, setNewSociety] = useState({ society_name: '', location: '' });
   const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
+
+  useScrollLock(showAddSocietyModal);
 
   // Platform Branding Logo & Name State
   const [platformLogoInput, setPlatformLogoInput] = useState('/logo.png');
@@ -981,12 +985,18 @@ export default function AdminDashboardPage({ setRoute }) {
       </div>
 
       {/* Add Society Modal */}
-      {showAddSocietyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A1428]/50 backdrop-blur-sm">
-          <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl">
+      {showAddSocietyModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto font-sans"
+          onClick={() => setShowAddSocietyModal(false)}
+        >
+          <div 
+            className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl my-auto shrink-0 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-serif font-bold text-[#0A1428] uppercase">Add New Society</h3>
-              <button onClick={() => setShowAddSocietyModal(false)} className="text-[#787F8C] hover:text-[#0A1428]">
+              <button onClick={() => setShowAddSocietyModal(false)} className="text-[#787F8C] hover:text-[#0A1428] cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1020,20 +1030,21 @@ export default function AdminDashboardPage({ setRoute }) {
                 <button
                   type="button"
                   onClick={() => setShowAddSocietyModal(false)}
-                  className="px-4 py-2 text-[#787F8C] hover:text-[#0A1428] text-xs font-semibold uppercase"
+                  className="px-4 py-2 text-[#787F8C] hover:text-[#0A1428] text-xs font-semibold uppercase cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider"
+                  className="px-5 py-2.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider cursor-pointer"
                 >
                   Save Society
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* In-Website Generic Notification / Confirm Modal */}

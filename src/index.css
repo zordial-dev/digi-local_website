@@ -58,7 +58,6 @@ body {
   width: 100%;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-  transform: translateZ(0);
 }
 
 #root {
@@ -96,12 +95,10 @@ body {
 /* Surface Texture Utilities */
 .cream-paper {
   background-color: #F6F0E8;
-  transform: translateZ(0);
 }
 
 .soft-section-bg {
   background-color: #EEE5DA;
-  transform: translateZ(0);
 }
 
 .card-white {

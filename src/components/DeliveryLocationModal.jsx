@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { MapPin, Search, Check, X, Building2, Navigation, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -69,9 +70,15 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-card border border-border rounded-[2.5rem] max-w-lg w-full shadow-2xl overflow-hidden relative text-foreground">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden font-sans"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-card border border-border rounded-[2.5rem] max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden relative text-foreground animate-in zoom-in-95 duration-200 pointer-events-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Header */}
         <div className="bg-[#541D26] text-[#F7F4EE] px-6 py-5 flex items-center justify-between border-b border-[#C8A878]/30">
@@ -95,7 +102,7 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
         </div>
 
         {/* Modal Content */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 overflow-y-auto">
 
           {/* Location Search Bar */}
           <div className="relative">
@@ -186,7 +193,7 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
             <button
               type="submit"
               disabled={!customAddress.trim()}
-              className="w-full py-3 rounded-full bg-primary disabled:opacity-50 text-primary-foreground font-black text-xs uppercase tracking-wider shadow-md hover:bg-gold hover:text-ink transition-all"
+              className="w-full py-3 rounded-full bg-primary disabled:opacity-50 text-primary-foreground font-black text-xs uppercase tracking-wider shadow-md hover:bg-gold hover:text-ink transition-all cursor-pointer"
             >
               Set Custom Delivery Location
             </button>
@@ -194,6 +201,7 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

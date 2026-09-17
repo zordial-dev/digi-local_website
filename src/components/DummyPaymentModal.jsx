@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   CreditCard, 
   Smartphone, 
@@ -98,12 +99,18 @@ export default function DummyPaymentModal({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-card border border-border rounded-[2.5rem] max-w-lg w-full shadow-2xl overflow-hidden relative text-foreground">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md font-sans animate-in fade-in duration-200 overflow-hidden"
+      onClick={handleResetAndClose}
+    >
+      <div 
+        className="bg-card border border-border rounded-[2rem] max-w-lg w-full max-h-[90vh] shadow-2xl overflow-hidden relative text-foreground flex flex-col animate-in zoom-in-95 duration-200 pointer-events-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Gateway Header */}
-        <div className="bg-[#541D26] text-[#F7F4EE] px-6 py-5 flex items-center justify-between border-b border-[#C8A878]/30">
+        <div className="bg-[#541D26] text-[#F7F4EE] px-5 sm:px-6 py-4 sm:py-5 flex items-center justify-between border-b border-[#C8A878]/30 shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-white/10 p-1 flex items-center justify-center border border-white/15">
               <img src="/logo.png" alt="DigiLocal Logo" className="w-full h-full object-contain" />
@@ -130,7 +137,7 @@ export default function DummyPaymentModal({
 
         {/* Modal Content */}
         {!paymentSuccess ? (
-          <div className="p-6 space-y-6">
+          <div className="p-5 sm:p-6 space-y-5 overflow-y-auto">
             
             {/* Total Amount Badge */}
             <div className="p-4 rounded-2xl bg-secondary/80 border border-border flex items-center justify-between">
@@ -443,6 +450,7 @@ export default function DummyPaymentModal({
         )}
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

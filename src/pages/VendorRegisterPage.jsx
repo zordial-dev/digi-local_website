@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { useScrollLock } from '../hooks/useScrollLock';
 import { 
   User, 
   Store, 
@@ -229,6 +231,9 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   const [vendorGeneratedOtp, setVendorGeneratedOtp] = useState('');
   const [vendorResendTimer, setVendorResendTimer] = useState(30);
   const vendorOtpInputRefs = useRef([]);
+
+  // Lock background scroll when any modal is open
+  useScrollLock(Boolean(showCustomSocietyModal || showVendorOtpModal || showPhotoUploadModal));
 
   const isSocietySelected = Boolean(selectedSocietyId || (societySearch && societySearch.trim().length > 0));
 
@@ -1956,9 +1961,15 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
       </div>
 
       {/* CUSTOM SOCIETY REGISTRATION MODAL */}
-      {showCustomSocietyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-border/80 p-6 max-w-md w-full shadow-2xl relative space-y-4 text-left">
+      {showCustomSocietyModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden font-sans"
+          onClick={() => setShowCustomSocietyModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl border border-border/80 p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl relative space-y-4 text-left animate-in zoom-in-95 duration-200 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => setShowCustomSocietyModal(false)}
@@ -2073,13 +2084,20 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 6-DIGIT VENDOR OTP VERIFICATION MODAL */}
-      {showVendorOtpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-border/80 p-6 max-w-md w-full shadow-2xl relative space-y-4 text-left">
+      {showVendorOtpModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden font-sans"
+          onClick={() => setShowVendorOtpModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl border border-border/80 p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl relative space-y-4 text-left animate-in zoom-in-95 duration-200 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => setShowVendorOtpModal(false)}
@@ -2168,13 +2186,20 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
               </button>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CUSTOM SHOP PHOTO UPLOADER MODAL */}
-      {showPhotoUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-border/80 p-6 max-w-lg w-full shadow-2xl relative space-y-4 text-left overflow-hidden">
+      {showPhotoUploadModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden font-sans"
+          onClick={() => setShowPhotoUploadModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl border border-border/80 p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl relative space-y-4 text-left animate-in zoom-in-95 duration-200 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => setShowPhotoUploadModal(false)}
@@ -2298,7 +2323,8 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

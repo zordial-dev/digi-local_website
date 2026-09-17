@@ -214,11 +214,11 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[99999999] flex items-start justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md overflow-y-auto w-full h-full min-h-screen top-0 left-0 right-0 bottom-0 animate-in fade-in"
+      className="fixed inset-0 z-[99999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-hidden font-sans animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div 
-        className="bg-white text-ink rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-border flex flex-col max-h-[85vh] overflow-hidden relative my-3 sm:my-6 shrink-0 animate-in zoom-in-95"
+        className="bg-white text-ink rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-border flex flex-col max-h-[90vh] overflow-hidden relative my-auto shrink-0 animate-in zoom-in-95 duration-200 pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
         

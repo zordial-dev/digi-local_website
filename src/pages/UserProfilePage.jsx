@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import DeliveryAddressModal from '../components/DeliveryAddressModal';
 import { 
   User, 
@@ -131,6 +132,18 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
   // Delete User Account State & Handler
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  // Lock background page scroll when Receipt or Delete Account modal is open
+  useEffect(() => {
+    if (selectedOrder || showDeleteAccountModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [selectedOrder, showDeleteAccountModal]);
 
   const handleDeleteUserAccount = async () => {
     try {
@@ -1805,15 +1818,21 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
       {/* ------------------------------------------------------------- */}
       {/* MODAL 2: RECEIPT MODAL                                         */}
       {/* ------------------------------------------------------------- */}
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#E5DAD0] space-y-4 text-[#211A19]">
+      {selectedOrder && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto font-sans"
+          onClick={() => setSelectedOrder(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl border border-[#E5DAD0] space-y-4 text-[#211A19] my-auto shrink-0 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-[#E5DAD0] pb-3">
               <div>
                 <h3 className="text-lg font-serif font-bold text-[#211A19]">Order Receipt</h3>
                 <p className="text-[11px] text-muted-foreground font-mono">{selectedOrder.order_id}</p>
               </div>
-              <button onClick={() => setSelectedOrder(null)} className="text-muted-foreground hover:text-ink font-bold cursor-pointer">✕</button>
+              <button onClick={() => setSelectedOrder(null)} className="w-8 h-8 rounded-full bg-[#FAF8F5] hover:bg-[#F3EFE6] text-[#211A19] flex items-center justify-center font-bold cursor-pointer transition-colors">✕</button>
             </div>
 
             <div className="space-y-3 text-xs">
@@ -1850,20 +1869,27 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
 
             <button
               onClick={() => setSelectedOrder(null)}
-              className="w-full py-3 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-full font-bold text-xs uppercase tracking-wider cursor-pointer"
+              className="w-full py-3 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-full font-bold text-xs uppercase tracking-wider cursor-pointer shadow-md transition-all"
             >
               Close Receipt
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ------------------------------------------------------------- */}
       {/* MODAL 3: DELETE ACCOUNT CONFIRMATION MODAL                     */}
       {/* ------------------------------------------------------------- */}
-      {showDeleteAccountModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-rose-200 text-ink space-y-5">
+      {showDeleteAccountModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto font-sans"
+          onClick={() => setShowDeleteAccountModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl border border-rose-200 text-[#211A19] space-y-5 my-auto shrink-0 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 mx-auto">
               <Trash2 className="w-6 h-6" />
             </div>
@@ -1893,7 +1919,8 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Delivery Address Modal (Supports Add New & Edit Address) */}

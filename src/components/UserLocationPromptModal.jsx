@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { MapPin, Search, X, Loader2, Building2, Sparkles, Check } from 'lucide-react';
 import { api } from '../services/api';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -124,12 +125,18 @@ export const UserLocationPromptModal = ({ isOpen = true, onClose, onLocationSet 
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg overflow-visible bg-white dark:bg-[#131C2E] shadow-2xl rounded-3xl border border-slate-200 dark:border-white/10 font-sans text-slate-900 dark:text-white">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md font-sans animate-in fade-in duration-200 overflow-hidden"
+      onClick={onClose}
+    >
+      <div 
+        className="relative w-full max-w-lg max-h-[90vh] flex flex-col bg-white dark:bg-[#131C2E] shadow-2xl rounded-3xl border border-slate-200 dark:border-white/10 font-sans text-slate-900 dark:text-white overflow-hidden pointer-events-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
 
         {/* Header Banner */}
-        <div className="p-6 bg-gradient-to-r from-emerald-900 via-slate-900 to-emerald-950 text-white relative rounded-t-3xl overflow-hidden">
+        <div className="p-5 sm:p-6 bg-gradient-to-r from-emerald-900 via-slate-900 to-emerald-950 text-white relative rounded-t-3xl shrink-0">
           {onClose && (
             <button
               onClick={onClose}
@@ -156,7 +163,7 @@ export const UserLocationPromptModal = ({ isOpen = true, onClose, onLocationSet 
         </div>
 
         {/* Body Content */}
-        <div className="p-6 space-y-4">
+        <div className="p-5 sm:p-6 space-y-4 overflow-y-auto">
 
           {/* Currently Saved Location */}
           {currentSavedLocation && (
@@ -277,7 +284,8 @@ export const UserLocationPromptModal = ({ isOpen = true, onClose, onLocationSet 
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
