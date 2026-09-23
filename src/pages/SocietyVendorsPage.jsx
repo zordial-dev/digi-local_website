@@ -62,9 +62,15 @@ const getDetailedLocationSubtitle = (rawSoc) => {
   }
 
   const parts = [];
-  if (areaStr && areaStr.toLowerCase() !== name.toLowerCase()) parts.push(areaStr);
-  if (cityStr && cityStr.toLowerCase() !== name.toLowerCase()) parts.push(cityStr);
-  if (pinStr) parts.push(pinStr);
+  if (areaStr && areaStr.toLowerCase() !== name.toLowerCase()) {
+    parts.push(areaStr);
+  }
+  if (cityStr && cityStr.toLowerCase() !== name.toLowerCase() && (!areaStr || cityStr.toLowerCase() !== areaStr.toLowerCase())) {
+    parts.push(cityStr);
+  }
+  if (pinStr && !parts.includes(pinStr)) {
+    parts.push(pinStr);
+  }
 
   if (parts.length === 0 && fullLoc) {
     const cleanLoc = fullLoc.replace(new RegExp(`^${name},\\s*`, 'i'), '');
@@ -291,11 +297,49 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
     }
   }, [initialSocietyId]);
 
-  // Load all societies list for filter dropdown
-  useEffect(() => {
+  // Dynamic dropdown societies list merging verified societies and all loaded vendor locations
+  const dropdownSocieties = useMemo(() => {
+    const list = [...(allSocieties || [])];
+    const knownNames = new Set(list.map(s => String(s.society_name || s.name || '').toLowerCase().trim()));
+
+    (allMasterVendors || []).forEach(v => {
+      if (!v) return;
+      const status = String(v.status || '').toUpperCase();
+      if (status === 'SUSPENDED' || status === 'BLOCKED' || status === 'REJECTED') return;
+      const areaName = String(v.area || v.society_name || v.society || '').trim();
+      if (areaName && !knownNames.has(areaName.toLowerCase()) && !areaName.toLowerCase().includes('dummy') && !areaName.toLowerCase().includes('test')) {
+        knownNames.add(areaName.toLowerCase());
+        list.push({
+          society_id: `area-${areaName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+          society_name: areaName,
+          location: `${areaName}, ${v.city || 'Jaipur'}`,
+          city: v.city || 'Jaipur',
+          state: v.state || 'Rajasthan',
+          pincode: v.pincode || '',
+          vendor_count: 1,
+          is_area: true
+        });
+      }
+    });
+
+    return list.map(s => sanitizeSocietyLocation(s));
+  }, [allSocieties, allMasterVendors]);
+
+  const refreshSocieties = () => {
     api.getSocieties().then(data => {
       if (Array.isArray(data)) setAllSocieties(data);
     }).catch(() => { });
+  };
+
+  // Load all societies list for filter dropdown & listen for updates
+  useEffect(() => {
+    refreshSocieties();
+    window.addEventListener('digilocal_societies_updated', refreshSocieties);
+    window.addEventListener('storage', refreshSocieties);
+    return () => {
+      window.removeEventListener('digilocal_societies_updated', refreshSocieties);
+      window.removeEventListener('storage', refreshSocieties);
+    };
   }, []);
 
   // Load Active Society Details & Vendors (runs when societyId changes)
@@ -369,31 +413,38 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
 
       setAllMasterVendors(Array.isArray(venData) ? venData : []);
 
-      // Fetch live rating summaries for all loaded vendors to ensure 100% sync with backend reviews
+      // Fetch live rating summaries only if missing from vendor payload to prevent network waterfall
       if (Array.isArray(venData) && venData.length > 0) {
-        Promise.allSettled(
-          venData.map(async (v) => {
-            const vId = String(v.vendor_id || v.id || '');
-            if (!vId) return null;
-            try {
-              const res = await api.getVendorRatingSummary(vId);
-              if (res?.data && res.data.avg_rating !== undefined) {
-                return { vId, avg_rating: Number(res.data.avg_rating) };
+        const vendorsNeedingRatings = venData.filter(v => {
+          const vId = String(v.vendor_id || v.id || '');
+          return vId && v.avg_rating === undefined && v.rating === undefined;
+        }).slice(0, 12);
+
+        if (vendorsNeedingRatings.length > 0) {
+          Promise.allSettled(
+            vendorsNeedingRatings.map(async (v) => {
+              const vId = String(v.vendor_id || v.id || '');
+              if (!vId) return null;
+              try {
+                const res = await api.getVendorRatingSummary(vId);
+                if (res?.data && res.data.avg_rating !== undefined) {
+                  return { vId, avg_rating: Number(res.data.avg_rating) };
+                }
+              } catch (_) {}
+              return null;
+            })
+          ).then((results) => {
+            const map = {};
+            results.forEach((r) => {
+              if (r.status === 'fulfilled' && r.value) {
+                map[r.value.vId] = r.value.avg_rating;
               }
-            } catch (_) {}
-            return null;
-          })
-        ).then((results) => {
-          const map = {};
-          results.forEach((r) => {
-            if (r.status === 'fulfilled' && r.value) {
-              map[r.value.vId] = r.value.avg_rating;
+            });
+            if (Object.keys(map).length > 0) {
+              setLiveRatingsMap((prev) => ({ ...prev, ...map }));
             }
           });
-          if (Object.keys(map).length > 0) {
-            setLiveRatingsMap((prev) => ({ ...prev, ...map }));
-          }
-        });
+        }
       }
     } catch (err) {
       console.error('Failed to load vendors:', err);
@@ -544,7 +595,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                         {currentSocietyId === 'all' && <Check className="w-4 h-4 text-[#C8A878]" />}
                       </button>
 
-                      {allSocieties
+                      {dropdownSocieties
                         .filter(s =>
                           !societyFilterSearch.trim() ||
                           s.society_name?.toLowerCase().includes(societyFilterSearch.toLowerCase()) ||
@@ -663,7 +714,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                         {currentSocietyId === 'all' && <Check className="w-4 h-4 text-[#C8A878]" />}
                       </button>
 
-                      {allSocieties
+                      {dropdownSocieties
                         .filter(s =>
                           !societyFilterSearch.trim() ||
                           s.society_name?.toLowerCase().includes(societyFilterSearch.toLowerCase()) ||

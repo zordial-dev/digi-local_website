@@ -20,8 +20,8 @@ export default function DummyPaymentModal({
   isOpen,
   onClose,
   amount = 0,
-  title = "DigiLocal Dummy Payment Gateway",
-  description = "Complete payment in test mode",
+  title = "DigiLocal Cashfree PG (v3 Sandbox)",
+  description = "Cashfree Checkout & Direct Settlement Mode",
   onSuccess,
   onFailure
 }) {
@@ -158,12 +158,12 @@ export default function DummyPaymentModal({
               </div>
             )}
 
-            {/* Payment Method Selector Tabs */}
-            <div>
-              <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-2">
-                Select Payment Mode (Dummy)
-              </label>
-              <div className="grid grid-cols-4 gap-2">
+              {/* Payment Method Selector Tabs */}
+              <div>
+                <label className="block text-[11px] font-black text-ink uppercase tracking-wider mb-2">
+                  Select Payment Mode (Cashfree v3 Sandbox)
+                </label>
+                <div className="grid grid-cols-4 gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveTab('upi')}

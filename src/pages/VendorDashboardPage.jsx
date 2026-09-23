@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { api, getNormalizedImageUrl, getItemUnitLabel, formatItemQuantityBadge } from '../services/api';
-import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, ShieldAlert, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight, Briefcase, Star, MessageSquare, Send } from 'lucide-react';
+import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, ShieldAlert, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight, Briefcase, Star, MessageSquare, Send, Truck, Lock, KeyRound, Eye, EyeOff } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import VendorStatusBanner from '../components/VendorStatusBanner';
 import { QRCodeSVG } from 'qrcode.react';
 import { DashboardSkeleton } from '../components/Skeletons';
 import { resolveLocationFromInput, fetchLocationSuggestions } from '../utils/locationResolver';
 import { useScrollLock } from '../hooks/useScrollLock';
+import LiveOrderTrackerModal from '../components/LiveOrderTrackerModal';
 
 export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendor, onVendorLogout }) {
   const [activeTab, setActiveTab] = useState('orders');
@@ -84,13 +85,140 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   };
 
   useEffect(() => {
-    if (vendorId || panelData?.vendor?.vendor_id) {
+    if (activeTab === 'ratings' && (vendorId || panelData?.vendor?.vendor_id)) {
       loadVendorDashboardRatings(vendorRatingsFilter === 'ALL' ? null : vendorRatingsFilter);
     }
-  }, [vendorId, panelData?.vendor?.vendor_id, vendorRatingsFilter]);
+  }, [activeTab, vendorId, panelData?.vendor?.vendor_id, vendorRatingsFilter]);
+
+  // Vendor Direct Settlements Ledger State (Cashfree PG Integration)
+  const [ledgerData, setLedgerData] = useState(null);
+  const [loadingLedger, setLoadingLedger] = useState(false);
+
+  const loadVendorPaymentLedger = async () => {
+    const targetVendorId = vendorId || panelData?.vendor?.vendor_id;
+    if (!targetVendorId) return;
+    try {
+      setLoadingLedger(true);
+      const res = await api.getVendorPaymentLedger(targetVendorId);
+      if (res) {
+        setLedgerData(res);
+      }
+    } catch (err) {
+      console.warn('Failed to load vendor payment ledger:', err);
+    } finally {
+      setLoadingLedger(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'subscription' && (vendorId || panelData?.vendor?.vendor_id)) {
+      loadVendorPaymentLedger();
+    }
+  }, [activeTab, vendorId, panelData?.vendor?.vendor_id]);
 
   // Vendor Purchases & B2B Orders Made State (v1.0.0 Spec)
   const [purchases, setPurchases] = useState([]);
+  const [trackingOrder, setTrackingOrder] = useState(null);
+
+  const loadPurchases = () => {
+    try {
+      let purchaseList = [];
+      const currentVendorId = vendorId || panelData?.vendor?.vendor_id || (panelData?.vendor?.id);
+      if (!currentVendorId) {
+        setPurchases([]);
+        return;
+      }
+
+      const vendorPhone = String(panelData?.vendor?.phone_number || panelData?.vendor?.phone || '').trim();
+      const vendorEmail = String(panelData?.vendor?.email || '').trim().toLowerCase();
+
+      // Filter out mock/dummy orders
+      const isRealOrder = (o) => {
+        if (!o) return false;
+        const cName = (o.customer_name || o.user_name || o.name || '').trim().toLowerCase();
+        const pNum = (o.phone_number || o.phone || o.user_phone || '').trim();
+        const oId = String(o.order_id || '');
+        if (cName.includes('rahul sharma') || cName.includes('demo customer')) return false;
+        if (pNum === '9876543210' || pNum === '9876543211' || pNum === '9876543212' || pNum === '+919876543210') return false;
+        if ((oId === '1642' || oId === 'ORD-1642' || oId === '1') && cName.includes('rahul')) return false;
+        return true;
+      };
+
+      // 1. Check local vendor purchases specifically for this vendor ID
+      try {
+        const vPurchasesStr = localStorage.getItem(`digilocal_vendor_purchases_${currentVendorId}`);
+        if (vPurchasesStr) {
+          const parsed = JSON.parse(vPurchasesStr);
+          if (Array.isArray(parsed)) {
+            purchaseList = parsed.filter(isRealOrder);
+          }
+        }
+      } catch (_) {}
+
+      // 2. Check user placed orders ONLY if they were specifically placed by this vendor account
+      try {
+        const allUserOrdersStr = localStorage.getItem('digilocal_user_orders');
+        if (allUserOrdersStr) {
+          const userOrders = JSON.parse(allUserOrdersStr);
+          if (Array.isArray(userOrders)) {
+            const matchingPurchases = userOrders.filter(o => {
+              if (!isRealOrder(o)) return false;
+              // Must NOT be an order where this vendor is the seller
+              const sellerVendorId = String(o.vendor_id || o.vendorId || '');
+              if (sellerVendorId === String(currentVendorId)) return false;
+
+              // Must match this vendor as the purchaser
+              const buyerVendorId = o.purchaser_vendor_id || o.buyer_vendor_id || o.buyer_id;
+              if (buyerVendorId && String(buyerVendorId) === String(currentVendorId)) return true;
+
+              const buyerPhone = String(o.purchaser_phone || o.phone || o.user_phone || o.phone_number || '').trim();
+              if (vendorPhone && buyerPhone && buyerPhone === vendorPhone) return true;
+
+              const buyerEmail = String(o.purchaser_email || o.email || o.user_email || '').trim().toLowerCase();
+              if (vendorEmail && buyerEmail && buyerEmail === vendorEmail) return true;
+
+              return false;
+            }).map(o => ({
+              ...o,
+              order_id: o.order_id || o.id,
+              seller_store_name: o.store_name || 'Partner Store',
+              seller_store_logo: o.store_logo,
+              total_amount: o.total_amount || o.total,
+              created_at_readable: o.order_timestamp ? new Date(o.order_timestamp).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent'
+            }));
+
+            purchaseList = [...purchaseList, ...matchingPurchases];
+          }
+        }
+      } catch (_) {}
+
+      // Deduplicate by order_id
+      const seen = new Set();
+      const uniquePurchases = [];
+      for (const p of purchaseList) {
+        const id = String(p.order_id || p.id || '');
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          uniquePurchases.push(p);
+        }
+      }
+
+      // Sort newest on top
+      uniquePurchases.sort((a, b) => {
+        const tA = new Date(a.order_timestamp || a.created_at || a.date || a.timestamp || 0).getTime() || 0;
+        const tB = new Date(b.order_timestamp || b.created_at || b.date || b.timestamp || 0).getTime() || 0;
+        return tB - tA;
+      });
+
+      setPurchases(uniquePurchases);
+    } catch (err) {
+      console.warn('Failed to load purchases:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadPurchases();
+  }, [activeTab, vendorId]);
 
   // Location Settings State (Standardized to v3.0.0 Architecture)
   const [coverageSettings, setCoverageSettings] = useState({
@@ -175,6 +303,19 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     qr_code_url: ''
   });
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Change Password State
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: ''
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   // Store Location Auto-Fetching & Autocomplete State
   const [locationSuggestions, setLocationSuggestions] = useState([]);
@@ -367,8 +508,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       }
     };
 
-    checkForNewOrders();
-    intervalId = setInterval(checkForNewOrders, 25000);
+    intervalId = setInterval(checkForNewOrders, 30000);
 
     return () => {
       window.removeEventListener('digilocal_new_order', onCustomOrderEvent);
@@ -381,9 +521,9 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     loadPanelData();
   }, [vendorId]);
 
-  const loadPanelData = async () => {
+  const loadPanelData = async (showLoadingSkeleton = true) => {
     try {
-      setLoading(true);
+      if (showLoadingSkeleton) setLoading(true);
       const data = await api.getVendorPanel(vendorId);
 
       let userSaved = {};
@@ -577,34 +717,40 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   };
 
   const handleOrderStatusChange = async (orderId, newStatus) => {
-    // Immediate optimistic state update
+    // Immediate optimistic state update matching normalized IDs
+    const cleanId = String(orderId).replace(/^ORD[-_]?/i, '').trim().toLowerCase();
+    const rawTargetId = String(orderId).trim().toLowerCase();
     setPanelData((prev) => {
       if (!prev || !Array.isArray(prev.orders)) return prev;
-      const updatedOrders = prev.orders.map((o) =>
-        String(o.order_id) === String(orderId) ? { ...o, status: newStatus } : o
-      );
+      const updatedOrders = prev.orders.map((o) => {
+        const oClean = String(o.order_id || o.id || '').replace(/^ORD[-_]?/i, '').trim().toLowerCase();
+        const oRaw = String(o.order_id || o.id || '').trim().toLowerCase();
+        return (oRaw === rawTargetId || oClean === cleanId) ? { ...o, status: newStatus, order_status: newStatus } : o;
+      });
       return { ...prev, orders: updatedOrders };
     });
 
     try {
       await api.updateOrderStatus(orderId, newStatus);
-      loadPanelData();
+      await loadPanelData(false);
       if (newStatus === 'COMPLETED') {
         setModalConfig({
           isOpen: true,
           title: '✅ Order Marked Completed',
-          message: `Order ${orderId} has been successfully marked as completed and fulfilled.`,
+          message: `Order #${orderId} has been successfully marked as completed and fulfilled.`,
+          type: 'success'
+        });
+      } else if (newStatus === 'ACCEPTED') {
+        setModalConfig({
+          isOpen: true,
+          title: '✅ Order Accepted',
+          message: `Order #${orderId} has been accepted and moved to preparation.`,
           type: 'success'
         });
       }
     } catch (err) {
-      loadPanelData();
-      setModalConfig({
-        isOpen: true,
-        title: 'Order Status Error',
-        message: 'Failed to update order status.',
-        type: 'error'
-      });
+      console.warn('handleOrderStatusChange note:', err);
+      await loadPanelData(false);
     }
   };
 
@@ -622,6 +768,15 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       }
 
       await api.updateVendorSettings(vendorId, settingsForm);
+      if (settingsForm.account_number || settingsForm.ifsc_code) {
+        api.updateVendorPaymentDetails(vendorId, {
+          account_number: settingsForm.account_number,
+          ifsc_code: settingsForm.ifsc_code,
+          bank_name: settingsForm.bank_name,
+          account_holder_name: settingsForm.account_holder_name,
+          upi_id: settingsForm.upi_id
+        }).catch(() => {});
+      }
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3500);
 
@@ -647,6 +802,55 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       });
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e) => {
+    if (e) e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!passwordForm.new_password || passwordForm.new_password.length < 6) {
+      setPasswordError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (passwordForm.confirm_password && passwordForm.new_password !== passwordForm.confirm_password) {
+      setPasswordError('New password and confirmation password do not match.');
+      return;
+    }
+
+    try {
+      setUpdatingPassword(true);
+      const res = await api.updateVendorPassword(vendorId, {
+        current_password: passwordForm.current_password,
+        new_password: passwordForm.new_password,
+        confirm_password: passwordForm.confirm_password
+      });
+
+      setPasswordSuccess(res.message || 'Password updated successfully.');
+      setPasswordForm({
+        current_password: '',
+        new_password: '',
+        confirm_password: ''
+      });
+      setModalConfig({
+        isOpen: true,
+        title: '🔑 Password Updated',
+        message: 'Your merchant account password has been updated successfully.',
+        type: 'success'
+      });
+      setTimeout(() => setPasswordSuccess(''), 4000);
+    } catch (err) {
+      setPasswordError(err.message || 'Failed to update password.');
+      setModalConfig({
+        isOpen: true,
+        title: 'Password Update Failed',
+        message: err.message || 'Failed to update password. Please check your credentials.',
+        type: 'error'
+      });
+    } finally {
+      setUpdatingPassword(false);
     }
   };
 
@@ -1031,11 +1235,20 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-5">
-                {orders.map((order) => {
+                {[...orders].sort((a, b) => {
+                  const timeA = new Date(a.order_timestamp || a.created_at || a.date || a.timestamp || 0).getTime() || 0;
+                  const timeB = new Date(b.order_timestamp || b.created_at || b.date || b.timestamp || 0).getTime() || 0;
+                  return timeB - timeA;
+                }).map((order) => {
                   const statusUpper = (order.status || 'PENDING').toUpperCase();
-                  const customerPhone = order.phone_number || order.phone || order.user_phone || '';
-                  const customerName = order.customer_name || order.user_name || order.name || 'Resident Customer';
-                  let rawAddr = order.address || order.delivery_address || 'Resident Address';
+                  let customerPhone = order.phone_number || order.phone || order.user_phone || order.customer_phone || order.user?.phone || '';
+                  let customerName = order.customer_name || order.user_name || order.name || order.full_name || order.resident_name || order.user?.name || order.user?.full_name || '';
+
+                  if (!customerName || customerName === 'Resident Customer') {
+                    customerName = customerPhone ? `Resident (${customerPhone.slice(-4)})` : (order.flat ? `Resident (${order.flat})` : 'Resident Customer');
+                  }
+
+                  let rawAddr = order.address || order.delivery_address || order.full_address || 'Resident Address';
                   const targetSocietyName = order.society_name || vendor?.society_name || vendor?.location || '';
                   
                   if (targetSocietyName && rawAddr.match(/,\s*(Society|Gated Community|Gated Housing Society)$/i)) {
@@ -1043,7 +1256,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   }
                   const deliveryAddr = rawAddr;
                   const orderItems = Array.isArray(order.items) ? order.items : [];
-                  const orderDateStr = new Date(order.order_timestamp || order.date || order.timestamp || Date.now()).toLocaleString('en-US', {
+                  const orderDateStr = new Date(order.order_timestamp || order.date || order.timestamp || order.created_at || Date.now()).toLocaleString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric',
@@ -1072,15 +1285,21 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
                           <div className="flex items-center gap-2">
                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-2xs ${
-                              statusUpper === 'PLACED' || statusUpper === 'PENDING'
-                                ? 'bg-[#FFF9E6] text-[#8C6B1B] border-[#E6C35C]'
-                                : statusUpper === 'ACCEPTED'
-                                ? 'bg-[#E3EFE6] text-[#1E3623] border-[#1E3623]/30'
+                              statusUpper === 'PLACED'
+                                ? 'bg-[#EFF6FF] text-[#1D4ED8] border-blue-200'
+                                : statusUpper === 'PENDING'
+                                ? 'bg-[#FFFBEB] text-[#B45309] border-amber-200'
+                                : statusUpper === 'CONFIRMED'
+                                ? 'bg-[#ECFDF5] text-[#047857] border-emerald-200'
+                                : statusUpper === 'ACCEPTED' || statusUpper === 'PREPARING'
+                                ? 'bg-[#F0FDF4] text-[#15803D] border-green-200'
+                                : statusUpper === 'IN_PROGRESS' || statusUpper === 'OUT_FOR_DELIVERY'
+                                ? 'bg-[#F5F3FF] text-[#6D28D9] border-purple-200'
                                 : statusUpper === 'COMPLETED' || statusUpper === 'DELIVERED'
-                                ? 'bg-[#18281F] text-[#E6C35C] border-[#18281F]'
-                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                                ? 'bg-[#ECFDF5] text-[#059669] border-emerald-300'
+                                : 'bg-[#FEF2F2] text-[#B91C1C] border-rose-200'
                             }`}>
-                              ● {statusUpper}
+                              ● {statusUpper === 'IN_PROGRESS' ? 'OUT FOR DELIVERY' : (statusUpper === 'ACCEPTED' ? 'ACCEPTED' : (statusUpper === 'COMPLETED' ? 'DELIVERED' : statusUpper))}
                             </span>
 
                             <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1 bg-[#FAF9F6] px-2.5 py-1 rounded-full border border-border/60">
@@ -1293,32 +1512,52 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         </div>
 
                         <div className="flex flex-col gap-2 w-full mt-4">
-                          {(statusUpper === 'PLACED' || statusUpper === 'PENDING' || statusUpper === 'IN_PROGRESS') && (
+                          {(statusUpper === 'PLACED' || statusUpper === 'PENDING') && (
                             <button
                               type="button"
                               onClick={() => handleOrderStatusChange(order.order_id, 'ACCEPTED')}
-                              className="w-full py-2.5 px-4 rounded-2xl bg-[#18281F] hover:bg-black text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                              className="w-full py-2.5 px-4 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs shadow-md uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-[#C8A878]/30"
                             >
-                              <CheckCircle2 className="w-4 h-4 text-[#E6C35C]" />
+                              <CheckCircle2 className="w-4 h-4 text-[#C8A878]" />
                               <span>Accept Order</span>
                             </button>
                           )}
 
-                          {statusUpper === 'ACCEPTED' && (
+                          {(statusUpper === 'ACCEPTED' || statusUpper === 'PREPARING' || statusUpper === 'CONFIRMED') && (
+                            <div className="flex flex-col gap-2 w-full">
+                              <button
+                                type="button"
+                                onClick={() => handleOrderStatusChange(order.order_id, 'OUT_FOR_DELIVERY')}
+                                className="w-full py-2.5 px-4 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <Truck className="w-4 h-4 text-white" />
+                                <span>Dispatch / Out for Delivery</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOrderStatusChange(order.order_id, 'COMPLETED')}
+                                className="w-full py-2 px-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-300 uppercase tracking-wider transition-colors cursor-pointer"
+                              >
+                                Direct Mark Completed
+                              </button>
+                            </div>
+                          )}
+
+                          {(statusUpper === 'IN_PROGRESS' || statusUpper === 'OUT_FOR_DELIVERY' || statusUpper === 'PROCESSING' || statusUpper === 'IN_TRANSIT') && (
                             <button
                               type="button"
                               onClick={() => handleOrderStatusChange(order.order_id, 'COMPLETED')}
                               className="w-full py-2.5 px-4 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                             >
                               <CheckCircle2 className="w-4 h-4 text-white" />
-                              <span>Mark Completed</span>
+                              <span>Mark Delivered to Doorstep</span>
                             </button>
                           )}
 
-                          {statusUpper === 'COMPLETED' && (
+                          {(statusUpper === 'COMPLETED' || statusUpper === 'DELIVERED') && (
                             <div className="w-full py-2.5 px-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 font-extrabold text-xs flex items-center justify-center gap-1.5 uppercase tracking-wider shadow-2xs">
                               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                              <span>Order Completed</span>
+                              <span>Order Delivered & Completed</span>
                             </div>
                           )}
 
@@ -1607,7 +1846,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         </div>
                       </div>
 
-                      {/* Right Side: Total Amount Panel */}
+                      {/* Right Side: Total Amount Panel & Live Tracking CTA */}
                       <div className="flex flex-col justify-between items-end border-t lg:border-t-0 lg:border-l border-[#E5DAD0] pt-4 lg:pt-0 lg:pl-6 min-w-[220px]">
                         <div className="text-right w-full bg-[#FAF8F5] p-4 rounded-2xl border border-[#E5DAD0] space-y-1">
                           <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">TOTAL PURCHASE AMOUNT</span>
@@ -1615,9 +1854,18 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             ₹{parseFloat(purchase.total_amount || 0).toFixed(2)}
                           </p>
                           <span className="text-[10px] font-bold text-emerald-900 bg-emerald-100/80 px-2.5 py-0.5 rounded-full inline-block">
-                            Verified B2B Purchase
+                            {purchase.payment_method || 'Verified Purchase (COD)'}
                           </span>
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setTrackingOrder(purchase)}
+                          className="w-full mt-3 py-3 px-4 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer hover:scale-[1.02] border border-[#C8A878]/30"
+                        >
+                          <Truck className="w-4 h-4 text-[#C8A878] animate-pulse" />
+                          <span>Track Order Live</span>
+                        </button>
                       </div>
                     </div>
                   );
@@ -2252,6 +2500,115 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     </div>
                   </div>
 
+                  {/* CHANGE PASSWORD SECURITY SECTION */}
+                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
+                    <div className="border-b border-[#C5A880]/15 pb-2.5">
+                      <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
+                        <KeyRound className="w-4 h-4 text-[#541D26]" />
+                        <span>Change Merchant Password</span>
+                      </h3>
+                      <p className="text-[11px] text-[#78716C] font-medium mt-0.5">
+                        Update your store login password. Minimum 6 characters required.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3.5">
+                      {passwordError && (
+                        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                          <span>{passwordError}</span>
+                        </div>
+                      )}
+
+                      {passwordSuccess && (
+                        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>{passwordSuccess}</span>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase tracking-wider mb-1.5">
+                          Current Password (Optional if Direct Reset)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showCurrentPassword ? "text" : "password"}
+                            value={passwordForm.current_password}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
+                            placeholder="Enter current password"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-[#FAF9F6] text-xs font-semibold text-[#211A19] focus:outline-none focus:ring-1 focus:ring-[#541D26] pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink cursor-pointer p-1"
+                          >
+                            {showCurrentPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase tracking-wider mb-1.5">
+                            New Password <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showNewPassword ? "text" : "password"}
+                              value={passwordForm.new_password}
+                              onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
+                              placeholder="Min 6 characters"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-[#FAF9F6] text-xs font-semibold text-[#211A19] focus:outline-none focus:ring-1 focus:ring-[#541D26] pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink cursor-pointer p-1"
+                            >
+                              {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase tracking-wider mb-1.5">
+                            Confirm New Password <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showConfirmPassword ? "text" : "password"}
+                              value={passwordForm.confirm_password}
+                              onChange={(e) => setPasswordForm({ ...passwordForm, confirm_password: e.target.value })}
+                              placeholder="Re-enter new password"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-[#FAF9F6] text-xs font-semibold text-[#211A19] focus:outline-none focus:ring-1 focus:ring-[#541D26] pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink cursor-pointer p-1"
+                            >
+                              {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-1 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={handleUpdatePassword}
+                          disabled={updatingPassword}
+                          className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all border border-[#C8A878]/30 cursor-pointer flex items-center justify-center gap-2"
+                        >
+                          <Lock className="w-3.5 h-3.5 text-[#C8A878]" />
+                          <span>{updatingPassword ? 'Updating Password...' : 'Update Password'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* ACCOUNT ACTIONS & SECURITY SECTION IN STORE SETTINGS */}
                   <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
                     <div className="border-b border-[#C5A880]/15 pb-2.5">
@@ -2401,9 +2758,86 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           </div>
         )}
 
-        {/* 4. SUBSCRIPTION PLAN TAB */}
+        {/* 4. SUBSCRIPTION PLAN & PAYMENTS LEDGER TAB */}
         {activeTab === 'subscription' && (
           <div className="w-full space-y-6">
+
+            {/* Direct Bank Account & Settlements Ledger Card (Section 5.C) */}
+            <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#C5A880]/20 pb-4">
+                <div>
+                  <h2 className="text-xl font-serif font-extrabold text-[#0A1428] uppercase tracking-wider flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-[#541D26]" />
+                    <span>Bank Settlements & Payment Ledger</span>
+                  </h2>
+                  <p className="text-xs text-[#787F8C] font-medium mt-0.5">
+                    Real-time Cashfree direct customer settlements, attributed payouts, and bank transfers.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadVendorPaymentLedger}
+                  className="px-3.5 py-1.5 rounded-full bg-[#FAF9F6] hover:bg-[#EEE5DA] border border-[#C5A880]/30 text-[#0A1428] text-xs font-bold flex items-center gap-1.5 transition-all self-start sm:self-auto cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-[#541D26] ${loadingLedger ? 'animate-spin' : ''}`} />
+                  <span>Refresh Ledger</span>
+                </button>
+              </div>
+
+              {/* Settlement Summary Stats Banner */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20">
+                  <span className="text-[11px] font-bold text-[#787F8C] uppercase tracking-wider block mb-1">Total Settled Revenue</span>
+                  <span className="text-2xl font-serif font-black text-[#541D26]">
+                    ₹{(ledgerData?.summary?.total_settled_amount || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20">
+                  <span className="text-[11px] font-bold text-[#787F8C] uppercase tracking-wider block mb-1">Settled Transactions</span>
+                  <span className="text-2xl font-serif font-black text-[#0A1428]">
+                    {ledgerData?.summary?.total_successful_transactions || 0}
+                  </span>
+                </div>
+                <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20">
+                  <span className="text-[11px] font-bold text-[#787F8C] uppercase tracking-wider block mb-1">Linked Settlement Bank</span>
+                  <span className="text-xs font-mono font-bold text-[#0A1428] block truncate">
+                    {ledgerData?.vendor_bank_account ? `•••• ${String(ledgerData.vendor_bank_account).slice(-4)} (${ledgerData?.vendor_ifsc || 'IFSC Set'})` : (settingsForm.account_number ? `•••• ${String(settingsForm.account_number).slice(-4)}` : 'Not Linked Yet')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Settlements Transactions List */}
+              <div>
+                <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider mb-3">Recent Credited Settlements</h3>
+                {ledgerData?.payments && ledgerData.payments.length > 0 ? (
+                  <div className="divide-y divide-[#C5A880]/15 border border-[#C5A880]/20 rounded-xl overflow-hidden">
+                    {ledgerData.payments.map((p, idx) => (
+                      <div key={p.payment_id || idx} className="p-3.5 bg-[#FAF9F6]/50 flex items-center justify-between text-xs font-medium hover:bg-[#FAF9F6] transition-colors">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-mono font-bold text-[#0A1428]">{p.order_id}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold uppercase">
+                              {p.payment_status || 'SUCCESS'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#787F8C]">
+                            Customer: <strong className="text-[#0A1428]">{p.customer_name || 'Resident'}</strong> • Ref: <span className="font-mono">{p.cashfree_payment_id || `cf_${p.payment_id}`}</span>
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-bold text-sm text-[#541D26] block">₹{Number(p.amount || 0).toFixed(2)}</span>
+                          <span className="text-[10px] text-[#787F8C]">{p.created_at ? new Date(p.created_at).toLocaleDateString() : 'Settled'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20 text-xs text-[#787F8C]">
+                    No online payments recorded for settlement yet. Completed Cashfree orders will appear here automatically.
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Subscription Status */}
             <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-8 shadow-sm">
@@ -3226,6 +3660,14 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
         cancelText={modalConfig.cancelText || 'Cancel'}
         onConfirm={modalConfig.onConfirm || (() => setModalConfig({ ...modalConfig, isOpen: false }))}
         onCancel={() => setModalConfig({ ...modalConfig, isOpen: false })}
+      />
+
+      {/* Swiggy / Zomato Style Live Order Tracker Modal */}
+      <LiveOrderTrackerModal
+        isOpen={Boolean(trackingOrder)}
+        onClose={() => setTrackingOrder(null)}
+        initialOrder={trackingOrder}
+        setRoute={setRoute}
       />
 
     </div>

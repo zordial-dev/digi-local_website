@@ -27,6 +27,11 @@ import {
   MapPin,
   Users,
   Paperclip,
+  Trash2,
+  Eye,
+  EyeOff,
+  Phone,
+  Check,
   X
 } from 'lucide-react';
 import { api } from '../services/api';
@@ -44,11 +49,11 @@ const DEFAULT_NAV_TABS = [
 ];
 
 const FAQS_DATA = [
-  { q: 'How does ordering work on DigiLocal?', a: 'You select your residential society, browse verified local vendors, build your cart, and click "Order via WhatsApp". A structured receipt is generated directly in your app ready to send to the vendor.', cat: 'Ordering' },
+  { q: 'How does ordering work on DigiLocal?', a: 'You select your residential society, browse verified local vendors, build your cart, and place your order directly on DigiLocal using Cash on Delivery (COD). You can track your order live directly on the website.', cat: 'Ordering' },
   { q: 'Are there any hidden delivery charges or platform fees?', a: 'No! DigiLocal operates with 100% transparent pricing. Vendors list their fair prices, and you pay them directly with zero platform markup.', cat: 'Pricing' },
   { q: 'How fast will my order arrive at my society door?', a: 'Because vendors are located directly inside or beside your gated community, average delivery time is under 15 minutes.', cat: 'Delivery' },
-  { q: 'How do I pay for my orders?', a: 'You pay the vendor directly upon delivery or via direct UPI QR transfer / Cash on Delivery.', cat: 'Payments' },
-  { q: 'What if an item is damaged or out of stock?', a: 'You can immediately inform the vendor over WhatsApp. Since they are your neighborhood store, replacements or instant refunds are processed right away.', cat: 'Refunds' },
+  { q: 'How do I pay for my orders?', a: 'You pay the vendor directly upon delivery via Cash on Delivery (COD) or UPI.', cat: 'Payments' },
+  { q: 'What if an item is damaged or out of stock?', a: 'You can track order status in real-time or contact the vendor directly. Since they are your neighborhood store, replacements or instant adjustments are handled right away.', cat: 'Refunds' },
   { q: 'How can I register my store as a vendor on DigiLocal?', a: 'Click "Become a Vendor" in the header menu, fill in your shop name, phone number, catalog items, and select your target residential societies. Registration takes under 2 minutes.', cat: 'Vendors' }
 ];
 
@@ -82,6 +87,65 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
   const [cmsContacts, setCmsContacts] = useState({ email: 'support@digilocal.network', phone: '+91 800-562-5999', working_hours: 'Mon-Sun: 7:00 AM - 11:00 PM' });
   const [navTabs, setNavTabs] = useState(DEFAULT_NAV_TABS);
   const [isVendorLoggedIn, setIsVendorLoggedIn] = useState(false);
+
+  // Account Deletion States (Connexon Style)
+  const [deleteEmail, setDeleteEmail] = useState('');
+  const [deletePhone, setDeletePhone] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteSuccess, setDeleteSuccess] = useState('');
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
+
+  useEffect(() => {
+    try {
+      const uStr = localStorage.getItem('digilocal_resident_session') || localStorage.getItem('user') || localStorage.getItem('digilocal_user');
+      if (uStr) {
+        const u = JSON.parse(uStr);
+        const userObj = u.user || u;
+        if (userObj.email && !deleteEmail) setDeleteEmail(userObj.email);
+        if (userObj.phone && !deletePhone) setDeletePhone(userObj.phone);
+      }
+    } catch (_) {}
+  }, []);
+
+  const handleDeleteSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (!deleteEmail.trim() && !deletePhone.trim()) {
+      setDeleteError('Please enter your registered email address or phone number.');
+      return;
+    }
+    setDeleteError('');
+    setDeleteConfirmModal(true);
+  };
+
+  const confirmAccountDeletion = async () => {
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      const res = await api.requestAccountDeletion({
+        email: deleteEmail.trim(),
+        phone: deletePhone.trim(),
+        password: deletePassword.trim()
+      });
+      if (res && (res.success || res.status === 200)) {
+        setDeleteSuccess(res.message || 'Your account has been deleted permanently.');
+        setDeleteEmail('');
+        setDeletePhone('');
+        setDeletePassword('');
+        setDeleteConfirmModal(false);
+      } else {
+        setDeleteError(res?.error || 'Account deletion failed. Please check your credentials.');
+        setDeleteConfirmModal(false);
+      }
+    } catch (err) {
+      setDeleteError(err.message || 'Network error occurred. Please try again.');
+      setDeleteConfirmModal(false);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -418,9 +482,9 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
 
                         <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-3 relative overflow-hidden group hover:border-[#541D26] transition-colors shadow-xs">
                           <span className="w-7 h-7 rounded-full bg-[#541D26] text-white font-bold text-xs flex items-center justify-center">3</span>
-                          <h4 className="font-serif font-bold text-base text-[#211A19]">Instant Order</h4>
+                          <h4 className="font-serif font-bold text-base text-[#211A19]">Instant COD Checkout</h4>
                           <p className="text-xs text-[#211A19]/75 leading-relaxed">
-                            Build your cart and click 'Order via WhatsApp'. A structured receipt is generated directly in your app with zero extra fees.
+                            Build your cart and place your order instantly with Cash on Delivery (COD). Track your live delivery status in real-time directly on the website.
                           </p>
                         </div>
 
@@ -467,9 +531,9 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
 
                         <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] space-y-3 relative overflow-hidden shadow-xs">
                           <span className="w-7 h-7 rounded-full bg-[#541D26] text-white font-bold text-xs flex items-center justify-center">3</span>
-                          <h4 className="font-serif font-bold text-base text-[#211A19]">WhatsApp Orders</h4>
+                          <h4 className="font-serif font-bold text-base text-[#211A19]">Direct In-App Orders</h4>
                           <p className="text-xs text-[#211A19]/75 leading-relaxed">
-                            Incoming orders arrive instantly on your WhatsApp with customer flat/tower numbers and clear cart items.
+                            Incoming orders arrive instantly in your Vendor Panel with customer tower/flat numbers, items list, and Cash on Delivery amount.
                           </p>
                         </div>
 
@@ -645,7 +709,7 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
                       </h3>
                       <div className="pl-8 space-y-2">
                         <p>
-                          <strong>Before Dispatch / Preparation:</strong> You can cancel your order free of charge at any time before the vendor has dispatched or started preparing your items. Simply send a quick cancellation message directly to the vendor via WhatsApp.
+                          <strong>Before Dispatch / Preparation:</strong> You can cancel your order free of charge at any time before the vendor has dispatched or started preparing your items directly from your live order screen.
                         </p>
                         <p>
                           <strong>Pre-Paid Orders:</strong> If you paid upfront via UPI or QR code and cancel before dispatch, 100% of your payment will be refunded immediately back to your UPI VPA account within 2 to 24 hours.
@@ -662,7 +726,7 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
                         <p>You are eligible for a 100% full refund or immediate free replacement under the following conditions:</p>
                         <ul className="list-disc pl-5 space-y-1.5 text-xs sm:text-sm text-[#211A19]/80">
                           <li><strong>Damaged, Defective, or Spoiled Goods:</strong> Perishable items (fresh milk, bakery products, fruits, vegetables, paneer) received damaged or past expiry date.</li>
-                          <li><strong>Incorrect or Missing Items:</strong> Delivered items do not match what you ordered in your WhatsApp cart receipt.</li>
+                          <li><strong>Incorrect or Missing Items:</strong> Delivered items do not match what you ordered in your DigiLocal order summary.</li>
                           <li><strong>Significant Delivery Delay:</strong> Order was delayed beyond reasonable society delivery timeframe without prior notification.</li>
                           <li><strong>Vendor Out-of-Stock:</strong> Item was paid for but unavailable for immediate fulfillment.</li>
                         </ul>
@@ -833,9 +897,9 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
                       <div className="w-8 h-8 rounded-xl bg-[#541D26] text-white flex items-center justify-center font-bold text-xs">
                         3
                       </div>
-                      <h4 className="font-bold text-[#211A19] text-sm">Transparent WhatsApp Ordering</h4>
+                      <h4 className="font-bold text-[#211A19] text-sm">Direct COD & Live Website Tracking</h4>
                       <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
-                        Orders are placed openly over WhatsApp, creating a permanent timestamped chat record for both buyer and seller.
+                        Orders are placed directly with Cash on Delivery (COD) and tracked in real-time on DigiLocal for full transparency.
                       </p>
                     </div>
 
@@ -856,14 +920,174 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
               {(activeTab === 'help-support' || activeTab === 'faqs') && (
                 <div className="space-y-8 animate-fadeIn font-sans">
                   
-                  {/* Page Header */}
-                  <div className="flex items-center space-x-3 pb-4 border-b border-[#E5DAD0]">
-                    <div className="w-10 h-10 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26]">
-                      <HelpCircle className="w-5 h-5 text-[#541D26]" />
+                  {/* Connexon-Styled Help & Support Hero & Account Privacy Panel */}
+                  <div className="space-y-6 pb-4">
+                    {/* Header */}
+                    <div className="text-center space-y-2 py-2">
+                      <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-[#211A19] tracking-tight">
+                        Help &amp; support.
+                      </h1>
+                      <p className="text-xs sm:text-sm text-[#211A19]/75 max-w-xl mx-auto leading-relaxed">
+                        We're here to help you get started, troubleshoot, or manage your privacy controls.
+                      </p>
                     </div>
-                    <div>
-                      <h2 className="text-2xl font-serif font-bold text-[#211A19]">Help & Support</h2>
-                      <p className="text-xs text-[#211A19]/70">We're Here to Help — Complete Support Guide & Knowledge Base</p>
+
+                    {/* 2 Side-by-Side Cards (General Support Desk & Request Account Deletion) */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+                      
+                      {/* CARD 1: GENERAL SUPPORT DESK */}
+                      <div className="p-6 sm:p-8 rounded-3xl bg-white border border-[#E5DAD0] shadow-sm flex flex-col justify-between space-y-6 hover:shadow-md transition-all">
+                        <div className="space-y-4">
+                          <div className="w-12 h-12 rounded-2xl bg-[#FAF8F5] border border-[#E5DAD0] flex items-center justify-center text-[#541D26]">
+                            <Mail className="w-5 h-5 text-[#541D26]" />
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="text-xl font-serif font-bold text-[#211A19]">General Support Desk</h3>
+                            <p className="text-xs sm:text-sm text-[#211A19]/75 leading-relaxed">
+                              Have generic troubleshooting questions, profile custom request settings, event organization queries, or integration feature proposals? Our support engineers are always ready to assist.
+                            </p>
+                          </div>
+
+                          <div className="space-y-2.5 pt-2">
+                            <div className="flex items-start gap-2.5 text-xs text-[#211A19]/90 font-medium">
+                              <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                              </div>
+                              <span>Average email reply times under 24 hours.</span>
+                            </div>
+                            <div className="flex items-start gap-2.5 text-xs text-[#211A19]/90 font-medium">
+                              <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                              </div>
+                              <span>Dedicated assistance for resident &amp; vendor dashboards.</span>
+                            </div>
+                            <div className="flex items-start gap-2.5 text-xs text-[#211A19]/90 font-medium">
+                              <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                              </div>
+                              <span>Direct inquiries regarding data security compliance.</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-[#E5DAD0]/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div>
+                            <span className="text-[10px] font-bold tracking-widest text-[#211A19]/50 uppercase block">EMAIL SUPPORT</span>
+                            <a href="mailto:support@digilocal.in" className="text-sm font-bold font-mono text-[#541D26] hover:underline">
+                              support@digilocal.in
+                            </a>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleTabChange('contact-support')}
+                            className="px-4 py-2.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <span>Open Support Ticket</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* CARD 2: REQUEST ACCOUNT DELETION */}
+                      <div className="p-6 sm:p-8 rounded-3xl bg-white border border-[#E5DAD0] shadow-sm flex flex-col justify-between space-y-6 hover:shadow-md transition-all">
+                        <div className="space-y-4">
+                          <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-red-600">
+                            <Trash2 className="w-5 h-5 text-red-600" />
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="text-xl font-serif font-bold text-[#211A19]">Request Account Deletion</h3>
+                            <p className="text-xs sm:text-sm text-[#211A19]/75 leading-relaxed">
+                              To permanently delete your DigiLocal account and wipe all sync registries, fill out your credentials below. This action is permanent and irreversible.
+                            </p>
+                          </div>
+
+                          <form onSubmit={handleDeleteSubmit} className="space-y-3 pt-1">
+                            {/* Email Input */}
+                            <div className="relative">
+                              <Mail className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              <input
+                                type="email"
+                                value={deleteEmail}
+                                onChange={(e) => {
+                                  setDeleteEmail(e.target.value);
+                                  setDeleteError('');
+                                }}
+                                placeholder="Registered Email"
+                                className="w-full pl-11 pr-4 py-3 rounded-2xl border border-[#E5DAD0] bg-white text-xs text-[#211A19] focus:outline-none focus:ring-2 focus:ring-red-500 transition-all placeholder:text-gray-400"
+                              />
+                            </div>
+
+                            {/* Phone Input */}
+                            <div className="relative">
+                              <Phone className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              <input
+                                type="tel"
+                                value={deletePhone}
+                                onChange={(e) => {
+                                  setDeletePhone(e.target.value);
+                                  setDeleteError('');
+                                }}
+                                placeholder="Phone Number (e.g. +91XXXXXXXXXX)"
+                                className="w-full pl-11 pr-4 py-3 rounded-2xl border border-[#E5DAD0] bg-white text-xs text-[#211A19] focus:outline-none focus:ring-2 focus:ring-red-500 transition-all placeholder:text-gray-400"
+                              />
+                            </div>
+
+                            {/* Password Input */}
+                            <div className="relative">
+                              <Lock className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              <input
+                                type={showDeletePassword ? "text" : "password"}
+                                value={deletePassword}
+                                onChange={(e) => {
+                                  setDeletePassword(e.target.value);
+                                  setDeleteError('');
+                                }}
+                                placeholder="Password"
+                                className="w-full pl-11 pr-11 py-3 rounded-2xl border border-[#E5DAD0] bg-white text-xs text-[#211A19] focus:outline-none focus:ring-2 focus:ring-red-500 transition-all placeholder:text-gray-400"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowDeletePassword(!showDeletePassword)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer p-1"
+                              >
+                                {showDeletePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                            </div>
+
+                            {/* Error & Success Notices */}
+                            {deleteError && (
+                              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                                <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+                                <span>{deleteError}</span>
+                              </div>
+                            )}
+
+                            {deleteSuccess && (
+                              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                                <span>{deleteSuccess}</span>
+                              </div>
+                            )}
+
+                            {/* Red Send Button */}
+                            <button
+                              type="submit"
+                              disabled={deleteLoading}
+                              className="w-full py-3.5 px-6 rounded-full bg-[#E02424] hover:bg-[#C81E1E] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 mt-2"
+                            >
+                              {deleteLoading ? (
+                                <>
+                                  <RefreshCw className="w-4 h-4 animate-spin" />
+                                  <span>PROCESSING DELETION...</span>
+                                </>
+                              ) : (
+                                <span>SEND DELETION REQUEST</span>
+                              )}
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
 
@@ -871,11 +1095,11 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
                   <div className="bg-[#211A19] text-white p-6 sm:p-8 rounded-3xl space-y-3 relative overflow-hidden shadow-md border border-white/10">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-[#C8A878]/10 rounded-full blur-3xl pointer-events-none" />
                     <span className="px-3 py-1 bg-[#541D26] text-[#C8A878] rounded-full text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 border border-[#C8A878]/30">
-                      <Sparkles className="w-3 h-3 text-[#C8A878]" /> Official Vendor & Resident Help Desk
+                      <Sparkles className="w-3 h-3 text-[#C8A878]" /> Official Vendor &amp; Resident Help Desk
                     </span>
                     <h3 className="text-xl font-serif font-bold text-white">We're Here to Help</h3>
                     <p className="text-xs sm:text-sm text-[#D6B7A5] leading-relaxed max-w-3xl">
-                      Welcome to DigiLocal Support. If you need assistance with your account, orders, payments, products, catalog listings, or any other feature of the DigiLocal app & website, our dedicated support team is here to help.
+                      Welcome to DigiLocal Support. If you need assistance with your account, orders, payments, products, catalog listings, or any other feature of the DigiLocal app &amp; website, our dedicated support team is here to help.
                     </p>
                   </div>
 
@@ -1072,8 +1296,8 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
                       </div>
                       <div className="p-4 rounded-2xl bg-white border border-[#E5DAD0] shadow-xs">
                         <span className="text-xs font-bold text-[#541D26] uppercase tracking-wider block mb-1">Step 3</span>
-                        <h4 className="font-bold text-xs text-[#211A19] mb-1">Send via WhatsApp</h4>
-                        <p className="text-xs text-[#211A19]/75">Click 'Order via WhatsApp'. A formatted message opens in your app ready to send!</p>
+                        <h4 className="font-bold text-xs text-[#211A19] mb-1">Place Order (COD)</h4>
+                        <p className="text-xs text-[#211A19]/75">Click 'Place Order (Cash on Delivery)'. Track your order status in real-time directly on the website!</p>
                       </div>
                     </div>
                   </div>
@@ -1740,6 +1964,51 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
         </div>
 
       </div>
+
+      {/* Account Deletion Confirmation Modal */}
+      {deleteConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full border border-red-200 shadow-2xl space-y-5 animate-scaleUp">
+            <div className="w-14 h-14 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 mx-auto">
+              <Trash2 className="w-7 h-7 text-red-600" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-serif font-bold text-[#211A19]">Confirm Permanent Deletion</h3>
+              <p className="text-xs text-[#211A19]/75 leading-relaxed">
+                Are you sure you want to permanently delete your DigiLocal account? All profile details, saved addresses, and active session registries will be permanently erased.
+              </p>
+            </div>
+
+            <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 text-xs leading-relaxed space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-amber-950">
+                <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>Permanent &amp; Irreversible Action</span>
+              </div>
+              <p className="text-[11px] text-amber-800">
+                This action cannot be undone. To place orders or access vendor storefronts again, you will need to register a brand new account.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmModal(false)}
+                className="py-3 px-4 rounded-xl border border-[#E5DAD0] text-[#211A19] font-bold text-xs hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleteLoading}
+                onClick={confirmAccountDeletion}
+                className="py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {deleteLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>Delete Permanently</span>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

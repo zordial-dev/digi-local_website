@@ -572,10 +572,12 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                     />
                     <button
                       type="button"
+                      tabIndex={-1}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-ink transition-colors cursor-pointer z-10"
                     >
-                      {showPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
+                      {showPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -598,10 +600,12 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
                     />
                     <button
                       type="button"
+                      tabIndex={-1}
+                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-ink transition-colors cursor-pointer z-10"
                     >
-                      {showConfirmPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>

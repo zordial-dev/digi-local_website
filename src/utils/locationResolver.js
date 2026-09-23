@@ -372,14 +372,30 @@ export function sanitizeSocietyLocation(soc) {
     return copy;
   }
 
+  // Check for explicit 6-digit pincode in fullLoc or rawPin first
+  const pinMatch = (fullLoc + ' ' + rawPin).match(/\b([1-9][0-9]{5})\b/);
+  const foundPin = pinMatch ? pinMatch[1] : null;
+
   // General dictionary token lookup fallback
   for (const [key, val] of Object.entries(CITY_STATE_MAP)) {
     if (key.length >= 4 && combinedStr.includes(key)) {
       copy.city = val.city;
       copy.state = val.state;
-      copy.pincode = val.pincode;
+      copy.pincode = foundPin || val.pincode;
       return copy;
     }
+  }
+
+  if (foundPin && foundPin !== '201310') {
+    copy.pincode = foundPin;
+    if (combinedStr.includes('jaipur')) {
+      copy.city = 'Jaipur';
+      copy.state = 'Rajasthan';
+    } else if (combinedStr.includes('delhi')) {
+      copy.city = 'Delhi';
+      copy.state = 'Delhi';
+    }
+    return copy;
   }
 
   // If raw pin is 201310 (placeholder) and city is Jaipur or Delhi
@@ -391,7 +407,7 @@ export function sanitizeSocietyLocation(soc) {
     } else if (combinedStr.includes('jaipur')) {
       copy.city = 'Jaipur';
       copy.state = 'Rajasthan';
-      copy.pincode = '302001';
+      copy.pincode = foundPin || '302017';
     }
   }
 

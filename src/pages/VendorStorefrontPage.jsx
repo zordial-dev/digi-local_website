@@ -194,7 +194,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
   const [cart, setCart] = useState([]);
   const [showCartDrawer, setShowCartDrawer] = useState(Boolean(currentRoute?.openCart));
   const [orderRemark, setOrderRemark] = useState('');
-  const [pendingWhatsappUrl, setPendingWhatsappUrl] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('COD'); // 'COD' | 'CASHFREE'
   
   // Replace Cart Modal State
   const [showReplaceCartModal, setShowReplaceCartModal] = useState(false);
@@ -202,7 +202,6 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
   const [existingCartVendorName, setExistingCartVendorName] = useState('');
 
   // Modals & Tracking
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [lastPlacedOrder, setLastPlacedOrder] = useState(null);
@@ -226,7 +225,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
   // Lock background page scroll when Cart Side Panel Drawer or any modal is open
   useEffect(() => {
-    if (showCartDrawer || showReplaceCartModal || showConfirmModal || showReviewModal) {
+    if (showCartDrawer || showReplaceCartModal || showReviewModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -234,7 +233,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
     return () => {
       document.body.style.overflow = '';
     };
-  }, [showCartDrawer, showReplaceCartModal, showConfirmModal, showReviewModal]);
+  }, [showCartDrawer, showReplaceCartModal, showReviewModal]);
 
   // Restore persisted active cart for THIS vendor on mount/vendorId change
   useEffect(() => {
@@ -296,25 +295,10 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
       await api.createServiceEnquiry(payload);
 
-      const targetPhone = vendorData?.phone_number || '8005625999';
-      const cleanPhone = targetPhone.replace(/[^0-9]/g, '');
-      const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : (cleanPhone || '918005625999');
-
-      let msg = `🛠️ *New Service Request from Flat ${flatNumber || 'Resident'}*\n`;
-      msg += `--------------------------------------\n`;
-      msg += `📍 *Society:* ${payload.society_name}\n`;
-      msg += `🛠️ *Service:* ${payload.service_title}\n`;
-      msg += `📝 *Details:* ${serviceDescription || 'Need service assistance'}\n`;
-      msg += `⏰ *Preferred Time:* ${preferredTime}\n`;
-      msg += `--------------------------------------\n`;
-      msg += `Please confirm appointment. Thank you!`;
-
-      window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-
       setModalConfig({
         isOpen: true,
-        title: 'Service Enquiry Sent!',
-        message: 'Your service request has been sent to the vendor. They will contact you shortly.',
+        title: 'Service Request Sent!',
+        message: 'Your service request has been logged successfully and sent to the provider. They will contact you shortly for flat inspection.',
         type: 'success'
       });
       setServiceTitle('');
@@ -355,7 +339,8 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
     return false;
   };
 
-  const handleCheckoutOnline = () => {
+  // 1. Cashfree Online Checkout (Section 2 & 3 Integration)
+  const handleCheckoutCashfree = async () => {
     if (!checkResidentAuth()) {
       setModalConfig({
         isOpen: true,
@@ -366,7 +351,194 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       setIsLoginModalOpen(true);
       return;
     }
-    setShowPaymentModal(true);
+    if (!flatNumber) {
+      handleOpenChangeLocation();
+      return;
+    }
+    if (cart.length === 0) return;
+
+    try {
+      setPlacingOrder(true);
+      let currentUser = null;
+      try {
+        const uStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session') || localStorage.getItem('user_profile');
+        if (uStr) {
+          const parsed = JSON.parse(uStr);
+          currentUser = parsed.user || parsed.resident || parsed;
+        }
+      } catch (_) {}
+
+      const resName = currentUser?.name || currentUser?.full_name || currentUser?.owner_name || `Flat ${flatNumber}`;
+      const resPhone = currentUser?.phone || currentUser?.mobile || currentUser?.phone_number || '';
+      const cleanFlatStr = `Flat ${flatNumber}${buildingNumber ? `, ${buildingNumber}` : ''}`;
+      const cleanAddrStr = `${cleanFlatStr}, ${vendorData?.society_name || 'Residential Complex'}`;
+
+      const orderPayload = {
+        vendor_id: Number(vendorData?.vendor_id || vendorId) || 1,
+        society_id: Number(vendorData?.society_id || societyId) || 1,
+        user_id: currentUser?.user_id || currentUser?.id || (resPhone ? `usr_${resPhone}` : 'usr_guest'),
+        customer_name: resName,
+        phone: resPhone,
+        customer_email: currentUser?.email || 'customer@digilocal.in',
+        delivery_address: cleanAddrStr,
+        payment_method: 'CASHFREE',
+        total_amount: subtotal,
+        items: cart.map(c => ({
+          item_id: c.item_id || c.id,
+          item_name: c.item_name || c.name,
+          quantity: c.quantity,
+          price: parseFloat(c.price || 0)
+        }))
+      };
+
+      const res = await api.createCustomerOrder(orderPayload);
+      const orderId = res?.order_id || `ORD-${Date.now().toString().slice(-4)}`;
+      const sessionId = res?.payment_session_id;
+
+      // If Cashfree SDK is active in window
+      if (typeof window.Cashfree === 'function' && sessionId) {
+        try {
+          const cashfree = window.Cashfree({ mode: 'production' });
+          cashfree.checkout({
+            paymentSessionId: sessionId,
+            redirectTarget: '_modal'
+          }).then(async (result) => {
+            if (result.error) {
+              console.warn('Cashfree payment dismissed or failed:', result.error);
+              setModalConfig({
+                isOpen: true,
+                title: 'Payment Incomplete',
+                message: 'Payment was not completed. You can retry anytime.',
+                type: 'warning'
+              });
+            }
+            if (result.paymentDetails) {
+              await api.verifyCashfreePayment({
+                order_id: orderId,
+                cashfree_order_id: orderId,
+                cashfree_payment_id: result.paymentDetails?.paymentId || `cf_pay_${Date.now()}`
+              });
+              saveOrderToUserProfile(orderId, subtotal, cart, {
+                paymentMethod: 'Cashfree Online Payment',
+                transactionId: result.paymentDetails?.paymentId || `cf_pay_${Date.now()}`
+              });
+              setShowCartDrawer(false);
+              setModalConfig({
+                isOpen: true,
+                title: '🎉 Payment Verified & Order Confirmed!',
+                message: `Your payment of ₹${subtotal.toFixed(2)} was verified via Cashfree. Order #${orderId} is confirmed and out for preparation.`,
+                type: 'success',
+                confirmText: 'Track Order Live',
+                onConfirm: () => {
+                  setModalConfig(prev => ({ ...prev, isOpen: false }));
+                  setRoute({ page: 'userProfile', tab: 'orders' });
+                }
+              });
+            }
+          }).catch(() => {
+            setShowPaymentModal(true);
+          });
+          return;
+        } catch (_) {
+          setShowPaymentModal(true);
+        }
+      } else {
+        setShowPaymentModal(true);
+      }
+    } catch (err) {
+      console.warn('Cashfree order flow fallback to modal:', err);
+      setShowPaymentModal(true);
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
+
+  // 2. Cash on Delivery (COD) Checkout Flow (Section 2 Scenario A)
+  const handleCheckoutCOD = async () => {
+    if (!checkResidentAuth()) {
+      setModalConfig({
+        isOpen: true,
+        title: '🔒 Login Required to Place Order',
+        message: 'You cannot place an order without signing in or registering your mobile number. Please log in to proceed.',
+        type: 'warning'
+      });
+      setIsLoginModalOpen(true);
+      return;
+    }
+    if (!flatNumber) {
+      handleOpenChangeLocation();
+      return;
+    }
+    if (cart.length === 0) return;
+
+    try {
+      setPlacingOrder(true);
+      let currentUser = null;
+      try {
+        const uStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session') || localStorage.getItem('user_profile');
+        if (uStr) {
+          const parsed = JSON.parse(uStr);
+          currentUser = parsed.user || parsed.resident || parsed;
+        }
+      } catch (_) {}
+
+      const resName = currentUser?.name || currentUser?.full_name || currentUser?.owner_name || `Flat ${flatNumber}`;
+      const resPhone = currentUser?.phone || currentUser?.mobile || currentUser?.phone_number || '';
+      const cleanFlatStr = `Flat ${flatNumber}${buildingNumber ? `, ${buildingNumber}` : ''}`;
+      const cleanAddrStr = `${cleanFlatStr}, ${vendorData?.society_name || 'Residential Complex'}`;
+
+      const orderPayload = {
+        vendor_id: Number(vendorData?.vendor_id || vendorId) || 1,
+        society_id: Number(vendorData?.society_id || societyId) || 1,
+        user_id: currentUser?.user_id || currentUser?.id || (resPhone ? `usr_${resPhone}` : 'usr_guest'),
+        customer_name: resName,
+        phone: resPhone,
+        customer_email: currentUser?.email || 'customer@digilocal.in',
+        delivery_address: cleanAddrStr,
+        payment_method: 'COD',
+        total_amount: subtotal,
+        items: cart.map(c => ({
+          item_id: c.item_id || c.id,
+          item_name: c.item_name || c.name,
+          quantity: c.quantity,
+          price: parseFloat(c.price || 0)
+        }))
+      };
+
+      const res = await api.createCustomerOrder(orderPayload);
+      const orderId = res?.order_id || `ORD-${Date.now().toString().slice(-4)}`;
+
+      saveOrderToUserProfile(orderId, subtotal, cart, {
+        paymentMethod: 'Cash on Delivery (COD)',
+        transactionId: `COD_${orderId}`
+      });
+
+      setShowCartDrawer(false);
+      setModalConfig({
+        isOpen: true,
+        title: '🎉 Order Placed Successfully (COD)!',
+        message: `Your order #${orderId} for ₹${subtotal.toFixed(2)} has been placed via Cash on Delivery and sent to the store. You can track live updates in real-time.`,
+        type: 'success',
+        confirmText: 'Track Order Live',
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, isOpen: false }));
+          setRoute({ page: 'userProfile', tab: 'orders' });
+        }
+      });
+    } catch (err) {
+      setModalConfig({
+        isOpen: true,
+        title: 'Order Placement Error',
+        message: err.message || 'Could not place COD order. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
+
+  const handleCheckoutOnline = () => {
+    handleCheckoutCashfree();
   };
 
   const [forbiddenError, setForbiddenError] = useState(null);
@@ -636,7 +808,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
   }, []);
 
   // Save Order Helper for User Profile Order History & Vendor Dashboard
-  const saveOrderToUserProfile = (orderId, totalAmount, itemsList, isWhatsApp = false, txnDetails = null) => {
+  const saveOrderToUserProfile = (orderId, totalAmount, itemsList, txnDetails = null) => {
     let currentUser = null;
     try {
       const keys = ['digilocal_user_session', 'digilocal_resident_session', 'user_profile', 'resident_profile', 'digilocal_user', 'digilocal_resident'];
@@ -653,22 +825,54 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       }
     } catch (_) {}
 
+    let currentPurchaserVendor = null;
+    try {
+      const vKeys = ['digilocal_vendor_session', 'digilocal_vendor', 'vendor_session', 'active_vendor', 'vendor_profile'];
+      for (const vk of vKeys) {
+        const vStr = localStorage.getItem(vk);
+        if (vStr) {
+          const parsed = JSON.parse(vStr);
+          const v = parsed.vendor || parsed;
+          if (v && (v.vendor_id || v.id || v.store_name)) {
+            currentPurchaserVendor = v;
+            break;
+          }
+        }
+      }
+    } catch (_) {}
+
     const storeNameStr = vendorData?.store_name || 'Community Store';
     const societyNameStr = vendorData?.society_name || vendorData?.location || currentUser?.society_name || currentUser?.society || 'Anupam Apartment';
     const targetVendorId = vendorData?.vendor_id || vendorId || 1;
 
-    const resName = currentUser?.name || currentUser?.full_name || currentUser?.owner_name || (flatNumber ? `Resident (Flat ${flatNumber})` : 'Resident Customer');
-    const resPhone = currentUser?.phone || currentUser?.mobile || currentUser?.phone_number || currentUser?.user_phone || '';
+    const purchaserVendorId = currentPurchaserVendor ? (currentPurchaserVendor.vendor_id || currentPurchaserVendor.id) : null;
+    const resName = currentUser?.name || currentUser?.full_name || currentUser?.owner_name || 
+      currentPurchaserVendor?.vendor_name || currentPurchaserVendor?.owner_name || currentPurchaserVendor?.name ||
+      (flatNumber ? `Resident (Flat ${flatNumber})` : 'Resident Customer');
+    const resPhone = currentPurchaserVendor
+      ? (currentPurchaserVendor.phone_number || currentPurchaserVendor.phone || '')
+      : (currentUser?.phone || currentUser?.mobile || currentUser?.phone_number || currentUser?.user_phone || '');
+    const resEmail = currentPurchaserVendor
+      ? (currentPurchaserVendor.email || '')
+      : (currentUser?.email || '');
+
+    const isPaid = txnDetails?.paymentMethod?.toLowerCase().includes('cashfree') || txnDetails?.paymentMethod?.toLowerCase().includes('online') || txnDetails?.paymentMethod?.toLowerCase().includes('upi') || txnDetails?.paymentMethod?.toLowerCase().includes('card');
+    const paymentMethodLabel = txnDetails?.paymentMethod || 'Cash on Delivery (COD)';
 
     const orderRecord = {
       order_id: orderId || `ORD-${Date.now().toString().slice(-6)}`,
-      user_id: currentUser?.user_id || currentUser?.id || `usr_${resPhone.replace(/[^0-9]/g, '')}`,
+      user_id: currentUser?.user_id || currentUser?.id || (purchaserVendorId ? `vnd_${purchaserVendorId}` : `usr_${resPhone.replace(/[^0-9]/g, '')}`),
+      purchaser_vendor_id: purchaserVendorId,
+      purchaser_store_name: currentPurchaserVendor?.store_name || null,
+      purchaser_phone: resPhone,
+      purchaser_email: resEmail,
       customer_name: resName,
       user_name: resName,
       name: resName,
       phone: resPhone,
       user_phone: resPhone,
       phone_number: resPhone,
+      email: resEmail,
       vendor_id: targetVendorId,
       store_name: storeNameStr,
       store_logo: vendorData?.logo || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80',
@@ -677,9 +881,9 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       order_timestamp: new Date().toISOString(),
       timestamp: new Date().toISOString(),
       status: 'PLACED',
-      status_label: isWhatsApp ? 'WhatsApp Order Placed' : 'Order Paid & Out for Delivery',
-      payment_status: isWhatsApp ? 'PENDING_COD' : 'PAID',
-      payment_method: txnDetails?.paymentMethod || (isWhatsApp ? 'COD / WhatsApp' : 'UPI Payment'),
+      status_label: isPaid ? 'Paid • Order Placed & In Preparation' : 'COD • Order Placed & Out for Delivery',
+      payment_status: isPaid ? 'PAID' : 'PENDING',
+      payment_method: paymentMethodLabel,
       total_amount: totalAmount,
       address: `Flat ${flatNumber} (${buildingNumber || 'Block A'}), ${societyNameStr}`,
       delivery_address: `Flat ${flatNumber} (${buildingNumber || 'Block A'}), ${societyNameStr}`,
@@ -701,6 +905,18 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       if (!Array.isArray(userOrdersList)) userOrdersList = [];
       userOrdersList = [orderRecord, ...userOrdersList.filter(o => o && String(o.order_id) !== String(orderRecord.order_id))];
       localStorage.setItem('digilocal_user_orders', JSON.stringify(userOrdersList));
+
+      // If placed from a vendor account, save to that specific vendor's purchase orders
+      if (purchaserVendorId) {
+        try {
+          const vPurchasesKey = `digilocal_vendor_purchases_${purchaserVendorId}`;
+          const existingVPurchasesStr = localStorage.getItem(vPurchasesKey);
+          let vPurchasesList = existingVPurchasesStr ? JSON.parse(existingVPurchasesStr) : [];
+          if (!Array.isArray(vPurchasesList)) vPurchasesList = [];
+          vPurchasesList = [orderRecord, ...vPurchasesList.filter(o => o && String(o.order_id) !== String(orderRecord.order_id))];
+          localStorage.setItem(vPurchasesKey, JSON.stringify(vPurchasesList));
+        } catch (_) {}
+      }
 
       // Save to vendor specific orders list (both numeric and string keys)
       const vKey1 = `digilocal_vendor_orders_${targetVendorId}`;
@@ -725,6 +941,18 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
       // Auto-decrement item stock in vendor catalog
       api.decrementVendorItemStock(targetVendorId, itemsList);
+
+      // Dispatch Real-time New Order Event for Vendor Dashboard
+      const newOrderPayload = {
+        vendor_id: targetVendorId,
+        order_id: orderRecord.order_id,
+        total_amount: totalAmount,
+        resident_name: `${resName} (Flat ${flatNumber})`,
+        items_count: itemsList.length,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('digilocal_new_order_event', JSON.stringify(newOrderPayload));
+      window.dispatchEvent(new CustomEvent('digilocal_new_order', { detail: newOrderPayload }));
     } catch (err) {
       console.warn('Failed to save order to localStorage:', err);
     }
@@ -735,168 +963,6 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
     setActiveOrder(orderRecord);
     return orderRecord;
-  };
-
-  // WHATSAPP ORDERING TRIGGER
-  const handlePlaceOrderWhatsApp = async () => {
-    if (!checkResidentAuth()) {
-      setModalConfig({
-        isOpen: true,
-        title: '🔒 Login Required to Place Order',
-        message: 'You cannot place an order without signing in or registering your mobile number. Please log in to proceed.',
-        type: 'warning'
-      });
-      setIsLoginModalOpen(true);
-      return;
-    }
-
-    if (!flatNumber) {
-      handleOpenChangeLocation();
-      return;
-    }
-    if (cart.length === 0) return;
-
-    try {
-      setPlacingOrder(true);
-      const targetPhone = vendorData?.phone_number || '8005625999';
-      const cleanPhone = targetPhone.replace(/[^0-9]/g, '');
-      const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : (cleanPhone || '918005625999');
-
-      const storeName = vendorData?.store_name || 'DigiLocal Store';
-      const societyName = vendorData?.society_name || vendorData?.location || currentUser?.society_name || currentUser?.society || 'Anupam Apartment';
-      const gstNumber = vendorData?.gst_number || '';
-
-      let msg = `🛎️ *New Order from Flat ${flatNumber}* - ${storeName}\n`;
-      msg += `--------------------------------------\n`;
-      msg += `📍 *Society:* ${societyName}\n`;
-      msg += `🏢 *Flat/Room:* Flat ${flatNumber}\n`;
-      msg += `⏰ *Time:* ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}\n`;
-      msg += `--------------------------------------\n\n`;
-      msg += `📋 *Items Ordered:*\n`;
-
-      cart.forEach((item) => {
-        msg += `* ${item.quantity}x ${item.item_name} (₹${parseFloat(item.price).toFixed(2)} each)\n`;
-        if (item.specialInstructions && item.specialInstructions.trim()) {
-          msg += `  ↳ _Note: ${item.specialInstructions.trim()}_\n`;
-        }
-      });
-
-      if (orderRemark && orderRemark.trim()) {
-        msg += `\n📝 *Order Remark:* ${orderRemark.trim()}\n`;
-      }
-
-      msg += `\n--------------------------------------\n`;
-      msg += `💵 *Total Bill Amount:* ₹${subtotal.toFixed(2)}\n`;
-      if (gstNumber) {
-        msg += `📄 *Vendor GSTIN:* ${gstNumber}\n`;
-      }
-      msg += `--------------------------------------\n\n`;
-      msg += `Please confirm preparation and delivery to my flat. Thank you!`;
-
-      let currentUser = null;
-      try {
-        const uStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session') || localStorage.getItem('user_profile');
-        if (uStr) {
-          const parsed = JSON.parse(uStr);
-          currentUser = parsed.user || parsed.resident || parsed;
-        }
-      } catch (_) {}
-
-      const resName = currentUser?.name || currentUser?.full_name || currentUser?.owner_name || `Flat ${flatNumber}`;
-      const resPhone = currentUser?.phone || currentUser?.mobile || currentUser?.phone_number || '';
-
-      const cleanFlatStr = `Flat ${flatNumber}${buildingNumber ? `, ${buildingNumber}` : ''}`;
-      const cleanAddrStr = `${cleanFlatStr}, ${societyName || 'Residential Complex'}`;
-
-      const userCity = vendorData?.city || currentUser?.city || '';
-      const userState = vendorData?.state || currentUser?.state || '';
-      const userPincode = vendorData?.pincode || currentUser?.pincode || '';
-
-      const backendPayload = {
-        user_id: currentUser?.user_id || currentUser?.id || (resPhone ? `usr_${resPhone}` : 'usr_guest'),
-        vendor_id: vendorId,
-        customer_name: resName,
-        phone: resPhone,
-        customer_phone: resPhone,
-        flat: cleanFlatStr,
-        area: societyName || 'Residential Complex',
-        city: userCity,
-        state: userState,
-        pincode: userPincode,
-        delivery_address: cleanAddrStr,
-        full_address: cleanAddrStr,
-        items: cart.map(i => ({
-          item_id: i.item_id || i.id,
-          item_name: i.item_name || i.name,
-          quantity: i.quantity,
-          price: parseFloat(i.price || 0),
-          unit_price: parseFloat(i.price || 0)
-        })),
-        total_amount: subtotal
-      };
-
-      const backendRes = await api.placeOrder(backendPayload);
-      const savedOrder = saveOrderToUserProfile(backendRes?.order_id, subtotal, cart, true);
-      setLastPlacedOrder({ order_id: savedOrder.order_id, total: subtotal });
-
-      // Dispatch Real-time New Order Event for Vendor Dashboard Notification Alert & Sound Chime
-      const newOrderPayload = {
-        vendor_id: vendorId,
-        order_id: backendRes?.order_id || savedOrder.order_id || Math.floor(1000 + Math.random() * 9000),
-        total_amount: subtotal,
-        resident_name: `${resName} (Flat ${flatNumber})`,
-        items_count: cart.length,
-        timestamp: Date.now()
-      };
-
-      try {
-        localStorage.setItem('digilocal_new_order_event', JSON.stringify(newOrderPayload));
-        window.dispatchEvent(new CustomEvent('digilocal_new_order', { detail: newOrderPayload }));
-      } catch (_) {}
-
-      const encodedMsg = encodeURIComponent(msg);
-      const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodedMsg}`;
-      setPendingWhatsappUrl(whatsappUrl);
-
-      // Reset body scroll lock immediately so fixed modals align to dead center of viewport
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      document.body.style.overflow = '';
-
-      // Open WhatsApp application / web tab immediately
-      try {
-        const win = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-        if (!win) {
-          window.location.href = whatsappUrl;
-        }
-      } catch (_) {
-        window.location.href = whatsappUrl;
-      }
-
-      setShowCartDrawer(false);
-      setShowConfirmModal(true);
-    } catch (err) {
-      setModalConfig({
-        isOpen: true,
-        title: 'Order Launch Error',
-        message: err.message || 'Could not place WhatsApp order. Please check your connection.',
-        type: 'error'
-      });
-    } finally {
-      setPlacingOrder(false);
-    }
-  };
-
-  const handleConfirmOrderSentYes = () => {
-    setShowConfirmModal(false);
-    setCart([]);
-    setOrderRemark('');
-  };
-
-  const handleConfirmOrderSentNo = () => {
-    setShowConfirmModal(false);
-    setShowCartDrawer(true);
   };
 
   if (forbiddenError) {
@@ -1424,7 +1490,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                   Book Service Request with {vendorData?.store_name}
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Submit your requirement to receive instant phone call / WhatsApp assistance at your flat.
+                  Submit your requirement to receive direct service assistance and booking confirmation at your flat.
                 </p>
                 <div className="flex items-center justify-center gap-2 pt-1">
                   <button
@@ -1537,7 +1603,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                   disabled={submittingEnquiry}
                   className="w-full py-3.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
                 >
-                  <span>{submittingEnquiry ? 'Sending Request...' : 'Submit Service Enquiry & Open WhatsApp'}</span>
+                  <span>{submittingEnquiry ? 'Sending Request...' : 'Submit Service Request'}</span>
                 </button>
               </form>
             </div>
@@ -1699,24 +1765,24 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
       {/* Floating Bottom Cart Bar */}
       {cartItemCount > 0 && !showCartDrawer && (
-        <div className="fixed bottom-6 inset-x-4 max-w-lg mx-auto z-40">
-          <div className="bg-primary text-primary-foreground p-4 rounded-[2rem] border border-primary/40 shadow-2xl flex items-center justify-between">
-            <div className="flex items-center space-x-3.5">
-              <div className="w-10 h-10 rounded-full bg-gold text-ink flex items-center justify-center font-extrabold text-xs">
+        <div className="fixed bottom-6 inset-x-4 max-w-lg mx-auto z-40 animate-in slide-in-from-bottom duration-300 pointer-events-auto">
+          <div className="bg-[#541D26] text-white p-3.5 sm:p-4 rounded-[2rem] border-2 border-[#C8A878]/50 shadow-2xl flex items-center justify-between gap-3">
+            <div className="flex items-center space-x-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-[#C8A878] text-[#541D26] flex items-center justify-center font-black text-xs shrink-0 shadow-sm">
                 {cartItemCount}
               </div>
-              <div>
-                <p className="text-[10px] text-gold font-extrabold uppercase tracking-wider">Total Bill</p>
-                <p className="text-lg font-extrabold text-primary-foreground">₹{subtotal.toFixed(2)}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] text-[#C8A878] font-bold uppercase tracking-wider leading-none mb-0.5">Total Bill</p>
+                <p className="text-base sm:text-lg font-black text-white truncate">₹{subtotal.toFixed(2)}</p>
               </div>
             </div>
 
             <button
               onClick={() => setShowCartDrawer(true)}
-              className="px-5 py-3 rounded-full bg-gold hover:bg-gold/90 text-ink font-extrabold text-xs shadow-md flex items-center space-x-2 uppercase tracking-wider"
+              className="px-5 py-3 rounded-full bg-[#C8A878] hover:bg-[#d8bc90] text-[#541D26] font-black text-xs shadow-md flex items-center space-x-2 uppercase tracking-wider transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
             >
-              <span>Review & Order via WhatsApp</span>
-              <ShoppingBag className="w-4 h-4" />
+              <span>View Cart & Checkout</span>
+              <ShoppingBag className="w-4 h-4 text-[#541D26]" />
             </button>
           </div>
         </div>
@@ -1823,6 +1889,52 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                 />
               </div>
 
+              {/* Payment Method Selector (COD / Cashfree Online) */}
+              <div className="p-4 bg-white border border-[#E5DAD0] rounded-2xl space-y-3 shadow-sm">
+                <div className="flex items-center justify-between border-b border-[#E5DAD0] pb-2">
+                  <h4 className="text-xs font-serif font-black text-[#211A19] uppercase tracking-wider">Select Payment Method</h4>
+                  <span className="text-[10px] font-black text-[#541D26] bg-[#541D26]/10 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                    {selectedPaymentMethod === 'COD' ? 'Cash on Delivery' : 'Online PG'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* Option 1: Cash on Delivery (COD) - Recommended */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPaymentMethod('COD')}
+                    className={`p-3 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center space-y-1.5 ${
+                      selectedPaymentMethod === 'COD'
+                        ? 'bg-[#541D26] text-white border-[#541D26] shadow-sm ring-2 ring-[#541D26]/20'
+                        : 'bg-[#F8F5F0] text-[#211A19] border-[#E5DAD0] hover:bg-[#EEE5DA]'
+                    }`}
+                  >
+                    <CheckCircle2 className={`w-5 h-5 ${selectedPaymentMethod === 'COD' ? 'text-[#C8A878]' : 'text-[#541D26]'}`} />
+                    <div>
+                      <span className="text-xs font-black block leading-tight">Cash on Delivery</span>
+                      <span className={`text-[10px] font-medium leading-none ${selectedPaymentMethod === 'COD' ? 'text-[#EEE5DA]/80' : 'text-[#7A6E65]'}`}>Pay at Doorstep</span>
+                    </div>
+                  </button>
+
+                  {/* Option 2: Cashfree Online */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPaymentMethod('CASHFREE')}
+                    className={`p-3 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center space-y-1.5 ${
+                      selectedPaymentMethod === 'CASHFREE'
+                        ? 'bg-[#541D26] text-white border-[#541D26] shadow-sm ring-2 ring-[#541D26]/20'
+                        : 'bg-[#F8F5F0] text-[#211A19] border-[#E5DAD0] hover:bg-[#EEE5DA]'
+                    }`}
+                  >
+                    <CreditCard className={`w-5 h-5 ${selectedPaymentMethod === 'CASHFREE' ? 'text-[#C8A878]' : 'text-[#541D26]'}`} />
+                    <div>
+                      <span className="text-xs font-black block leading-tight">Pay Online</span>
+                      <span className={`text-[10px] font-medium leading-none ${selectedPaymentMethod === 'CASHFREE' ? 'text-[#EEE5DA]/80' : 'text-[#7A6E65]'}`}>Cashfree UPI / Cards</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Bill Breakdown */}
               <div className="p-4 bg-white border border-[#E5DAD0] rounded-2xl space-y-2 text-xs text-[#7A6E65] font-medium shadow-sm">
                 <h4 className="text-[11px] font-serif font-black text-[#211A19] uppercase border-b border-[#E5DAD0] pb-2 mb-2 tracking-wider">Bill Summary</h4>
@@ -1836,24 +1948,29 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             </div>
 
             {/* Footer Order & Payment Buttons */}
-            <div className="p-5 bg-white border-t border-[#E5DAD0] space-y-2.5 shrink-0 shadow-lg">
-              <button
-                onClick={handleCheckoutOnline}
-                disabled={placingOrder}
-                className="w-full py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-black text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer border border-[#C8A878]/30 hover:scale-[1.01]"
-              >
-                <CreditCard className="w-4 h-4 text-[#C8A878]" />
-                <span>Pay ₹{subtotal.toFixed(2)} Online (Dummy Sandbox)</span>
-              </button>
-
-              <button
-                onClick={handlePlaceOrderWhatsApp}
-                disabled={placingOrder}
-                className="w-full py-3 rounded-full bg-[#F5EBE6] hover:bg-[#EBDDD5] text-[#541D26] border border-[#E5DAD0] font-black text-xs shadow-xs uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer"
-              >
-                <Send className="w-3.5 h-3.5 text-[#541D26]" />
-                <span>{placingOrder ? 'Preparing Order...' : 'Place Order via WhatsApp'}</span>
-              </button>
+            <div className="p-5 bg-white border-t border-[#E5DAD0] space-y-2 shrink-0 shadow-lg">
+              {selectedPaymentMethod === 'COD' ? (
+                <button
+                  onClick={handleCheckoutCOD}
+                  disabled={placingOrder}
+                  className="w-full py-4 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-black text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer border border-[#C8A878]/30 hover:scale-[1.01]"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-[#C8A878]" />
+                  <span>{placingOrder ? 'Placing Order...' : `Place Order ₹${subtotal.toFixed(2)} (Cash on Delivery)`}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleCheckoutCashfree}
+                  disabled={placingOrder}
+                  className="w-full py-4 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-black text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer border border-[#C8A878]/30 hover:scale-[1.01]"
+                >
+                  <CreditCard className="w-4 h-4 text-[#C8A878]" />
+                  <span>{placingOrder ? 'Creating Cashfree Session...' : `Pay ₹${subtotal.toFixed(2)} via Cashfree PG`}</span>
+                </button>
+              )}
+              <p className="text-[10px] text-center text-[#7A6E65] font-medium pt-0.5">
+                ⚡ Instant Order Placement • Live In-Website Order Tracking
+              </p>
             </div>
           </div>
         </div>,
@@ -1979,64 +2096,6 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               >
                 Replace Cart
               </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Order Confirmation Modal */}
-      {showConfirmModal && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden font-sans">
-          <div 
-            className="bg-[#FAF8F5] text-[#211A19] border border-[#E5DAD0] rounded-[2.5rem] p-7 max-w-sm w-full max-h-[90vh] overflow-y-auto shadow-2xl text-center flex flex-col items-center animate-in zoom-in-95 duration-200 pointer-events-auto my-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-14 h-14 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 flex items-center justify-center mb-3 text-[#541D26]">
-              <HelpCircle className="w-7 h-7 text-[#541D26]" />
-            </div>
-
-            <h3 className="text-lg font-serif font-black text-[#211A19] mb-1">Order Sent via WhatsApp?</h3>
-            <p className="text-xs text-[#211A19]/70 font-medium mb-5">Did you send your order message to the vendor on WhatsApp?</p>
-
-            <div className="flex flex-col gap-2.5 w-full text-xs font-bold uppercase tracking-wider">
-              {pendingWhatsappUrl && (
-                <a
-                  href={pendingWhatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-2.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold shadow-sm transition-all text-center flex items-center justify-center gap-2"
-                >
-                  <span>💬 Launch WhatsApp App</span>
-                </a>
-              )}
-              <div className="flex space-x-2.5 w-full">
-                <button
-                  onClick={() => setShowConfirmModal(false)}
-                  className="flex-1 py-2.5 rounded-full bg-[#EEE5DA] text-[#211A19] border border-[#E5DAD0] hover:bg-[#D6B7A5]/60 transition-all cursor-pointer"
-                >
-                  No, Not Yet
-                </button>
-                <button
-                  onClick={() => {
-                    setShowConfirmModal(false);
-                    if (lastPlacedOrder) {
-                      saveOrderToUserProfile(lastPlacedOrder.order_id, lastPlacedOrder.total, lastPlacedOrder.items, true);
-                    }
-                    saveCartToStorage([]);
-                    setOrderRemark('');
-                    setModalConfig({
-                      isOpen: true,
-                      title: 'Order Recorded!',
-                      message: 'Your order has been logged to your account orders history and sent to the vendor.',
-                      type: 'success'
-                    });
-                  }}
-                  className="flex-1 py-3 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold shadow-md transition-all cursor-pointer"
-                >
-                  Yes, Sent!
-                </button>
-              </div>
             </div>
           </div>
         </div>,

@@ -384,7 +384,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                   Seamless Order Tracking
                 </h3>
                 <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
-                  Real-time order status updates, WhatsApp coordination, and direct vendor communication.
+                  Real-time in-website live order tracking, Cash on Delivery (COD), and direct neighborhood store fulfillment.
                 </p>
               </div>
               <div className="mt-4 pt-4 border-t border-[#E5DAD0] text-[11px] font-bold text-[#541D26] flex items-center gap-1">

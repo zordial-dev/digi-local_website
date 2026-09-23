@@ -16,6 +16,7 @@ import SupportDeskModal from './components/SupportDeskModal';
 import BlockedAccountModal from './components/BlockedAccountModal';
 import UserStrikeWarningModal from './components/UserStrikeWarningModal';
 import FloatingCartBar from './components/FloatingCartBar';
+import LiveOrderTrackerToast from './components/LiveOrderTrackerToast';
 import { api } from './services/api';
 
 function getRouteFromPath(path = window.location.pathname) {
@@ -509,6 +510,9 @@ export default function App() {
 
       {/* Floating Bottom Cart Bar (Sticky View Cart Bar) */}
       <FloatingCartBar currentRoute={route} setRoute={setRoute} />
+
+      {/* Floating Swiggy / Zomato Style Live Order Tracker */}
+      <LiveOrderTrackerToast setRoute={setRoute} />
     </div>
   );
 }

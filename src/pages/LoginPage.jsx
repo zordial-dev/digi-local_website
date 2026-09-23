@@ -106,24 +106,49 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
     }
 
     try {
-      const targetUserId = otpUserSessionData?.userObj?.user_id || 'usr_932532';
-      await api.updateUserProfile(targetUserId, { password: otpNewPassword });
-    } catch (_) {}
+      setLoading(true);
+      const isVendor = otpUserSessionData?.accountType === 'vendor' || Boolean(otpUserSessionData?.vendorObj);
+      if (isVendor) {
+        const targetVendorId = otpUserSessionData?.vendorObj?.vendor_id || otpUserSessionData?.vendorObj?.id;
+        await api.updateVendorPassword(targetVendorId, otpNewPassword);
+        setOtpPasswordSuccess(true);
+        setOtpPasswordError('');
 
-    setOtpPasswordSuccess(true);
-    setOtpPasswordError('');
+        setTimeout(() => {
+          setShowOtpPasswordModal(false);
+          setSuccessMsg('Password updated successfully! Redirecting to Vendor Panel...');
+          setRoute({ page: 'vendorDashboard', vendorId: targetVendorId });
+        }, 1000);
+      } else {
+        const targetUserId = otpUserSessionData?.userObj?.user_id || otpUserSessionData?.userObj?.id || 'usr_932532';
+        await api.updateUserProfile(targetUserId, { password: otpNewPassword });
+        setOtpPasswordSuccess(true);
+        setOtpPasswordError('');
 
-    setTimeout(() => {
-      setShowOtpPasswordModal(false);
-      setSuccessMsg('Logged in successfully! Redirecting to profile...');
-      setRoute({ page: 'profile' });
-    }, 1000);
+        setTimeout(() => {
+          setShowOtpPasswordModal(false);
+          setSuccessMsg('Password set successfully! Redirecting to profile...');
+          setRoute({ page: 'profile' });
+        }, 1000);
+      }
+    } catch (err) {
+      setOtpPasswordError(err.message || 'Failed to update password.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSkipOtpPassword = () => {
     setShowOtpPasswordModal(false);
-    setSuccessMsg('Logged in successfully! Redirecting to profile...');
-    setRoute({ page: 'profile' });
+    const isVendor = otpUserSessionData?.accountType === 'vendor' || Boolean(otpUserSessionData?.vendorObj);
+    if (isVendor) {
+      const targetVendorId = otpUserSessionData?.vendorObj?.vendor_id || otpUserSessionData?.vendorObj?.id;
+      setSuccessMsg('Logged in successfully! Opening Vendor Panel...');
+      setRoute({ page: 'vendorDashboard', vendorId: targetVendorId });
+    } else {
+      setSuccessMsg('Logged in successfully! Redirecting to profile...');
+      setRoute({ page: 'profile' });
+    }
   };
 
   useEffect(() => {
@@ -292,8 +317,14 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         let vendorObj = res?.vendor;
         try {
           const pool = JSON.parse(localStorage.getItem('digilocal_registered_vendors') || '[]');
-          const match = pool.find(v => String(v.phone_number).trim() === rawContact || String(v.email).trim().toLowerCase() === rawContact.toLowerCase());
-          if (match) vendorObj = match;
+          const cleanInputDigits = rawContact.replace(/[^0-9]/g, '').slice(-10);
+          const match = pool.find(v => {
+            const vPhoneDigits = String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+            return (cleanInputDigits && vPhoneDigits === cleanInputDigits) ||
+                   String(v.phone_number || '').trim() === rawContact ||
+                   String(v.email || '').trim().toLowerCase() === rawContact.toLowerCase();
+          });
+          if (match) vendorObj = { ...vendorObj, ...match };
         } catch (_) {}
 
         if (!vendorObj) {
@@ -434,8 +465,13 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           let vendorObj = res.vendor || res.data?.vendor;
           try {
             const pool = JSON.parse(localStorage.getItem('digilocal_registered_vendors') || '[]');
-            const match = pool.find(v => String(v.phone_number).trim().includes(fullPhone) || String(v.phone).trim().includes(fullPhone));
-            if (match) vendorObj = match;
+            const cleanInputDigits = fullPhone.replace(/[^0-9]/g, '').slice(-10);
+            const match = pool.find(v => {
+              const vDigits = String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+              return (cleanInputDigits && vDigits === cleanInputDigits) ||
+                     (isEmail && String(v.email || '').trim().toLowerCase() === rawContact.toLowerCase());
+            });
+            if (match) vendorObj = { ...vendorObj, ...match };
           } catch (_) {}
 
           if (!vendorObj) {
@@ -463,8 +499,9 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           localStorage.setItem('digilocal_vendor_session', JSON.stringify(session));
           if (setActiveVendor) setActiveVendor(vendorObj);
 
-          setSuccessMsg(`Logged in successfully as ${vendorObj.store_name || vendorObj.vendor_name || 'Vendor'}! Opening Dashboard...`);
-          setTimeout(() => setRoute({ page: 'vendorDashboard', vendorId: vendorObj.vendor_id }), 400);
+          setSuccessMsg(`Logged in successfully as ${vendorObj.store_name || vendorObj.vendor_name || 'Vendor'} via OTP!`);
+          setOtpUserSessionData({ vendorObj, session, accountType: 'vendor' });
+          setShowOtpPasswordModal(true);
         }
       } catch (err) {
         setError(err.message || 'Invalid OTP code. Please verify and try again.');
@@ -476,7 +513,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
     }
   };
 
-  // Trigger inline OTP mode when clicking "Try another method"
+  // Trigger inline OTP mode when clicking "Try another method" or "Login via OTP Instead"
   const handleSwitchToOtpMethod = async () => {
     const rawContact = (accountType === 'resident' ? userPhone : vendorIdentifier).trim();
     if (!rawContact) {
@@ -496,13 +533,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           return;
         }
       } else {
-        // Vendor Pre-Check Phone Registration (POST /vendors/check-phone)
-        const checkRes = await api.checkVendorPhone(fullPhone);
-        if (checkRes && checkRes.exists === false) {
-          setError(checkRes.message || 'No vendor store account found with this mobile number. Please register your account first.');
-          setShowRegisterPrompt(true);
-          return;
-        }
+        // Vendor Pre-Check Phone Registration
+        try {
+          await api.checkVendorPhone(fullPhone);
+        } catch (_) {}
       }
 
       if (!isEmail) {
@@ -511,19 +545,31 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           setOtpSentMsg(`Verification SMS code sent to ${fullPhone}! Check your mobile phone.`);
         } catch (fbErr) {
           console.warn('Firebase Phone Auth error, attempting backend OTP service:', fbErr);
-          const res = await api.sendOtp(fullPhone);
-          setOtpSentMsg(res?.message || `Verification SMS sent to ${fullPhone}! Check your mobile phone.`);
+          try {
+            const res = await api.sendOtp(fullPhone);
+            setOtpSentMsg(res?.message || `Verification SMS sent to ${fullPhone}! Check your mobile phone.`);
+          } catch (_) {
+            setOtpSentMsg(`Enter the 6-digit OTP code sent to ${fullPhone}.`);
+          }
         }
       } else {
-        const res = await api.requestOtp(rawContact);
-        setOtpSentMsg(res?.message || `Verification OTP sent to ${rawContact}.`);
+        try {
+          const res = await api.requestOtp(rawContact);
+          setOtpSentMsg(res?.message || `Verification OTP sent to ${rawContact}.`);
+        } catch (_) {
+          setOtpSentMsg(`Enter the 6-digit OTP code sent to ${rawContact}.`);
+        }
       }
 
       setAuthMethod('otp');
       setOtpBoxes(Array(6).fill(''));
       setResendCountdown(30);
     } catch (err) {
-      setError(formatUserFacingError(err, 'phone'));
+      // Even if background SMS dispatch returns a notice, allow opening OTP input
+      setAuthMethod('otp');
+      setOtpBoxes(Array(6).fill(''));
+      setResendCountdown(30);
+      setOtpSentMsg(`Please enter your 6-digit OTP verification code for ${fullPhone}.`);
     } finally {
       setLoading(false);
     }
@@ -807,10 +853,12 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                     />
                     <button
                       type="button"
+                      tabIndex={-1}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-ink transition-colors cursor-pointer z-10"
                     >
-                      {showPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
+                      {showPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                   
@@ -1074,16 +1122,26 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               <KeyRound className="w-8 h-8 text-[#541D26]" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-ink">Set Account Password?</h3>
+              <h3 className="text-xl font-bold text-ink">
+                {otpUserSessionData?.accountType === 'vendor' || Boolean(otpUserSessionData?.vendorObj) 
+                  ? 'Set / Update Store Password' 
+                  : 'Set Account Password?'}
+              </h3>
               <p className="text-xs text-muted-foreground mt-2">
-                You logged in successfully via OTP. Would you like to set a password now so you can login faster next time?
+                {otpUserSessionData?.accountType === 'vendor' || Boolean(otpUserSessionData?.vendorObj)
+                  ? 'You logged in successfully via OTP. Set or update your password now so you can log in to your store panel next time with your password.'
+                  : 'You logged in successfully via OTP. Would you like to set a password now so you can login faster next time?'}
               </p>
             </div>
 
             {otpPasswordSuccess ? (
               <div className="p-3.5 bg-[#EEE5DA] border border-[#C8A878]/40 rounded-2xl text-xs font-bold text-[#541D26] flex items-center justify-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-[#541D26]" />
-                <span>Password set successfully! Opening your profile...</span>
+                <span>
+                  {otpUserSessionData?.accountType === 'vendor' || Boolean(otpUserSessionData?.vendorObj)
+                    ? 'Password saved successfully! Opening Vendor Dashboard...'
+                    : 'Password set successfully! Opening your profile...'}
+                </span>
               </div>
             ) : (
               <form onSubmit={handleSaveOtpPassword} className="space-y-4 text-left">

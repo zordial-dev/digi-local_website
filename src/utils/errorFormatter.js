@@ -57,15 +57,34 @@ export function formatUserFacingError(err, context = 'phone') {
 
   // 7. User Account Existing / Not Found
   if (strLower.includes('already-exists') || strLower.includes('already in use') || strLower.includes('already exists')) {
-    return 'An account with this mobile number already exists. Please log in instead.';
+    return 'An account with this mobile number or email already exists. Please log in instead.';
   }
-  if (strLower.includes('user-not-found') || strLower.includes('account does not exist') || strLower.includes('not found')) {
-    return 'No account found with this mobile number. Please register your account first.';
+  if (strLower.includes('user-not-found') || strLower.includes('account does not exist') || strLower.includes('vendor not found') || strLower.includes('not registered') || strLower.includes('no registered')) {
+    return 'No registered account found with this phone / email. Please click Register to create your account.';
   }
 
-  // 8. Incorrect Password
-  if (strLower.includes('wrong-password') || strLower.includes('password incorrect') || strLower.includes('incorrect password')) {
-    return 'Password incorrect. Please check your password and try again.';
+  // 8. Incorrect Password or Invalid Credentials
+  if (
+    strLower.includes('wrong-password') ||
+    strLower.includes('password incorrect') ||
+    strLower.includes('incorrect password') ||
+    strLower.includes('invalid password') ||
+    strLower.includes('invalid credentials') ||
+    strLower.includes('invalid email or password') ||
+    strLower.includes('invalid phone or password')
+  ) {
+    return 'Incorrect password or credentials. Please check your password and try again, or use OTP login.';
+  }
+
+  // If error is a JSON string e.g. {"error": "..."}, parse it
+  if (str.startsWith('{') && str.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(str);
+      const innerMsg = parsed.error || parsed.message || parsed.detail;
+      if (innerMsg && typeof innerMsg === 'string') {
+        return formatUserFacingError(innerMsg, context);
+      }
+    } catch (_) {}
   }
 
   // 9. Strip any residual "Firebase: Error (auth/...)" or "Firebase:" prefixes cleanly
@@ -78,7 +97,7 @@ export function formatUserFacingError(err, context = 'phone') {
 
   // If the error message is too long, contains URLs, or developer stack traces, use a clean fallback
   if (cleaned.length > 120 || cleaned.includes('http') || cleaned.includes('{') || cleaned.includes('at ')) {
-    return 'Unable to process your request. Please try again or contact support.';
+    return 'Incorrect login credentials. Please check your phone/email and password, or log in via OTP.';
   }
 
   // Ensure capital first letter and ending period

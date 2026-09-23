@@ -44,7 +44,7 @@ export default function FloatingCartBar({ currentRoute, setRoute }) {
     };
   }, []);
 
-  // Hide on auth / admin pages
+  // Hide on auth, admin, and vendorStorefront pages (Storefront has its own dedicated cart drawer bar)
   if (
     !activeCart ||
     !activeCart.items ||
@@ -52,7 +52,8 @@ export default function FloatingCartBar({ currentRoute, setRoute }) {
     currentRoute?.page === 'login' ||
     currentRoute?.page === 'register' ||
     currentRoute?.page === 'vendorRegister' ||
-    currentRoute?.page === 'admin'
+    currentRoute?.page === 'admin' ||
+    currentRoute?.page === 'vendorStorefront'
   ) {
     return null;
   }

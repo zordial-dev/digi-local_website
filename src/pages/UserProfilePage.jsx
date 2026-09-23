@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import DeliveryAddressModal from '../components/DeliveryAddressModal';
+import LiveOrderTrackerModal from '../components/LiveOrderTrackerModal';
 import { 
   User, 
   Mail, 
@@ -89,6 +90,7 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
   // Orders & Favorites State
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [trackingOrder, setTrackingOrder] = useState(null);
   const [orderSearch, setOrderSearch] = useState('');
   const [orderFilter, setOrderFilter] = useState('ALL');
   const [favorites, setFavorites] = useState([]);
@@ -375,12 +377,52 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         }
       }
 
+      // Filter out mock dummy orders
+      const isRealOrder = (o) => {
+        if (!o) return false;
+        const cName = (o.customer_name || o.user_name || o.name || '').trim().toLowerCase();
+        const pNum = (o.phone_number || o.phone || o.user_phone || '').trim();
+        const oId = String(o.order_id || '');
+        if (cName.includes('rahul sharma') || cName.includes('demo customer')) return false;
+        if (pNum === '9876543210' || pNum === '9876543211' || pNum === '9876543212' || pNum === '+919876543210') return false;
+        if ((oId === '1642' || oId === 'ORD-1642' || oId === '1') && cName.includes('rahul')) return false;
+        return true;
+      };
+
+      const matchesActiveUser = (o) => {
+        if (!o || !isRealOrder(o)) return false;
+        const userPhone = String(activeUser?.phone || activeUser?.mobile || activePhone || '').replace(/\D/g, '');
+        const orderPhone = String(o.phone || o.user_phone || o.phone_number || '').replace(/\D/g, '');
+        const userId = String(activeUser?.user_id || activeUser?.id || '');
+        const orderUserId = String(o.user_id || '');
+
+        if (userPhone && orderPhone && (orderPhone === userPhone || orderPhone.endsWith(userPhone) || userPhone.endsWith(orderPhone))) return true;
+        if (userId && orderUserId && userId === orderUserId) return true;
+        if (!userPhone && !userId) return true; // Guest session
+        return false;
+      };
+
       // Merge locally placed order receipts
+      try {
+        const userOrdersStr = localStorage.getItem('digilocal_user_orders');
+        if (userOrdersStr) {
+          const userOrdersList = JSON.parse(userOrdersStr);
+          if (Array.isArray(userOrdersList)) {
+            userOrdersList.filter(matchesActiveUser).forEach(po => {
+              if (po && (po.order_id || po.id)) {
+                const alreadyExists = liveOrders.some(o => String(o.order_id || o.id) === String(po.order_id || po.id));
+                if (!alreadyExists) liveOrders.push(po);
+              }
+            });
+          }
+        }
+      } catch (_) {}
+
       try {
         const activeOrderStr = localStorage.getItem('digilocal_active_order');
         if (activeOrderStr) {
           const parsedOrder = JSON.parse(activeOrderStr);
-          if (parsedOrder && (parsedOrder.order_id || parsedOrder.id)) {
+          if (parsedOrder && (parsedOrder.order_id || parsedOrder.id) && matchesActiveUser(parsedOrder)) {
             const alreadyExists = liveOrders.some(o => String(o.order_id || o.id) === String(parsedOrder.order_id || parsedOrder.id));
             if (!alreadyExists) {
               liveOrders.unshift(parsedOrder);
@@ -394,7 +436,7 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         if (pastOrdersStr) {
           const pastList = JSON.parse(pastOrdersStr);
           if (Array.isArray(pastList)) {
-            pastList.forEach(po => {
+            pastList.filter(matchesActiveUser).forEach(po => {
               if (po && (po.order_id || po.id)) {
                 const alreadyExists = liveOrders.some(o => String(o.order_id || o.id) === String(po.order_id || po.id));
                 if (!alreadyExists) liveOrders.push(po);
@@ -404,7 +446,19 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         }
       } catch (_) {}
 
-      setOrders(liveOrders);
+      // Deduplicate and filter out dummy orders
+      const seen = new Set();
+      const cleanOrders = [];
+      for (const ord of liveOrders) {
+        if (!ord) continue;
+        const id = String(ord.order_id || ord.id || '');
+        if (id && !seen.has(id) && isRealOrder(ord)) {
+          seen.add(id);
+          cleanOrders.push(ord);
+        }
+      }
+
+      setOrders(cleanOrders);
     };
 
     loadRealOrders();
@@ -1028,34 +1082,61 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
 
                               if (st === 'CANCELLED' || st === 'CANCELED' || st === 'REJECTED' || st === 'DECLINED' || st === 'FAILED') {
                                 return (
-                                  <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-900 border border-rose-300 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                    <AlertCircle className="w-3 h-3 text-rose-700" />
+                                  <span className="px-2.5 py-0.5 rounded-full bg-[#FEF2F2] text-[#B91C1C] border border-rose-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                    <AlertCircle className="w-3 h-3 text-[#B91C1C]" />
                                     <span>Cancelled</span>
                                   </span>
                                 );
                               }
 
-                              if (st === 'COMPLETED' || st === 'DELIVERED' || st === 'SERVED') {
+                              if (st === 'COMPLETED' || st === 'DELIVERED' || st === 'COMPLETE' || st === 'FULFILLED' || st === 'DONE') {
                                 return (
-                                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                                  <span className="px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] border border-emerald-300 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                    <CheckCircle2 className="w-3 h-3 text-[#059669]" />
                                     <span>Delivered</span>
                                   </span>
                                 );
                               }
 
-                              if (st === 'ACCEPTED' || st === 'PREPARING' || st === 'OUT_FOR_DELIVERY' || st === 'IN_TRANSIT') {
+                              if (st === 'IN_PROGRESS' || st === 'OUT_FOR_DELIVERY' || st === 'PROCESSING' || st === 'IN_TRANSIT') {
                                 return (
-                                  <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-950 border border-amber-300 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                    <Truck className="w-3 h-3 text-amber-800" />
-                                    <span>{st === 'OUT_FOR_DELIVERY' ? 'Out for Delivery' : 'Preparing'}</span>
+                                  <span className="px-2.5 py-0.5 rounded-full bg-[#F5F3FF] text-[#6D28D9] border border-purple-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                    <Truck className="w-3 h-3 text-[#6D28D9]" />
+                                    <span>Out for Delivery</span>
+                                  </span>
+                                );
+                              }
+
+                              if (st === 'ACCEPTED' || st === 'ACCEPT' || st === 'PREPARING') {
+                                return (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-[#F0FDF4] text-[#15803D] border border-green-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                    <CheckCircle2 className="w-3 h-3 text-[#15803D]" />
+                                    <span>Accepted</span>
+                                  </span>
+                                );
+                              }
+
+                              if (st === 'CONFIRMED') {
+                                return (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#047857] border border-emerald-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                    <CheckCircle2 className="w-3 h-3 text-[#047857]" />
+                                    <span>Confirmed</span>
+                                  </span>
+                                );
+                              }
+
+                              if (st === 'PENDING') {
+                                return (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-[#FFFBEB] text-[#B45309] border border-amber-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                    <Clock className="w-3 h-3 text-[#B45309]" />
+                                    <span>Payment Pending</span>
                                   </span>
                                 );
                               }
 
                               return (
-                                <span className="px-2.5 py-0.5 rounded-full bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                  <Clock className="w-3 h-3 text-[#541D26]" />
+                                <span className="px-2.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] border border-blue-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                  <Clock className="w-3 h-3 text-[#1D4ED8]" />
                                   <span>Order Placed</span>
                                 </span>
                               );
@@ -1082,6 +1163,15 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                         </div>
 
                         <div className="flex items-center space-x-1.5 border-l border-[#E5DAD0] pl-3">
+                          <button
+                            onClick={() => setTrackingOrder(order)}
+                            className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black transition-all flex items-center space-x-1 shadow-xs cursor-pointer animate-pulse"
+                            title="Track Live Swiggy/Zomato style order updates"
+                          >
+                            <Truck className="w-3.5 h-3.5 text-slate-950" />
+                            <span>Track Live</span>
+                          </button>
+
                           <button
                             onClick={() => setSelectedOrder(order)}
                             className="px-3 py-1.5 rounded-lg border border-[#E5DAD0] hover:bg-[#EEE5DA] text-[#211A19] text-xs font-semibold transition-all flex items-center space-x-1 cursor-pointer"
@@ -1114,7 +1204,7 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                         </span>
                       </div>
                       <span className="text-[11px] text-[#541D26] font-semibold bg-[#541D26]/10 px-2 py-0.5 rounded-md border border-[#541D26]/20 shrink-0 ml-2">
-                        {order.payment_method || 'COD / WhatsApp'}
+                        {order.payment_method || 'Cash on Delivery (COD)'}
                       </span>
                     </div>
 
@@ -1677,8 +1767,10 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                     />
                     <button
                       type="button"
+                      tabIndex={-1}
+                      aria-label={showPasswordCurrent ? "Hide password" : "Show password"}
                       onClick={() => setShowPasswordCurrent(!showPasswordCurrent)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-ink transition-colors p-1 cursor-pointer"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-ink transition-colors p-1 cursor-pointer z-10"
                     >
                       {showPasswordCurrent ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4 text-gray-500" />}
                     </button>
@@ -1698,8 +1790,10 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                     />
                     <button
                       type="button"
+                      tabIndex={-1}
+                      aria-label={showPasswordNew ? "Hide password" : "Show password"}
                       onClick={() => setShowPasswordNew(!showPasswordNew)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-ink transition-colors p-1 cursor-pointer"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-ink transition-colors p-1 cursor-pointer z-10"
                     >
                       {showPasswordNew ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4 text-gray-500" />}
                     </button>
@@ -1719,8 +1813,10 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                     />
                     <button
                       type="button"
+                      tabIndex={-1}
+                      aria-label={showPasswordConfirm ? "Hide password" : "Show password"}
                       onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-ink transition-colors p-1 cursor-pointer"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-ink transition-colors p-1 cursor-pointer z-10"
                     >
                       {showPasswordConfirm ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4 text-gray-500" />}
                     </button>
@@ -1935,6 +2031,14 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
           loadAddresses();
           setEditingAddress(null);
         }}
+      />
+
+      {/* Swiggy / Zomato Style Live Order Tracker Modal */}
+      <LiveOrderTrackerModal
+        isOpen={Boolean(trackingOrder)}
+        onClose={() => setTrackingOrder(null)}
+        initialOrder={trackingOrder}
+        setRoute={setRoute}
       />
 
     </div>

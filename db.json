@@ -145,7 +145,9 @@
           "is_auto_selected": true,
           "is_active": true
         }
-      ]
+      ],
+      "password": "NewSecretPassword456!",
+      "updated_at": "2026-09-23T08:52:02.742Z"
     },
     {
       "vendor_id": 2,
@@ -545,6 +547,13 @@
   ],
   "orders": [
     {
+      "order_id": "ORD-4167",
+      "status": "COMPLETED",
+      "total_amount": 150,
+      "created_at": "2026-09-23T08:44:46.278Z",
+      "delivered_at": "2026-09-23T08:44:59.979Z"
+    },
+    {
       "order_id": "ORD-7218",
       "id": "ORD-7218",
       "user_id": "usr_932532",
@@ -556,7 +565,7 @@
       "store_logo": "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80",
       "society_name": "Omaxe Greenwood Residency",
       "delivery_address": "Tower A-402, Omaxe Greenwood Residency",
-      "status": "COMPLETED",
+      "status": "IN_PROGRESS",
       "status_label": "Order Delivered",
       "payment_status": "PAID",
       "payment_method": "COD / WhatsApp",

@@ -251,7 +251,8 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     isVendorContactVerified && verifiedContactValue.includes(mobileNumber.trim()) &&
     emailAddress && emailAddress.trim().includes('@') &&
     shopBusinessName && shopBusinessName.trim().length > 0 &&
-    gstNumber && gstNumber.trim().length >= 5 &&
+    shopNumber && shopNumber.trim().length > 0 &&
+    (taxIdType === 'gstin' ? (gstNumber && gstNumber.trim().length >= 5) : (panNumber && panNumber.trim().length >= 5)) &&
     Array.isArray(shopImages) && shopImages.length > 0
   );
 
@@ -1777,10 +1778,12 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                   />
                   <button
                     type="button"
+                    tabIndex={-1}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-ink transition-colors cursor-pointer z-10"
                   >
-                    {showPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
+                    {showPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
                 {password && !isPasswordValid && (
@@ -1810,10 +1813,12 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                   />
                   <button
                     type="button"
+                    tabIndex={-1}
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-ink transition-colors cursor-pointer z-10"
                   >
-                    {showConfirmPassword ? <Eye className="w-4 h-4 text-[#541D26]" /> : <EyeOff className="w-4 h-4" />}
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
                 {confirmPassword && confirmPassword !== password && (

@@ -39,8 +39,27 @@ export default function VendorStatusBanner({ vendorId, token, onNavigateSettings
   };
 
   useEffect(() => {
+    if (activeVendor?.status || activeVendor?.vendor_status) {
+      const rawStatus = (activeVendor.status || activeVendor.vendor_status || '').toLowerCase();
+      const isHold = rawStatus === 'on_hold' || rawStatus === 'hold';
+      const isAccepted = rawStatus === 'accepted' || rawStatus === 'active' || rawStatus === 'approved';
+      const isRejected = rawStatus === 'rejected';
+      const isPending = !isHold && !isAccepted && !isRejected;
+      setStatusData({
+        status: isAccepted ? 'accepted' : isRejected ? 'rejected' : isHold ? 'on_hold' : 'pending',
+        is_accepted: isAccepted,
+        is_pending: isPending,
+        is_rejected: isRejected,
+        is_on_hold: isHold,
+        has_resubmitted: Boolean(activeVendor.has_resubmitted),
+        hold_reason: activeVendor.hold_reason || '',
+        recommended_ui_text: isAccepted ? 'Congratulations! Your shop application is approved and active.' : (isHold ? 'Your application is on hold.' : 'Your registration request is under review.')
+      });
+      setLoading(false);
+      return;
+    }
     fetchStatus();
-  }, [vendorId, token]);
+  }, [vendorId, token, activeVendor?.status, activeVendor?.vendor_status]);
 
   // Mark the approval banner as seen so it only displays once
   useEffect(() => {

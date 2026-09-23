@@ -72,13 +72,10 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
         password: vendorPassword 
       });
 
-      const vendorObj = res.vendor || {
-        vendor_id: 1,
-        vendor_name: vendorEmail.split('@')[0],
-        store_name: `${vendorEmail.split('@')[0]}'s Store`,
-        email: vendorEmail.trim(),
-        status: 'ACTIVE'
-      };
+      const vendorObj = res?.vendor;
+      if (!vendorObj) {
+        throw new Error('No registered vendor store found. Please verify your credentials.');
+      }
 
       const session = {
         vendor: vendorObj,
@@ -329,8 +326,10 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
                   />
                   <button
                     type="button"
+                    tabIndex={-1}
+                    aria-label={showVendorPassword ? "Hide password" : "Show password"}
                     onClick={() => setShowVendorPassword(!showVendorPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink transition-colors p-1 cursor-pointer z-10"
                   >
                     {showVendorPassword ? <EyeOff className="w-4 h-4 text-[#541D26]" /> : <Eye className="w-4 h-4" />}
                   </button>
