@@ -104,7 +104,7 @@ export function isServiceVendor(vendor) {
   return false;
 }
 
-export function getCategoryCoverImage(vendor) {
+function getCategoryCoverImage(vendor) {
   if (!vendor) return null;
   const vId = vendor.vendor_id;
   const savedCustomLogo = (vId ? localStorage.getItem(`digilocal_vendor_logo_${vId}`) : null) ||

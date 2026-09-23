@@ -459,7 +459,16 @@ export default function App() {
         )}
 
         {route.page === 'info' && (
-          <InfoPages currentRoute={route} tab={route.tab} setRoute={setRoute} onOpenSupportDesk={() => setIsSupportDeskOpen(true)} />
+          <InfoPages
+            currentRoute={route}
+            tab={route.tab}
+            setRoute={setRoute}
+            onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
+            setActiveUser={setActiveUser}
+            setActiveVendor={setActiveVendor}
+            onUserLogout={handleUserLogout}
+            onVendorLogout={handleVendorLogout}
+          />
         )}
 
         {!['home', 'login', 'register', 'profile', 'societyVendors', 'vendorStorefront', 'vendorRegister', 'vendorDashboard', 'admin', 'info'].includes(route.page) && (

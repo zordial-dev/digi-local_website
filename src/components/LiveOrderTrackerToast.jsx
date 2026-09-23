@@ -7,8 +7,24 @@ export default function LiveOrderTrackerToast({ setRoute }) {
   const [isTrackerOpen, setIsTrackerOpen] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
+  const isUserLoggedIn = () => {
+    try {
+      const token = localStorage.getItem('userToken') || localStorage.getItem('token') || localStorage.getItem('digilocal_user_token');
+      const session = localStorage.getItem('digilocal_resident_session') || localStorage.getItem('user') || localStorage.getItem('digilocal_user');
+      if (!token && !session) return false;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+
   const loadActiveOrder = () => {
     try {
+      if (!isUserLoggedIn()) {
+        setActiveOrder(null);
+        return;
+      }
+
       const stored = localStorage.getItem('digilocal_active_order');
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -50,18 +66,21 @@ export default function LiveOrderTrackerToast({ setRoute }) {
     loadActiveOrder();
 
     const handleStorage = (e) => {
-      if (e.key === 'digilocal_active_order' || e.key === 'digilocal_user_orders') {
+      if (e.key === 'digilocal_active_order' || e.key === 'digilocal_user_orders' || e.key === 'userToken' || e.key === 'digilocal_resident_session' || e.key === 'user') {
         loadActiveOrder();
       }
     };
 
-    const handleCustomOrder = (e) => {
+    const handleCustomOrder = () => {
       loadActiveOrder();
     };
 
     window.addEventListener('storage', handleStorage);
     window.addEventListener('digilocal_new_order', handleCustomOrder);
     window.addEventListener('digilocal_order_status_update', handleCustomOrder);
+    window.addEventListener('digilocal_auth_change', handleCustomOrder);
+    window.addEventListener('digilocal_user_logout', handleCustomOrder);
+    window.addEventListener('digilocal_user_login', handleCustomOrder);
 
     const interval = setInterval(loadActiveOrder, 4000);
 
@@ -69,6 +88,9 @@ export default function LiveOrderTrackerToast({ setRoute }) {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('digilocal_new_order', handleCustomOrder);
       window.removeEventListener('digilocal_order_status_update', handleCustomOrder);
+      window.removeEventListener('digilocal_auth_change', handleCustomOrder);
+      window.removeEventListener('digilocal_user_logout', handleCustomOrder);
+      window.removeEventListener('digilocal_user_login', handleCustomOrder);
       clearInterval(interval);
     };
   }, []);

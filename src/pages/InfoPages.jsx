@@ -57,7 +57,7 @@ const FAQS_DATA = [
   { q: 'How can I register my store as a vendor on DigiLocal?', a: 'Click "Become a Vendor" in the header menu, fill in your shop name, phone number, catalog items, and select your target residential societies. Registration takes under 2 minutes.', cat: 'Vendors' }
 ];
 
-export default function InfoPages({ currentRoute, tab, setRoute }) {
+export default function InfoPages({ currentRoute, tab, setRoute, setActiveUser, setActiveVendor, onUserLogout, onVendorLogout }) {
   const activeTab = currentRoute?.tab || tab || 'about-us';
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,7 +88,7 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
   const [navTabs, setNavTabs] = useState(DEFAULT_NAV_TABS);
   const [isVendorLoggedIn, setIsVendorLoggedIn] = useState(false);
 
-  // Account Deletion States (Connexon Style)
+  // Account Deletion States (Connexon Style - starts blank with placeholders)
   const [deleteEmail, setDeleteEmail] = useState('');
   const [deletePhone, setDeletePhone] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
@@ -97,18 +97,6 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
   const [deleteError, setDeleteError] = useState('');
   const [deleteSuccess, setDeleteSuccess] = useState('');
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
-
-  useEffect(() => {
-    try {
-      const uStr = localStorage.getItem('digilocal_resident_session') || localStorage.getItem('user') || localStorage.getItem('digilocal_user');
-      if (uStr) {
-        const u = JSON.parse(uStr);
-        const userObj = u.user || u;
-        if (userObj.email && !deleteEmail) setDeleteEmail(userObj.email);
-        if (userObj.phone && !deletePhone) setDeletePhone(userObj.phone);
-      }
-    } catch (_) {}
-  }, []);
 
   const handleDeleteSubmit = (e) => {
     if (e) e.preventDefault();
@@ -135,6 +123,38 @@ export default function InfoPages({ currentRoute, tab, setRoute }) {
         setDeletePhone('');
         setDeletePassword('');
         setDeleteConfirmModal(false);
+
+        // Instantly perform automatic logout across local storage and application state
+        try {
+          localStorage.removeItem('userToken');
+          localStorage.removeItem('user');
+          localStorage.removeItem('digilocal_user_token');
+          localStorage.removeItem('digilocal_user');
+          localStorage.removeItem('digilocal_resident_session');
+          localStorage.removeItem('digilocal_vendor_session');
+          localStorage.removeItem('digilocal_user_session');
+          localStorage.removeItem('user_profile');
+          localStorage.removeItem('resident_profile');
+          localStorage.removeItem('vendor_profile');
+          localStorage.removeItem('digilocal_user_orders');
+          localStorage.removeItem('digilocal_active_order');
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('token');
+          localStorage.removeItem('digilocal_saved_addresses');
+          localStorage.removeItem('digilocal_user_location');
+          localStorage.removeItem('digilocal_guest_address');
+        } catch (_) {}
+
+        // Reset global React states (Navbar, Header, etc.)
+        if (typeof setActiveUser === 'function') setActiveUser(null);
+        if (typeof setActiveVendor === 'function') setActiveVendor(null);
+        setIsVendorLoggedIn(false);
+
+        // Dispatch system-wide broadcast events
+        window.dispatchEvent(new CustomEvent('digilocal_user_logout'));
+        window.dispatchEvent(new CustomEvent('digilocal_auth_change'));
+        window.dispatchEvent(new CustomEvent('digilocal_saved_addresses_updated', { detail: [] }));
+        window.dispatchEvent(new CustomEvent('digilocal_location_changed', { detail: null }));
       } else {
         setDeleteError(res?.error || 'Account deletion failed. Please check your credentials.');
         setDeleteConfirmModal(false);
