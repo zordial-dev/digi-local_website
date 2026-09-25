@@ -72,8 +72,9 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   const [altMsg, setAltMsg] = useState('');
   const [altMsgType, setAltMsgType] = useState('info'); // 'info' | 'success' | 'error'
 
-  // Real Dynamic OTP State & 30s Resend Timer (6 Digits for Firebase SMS)
+  // Real Dynamic OTP State & 30s Resend Timer (6 Digits for Message Central / MSG91)
   const [otpBoxes, setOtpBoxes] = useState(['', '', '', '', '', '']);
+  const [verificationId, setVerificationId] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
 
@@ -202,9 +203,9 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
   const handleOtpBoxPaste = (e) => {
     e.preventDefault();
-    const pasteData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 4);
+    const pasteData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 6);
     if (pasteData) {
-      const newBoxes = pasteData.split('').concat(['', '', '', '']).slice(0, 4);
+      const newBoxes = pasteData.split('').concat(['', '', '', '', '', '']).slice(0, 6);
       setOtpBoxes(newBoxes);
       setAltOtp(newBoxes.join(''));
     }
@@ -404,7 +405,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               firebaseToken = result.idToken;
             } catch (fbVerifyErr) {
               console.warn('Firebase OTP verify fallback to API verification:', fbVerifyErr);
-              await api.verifyOtp(fullPhone, code);
+              await api.verifyOtp({ phone: fullPhone, otp: code, verification_id: verificationId });
             }
           }
 
@@ -412,6 +413,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
             phone: fullPhone,
             firebase_token: firebaseToken || undefined,
             otp: code,
+            verification_id: verificationId,
             isOtpLogin: true
           });
 
@@ -457,6 +459,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
             phone: fullPhone,
             email: rawContact,
             otp: code,
+            verification_id: verificationId,
             firebase_token: firebaseToken || undefined
           });
 
@@ -547,6 +550,9 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           console.warn('Firebase Phone Auth error, attempting backend OTP service:', fbErr);
           try {
             const res = await api.sendOtp(fullPhone);
+            if (res?.verification_id || res?.verificationId) {
+              setVerificationId(res.verification_id || res.verificationId);
+            }
             setOtpSentMsg(res?.message || `Verification SMS sent to ${fullPhone}! Check your mobile phone.`);
           } catch (_) {
             setOtpSentMsg(`Enter the 6-digit OTP code sent to ${fullPhone}.`);
@@ -555,6 +561,9 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
       } else {
         try {
           const res = await api.requestOtp(rawContact);
+          if (res?.verification_id || res?.verificationId) {
+            setVerificationId(res.verification_id || res.verificationId);
+          }
           setOtpSentMsg(res?.message || `Verification OTP sent to ${rawContact}.`);
         } catch (_) {
           setOtpSentMsg(`Enter the 6-digit OTP code sent to ${rawContact}.`);
@@ -589,10 +598,16 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           setOtpSentMsg(`Verification SMS code resent to ${fullPhone}. Check your mobile phone.`);
         } catch (_) {
           const res = await api.sendOtp(fullPhone);
+          if (res?.verification_id || res?.verificationId) {
+            setVerificationId(res.verification_id || res.verificationId);
+          }
           setOtpSentMsg(res?.message || `Verification SMS resent to ${fullPhone}. Check your mobile phone.`);
         }
       } else {
         const res = await api.requestOtp(rawContact);
+        if (res?.verification_id || res?.verificationId) {
+          setVerificationId(res.verification_id || res.verificationId);
+        }
         setOtpSentMsg(res?.message || `Verification OTP resent to ${rawContact}.`);
       }
       setResendCountdown(30);

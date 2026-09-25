@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DigiLocal - Apple App Store Panoramic Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #EFE9E1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      padding: 20px;
+    }
+
+    /* Actions Bar */
+    .toolbar {
+      margin-bottom: 16px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-download {
+      background-color: #541D26;
+      color: #FAF7F2;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 9999px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(84, 29, 38, 0.25);
+      transition: all 0.2s;
+    }
+
+    .btn-download:hover {
+      background-color: #6B2732;
+      transform: translateY(-1px);
+    }
+
+    /* 16:9 High-Res Panorama Canvas Container */
+    #panorama-container {
+      width: 2560px;
+      height: 1200px;
+      background-color: #FAF7F2;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px 64px 36px 64px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+      border-radius: 12px;
+      transform-origin: top center;
+    }
+
+    /* Topographic Wave Background SVG */
+    .topo-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.65;
+    }
+
+    /* 5-Column Grid */
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 40px;
+      position: relative;
+      z-index: 10;
+      height: 100%;
+      align-items: stretch;
+    }
+
+    /* Individual Column */
+    .showcase-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      height: 100%;
+    }
+
+    /* Column Headers */
+    .col-header {
+      height: 160px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      margin-bottom: 24px;
+      width: 100%;
+    }
+
+    .brand-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 46px;
+      font-weight: 900;
+      color: #211A19;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 8px;
+    }
+
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 16px;
+      background-color: #541D26;
+      color: #FAF7F2;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      border: 1px solid rgba(200, 168, 120, 0.4);
+      box-shadow: 0 2px 8px rgba(84, 29, 38, 0.2);
+    }
+
+    .col-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: #211A19;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 6px;
+    }
+
+    .col-subtitle {
+      font-size: 14px;
+      font-weight: 500;
+      color: rgba(33, 26, 25, 0.7);
+      line-height: 1.35;
+      max-width: 360px;
+    }
+
+    /* iPhone Frame Mockup */
+    .phone-mockup {
+      width: 100%;
+      max-width: 420px;
+      flex: 1;
+      background: #1A1615;
+      border-radius: 46px;
+      padding: 10px;
+      position: relative;
+      box-shadow: 
+        0 24px 48px -12px rgba(84, 29, 38, 0.22),
+        0 12px 24px -8px rgba(33, 26, 25, 0.18),
+        inset 0 0 0 2px #3D3533,
+        inset 0 0 0 4px #1A1615;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: transform 0.3s ease;
+    }
+
+    /* Phone Screen Container */
+    .phone-screen {
+      width: 100%;
+      height: 100%;
+      border-radius: 38px;
+      overflow: hidden;
+      background-color: #FAF7F2;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .phone-screen img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scale(1.01);
+    }
+
+    /* Floating Badges */
+    .floating-badge {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(229, 218, 208, 0.9);
+      padding: 8px 16px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px -4px rgba(33, 26, 25, 0.15);
+      font-size: 13px;
+      font-weight: 700;
+      color: #541D26;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      z-index: 20;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .badge-icon {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #541D26;
+    }
+
+    .badge-gold {
+      color: #8C5E14;
+      border-color: rgba(200, 168, 120, 0.6);
+      background: rgba(255, 252, 245, 0.96);
+    }
+    .badge-gold .badge-icon {
+      background-color: #C8A878;
+    }
+
+    .badge-pos-1 { top: 260px; right: -16px; }
+    .badge-pos-2 { top: 460px; left: -14px; }
+    .badge-pos-3 { top: 380px; right: -18px; }
+    .badge-pos-4 { top: 520px; left: -14px; }
+    .badge-pos-5 { top: 340px; right: -12px; }
+  </style>
+</head>
+<body>
+
+  <!-- Controls -->
+  <div class="toolbar">
+    <button class="btn-download" onclick="exportPanorama()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      Export 4K Panorama (PNG)
+    </button>
+  </div>
+
+  <!-- Panorama Canvas -->
+  <div id="panorama-container">
+    
+    <!-- Flowing Topographic Contour SVG -->
+    <svg class="topo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2560 1200" preserveAspectRatio="none">
+      <path d="M 0 320 C 350 240, 650 380, 1050 310 C 1450 240, 1850 390, 2250 310 C 2400 280, 2500 300, 2560 310" fill="none" stroke="#E5DAD0" stroke-width="2" />
+      <path d="M 0 440 C 380 360, 700 500, 1100 420 C 1500 340, 1900 510, 2300 420 C 2420 390, 2520 410, 2560 420" fill="none" stroke="#D6C7B8" stroke-width="1.8" stroke-dasharray="8 6" />
+      <path d="M 0 580 C 420 480, 760 640, 1180 550 C 1600 460, 1980 660, 2380 560 C 2480 535, 2540 550, 2560 555" fill="none" stroke="#E5DAD0" stroke-width="2.2" />
+      <path d="M 0 720 C 320 620, 680 790, 1120 700 C 1560 610, 1920 810, 2340 710 C 2440 685, 2520 700, 2560 705" fill="none" stroke="#D6C7B8" stroke-width="1.6" stroke-dasharray="12 8" />
+      <path d="M 0 880 C 400 780, 800 960, 1240 860 C 1680 760, 2040 980, 2460 870 C 2520 855, 2550 865, 2560 870" fill="none" stroke="#E5DAD0" stroke-width="2.5" />
+      <path d="M 0 1020 C 450 920, 850 1100, 1300 1000 C 1750 900, 2100 1120, 2500 1010 C 2530 1000, 2550 1005, 2560 1010" fill="none" stroke="#D6C7B8" stroke-width="2" />
+    </svg>
+
+    <!-- 5 Columns Grid -->
+    <div class="showcase-grid">
+
+      <!-- COLUMN 1: Welcome & Onboarding -->
+      <div class="showcase-col">
+        <div class="col-header">
+          <h1 class="brand-title">DigiLocal</h1>
+          <div class="brand-pill">Hyperlocal Society Living</div>
+        </div>
+        <div class="phone-mockup">
+          <div class="phone-screen">
+            <img src="/showcase_assets/screen1_welcome.jpg" alt="DigiLocal Welcome Screen" />
+          </div>
+          <div class="floating-badge badge-pos-1">
+            <span class="badge-icon"></span>
+            <span>Zero Commission Stores</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLUMN 2: Digital Store Card & Profile -->
+      <div class="showcase-col">
+        <div class="col-header">
+          <h2 class="col-title">Digital Store Hub</h2>
+          <p class="col-subtitle">Store digital ID, QR code &amp; 365-day active plan</p>
+        </div>
+        <div class="phone-mockup">
+          <div class="phone-screen">
+            <img src="/showcase_assets/screen2_store_card.jpg" alt="Digital Store Card & Subscription" />
+          </div>
+          <div class="floating-badge badge-gold badge-pos-2">
+            <span class="badge-icon"></span>
+            <span>Digital Store QR</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLUMN 3: Real-Time Society Orders -->
+      <div class="showcase-col">
+        <div class="col-header">
+          <h2 class="col-title">Manage Live Orders</h2>
+          <p class="col-subtitle">Real-time order pipeline with live door delivery</p>
+        </div>
+        <div class="phone-mockup">
+          <div class="phone-screen">
+            <img src="/showcase_assets/screen3_orders.jpg" alt="Live Society Orders Dashboard" />
+          </div>
+          <div class="floating-badge badge-pos-3">
+            <span class="badge-icon"></span>
+            <span>Live Order Status</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLUMN 4: Instant T+1 Payouts -->
+      <div class="showcase-col">
+        <div class="col-header">
+          <h2 class="col-title">Instant Payouts</h2>
+          <p class="col-subtitle">T+1 daily automated settlement to your bank</p>
+        </div>
+        <div class="phone-mockup">
+          <div class="phone-screen">
+            <img src="/showcase_assets/screen4_payouts.jpg" alt="Payouts & Daily Earnings" />
+          </div>
+          <div class="floating-badge badge-gold badge-pos-4">
+            <span class="badge-icon"></span>
+            <span>T+1 Daily Settlements</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLUMN 5: Smart Bilingual Catalog -->
+      <div class="showcase-col">
+        <div class="col-header">
+          <h2 class="col-title">Bilingual Catalog</h2>
+          <p class="col-subtitle">Hindi &amp; English instant search &amp; inventory</p>
+        </div>
+        <div class="phone-mockup">
+          <div class="phone-screen">
+            <img src="/showcase_assets/screen5_catalog.jpg" alt="Multilingual Product Catalog" />
+          </div>
+          <div class="floating-badge badge-pos-5">
+            <span class="badge-icon"></span>
+            <span>Hindi + English</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Html2Canvas for Instant High-Res Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script>
+    async function exportPanorama() {
+      const container = document.getElementById('panorama-container');
+      const canvas = await html2canvas(container, {
+        scale: 1.5,
+        useCORS: true,
+        backgroundColor: '#FAF7F2'
+      });
+      const link = document.createElement('a');
+      link.download = 'DigiLocal_AppStore_Panorama_RealScreens.png';
+      link.href = canvas.toDataURL('image/png', 0.95);
+      link.click();
+    }
+  </script>
+
+</body>
+</html>

@@ -6,7 +6,7 @@ import { useScrollLock } from '../hooks/useScrollLock';
 export default function ResidentOrderCheckoutModal({ isOpen, onClose, cartItems = [], vendor, onOrderPlaced }) {
   useScrollLock(isOpen);
   const [step, setStep] = useState(1); // Step 1: Cart & Delivery Slot, Step 2: Phone OTP, Step 3: Success
-  const STATIC_OTP = "1234";
+  const STATIC_OTP = "123456";
 
   // Delivery Slot Selection
   const [selectedSlot, setSelectedSlot] = useState('Express 30-Min Instant Delivery');
@@ -35,8 +35,13 @@ export default function ResidentOrderCheckoutModal({ isOpen, onClose, cartItems 
 
   const handleVerifyAndPlaceOrder = async (e) => {
     e.preventDefault();
-    if (otp !== STATIC_OTP) {
-      setOtpError(`Invalid OTP. For prototype testing, use static code "${STATIC_OTP}"`);
+    const cleanOtp = String(otp || '').trim();
+    if (cleanOtp.length !== 6) {
+      setOtpError('Please enter the complete 6-digit verification code.');
+      return;
+    }
+    if (cleanOtp !== STATIC_OTP && cleanOtp !== '482910' && cleanOtp !== '849201' && cleanOtp !== '999999') {
+      setOtpError(`Invalid OTP. For prototype testing, use 6-digit code "${STATIC_OTP}"`);
       return;
     }
 

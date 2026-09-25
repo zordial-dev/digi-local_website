@@ -32,6 +32,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
 
   // 6-Digit OTP Box State & Refs
   const [otpValues, setOtpValues] = useState(['', '', '', '', '', '']);
+  const [verificationId, setVerificationId] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
@@ -131,9 +132,12 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
         await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
         setSuccessMsg(`Verification SMS code sent to ${fullPhone}! Check your mobile phone.`);
       } catch (fbErr) {
-        console.warn('Firebase Phone Auth failed/blocked, using MSG91 OTP service:', fbErr);
+        console.warn('Firebase Phone Auth failed/blocked, using SMS OTP service:', fbErr);
         try {
           const res = await api.sendOtp(fullPhone);
+          if (res?.verification_id || res?.verificationId) {
+            setVerificationId(res.verification_id || res.verificationId);
+          }
           setSuccessMsg(res?.message || `Verification SMS sent to ${fullPhone}! Please enter the 6-digit code received on your phone.`);
         } catch (apiErr) {
           setSuccessMsg(`Verification SMS code requested for ${fullPhone}. Check your mobile phone.`);
@@ -165,6 +169,9 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
       } catch (_) {
         try {
           const res = await api.sendOtp(fullPhone);
+          if (res?.verification_id || res?.verificationId) {
+            setVerificationId(res.verification_id || res.verificationId);
+          }
           setSuccessMsg(res?.message || `Verification SMS resent to ${fullPhone}. Please enter the 6-digit code received on your phone.`);
         } catch (apiErr) {
           setSuccessMsg(`Verification SMS resent to ${fullPhone}. Check your mobile phone.`);
@@ -200,7 +207,7 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
         setFirebaseIdToken(result.idToken);
       } catch (fbVerifyErr) {
         console.warn('Firebase verify fallback:', fbVerifyErr);
-        await api.verifyOtp(fullPhone, enteredOtp);
+        await api.verifyOtp({ phone: fullPhone, otp: enteredOtp, verification_id: verificationId });
       }
 
       setIsPhoneVerified(true);

@@ -27,9 +27,9 @@ Each endpoint specifies:
 
 The Resident Panel enables apartment owners and residents to register, authenticate via SMS OTP or password, manage flat addresses, track order history, and delete profiles.
 
-### 1.1 Send Resident OTP (MSG91)
+### 1.1 Send Resident OTP (Message Central / MSG91)
 * **Panel**: Resident Panel / Authentication Modal
-* **Endpoint**: `POST /api/otp/send-otp` (or `/api/users/send-otp`)
+* **Endpoint**: `POST /api/users/send-otp` (or `/api/otp/send-otp`)
 * **Idea Behind Using It**: Triggers a 6-digit SMS OTP to a resident’s 10-digit mobile number for fast, passwordless authentication.
 * **Input Body**:
   ```json
@@ -41,9 +41,10 @@ The Resident Panel enables apartment owners and residents to register, authentic
   ```json
   {
     "success": true,
-    "message": "OTP sent successfully",
-    "target": "9876543210",
-    "simulationOtp": "849201"
+    "message": "Verification 6-digit OTP code sent to +919876543210",
+    "verification_id": "verif_1727259123_a9b8c7",
+    "simulationOtp": "482910",
+    "otp": "482910"
   }
   ```
 
@@ -51,13 +52,14 @@ The Resident Panel enables apartment owners and residents to register, authentic
 
 ### 1.2 Verify Resident OTP
 * **Panel**: Resident Panel / Authentication Modal
-* **Endpoint**: `POST /api/otp/verify-otp` (or `/api/users/verify-otp`)
-* **Idea Behind Using It**: Validates the mobile number OTP before logging in the user or permitting account registration.
+* **Endpoint**: `POST /api/users/verify-otp` (or `/api/otp/verify-otp`)
+* **Idea Behind Using It**: Validates the 6-digit mobile number OTP before logging in the user or permitting account registration.
 * **Input Body**:
   ```json
   {
     "phone": "9876543210",
-    "otp": "849201"
+    "otp": "482910",
+    "verification_id": "verif_1727259123_a9b8c7"
   }
   ```
 * **Expected Output (200 OK)**:
@@ -108,28 +110,47 @@ The Resident Panel enables apartment owners and residents to register, authentic
 
 ---
 
-### 1.4 Resident User Login
-* **Panel**: Resident Panel / Login Page
+### 1.4 Resident User Login (Password or OTP) & Security Alert Email
+* **Panel**: Resident Panel / Login Page / Auth Modal
 * **Endpoint**: `POST /api/users/login`
-* **Idea Behind Using It**: Authenticates returning residents via phone/email and password or OTP.
-* **Input Body**:
+* **Idea Behind Using It**: Authenticates returning residents via phone/email and password or OTP. Triggers an asynchronous, non-blocking branded **Login Security Alert Email** to the user's registered email address.
+* **Option A: Password Login Payload**:
   ```json
   {
-    "identifier": "9876543210",
-    "password": "UserPass123!"
+    "phone": "9571240742",
+    "password": "UserSecurePassword123",
+    "email": "resident@gmail.com"
   }
   ```
+* **Option B: OTP Login Payload**:
+  ```json
+  {
+    "phone": "9571240742",
+    "otp": "839201",
+    "email": "resident@gmail.com"
+  }
+  ```
+  *(Note: `email` field is optional override if account does not yet have an email in DB).*
 * **Expected Output (200 OK)**:
   ```json
   {
-    "token": "user_jwt_access_1723891000",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6...",
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6...",
     "user": {
-      "user_id": "usr_381029",
-      "name": "Aarav Gupta",
-      "email": "aarav.gupta@gmail.com",
-      "phone": "9876543210",
-      "society_name": "Omaxe Greenwood Residency",
-      "flat": "Tower B-204"
+      "user_id": "usr_102",
+      "public_id": "usr@0102",
+      "name": "Lovely Sethiya",
+      "email": "lovelysethia753@gmail.com",
+      "phone": "9571240742",
+      "status": "active",
+      "is_blocked": false,
+      "society_id": "284",
+      "society_name": "Reg Shop Society",
+      "flat": "Flat 402, Tower B",
+      "city": "Noida",
+      "state": "Uttar Pradesh",
+      "pincode": "201310"
     }
   }
   ```
@@ -786,3 +807,58 @@ APIs powering customer support, vendor helpdesk, and admin ticket resolution.
     }
   }
   ```
+
+---
+
+## 8. Automatic Login Security Alert Email Service (Backend v3.9.0)
+
+> **Status**: LIVE & ACTIVE  
+> **Sender**: `DigiLocal Platform <connexon@zordial.com>`  
+> **Full Docs**: See [LOGIN_SECURITY_ALERT_EMAIL_API_DOCUMENTATION.md](file:///d:/pwDigiLocal/digi-local_website/LOGIN_SECURITY_ALERT_EMAIL_API_DOCUMENTATION.md)
+
+Whenever a Resident Customer (User) or Merchant Partner (Vendor) logs into their DigiLocal account via Password or SMS/OTP, the backend asynchronously dispatches an official branded **Login Security Alert Email** to their registered email address.
+
+### 8.1 Vendor / Merchant Portal Login
+* **Password Route**: `POST /api/vendors/login`
+  ```json
+  {
+    "phone_number": "9111111111",
+    "password": "YourPassword123",
+    "email": "merchant@gmail.com"
+  }
+  ```
+* **OTP Route**: `POST /api/vendors/otp-login` *(Aliases: `/api/vendors/login-with-otp`, `/api/vendors/login-otp`)*
+  ```json
+  {
+    "phone_number": "9111111111",
+    "otp": "482910"
+  }
+  ```
+
+### 8.2 Resident User Website & App Login
+* **Endpoint**: `POST /api/users/login`
+* **Password Payload**:
+  ```json
+  {
+    "phone": "9571240742",
+    "password": "UserSecurePassword123",
+    "email": "resident@gmail.com"
+  }
+  ```
+* **OTP Payload**:
+  ```json
+  {
+    "phone": "9571240742",
+    "otp": "839201",
+    "email": "resident@gmail.com"
+  }
+  ```
+
+### 8.3 Testing in Postman (Direct Endpoints)
+| Action | HTTP Method | Endpoint | Description |
+| :--- | :--- | :--- | :--- |
+| **Verify SMTP Status** | `GET` | `http://localhost:5000/api/test/email/status` | Confirms AWS SES connection without sending an email |
+| **Send Test Custom Email** | `POST` | `http://localhost:5000/api/test/email/send` | Sends a custom test email to any address |
+| **Vendor Login Test** | `POST` | `http://localhost:5000/api/vendors/login` | Triggers a live vendor login and sends security alert |
+| **User Login Test** | `POST` | `http://localhost:5000/api/users/login` | Triggers a live user login and sends security alert |
+

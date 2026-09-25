@@ -103,9 +103,9 @@ Validates if the phone number is already registered or available for a new merch
 
 ---
 
-### B. Send OTP (`POST /api/vendors/send-otp`)
+### B. Send OTP (`POST /api/vendors/send-otp` or `POST /api/users/send-otp`)
 
-Sends a 4-digit verification code to the merchant's mobile number.
+Sends a 6-digit verification code to the merchant's mobile number via Message Central / MSG91.
 
 #### Request Body:
 ```json
@@ -118,21 +118,25 @@ Sends a 4-digit verification code to the merchant's mobile number.
 ```json
 {
   "success": true,
-  "message": "OTP sent successfully to 9509512187"
+  "message": "Verification 6-digit OTP code sent to +919509512187",
+  "verification_id": "verif_1727259123_a9b8c7",
+  "simulationOtp": "482910",
+  "otp": "482910"
 }
 ```
 
 ---
 
-### C. Verify OTP (`POST /api/vendors/verify-otp`)
+### C. Verify OTP (`POST /api/vendors/verify-otp` or `POST /api/users/verify-otp`)
 
-Verifies the 4-digit OTP code entered by the user.
+Verifies the 6-digit OTP code entered by the user.
 
 #### Request Body:
 ```json
 {
   "phone": "9509512187",
-  "otp": "1234"
+  "otp": "482910",
+  "verification_id": "verif_1727259123_a9b8c7"
 }
 ```
 
