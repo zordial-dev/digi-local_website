@@ -167,6 +167,7 @@ export default function LiveOrderTrackerModal({ isOpen, onClose, order, initialO
   const isDelivered = ['DELIVERED', 'COMPLETED', 'COMPLETE', 'FULFILLED', 'DONE'].includes(rawStatus);
   const isOutForDelivery = ['OUT_FOR_DELIVERY', 'IN_PROGRESS', 'PROCESSING', 'IN_TRANSIT'].includes(rawStatus);
   const isAccepted = ['ACCEPTED', 'ACCEPT', 'CONFIRMED', 'PREPARING'].includes(rawStatus);
+  const isPreparing = isAccepted;
   const isPendingPayment = rawStatus === 'PENDING';
   const isPlaced = !isAccepted && !isOutForDelivery && !isDelivered && !isCancelled && !isPendingPayment;
 

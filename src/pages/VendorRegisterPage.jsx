@@ -888,6 +888,38 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         localStorage.setItem('digilocal_registered_vendors', JSON.stringify(regList));
       } catch (_) {}
 
+      // Automatically sync resident user account with real vendor owner details
+      try {
+        const regUserStr = localStorage.getItem('digilocal_registered_users');
+        let regUsers = regUserStr ? JSON.parse(regUserStr) : [];
+        if (!Array.isArray(regUsers)) regUsers = [];
+        const cleanUserPhone = (mainPhone || verifiedContactValue || '').replace(/[^0-9]/g, '');
+        const clean10 = cleanUserPhone.length >= 10 ? cleanUserPhone.slice(-10) : cleanUserPhone;
+        const linkedUser = {
+          user_id: res.user?.user_id || `usr_v${createdVendor.vendor_id || clean10 || Date.now()}`,
+          name: ownerName.trim() || createdVendor.vendor_name || 'Store Owner',
+          email: cleanEmail || createdVendor.email || '',
+          phone: mainPhone || verifiedContactValue || createdVendor.phone_number || '',
+          password: 'password123',
+          society_id: String(selectedSocietyId || createdVendor.society_id || '1'),
+          society_name: societySearch.trim() || createdVendor.society_name || '',
+          flat: shopAddress.trim() || areaName.trim() || 'Store Unit',
+          city: city.trim() || createdVendor.city || '',
+          pincode: pincode.trim() || createdVendor.pincode || '',
+          avatar: customLogo || createdVendor.logo || '',
+          joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          status: 'ACTIVE',
+          is_vendor: true,
+          vendor_id: createdVendor.vendor_id,
+          store_name: shopBusinessName.trim() || createdVendor.store_name || ''
+        };
+        regUsers = [linkedUser, ...regUsers.filter(u => {
+          const u10 = String(u.phone || '').replace(/[^0-9]/g, '').slice(-10);
+          return u10 !== clean10 && u.email?.toLowerCase() !== cleanEmail.toLowerCase();
+        })];
+        localStorage.setItem('digilocal_registered_users', JSON.stringify(regUsers));
+      } catch (_) {}
+
       if (accessToken) {
         localStorage.setItem('vendor_access_token', accessToken);
         localStorage.setItem('accessToken', accessToken);

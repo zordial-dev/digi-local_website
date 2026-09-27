@@ -237,7 +237,11 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         // ITEM 4 CHECKLIST: STORE BACKEND TOKENS
         const accessToken = res.accessToken || res.data?.accessToken || res.token;
         const refreshToken = res.refreshToken || res.data?.refreshToken;
-        const userObj = res.user || res.data?.user || { phone: fullPhone, name: `Resident ${fullPhone.slice(-4)}` };
+        const userObj = res.user || res.data?.user;
+
+        if (!userObj) {
+          throw new Error('No account found with this mobile number. Please create an account / register first.');
+        }
 
         if (accessToken) localStorage.setItem('accessToken', accessToken);
         if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
@@ -419,7 +423,11 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
           const accessToken = res.accessToken || res.data?.accessToken || res.token;
           const refreshToken = res.refreshToken || res.data?.refreshToken;
-          const userObj = res.user || res.data?.user || { phone: fullPhone };
+          const userObj = res.user || res.data?.user;
+
+          if (!userObj) {
+            throw new Error('No account found with this mobile number. Please register your account first.');
+          }
 
           if (accessToken) localStorage.setItem('accessToken', accessToken);
           if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
@@ -536,10 +544,12 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           return;
         }
       } else {
-        // Vendor Pre-Check Phone Registration
-        try {
-          await api.checkVendorPhone(fullPhone);
-        } catch (_) {}
+        const checkRes = await api.checkVendorPhone(fullPhone);
+        if (!checkRes.exists) {
+          setError('No registered vendor store found with this phone / email. Please register your store first.');
+          setShowRegisterPrompt(true);
+          return;
+        }
       }
 
       if (!isEmail) {
@@ -781,15 +791,26 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{error}</span>
                 </div>
-                {error.toLowerCase().includes('password') && authMethod === 'password' && (
-                  <button
-                    type="button"
-                    onClick={handleSwitchToOtpMethod}
-                    className="px-3 py-1.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white text-[11px] font-extrabold transition-all cursor-pointer shrink-0 self-start sm:self-center shadow-xs"
-                  >
-                    Login via OTP Instead →
-                  </button>
-                )}
+                <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                  {(error.toLowerCase().includes('register') || error.toLowerCase().includes('create') || error.toLowerCase().includes('no account') || error.toLowerCase().includes('not found') || showRegisterPrompt) ? (
+                    <button
+                      type="button"
+                      onClick={() => setRoute({ page: accountType === 'resident' ? 'register' : 'vendorRegister' })}
+                      className="px-3 py-1.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white text-[11px] font-extrabold transition-all cursor-pointer flex items-center space-x-1.5 shadow-xs border border-[#C8A878]/30"
+                    >
+                      <span>{accountType === 'resident' ? 'Create Account' : 'Register Store'}</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-[#C8A878]" />
+                    </button>
+                  ) : error.toLowerCase().includes('password') && authMethod === 'password' ? (
+                    <button
+                      type="button"
+                      onClick={handleSwitchToOtpMethod}
+                      className="px-3 py-1.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white text-[11px] font-extrabold transition-all cursor-pointer shadow-xs border border-[#C8A878]/30"
+                    >
+                      Login via OTP Instead →
+                    </button>
+                  ) : null}
+                </div>
               </div>
             )}
 

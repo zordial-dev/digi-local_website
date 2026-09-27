@@ -362,10 +362,18 @@ export default function App() {
     localStorage.removeItem('user_profile');
     localStorage.removeItem('resident_profile');
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('digilocal_user');
+    localStorage.removeItem('digilocal_user_token');
     localStorage.removeItem('digilocal_saved_addresses');
     localStorage.removeItem('digilocal_user_location');
     localStorage.removeItem('digilocal_active_order');
+    localStorage.removeItem('digilocal_user_orders');
     localStorage.removeItem('digilocal_guest_address');
+    window.dispatchEvent(new CustomEvent('digilocal_user_logout'));
+    window.dispatchEvent(new CustomEvent('digilocal_auth_change'));
     window.dispatchEvent(new CustomEvent('digilocal_saved_addresses_updated', { detail: [] }));
     window.dispatchEvent(new CustomEvent('digilocal_location_changed', { detail: null }));
     setActiveUser(null);
@@ -521,7 +529,7 @@ export default function App() {
       <FloatingCartBar currentRoute={route} setRoute={setRoute} />
 
       {/* Floating Swiggy / Zomato Style Live Order Tracker */}
-      <LiveOrderTrackerToast setRoute={setRoute} />
+      <LiveOrderTrackerToast activeUser={activeUser} setRoute={setRoute} />
     </div>
   );
 }

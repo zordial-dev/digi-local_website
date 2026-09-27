@@ -156,6 +156,128 @@ let platformConfig = initialDb.platformConfig || {
   timezone: "Asia/Kolkata"
 };
 
+// Seed default resident users if not already present
+const seedDefaultUsers = [
+  {
+    user_id: "usr_9784319840",
+    name: "Aarushi",
+    phone: "9784319840",
+    email: "aarushi@gmail.com",
+    password: "password123",
+    society_id: "SOC-101",
+    society_name: "Omaxe Greenwood Residency",
+    flat: "A-402",
+    city: "Greater Noida",
+    pincode: "201310",
+    joined_date: "August 2026",
+    status: "ACTIVE",
+    strikes: 0,
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
+  },
+  {
+    user_id: "usr_9876543210",
+    name: "Rahul Sharma",
+    phone: "9876543210",
+    email: "rahul.sharma@gmail.com",
+    password: "password123",
+    society_id: "SOC-101",
+    society_name: "Omaxe Greenwood Residency",
+    flat: "Tower B-204",
+    city: "Greater Noida",
+    pincode: "201310",
+    joined_date: "August 2026",
+    status: "ACTIVE",
+    strikes: 0,
+    avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80"
+  }
+];
+
+seedDefaultUsers.forEach(seedUser => {
+  const cleanSeedDigits = seedUser.phone.replace(/[^0-9]/g, '').slice(-10);
+  const exists = users.some(u => String(u.phone || '').replace(/[^0-9]/g, '').slice(-10) === cleanSeedDigits);
+  if (!exists) {
+    users.push(seedUser);
+  }
+});
+
+// Helper: Synchronize Vendor Owner to Resident User Account with real details
+function syncVendorToUser(vendor, explicitPassword = '') {
+  if (!vendor) return null;
+  const rawPhone = String(vendor.phone_number || vendor.phone || vendor.mobile || '').trim();
+  const cleanDigits = rawPhone.replace(/[^0-9]/g, '');
+  const clean10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+  const vendorEmail = String(vendor.email || '').toLowerCase().trim();
+
+  const realOwnerName = vendor.vendor_name || vendor.owner_name || vendor.name || vendor.store_name || "Vendor User";
+  const societyId = String(vendor.society_id || '1');
+  const matchingSoc = societies.find(s => String(s.society_id) === societyId || String(s.id) === societyId);
+  const societyName = vendor.society_name || matchingSoc?.society_name || "Omaxe Greenwood Residency";
+  const flat = vendor.shop_number || vendor.shop_address || vendor.area_name || "Store Unit";
+  const avatar = vendor.logo || (Array.isArray(vendor.shop_images) && vendor.shop_images[0]) || vendor.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80";
+
+  let existingIndex = users.findIndex(u => {
+    const uPhone = String(u.phone || u.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+    const uEmail = String(u.email || '').toLowerCase().trim();
+    if (clean10 && uPhone && uPhone === clean10) return true;
+    if (vendorEmail && uEmail && uEmail === vendorEmail) return true;
+    return false;
+  });
+
+  const pwd = explicitPassword || vendor.password || (existingIndex >= 0 ? users[existingIndex].password : 'password123');
+
+  if (existingIndex >= 0) {
+    const existing = users[existingIndex];
+    const isPlaceholderName = !existing.name || existing.name.startsWith('Resident ') || existing.name.startsWith('User ') || existing.name === 'Resident User';
+    users[existingIndex] = {
+      ...existing,
+      name: isPlaceholderName ? realOwnerName : (existing.name || realOwnerName),
+      email: existing.email || vendorEmail,
+      phone: existing.phone || rawPhone || clean10,
+      society_id: existing.society_id || societyId,
+      society_name: existing.society_name || societyName,
+      flat: existing.flat || flat,
+      city: existing.city || vendor.city || "",
+      pincode: existing.pincode || vendor.pincode || "",
+      password: pwd || existing.password || 'password123',
+      avatar: existing.avatar || avatar,
+      is_vendor: true,
+      vendor_id: vendor.vendor_id || vendor.id,
+      store_name: vendor.store_name || vendor.shop_business_name || ""
+    };
+    saveDB();
+    return users[existingIndex];
+  } else {
+    const newUser = {
+      user_id: `usr_v${vendor.vendor_id || vendor.id || clean10 || Date.now()}`,
+      name: realOwnerName,
+      email: vendorEmail,
+      phone: rawPhone || clean10,
+      password: pwd || 'password123',
+      society_id: societyId,
+      society_name: societyName,
+      flat: flat,
+      city: vendor.city || "",
+      pincode: vendor.pincode || "",
+      joined_date: vendor.joined_date || new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      status: vendor.status || 'ACTIVE',
+      strikes: 0,
+      avatar: avatar,
+      is_vendor: true,
+      vendor_id: vendor.vendor_id || vendor.id,
+      store_name: vendor.store_name || vendor.shop_business_name || ""
+    };
+    users.push(newUser);
+    saveDB();
+    return newUser;
+  }
+}
+
+// Automatically sync all existing vendors to resident user accounts
+vendors.forEach(v => {
+  if (v) syncVendorToUser(v);
+});
+
+
 // Helper: Read Body JSON
 function getRequestBody(req) {
   return new Promise((resolve) => {
@@ -620,6 +742,49 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
+  // 0.8 Service Enquiries API Routes (v4.0.0 Service Vendor Specifications)
+  if (method === 'POST' && (pathname === '/api/enquiries' || pathname === '/api/enquiries/')) {
+    const body = await getRequestBody(req);
+    const enquiry = {
+      enquiry_id: `ENQ-${Math.floor(100000 + Math.random() * 900000)}`,
+      vendor_id: body.vendor_id || '',
+      resident_name: body.resident_name || 'Resident Customer',
+      resident_phone: body.resident_phone || '',
+      society_name: body.society_name || 'Society',
+      flat_number: body.flat_number || '101',
+      service_title: body.service_title || 'General Service Enquiry',
+      description: body.description || '',
+      preferred_time: body.preferred_time || 'Flexible',
+      status: 'NEW',
+      created_at: new Date().toISOString()
+    };
+    console.log(`🛠️ [SERVICE ENQUIRY RECEIVED] Vendor: ${enquiry.vendor_id} | Service: "${enquiry.service_title}" | Resident: ${enquiry.resident_name}`);
+    return sendJSON(res, 201, {
+      success: true,
+      message: 'Service enquiry submitted successfully.',
+      enquiry
+    });
+  }
+
+  if (method === 'GET' && pathname.match(/^\/api\/vendors\/([^\/]+)\/enquiries$/)) {
+    const match = pathname.match(/^\/api\/vendors\/([^\/]+)\/enquiries$/);
+    const vendorId = match ? match[1] : '';
+    return sendJSON(res, 200, {
+      success: true,
+      vendor_id: vendorId,
+      enquiries: []
+    });
+  }
+
+  if (method === 'PUT' && pathname.match(/^\/api\/vendors\/([^\/]+)\/enquiries\/([^\/]+)$/)) {
+    const match = pathname.match(/^\/api\/vendors\/([^\/]+)\/enquiries\/([^\/]+)$/);
+    const body = await getRequestBody(req);
+    return sendJSON(res, 200, {
+      success: true,
+      status: body.status || 'CONTACTED'
+    });
+  }
+
   // 0.2b Check Mobile Registration (POST /api/users/check-phone)
   if (method === 'POST' && (pathname === '/api/users/check-phone' || pathname === '/api/users/check-phone/')) {
     const body = await getRequestBody(req);
@@ -630,16 +795,28 @@ const server = http.createServer(async (req, res) => {
     const cleanDigits = rawPhone.replace(/[^0-9]/g, '');
     const clean10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
 
-    const match = users.find(u => {
+    let match = users.find(u => {
       const uPhone = String(u.phone || u.mobile || '').replace(/[^0-9]/g, '').slice(-10);
       return uPhone && uPhone === clean10;
     });
+
+    if (!match) {
+      // Check if this mobile number belongs to a registered vendor store
+      const vendorMatch = vendors.find(v => {
+        const vPhone = String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+        return vPhone && vPhone === clean10;
+      });
+      if (vendorMatch) {
+        match = syncVendorToUser(vendorMatch);
+      }
+    }
 
     if (match) {
       return sendJSON(res, 200, {
         exists: true,
         phone: clean10 || rawPhone,
-        message: "Account found"
+        message: "Account found",
+        user: match
       });
     } else {
       return sendJSON(res, 404, {
@@ -680,40 +857,27 @@ const server = http.createServer(async (req, res) => {
       return false;
     });
 
+    if (!user) {
+      // Check if this mobile number / email belongs to a registered vendor store!
+      const vendorMatch = vendors.find(v => {
+        const vPhone = String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+        const vEmail = String(v.email || '').toLowerCase().trim();
+        if (email && vEmail === email) return true;
+        if (cleanInputPhone && vPhone && vPhone === cleanInputPhone) return true;
+        return false;
+      });
+      if (vendorMatch) {
+        user = syncVendorToUser(vendorMatch, password);
+      }
+    }
+
     // Rule 3: User Account Not Registered (404 Not Found)
     if (!user) {
-      if (isOtpLogin) {
-        // Verify OTP code if attempting OTP login
-        const session = activeOtpSessions.get(rawPhone.toLowerCase()) || 
-                        (cleanInputPhone && activeOtpSessions.get(cleanInputPhone)) ||
-                        (cleanInputPhone && activeOtpSessions.get(`91${cleanInputPhone}`));
-
-        if (!session || session.otp !== otp || session.expiresAt < Date.now()) {
-          if (otp !== '123456' && otp !== '1234') {
-            return sendJSON(res, 400, { error: "Invalid or expired OTP code. Please enter the correct verification code." });
-          }
-        }
-
-        // Auto-create user for verified OTP
-        user = {
-          user_id: `usr_${Math.floor(100000 + Math.random() * 900000)}`,
-          name: `Resident ${cleanInputPhone.slice(-4)}`,
-          email: email || '',
-          phone: cleanInputPhone,
-          society_id: '1',
-          society_name: 'Omaxe Greenwood Residency',
-          flat: 'Tower A-402',
-          joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-          avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
-        };
-        users.push(user);
-        saveDB();
-      } else {
-        return sendJSON(res, 404, {
-          exists: false,
-          error: "No account found with this mobile number. Please register your account first."
-        });
-      }
+      return sendJSON(res, 404, {
+        success: false,
+        exists: false,
+        error: "No account found with this mobile number. Please create an account / register first."
+      });
     }
 
     // Rule 4: OTP Verification when user exists (400 Bad Request if invalid)
@@ -795,6 +959,60 @@ const server = http.createServer(async (req, res) => {
       message: "Vendor OTP sent successfully",
       target,
       simulationOtp: otpCode
+    });
+  }
+
+  // 0.7b Get User Profile & Moderation Status (GET /api/users/profile, /api/users/me, /api/users/status, /api/users/:userId)
+  if (method === 'GET' && (
+    pathname === '/api/users/profile' ||
+    pathname === '/api/users/me' ||
+    pathname === '/api/users/status' ||
+    pathname.startsWith('/api/users/status/') ||
+    pathname.startsWith('/api/users/profile/') ||
+    (pathname.startsWith('/api/users/') && !pathname.includes('check-phone') && !pathname.includes('send-otp') && !pathname.includes('verify-otp') && !pathname.includes('login') && !pathname.includes('register') && !pathname.includes('delete'))
+  )) {
+    const parts = pathname.split('/');
+    const subParam = (parts[3] === 'status' || parts[3] === 'profile') ? (parts[4] || '') : parts[3];
+    const authHeader = req.headers.authorization || req.headers.Authorization || '';
+    
+    let targetUser = null;
+    if (subParam && subParam !== 'me' && subParam !== 'profile' && subParam !== 'status') {
+      const cleanDigits = subParam.replace(/[^0-9]/g, '');
+      const clean10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+      targetUser = users.find(u => 
+        String(u.user_id) === subParam || 
+        String(u.id) === subParam || 
+        (clean10 && String(u.phone || u.mobile || '').replace(/[^0-9]/g, '').slice(-10) === clean10)
+      );
+    }
+    
+    if (!targetUser && authHeader.startsWith('Bearer ')) {
+      targetUser = users[0] || null;
+    }
+    
+    if (targetUser) {
+      return sendJSON(res, 200, {
+        success: true,
+        user_id: targetUser.user_id || `usr_${targetUser.id}`,
+        name: targetUser.name,
+        email: targetUser.email,
+        phone: targetUser.phone,
+        society_id: targetUser.society_id,
+        society_name: targetUser.society_name,
+        flat: targetUser.flat,
+        city: targetUser.city || 'Noida',
+        pincode: targetUser.pincode || '201301',
+        address: targetUser.address || `${targetUser.flat || 'Flat 402'}, ${targetUser.society_name || 'Society'}`,
+        status: targetUser.status || 'active',
+        strikes: targetUser.strikes || 0,
+        avatar: targetUser.avatar || '',
+        user: targetUser
+      });
+    }
+    
+    return sendJSON(res, 404, {
+      success: false,
+      error: "User profile not found. Please log in or register."
     });
   }
 
@@ -977,14 +1195,49 @@ const server = http.createServer(async (req, res) => {
       status: "ACTIVE"
     };
     vendors.push(newVendor);
+    const syncedUser = syncVendorToUser(newVendor, body.password);
     saveDB();
     return sendJSON(res, 201, {
       message: "Vendor registration submitted successfully!",
       vendor_id: newId,
       vendor: newVendor,
+      user: syncedUser,
       status: "ACTIVE",
       token: `jwt_vendor_${Date.now()}`
     });
+  }
+
+  // 1.1 Vendor Check Phone / Email Registration (POST /api/vendors/check-phone)
+  if (method === 'POST' && (pathname === '/api/vendors/check-phone' || pathname === '/api/vendors/check-phone/')) {
+    const body = await getRequestBody(req);
+    const rawInput = String(body.phone || body.mobile || body.phone_number || body.email || body.identifier || '').trim();
+    if (!rawInput) {
+      return sendJSON(res, 400, { error: "Phone number or email is required" });
+    }
+    const cleanDigits = rawInput.replace(/[^0-9]/g, '');
+    const cleanPhone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : '';
+    const isEmail = rawInput.includes('@');
+
+    const match = vendors.find(v => {
+      const vDigits = String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+      const vEmail = String(v.email || '').toLowerCase().trim();
+      if (isEmail && vEmail === rawInput.toLowerCase()) return true;
+      if (cleanPhone && vDigits && vDigits === cleanPhone) return true;
+      return false;
+    });
+
+    if (match) {
+      return sendJSON(res, 200, {
+        exists: true,
+        vendor: match,
+        message: "Vendor account found"
+      });
+    } else {
+      return sendJSON(res, 404, {
+        exists: false,
+        error: "No registered vendor store found with this phone number / email. Please register your store first."
+      });
+    }
   }
 
   if (method === 'POST' && pathname === '/api/vendors/login') {
@@ -1231,6 +1484,12 @@ const server = http.createServer(async (req, res) => {
       const q = parsedUrl.query.search ? parsedUrl.query.search.toLowerCase() : '';
       const list = vendors.filter(v => {
         if (!v) return false;
+        const status = String(v.status || '').toUpperCase().trim();
+        const appStatus = String(v.approval_status || '').toUpperCase().trim();
+        if (status === 'SUSPENDED' || status === 'BLOCKED' || status === 'INACTIVE' || status === 'PENDING' || status === 'REJECTED') return false;
+        if (appStatus === 'PENDING' || appStatus === 'REJECTED') return false;
+        if (v.is_active === false || v.isActive === false) return false;
+
         if (rawSocParam === 'all') return true;
 
         const vSocStr = String(v.society_id || '').toLowerCase().trim();
@@ -1346,6 +1605,22 @@ const server = http.createServer(async (req, res) => {
 
     const vendor = vendors.find(v => String(v.vendor_id) === String(targetVendorId));
     if (!vendor) return sendJSON(res, 404, { error: "Vendor store not found or has been deleted" });
+
+    const vStatus = String(vendor.status || '').toUpperCase().trim();
+    const appStatus = String(vendor.approval_status || '').toUpperCase().trim();
+    if (
+      vStatus === 'BLOCKED' ||
+      vStatus === 'SUSPENDED' ||
+      vStatus === 'INACTIVE' ||
+      vStatus === 'PENDING' ||
+      vStatus === 'REJECTED' ||
+      appStatus === 'PENDING' ||
+      appStatus === 'REJECTED' ||
+      vendor.is_active === false ||
+      vendor.isActive === false
+    ) {
+      return sendJSON(res, 404, { error: "Vendor store is currently inactive or not available." });
+    }
 
     // Check user location coverage restriction
     const userLatRaw = parsedUrl.query.user_lat !== undefined ? parsedUrl.query.user_lat : parsedUrl.query.lat;
@@ -1535,78 +1810,76 @@ const server = http.createServer(async (req, res) => {
     if (!rawStatus) return null;
     const s = String(rawStatus).trim().toUpperCase();
     if (['ACCEPTED', 'ACCEPT', 'CONFIRMED', 'PREPARING'].includes(s)) return 'ACCEPTED';
-    if (['OUT_FOR_DELIVERY', 'IN_PROGRESS', 'PROCESSING'].includes(s)) return 'IN_PROGRESS';
+    if (['OUT_FOR_DELIVERY', 'IN_PROGRESS', 'PROCESSING', 'DISPATCHED', 'IN_TRANSIT'].includes(s)) return 'IN_PROGRESS';
     if (['DELIVERED', 'COMPLETED', 'COMPLETE', 'FULFILLED', 'DONE'].includes(s)) return 'COMPLETED';
-    if (['CANCELLED', 'CANCELED', 'REJECTED', 'DECLINED'].includes(s)) return 'CANCELLED';
+    if (['CANCELLED', 'CANCELED', 'REJECTED', 'DECLINED', 'CANCEL'].includes(s)) return 'CANCELLED';
     if (s === 'PLACED') return 'PLACED';
     if (s === 'PENDING') return 'PENDING';
-    return null;
+    return s;
   }
 
   // 3.1 Update Order Status (PUT, PATCH, POST)
   const isStatusUpdateRoute = (method === 'PUT' || method === 'PATCH' || method === 'POST') && (
-    (pathname.startsWith('/api/orders/') && pathname.endsWith('/status')) ||
-    (pathname.startsWith('/api/vendors/') && pathname.includes('/orders/') && pathname.endsWith('/status')) ||
-    (pathname.startsWith('/api/orders/vendor/') && pathname.includes('/orders/') && pathname.endsWith('/status'))
+    (pathname.includes('/orders/') && (pathname.endsWith('/status') || pathname.endsWith('/status/'))) ||
+    ((pathname.startsWith('/api/orders/') || pathname.startsWith('/orders/')) && !pathname.includes('/notify') && !pathname.includes('/confirm-whatsapp')) ||
+    (pathname.includes('/vendors/') && pathname.includes('/orders/'))
   );
 
   if (isStatusUpdateRoute) {
     const body = await getRequestBody(req);
-    const rawStatusInput = body.status || body.orderStatus || parsedUrl.query.status;
+    const rawStatusInput = body.status || body.orderStatus || body.order_status || parsedUrl.query.status;
 
     let targetOrderId = '';
-    const parts = pathname.split('/').filter(Boolean);
-    // /api/orders/:id/status
-    if (pathname.startsWith('/api/orders/') && parts.length === 4 && parts[3] === 'status') {
-      targetOrderId = parts[2];
-    } 
-    // /api/vendors/:vendorId/orders/:orderId/status
-    else if (pathname.startsWith('/api/vendors/') && parts.length === 6 && parts[3] === 'orders' && parts[5] === 'status') {
-      targetOrderId = parts[4];
-    }
-    // /api/orders/vendor/:vendorId/orders/:id/status
-    else if (pathname.startsWith('/api/orders/vendor/') && parts.length === 7 && parts[4] === 'orders' && parts[6] === 'status') {
-      targetOrderId = parts[5];
+    const cleanPath = pathname.replace(/\/$/, '');
+    const parts = cleanPath.split('/').filter(Boolean);
+    
+    // Find ID after 'orders'
+    const ordersIdx = parts.lastIndexOf('orders');
+    if (ordersIdx !== -1 && parts[ordersIdx + 1] && parts[ordersIdx + 1] !== 'status') {
+      targetOrderId = parts[ordersIdx + 1];
+    } else if (parts.includes('status')) {
+      const statusIdx = parts.indexOf('status');
+      targetOrderId = parts[statusIdx - 1] || '';
     } else {
-      targetOrderId = parts[parts.indexOf('status') - 1] || '';
+      targetOrderId = parts[parts.length - 1] || '';
     }
 
-    const normalized = normalizeOrderStatus(rawStatusInput);
-    if (!normalized) {
-      return sendJSON(res, 400, {
-        error: `Invalid order status '${rawStatusInput || ''}'. Allowed statuses: PLACED, PENDING, ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED`,
-        allowedStatuses: ALLOWED_ORDER_STATUSES
-      });
-    }
+    const normalized = normalizeOrderStatus(rawStatusInput) || 'ACCEPTED';
 
     const cleanTargetId = String(targetOrderId).replace(/^ORD[-_]?/i, '').toLowerCase().trim();
-    let order = orders.find(o => {
+    let matchingOrders = orders.filter(o => {
       const oId = String(o.order_id || o.id || '');
       const oClean = oId.replace(/^ORD[-_]?/i, '').toLowerCase().trim();
-      return oId === targetOrderId || oClean === cleanTargetId;
+      return oId.toLowerCase().trim() === String(targetOrderId).toLowerCase().trim() || oClean === cleanTargetId;
     });
 
-    if (!order) {
-      order = {
+    if (matchingOrders.length === 0) {
+      const newOrder = {
         order_id: targetOrderId.startsWith('ORD-') ? targetOrderId : `ORD-${targetOrderId}`,
         status: normalized,
-        total_amount: 150,
+        order_status: normalized,
+        total_amount: body.total_amount || 150,
         created_at: new Date().toISOString()
       };
-      orders.unshift(order);
+      orders.unshift(newOrder);
+      matchingOrders = [newOrder];
     } else {
-      order.status = normalized;
-      if (normalized === 'COMPLETED') {
-        order.delivered_at = new Date().toISOString();
-      }
+      matchingOrders.forEach(o => {
+        o.status = normalized;
+        o.order_status = normalized;
+        if (normalized === 'COMPLETED') {
+          o.delivered_at = new Date().toISOString();
+        }
+      });
     }
     saveDB();
 
     return sendJSON(res, 200, {
       success: true,
       message: "Order status updated successfully",
-      order_id: order.order_id,
+      order_id: matchingOrders[0].order_id,
       status: normalized,
+      order_status: normalized,
       raw_status: rawStatusInput
     });
   }
@@ -1647,18 +1920,28 @@ const server = http.createServer(async (req, res) => {
     }
 
     const vendorOrders = orders.filter(o => String(o.vendor_id) === String(targetVendorId) || String(targetVendorId) === '1');
+    const targetVendor = vendors.find(v => String(v.vendor_id) === String(targetVendorId));
     const formatted = vendorOrders.map(o => {
       const statusLower = String(o.status || 'placed').toLowerCase();
       const orderDate = new Date(o.created_at || o.date || Date.now());
+      const matchedSoc = societies.find(s => String(s.society_id) === String(o.society_id || targetVendor?.society_id));
+      const realSocName = o.society_name || matchedSoc?.society_name || targetVendor?.society_name || "Omaxe Greenwood Residency";
+      
+      let deliveryAddr = o.delivery_address || o.address || (o.flat ? `${o.flat}, ${realSocName}` : `Tower A-402, ${realSocName}`);
+      deliveryAddr = deliveryAddr.replace(/,\s*(Local Society|Society|Gated Community|Residential Complex|Anupam Apartment)$/i, `, ${realSocName}`);
+      deliveryAddr = deliveryAddr.replace(/\bLocal Society\b/gi, realSocName);
+
       return {
         id: o.order_id,
         order_id: o.order_id,
         user_id: o.user_id,
+        society_name: realSocName,
         customer_name: o.customer_name || "Resident Customer",
         phone: o.phone_number || o.phone || "9876543210",
-        delivery_address: o.delivery_address || "Flat 402, Tower B",
-        flatNumber: o.delivery_address || "Flat 402",
-        buildingNumber: "Tower B",
+        delivery_address: deliveryAddr,
+        address: deliveryAddr,
+        flatNumber: o.flatNumber || deliveryAddr.split(',')[0] || "Flat 402",
+        buildingNumber: o.buildingNumber || "Tower A",
         subtotal: Number(o.total_amount || 0),
         tax: 0,
         deliveryCharge: 0,

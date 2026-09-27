@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { api, getNormalizedImageUrl, getStoreTimeStatus } from '../services/api';
-import { ArrowLeft, ShoppingBag, Store, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn, Clock, Heart, Star, Sparkles, CheckCircle2, ChevronDown, Calendar } from 'lucide-react';
+import { api, getNormalizedImageUrl, getStoreTimeStatus, isServiceVendor } from '../services/api';
+import { ArrowLeft, ShoppingBag, Store, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn, Clock, Heart, Star, Sparkles, CheckCircle2, ChevronDown, Calendar, Briefcase, Tag } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import DummyPaymentModal from '../components/DummyPaymentModal';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
@@ -210,12 +210,64 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
   const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info' });
 
   // Service Enquiry State
+  const [showServiceEnquiryModal, setShowServiceEnquiryModal] = useState(false);
+  const [selectedServiceForEnquiry, setSelectedServiceForEnquiry] = useState(null);
   const [serviceTitle, setServiceTitle] = useState('');
   const [serviceDescription, setServiceDescription] = useState('');
   const [preferredTime, setPreferredTime] = useState('Today (ASAP)');
   const [isTimeSlotDropdownOpen, setIsTimeSlotDropdownOpen] = useState(false);
+  const [enquiryResidentName, setEnquiryResidentName] = useState('');
+  const [enquiryResidentPhone, setEnquiryResidentPhone] = useState('');
+  const [enquiryFlatNumber, setEnquiryFlatNumber] = useState('');
   const [submittingEnquiry, setSubmittingEnquiry] = useState(false);
   const timeSlotDropdownRef = useRef(null);
+
+  // Sync resident details for enquiry
+  useEffect(() => {
+    let u = activeUser;
+    if (!u) {
+      try {
+        const uStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
+        if (uStr) {
+          const parsed = JSON.parse(uStr);
+          u = parsed.user || parsed.resident || parsed;
+        }
+      } catch (_) {}
+    }
+    if (u) {
+      if (u.name || u.full_name) setEnquiryResidentName(u.name || u.full_name);
+      if (u.phone || u.mobile || u.phone_number) setEnquiryResidentPhone(u.phone || u.mobile || u.phone_number);
+      if (u.flat) setEnquiryFlatNumber(u.flat);
+    }
+  }, [activeUser]);
+
+  const handleOpenServiceEnquiry = (serviceItem = null) => {
+    setSelectedServiceForEnquiry(serviceItem);
+    setServiceTitle(serviceItem ? (serviceItem.item_name || serviceItem.name || '') : '');
+    setServiceDescription('');
+    setPreferredTime('Today (ASAP)');
+
+    // Ensure prefilled contact
+    let u = activeUser;
+    if (!u) {
+      try {
+        const uStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
+        if (uStr) {
+          const parsed = JSON.parse(uStr);
+          u = parsed.user || parsed.resident || parsed;
+        }
+      } catch (_) {}
+    }
+    if (u) {
+      if (!enquiryResidentName && (u.name || u.full_name)) setEnquiryResidentName(u.name || u.full_name);
+      if (!enquiryResidentPhone && (u.phone || u.mobile || u.phone_number)) setEnquiryResidentPhone(u.phone || u.mobile || u.phone_number);
+      if (!enquiryFlatNumber && (u.flat || flatNumber)) setEnquiryFlatNumber(u.flat || flatNumber || '');
+    } else if (flatNumber && !enquiryFlatNumber) {
+      setEnquiryFlatNumber(flatNumber);
+    }
+
+    setShowServiceEnquiryModal(true);
+  };
 
   useEffect(() => {
     if (currentRoute?.openCart) {
@@ -225,7 +277,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
   // Lock background page scroll when Cart Side Panel Drawer or any modal is open
   useEffect(() => {
-    if (showCartDrawer || showReplaceCartModal || showReviewModal) {
+    if (showCartDrawer || showReplaceCartModal || showReviewModal || showServiceEnquiryModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -233,7 +285,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
     return () => {
       document.body.style.overflow = '';
     };
-  }, [showCartDrawer, showReplaceCartModal, showReviewModal]);
+  }, [showCartDrawer, showReplaceCartModal, showReviewModal, showServiceEnquiryModal]);
 
   // Restore persisted active cart for THIS vendor on mount/vendorId change
   useEffect(() => {
@@ -268,6 +320,29 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       setIsLoginModalOpen(true);
       return;
     }
+
+    const titleToSubmit = (serviceTitle || selectedServiceForEnquiry?.item_name || '').trim();
+    if (!titleToSubmit) {
+      setModalConfig({
+        isOpen: true,
+        title: 'Service Title Required',
+        message: 'Please specify the service you would like to enquire about.',
+        type: 'warning'
+      });
+      return;
+    }
+
+    const cleanPhone = String(enquiryResidentPhone || '').trim();
+    if (!cleanPhone || cleanPhone.replace(/[^0-9]/g, '').length < 10) {
+      setModalConfig({
+        isOpen: true,
+        title: 'Valid Phone Required',
+        message: 'Please provide a valid 10-digit contact number so the service provider can call/WhatsApp you.',
+        type: 'warning'
+      });
+      return;
+    }
+
     try {
       setSubmittingEnquiry(true);
       let currentUser = null;
@@ -279,32 +354,52 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
         }
       } catch (_) {}
 
-      const resName = currentUser?.name || currentUser?.full_name || `Flat ${flatNumber || 'Resident'}`;
-      const resPhone = currentUser?.phone || currentUser?.mobile || currentUser?.phone_number || '';
+      const resName = (enquiryResidentName || currentUser?.name || currentUser?.full_name || `Flat ${enquiryFlatNumber || flatNumber || 'Resident'}`).trim();
+      const flatStr = enquiryFlatNumber || flatNumber || '101';
 
       const payload = {
         vendor_id: vendorId,
+        service_id: selectedServiceForEnquiry?.item_id || null,
         resident_name: resName,
-        resident_phone: resPhone,
-        society_name: vendorData?.society_name || currentUser?.society_name || 'Society',
-        flat_number: flatNumber || '101',
-        service_title: serviceTitle || vendorData?.store_name || 'Service Enquiry',
-        description: serviceDescription,
-        preferred_time: preferredTime
+        resident_phone: cleanPhone,
+        society_id: societyId || vendorData?.society_id || 1,
+        society_name: vendorData?.society_name || currentUser?.society_name || 'Resident Society',
+        flat_number: flatStr,
+        building_number: buildingNumber || '',
+        service_title: titleToSubmit,
+        description: serviceDescription.trim(),
+        preferred_time: preferredTime || 'Today (ASAP)',
+        status: 'NEW'
       };
 
-      await api.createServiceEnquiry(payload);
+      const res = await api.createServiceEnquiry(payload);
+
+      // Save to local enquiries log for resident record
+      try {
+        const key = 'digilocal_user_service_enquiries';
+        const saved = JSON.parse(localStorage.getItem(key) || '[]');
+        const entry = {
+          ...payload,
+          enquiry_id: res?.enquiry?.enquiry_id || res?.enquiry_id || `ENQ-${Date.now().toString().slice(-4)}`,
+          created_at: new Date().toISOString(),
+          vendor_name: vendorData?.store_name || vendorData?.name || 'Service Vendor'
+        };
+        localStorage.setItem(key, JSON.stringify([entry, ...saved]));
+      } catch (_) {}
+
+      setShowServiceEnquiryModal(false);
+      setSelectedServiceForEnquiry(null);
+      setServiceTitle('');
+      setServiceDescription('');
 
       setModalConfig({
         isOpen: true,
-        title: 'Service Request Sent!',
-        message: 'Your service request has been logged successfully and sent to the provider. They will contact you shortly for flat inspection.',
+        title: '🎉 Service Enquiry Sent!',
+        message: `Your service request for "${titleToSubmit}" has been received by ${vendorData?.store_name || 'the service vendor'}. They will contact you shortly on ${cleanPhone} to discuss requirements and schedule your visit.`,
         type: 'success'
       });
-      setServiceTitle('');
-      setServiceDescription('');
     } catch (err) {
-      setModalConfig({ isOpen: true, title: 'Error', message: 'Failed to submit enquiry', type: 'error' });
+      setModalConfig({ isOpen: true, title: 'Submission Error', message: err.message || 'Failed to submit enquiry. Please try calling the vendor directly.', type: 'error' });
     } finally {
       setSubmittingEnquiry(false);
     }
@@ -371,7 +466,8 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       const resName = currentUser?.name || currentUser?.full_name || currentUser?.owner_name || `Flat ${flatNumber}`;
       const resPhone = currentUser?.phone || currentUser?.mobile || currentUser?.phone_number || '';
       const cleanFlatStr = `Flat ${flatNumber}${buildingNumber ? `, ${buildingNumber}` : ''}`;
-      const cleanAddrStr = `${cleanFlatStr}, ${vendorData?.society_name || 'Residential Complex'}`;
+      const resolvedSoc = vendorData?.society_name || vendorData?.location || currentUser?.society_name || currentUser?.society || 'Omaxe Greenwood Residency';
+      const cleanAddrStr = `${cleanFlatStr}, ${resolvedSoc}`;
 
       const orderPayload = {
         vendor_id: Number(vendorData?.vendor_id || vendorId) || 1,
@@ -485,7 +581,8 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       const resName = currentUser?.name || currentUser?.full_name || currentUser?.owner_name || `Flat ${flatNumber}`;
       const resPhone = currentUser?.phone || currentUser?.mobile || currentUser?.phone_number || '';
       const cleanFlatStr = `Flat ${flatNumber}${buildingNumber ? `, ${buildingNumber}` : ''}`;
-      const cleanAddrStr = `${cleanFlatStr}, ${vendorData?.society_name || 'Residential Complex'}`;
+      const resolvedSoc = vendorData?.society_name || vendorData?.location || currentUser?.society_name || currentUser?.society || 'Omaxe Greenwood Residency';
+      const cleanAddrStr = `${cleanFlatStr}, ${resolvedSoc}`;
 
       const orderPayload = {
         vendor_id: Number(vendorData?.vendor_id || vendorId) || 1,
@@ -638,6 +735,24 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       }
 
       if (targetVendor) {
+        const vStatus = String(targetVendor.status || '').toUpperCase().trim();
+        const appStatus = String(targetVendor.approval_status || '').toUpperCase().trim();
+        if (
+          vStatus === 'BLOCKED' ||
+          vStatus === 'SUSPENDED' ||
+          vStatus === 'INACTIVE' ||
+          vStatus === 'PENDING' ||
+          vStatus === 'REJECTED' ||
+          appStatus === 'PENDING' ||
+          appStatus === 'REJECTED' ||
+          targetVendor.is_active === false ||
+          targetVendor.isActive === false
+        ) {
+          setVendorData(null);
+          setItems([]);
+          return;
+        }
+
         const resolvedStoreName = targetVendor.store_name || targetVendor.name || targetVendor.vendor_name || targetVendor.business_name || targetVendor.shop_business_name || targetVendor.shop_name || targetVendor.title || `Vendor Store #${vendorId}`;
         const normalizedVendor = {
           ...targetVendor,
@@ -842,7 +957,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
     } catch (_) {}
 
     const storeNameStr = vendorData?.store_name || 'Community Store';
-    const societyNameStr = vendorData?.society_name || vendorData?.location || currentUser?.society_name || currentUser?.society || 'Anupam Apartment';
+    const societyNameStr = vendorData?.society_name || vendorData?.location || currentUser?.society_name || currentUser?.society || 'Omaxe Greenwood Residency';
     const targetVendorId = vendorData?.vendor_id || vendorId || 1;
 
     const purchaserVendorId = currentPurchaserVendor ? (currentPurchaserVendor.vendor_id || currentPurchaserVendor.id) : null;
@@ -1216,7 +1331,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                 </div>
               </div>
 
-              {cartItemCount > 0 && (
+              {cartItemCount > 0 && !isServiceVendor(vendorData) && (
                 <button
                   onClick={() => setShowCartDrawer(true)}
                   className="px-6 py-3.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold shadow-md flex items-center justify-center space-x-3 transition-all tracking-wider uppercase text-xs"
@@ -1243,7 +1358,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>Products & Catalog ({items.length})</span>
+            <span>{isServiceVendor(vendorData) ? `Services (${items.length})` : `Products & Catalog (${items.length})`}</span>
           </button>
 
           <button
@@ -1478,134 +1593,177 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
           </div>
         ) : (
           /* ------------------------------------------------------------- */
-          /* CATALOG / SERVICE VIEW                                        */
+          /* CATALOG / SERVICES VIEW                                       */
           /* ------------------------------------------------------------- */
-          (vendorData?.vendor_type === 'service' || vendorData?.can_add_items === false) ? (
-            <div className="bg-white border border-[#315C45]/20 rounded-3xl p-6 sm:p-8 max-w-xl mx-auto shadow-md space-y-5">
-              <div className="text-center space-y-1.5 border-b border-border/60 pb-4">
-                <span className="px-3 py-1 bg-emerald-50 text-emerald-900 text-xs font-bold rounded-full border border-emerald-200 inline-block uppercase tracking-wider">
-                  🛠️ Verified Service Provider
-                </span>
-                <h2 className="text-xl font-serif font-extrabold text-[#202622]">
-                  Book Service Request with {vendorData?.store_name}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Submit your requirement to receive direct service assistance and booking confirmation at your flat.
-                </p>
-                <div className="flex items-center justify-center gap-2 pt-1">
+          isServiceVendor(vendorData) ? (
+            <div className="space-y-6">
+              {/* Category Filter Pills & Search Bar with Direct Custom Enquiry CTA */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-card border border-border p-3 rounded-2xl shadow-sm">
+                <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all uppercase tracking-wider cursor-pointer ${
+                        selectedCategory === cat
+                          ? 'bg-[#541D26] text-white shadow-sm font-black'
+                          : 'bg-secondary text-muted-foreground hover:text-ink border border-border'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <div className="relative flex-1 md:w-64">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C8A878]" />
+                    <input
+                      type="text"
+                      placeholder="Search services..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full pl-10 pr-3.5 py-2 rounded-full bg-background border border-border text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink"
+                    />
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => {
-                      setStorefrontTab('reviews');
-                      loadRatings();
-                    }}
-                    className="text-[11px] font-bold text-[#541D26] hover:underline flex items-center gap-1 cursor-pointer"
+                    onClick={() => handleOpenServiceEnquiry(null)}
+                    className="px-4 py-2 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-xs flex items-center gap-1.5 shrink-0 transition-all border border-[#C8A878]/30 cursor-pointer"
+                    title="Submit a custom service enquiry"
                   >
-                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                    <span>View Reviews ({ratingSummary.rating_count || 0})</span>
-                  </button>
-                  <span className="text-stone-300">•</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!checkResidentAuth()) {
-                        setIsLoginModalOpen(true);
-                        return;
-                      }
-                      setShowReviewModal(true);
-                    }}
-                    className="text-[11px] font-extrabold text-[#541D26] hover:text-[#7A2B37] flex items-center gap-1 bg-amber-50 hover:bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-200 cursor-pointer"
-                  >
-                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                    <span>Rate Service Provider</span>
+                    <Send className="w-3.5 h-3.5 text-[#C8A878]" />
+                    <span className="hidden sm:inline">Custom Enquiry</span>
                   </button>
                 </div>
               </div>
 
-              <form onSubmit={handleServiceEnquirySubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-[#202622] uppercase mb-1">Service Required *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. AC Servicing, Electrical Repair, Tap Leakage..."
-                    value={serviceTitle}
-                    onChange={(e) => setServiceTitle(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#F7F3E8] border border-border text-xs font-medium focus:outline-none focus:border-[#315C45]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#202622] uppercase mb-1">Issue / Request Description</label>
-                  <textarea
-                    rows={3}
-                    placeholder="Describe your issue or custom requirements in detail..."
-                    value={serviceDescription}
-                    onChange={(e) => setServiceDescription(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#F7F3E8] border border-border text-xs font-medium focus:outline-none focus:border-[#315C45]"
-                  />
-                </div>
-
-                <div className="relative" ref={timeSlotDropdownRef}>
-                  <label className="block text-xs font-bold text-[#202622] uppercase mb-1.5 flex items-center justify-between">
-                    <span>Preferred Date / Time Slot</span>
-                    <span className="text-[10px] font-semibold text-[#541D26] bg-[#541D26]/10 px-2 py-0.5 rounded-full">Flexible</span>
-                  </label>
-
+              {/* Services Grid (Responsive Layout) */}
+              {loading ? (
+                <ProductCardSkeleton count={6} />
+              ) : filteredItems.length === 0 ? (
+                <div className="text-center py-16 bg-card rounded-3xl border border-border p-8 shadow-sm max-w-md mx-auto my-6 space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-[#EEE5DA] border border-[#C8A878]/30 flex items-center justify-center text-[#541D26] mx-auto shadow-2xs">
+                    <Briefcase className="w-8 h-8 text-[#541D26]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-serif font-bold text-ink mb-1">
+                      {items.length === 0 ? 'No Specific Services Listed in Catalog' : 'No Matching Services Found'}
+                    </h3>
+                    <p className="text-muted-foreground text-xs font-medium leading-relaxed">
+                      {items.length === 0 
+                        ? `You can still submit a custom service enquiry directly to ${vendorData?.store_name} for your flat.`
+                        : 'Try selecting a different category or search term.'}
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setIsTimeSlotDropdownOpen(!isTimeSlotDropdownOpen)}
-                    className="w-full px-4 py-3 rounded-xl bg-[#F7F4EE] hover:bg-white border border-[#E5DAD0] text-xs font-bold text-[#211A19] flex items-center justify-between transition-all shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#541D26]/20 focus:border-[#541D26] group"
+                    onClick={() => handleOpenServiceEnquiry(null)}
+                    className="px-5 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md inline-flex items-center gap-2 cursor-pointer border border-[#C8A878]/30"
                   >
-                    <div className="flex items-center space-x-2.5 min-w-0">
-                      <Clock className="w-4 h-4 text-[#541D26] shrink-0" />
-                      <span className="truncate font-bold text-[#211A19]">{preferredTime}</span>
-                    </div>
-                    <ChevronDown className={`w-4 h-4 text-muted-foreground group-hover:text-[#541D26] transition-transform duration-200 shrink-0 ${isTimeSlotDropdownOpen ? 'rotate-180 text-[#541D26]' : ''}`} />
+                    <Send className="w-3.5 h-3.5 text-[#C8A878]" />
+                    <span>Send Custom Enquiry</span>
                   </button>
-
-                  {isTimeSlotDropdownOpen && (
-                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E5DAD0] rounded-2xl shadow-xl z-50 overflow-hidden p-1.5 space-y-1 animate-fadeIn">
-                      {TIME_SLOT_OPTIONS.map((slot) => {
-                        const isSelected = preferredTime === slot.value;
-                        return (
-                          <button
-                            key={slot.value}
-                            type="button"
-                            onClick={() => {
-                              setPreferredTime(slot.value);
-                              setIsTimeSlotDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                              isSelected
-                                ? 'bg-[#541D26] text-white shadow-xs'
-                                : 'hover:bg-[#FAF6EE] text-[#211A19]'
-                            }`}
-                          >
-                            <span className="font-bold text-xs">{slot.label}</span>
-                            <div className="flex items-center space-x-2">
-                              <span className={`text-[9.5px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                isSelected ? 'bg-white/20 text-[#C8A878]' : 'bg-[#541D26]/10 text-[#541D26]'
-                              }`}>
-                                {slot.badge}
-                              </span>
-                              {isSelected && <Check className="w-3.5 h-3.5 text-[#C8A878]" />}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+                  {filteredItems.map((service) => {
+                    const isAvail = service.is_available !== undefined ? Boolean(service.is_available) : true;
+                    const priceNum = parseFloat(service.price || 0);
+                    const cleanPhone = String(vendorData?.phone_number || '').replace(/[^0-9]/g, '');
+                    const waText = encodeURIComponent(`Hello ${vendorData?.store_name}, I am inquiring about your service "${service.item_name}" listed on DigiLocal.`);
 
-                <button
-                  type="submit"
-                  disabled={submittingEnquiry}
-                  className="w-full py-3.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
-                >
-                  <span>{submittingEnquiry ? 'Sending Request...' : 'Submit Service Request'}</span>
-                </button>
-              </form>
+                    return (
+                      <div
+                        key={service.item_id || service.id}
+                        className="rounded-3xl overflow-hidden flex flex-col justify-between h-full w-full transition-all duration-200 shadow-xs hover:shadow-lg border border-border bg-white hover:border-[#541D26]/40 group"
+                      >
+                        <div className="p-4 flex-1 flex flex-col justify-between">
+                          <div>
+                            {/* Service Image with Category & Availability Badges */}
+                            <div className="relative mb-3.5 rounded-2xl overflow-hidden bg-secondary h-40 sm:h-44">
+                              <img
+                                src={getNormalizedImageUrl(service)}
+                                alt={service.item_name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                              <div className="absolute top-2.5 left-2.5">
+                                <span className="px-2.5 py-1 text-[10px] font-black rounded-full bg-black/70 text-white backdrop-blur-xs border border-white/20 shadow-xs flex items-center gap-1">
+                                  <Tag className="w-3 h-3 text-[#C8A878]" />
+                                  <span>{service.category || 'Service'}</span>
+                                </span>
+                              </div>
+
+                              <div className="absolute top-2.5 right-2.5">
+                                <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-full shadow-sm backdrop-blur-xs border ${
+                                  isAvail 
+                                    ? 'bg-emerald-600/90 text-white border-emerald-400/40' 
+                                    : 'bg-amber-600/90 text-white border-amber-400/40'
+                                }`}>
+                                  {isAvail ? '● Available' : '● Busy'}
+                                </span>
+                              </div>
+
+                              {service.duration && (
+                                <div className="absolute bottom-2.5 left-2.5">
+                                  <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-white/95 text-[#211A19] shadow-sm backdrop-blur-xs border border-border flex items-center gap-1">
+                                    <Clock className="w-3 h-3 text-[#541D26]" />
+                                    <span>{service.duration}</span>
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            <h3 className="text-base font-serif font-extrabold text-[#211A19] mb-1 line-clamp-1">
+                              {service.item_name}
+                            </h3>
+                            <p className="text-muted-foreground text-xs line-clamp-2 font-medium leading-relaxed">
+                              {service.description || 'Professional service provided at flat doorstep.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Service Card Footer with Pricing & Enquire Buttons (No Add to Cart) */}
+                        <div className="p-4 bg-[#FAF9F6] border-t border-border space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                                Estimated Rate
+                              </span>
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-lg font-serif font-black text-[#541D26]">
+                                  {priceNum > 0 ? `₹${priceNum.toFixed(2)}` : 'Quote on Request'}
+                                </span>
+                                {priceNum > 0 && service.unit && (
+                                  <span className="text-[11px] font-semibold text-muted-foreground">
+                                    / {service.unit}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200">
+                              Doorstep Visit
+                            </span>
+                          </div>
+
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenServiceEnquiry(service)}
+                              className="w-full py-3 px-4 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer border border-[#C8A878]/30 hover:scale-[1.01] active:scale-98"
+                            >
+                              <Send className="w-3.5 h-3.5 text-[#C8A878]" />
+                              <span>Enquire About Service</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : (
           <>
@@ -1764,7 +1922,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       </div>
 
       {/* Floating Bottom Cart Bar */}
-      {cartItemCount > 0 && !showCartDrawer && (
+      {cartItemCount > 0 && !showCartDrawer && !isServiceVendor(vendorData) && (
         <div className="fixed bottom-6 inset-x-4 max-w-lg mx-auto z-40 animate-in slide-in-from-bottom duration-300 pointer-events-auto">
           <div className="bg-[#541D26] text-white p-3.5 sm:p-4 rounded-[2rem] border-2 border-[#C8A878]/50 shadow-2xl flex items-center justify-between gap-3">
             <div className="flex items-center space-x-3 min-w-0">
@@ -2002,7 +2160,8 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             const resPhone = currentUser?.phone || currentUser?.mobile || currentUser?.phone_number || '';
 
             const cleanFlatStr = `Flat ${flatNumber}${buildingNumber ? `, ${buildingNumber}` : ''}`;
-            const cleanAddrStr = `${cleanFlatStr}, ${societyName || 'Residential Complex'}`;
+            const resolvedSoc = vendorData?.society_name || vendorData?.location || societyName || currentUser?.society_name || currentUser?.society || 'Omaxe Greenwood Residency';
+            const cleanAddrStr = `${cleanFlatStr}, ${resolvedSoc}`;
 
             const userCity = vendorData?.city || currentUser?.city || '';
             const userState = vendorData?.state || currentUser?.state || '';
@@ -2234,6 +2393,219 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                 >
                   <Star className="w-3.5 h-3.5 text-[#C8A878] fill-[#C8A878]" />
                   <span>{submittingReview ? 'Submitting...' : 'Post Review'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Service Enquiry Modal */}
+      {showServiceEnquiryModal && createPortal(
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[9999999] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200 overflow-hidden font-sans">
+          <div 
+            className="bg-white rounded-3xl p-6 sm:p-7 max-w-xl w-full shadow-2xl border border-[#E5DAD0] space-y-5 animate-in zoom-in-95 duration-200 relative max-h-[92vh] overflow-y-auto pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowServiceEnquiryModal(false)}
+              className="absolute right-5 top-5 w-8 h-8 rounded-full bg-[#FAF6EE] hover:bg-[#F0E6DD] text-[#211A19] flex items-center justify-center text-sm font-bold transition-all cursor-pointer"
+            >
+              ✕
+            </button>
+
+            {/* Modal Header */}
+            <div>
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 mb-1.5">
+                <Briefcase className="w-3 h-3 text-emerald-600" />
+                Service Enquiry & Consultation
+              </span>
+              <h3 className="text-lg sm:text-xl font-serif font-black text-[#18281F]">
+                Enquire with {vendorData?.store_name || 'Service Provider'}
+              </h3>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                Submit your requirements for direct doorstep service assistance or quote.
+              </p>
+            </div>
+
+            {/* Selected Service Preview Card (if applicable) */}
+            {selectedServiceForEnquiry && (
+              <div className="bg-[#FAF9F6] p-3.5 rounded-2xl border border-[#18281F]/15 flex items-center gap-3.5 shadow-2xs">
+                <div className="w-16 h-16 rounded-xl overflow-hidden bg-secondary shrink-0 border border-border">
+                  <img
+                    src={getNormalizedImageUrl(selectedServiceForEnquiry)}
+                    alt={selectedServiceForEnquiry.item_name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h4 className="text-xs font-bold text-[#18281F] truncate">
+                      {selectedServiceForEnquiry.item_name}
+                    </h4>
+                    {selectedServiceForEnquiry.category && (
+                      <span className="text-[9.5px] font-black px-2 py-0.2 bg-white rounded-full border border-border text-muted-foreground uppercase">
+                        {selectedServiceForEnquiry.category}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] mt-1 font-semibold text-muted-foreground">
+                    {selectedServiceForEnquiry.price && parseFloat(selectedServiceForEnquiry.price) > 0 ? (
+                      <span className="text-[#18281F] font-black">
+                        Rate: ₹{parseFloat(selectedServiceForEnquiry.price).toFixed(2)}
+                        {selectedServiceForEnquiry.unit ? ` / ${selectedServiceForEnquiry.unit}` : ''}
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700 font-bold">Quote on Inspection</span>
+                    )}
+                    {selectedServiceForEnquiry.duration && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-muted-foreground" />
+                        <span>{selectedServiceForEnquiry.duration}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleServiceEnquirySubmit} className="space-y-4">
+              {/* Service Title */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#18281F] uppercase tracking-wider">
+                  Service / Task Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g., Tap Leakage Repair, AC Deep Cleaning, Home Haircut..."
+                  value={serviceTitle}
+                  onChange={(e) => setServiceTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-semibold text-[#18281F] placeholder:text-muted-foreground/60 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#18281F]/20 focus:border-[#18281F]"
+                />
+              </div>
+
+              {/* Requirement / Problem Description */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#18281F] uppercase tracking-wider">
+                  Requirement Details <span className="font-normal text-muted-foreground">(Optional)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Describe what needs fixing, specific brand/model, preferred materials, or access instructions..."
+                  value={serviceDescription}
+                  onChange={(e) => setServiceDescription(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium text-[#18281F] placeholder:text-muted-foreground/60 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#18281F]/20 focus:border-[#18281F]"
+                />
+              </div>
+
+              {/* Preferred Time Slot */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#18281F] uppercase tracking-wider">
+                  Preferred Time Slot
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {TIME_SLOT_OPTIONS.map((slot) => {
+                    const isSelected = preferredTime === slot.value;
+                    return (
+                      <button
+                        key={slot.value}
+                        type="button"
+                        onClick={() => setPreferredTime(slot.value)}
+                        className={`p-2 rounded-xl text-left text-xs font-bold transition-all border cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#18281F] text-white border-[#18281F] shadow-2xs'
+                            : 'bg-[#FAF9F6] text-[#18281F] hover:bg-gray-100 border-[#E5DAD0]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="truncate">{slot.badge}</span>
+                          {isSelected && <Check className="w-3 h-3 text-[#C8A878]" />}
+                        </div>
+                        <p className={`text-[10px] font-normal truncate mt-0.5 ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
+                          {slot.label}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Contact & Flat Location Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-[#18281F] uppercase tracking-wider">
+                    Your Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Resident Name"
+                    value={enquiryResidentName}
+                    onChange={(e) => setEnquiryResidentName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-semibold text-[#18281F] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#18281F]/20"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-[#18281F] uppercase tracking-wider">
+                    Phone Number <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    maxLength={14}
+                    placeholder="10-digit mobile"
+                    value={enquiryResidentPhone}
+                    onChange={(e) => setEnquiryResidentPhone(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-semibold text-[#18281F] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#18281F]/20"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-[#18281F] uppercase tracking-wider">
+                  Flat / Unit Number & Wing
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Flat 402, Tower B"
+                  value={enquiryFlatNumber}
+                  onChange={(e) => setEnquiryFlatNumber(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-semibold text-[#18281F] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#18281F]/20"
+                />
+              </div>
+
+              {/* Informational Policy Banner */}
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-[11px] space-y-0.5">
+                <div className="flex items-center gap-1.5 font-extrabold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                  <span>Doorstep Direct Service Policy</span>
+                </div>
+                <p className="text-[10.5px] leading-relaxed">
+                  No online booking payment is required on DigiLocal. The service vendor receives your enquiry directly, calls/WhatsApp you to confirm details, and you settle charges directly upon satisfaction.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowServiceEnquiryModal(false)}
+                  className="flex-1 py-3 rounded-2xl bg-[#FAF6EE] hover:bg-[#F0E6DD] text-[#211A19] font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingEnquiry}
+                  className="flex-1 py-3 rounded-2xl bg-[#18281F] hover:bg-[#253E30] text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Send className="w-3.5 h-3.5 text-[#C8A878]" />
+                  <span>{submittingEnquiry ? 'Sending...' : 'Submit Service Enquiry'}</span>
                 </button>
               </div>
             </form>

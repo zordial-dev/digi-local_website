@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { api, getNormalizedImageUrl, getItemUnitLabel, formatItemQuantityBadge } from '../services/api';
+import { api, getNormalizedImageUrl, getItemUnitLabel, formatItemQuantityBadge, isServiceVendor } from '../services/api';
 import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, ShieldAlert, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight, Briefcase, Star, MessageSquare, Send, Truck, Lock, KeyRound, Eye, EyeOff } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import VendorStatusBanner from '../components/VendorStatusBanner';
@@ -537,9 +537,21 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           ...data.vendor,
           ...userSaved
         };
+
+        if (!Array.isArray(data.items)) {
+          data.items = [];
+        }
       }
 
       setPanelData(data);
+
+      try {
+        const enqList = await api.getVendorEnquiries(vendorId);
+        if (Array.isArray(enqList) && enqList.length > 0) {
+          setEnquiries(enqList);
+        }
+      } catch (_) {}
+
       if (data.vendor) {
         const v = data.vendor;
         const panVal = userSaved.pan_number || userSaved.pan || v.pan_number || v.pan || v.panNumber || '';
@@ -633,12 +645,15 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   const handleSaveItem = async (e) => {
     e.preventDefault();
     try {
-      const stockNum = parseInt(itemForm.stock || 0);
-      const isAvail = stockNum > 0 ? (itemForm.is_available !== false && itemForm.is_available !== 0) : false;
+      const isService = isServiceVendor(panelData?.vendor);
+      const stockNum = isService ? (itemForm.stock ? parseInt(itemForm.stock) : 100) : parseInt(itemForm.stock || 0);
+      const isAvail = isService ? (itemForm.is_available !== false && itemForm.is_available !== 0) : (stockNum > 0 && itemForm.is_available !== false && itemForm.is_available !== 0);
       const payload = {
         ...itemForm,
         stock: stockNum,
-        is_available: isAvail ? 1 : 0
+        is_available: isAvail ? 1 : 0,
+        unit: itemForm.unit || (isService ? 'Service' : 'Piece'),
+        duration: itemForm.duration || (isService ? '45 - 60 mins' : '')
       };
 
       if (editingItem) {
@@ -653,8 +668,8 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     } catch (err) {
       setModalConfig({
         isOpen: true,
-        title: 'Save Item Error',
-        message: err.message || 'Failed to save item details.',
+        title: isServiceVendor(panelData?.vendor) ? 'Save Service Error' : 'Save Item Error',
+        message: err.message || 'Failed to save details.',
         type: 'error'
       });
     }
@@ -720,32 +735,49 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     // Immediate optimistic state update matching normalized IDs
     const cleanId = String(orderId).replace(/^ORD[-_]?/i, '').trim().toLowerCase();
     const rawTargetId = String(orderId).trim().toLowerCase();
+    const normalizedUpper = String(newStatus || 'ACCEPTED').trim().toUpperCase();
+
     setPanelData((prev) => {
       if (!prev || !Array.isArray(prev.orders)) return prev;
       const updatedOrders = prev.orders.map((o) => {
         const oClean = String(o.order_id || o.id || '').replace(/^ORD[-_]?/i, '').trim().toLowerCase();
         const oRaw = String(o.order_id || o.id || '').trim().toLowerCase();
-        return (oRaw === rawTargetId || oClean === cleanId) ? { ...o, status: newStatus, order_status: newStatus } : o;
+        return (oRaw === rawTargetId || oClean === cleanId) ? { ...o, status: normalizedUpper, order_status: normalizedUpper } : o;
       });
       return { ...prev, orders: updatedOrders };
     });
 
     try {
-      await api.updateOrderStatus(orderId, newStatus);
+      await api.updateOrderStatus(orderId, normalizedUpper);
       await loadPanelData(false);
-      if (newStatus === 'COMPLETED') {
+
+      if (normalizedUpper === 'COMPLETED' || normalizedUpper === 'DELIVERED') {
         setModalConfig({
           isOpen: true,
           title: '✅ Order Marked Completed',
           message: `Order #${orderId} has been successfully marked as completed and fulfilled.`,
           type: 'success'
         });
-      } else if (newStatus === 'ACCEPTED') {
+      } else if (normalizedUpper === 'ACCEPTED' || normalizedUpper === 'PREPARING') {
         setModalConfig({
           isOpen: true,
           title: '✅ Order Accepted',
-          message: `Order #${orderId} has been accepted and moved to preparation.`,
+          message: `Order #${orderId} has been accepted and moved to preparation. You can now dispatch it for delivery when ready.`,
           type: 'success'
+        });
+      } else if (normalizedUpper === 'OUT_FOR_DELIVERY' || normalizedUpper === 'IN_PROGRESS') {
+        setModalConfig({
+          isOpen: true,
+          title: '🚚 Order Dispatched',
+          message: `Order #${orderId} is now marked out for doorstep delivery.`,
+          type: 'success'
+        });
+      } else if (normalizedUpper === 'CANCELLED') {
+        setModalConfig({
+          isOpen: true,
+          title: '🚫 Order Cancelled',
+          message: `Order #${orderId} has been cancelled.`,
+          type: 'info'
         });
       }
     } catch (err) {
@@ -1176,11 +1208,17 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           {[
             { id: 'orders', label: `Store Sales (${orders.length})`, icon: ShoppingBag },
             { id: 'purchases', label: `My Purchases (${purchases.length})`, icon: ShoppingBag },
-            (vendor?.vendor_type === 'service' || vendor?.can_add_items === false)
-              ? { id: 'enquiries', label: `Enquiries (${enquiries.length})`, icon: Briefcase }
-              : { id: 'items', label: `Items (${items.length})`, icon: Package },
+            ...(isServiceVendor(vendor)
+              ? [
+                  { id: 'items', label: `Services (${items.length})`, icon: Briefcase },
+                  { id: 'enquiries', label: `Enquiries (${enquiries.length})`, icon: MessageSquare }
+                ]
+              : [
+                  { id: 'items', label: `Items (${items.length})`, icon: Package }
+                ]
+            ),
             { id: 'ratings', label: `Reviews (${vendorRatingsData?.metrics?.rating_count || vendorRatingsData?.pagination?.total || 0})`, icon: Star },
-            { id: 'settings', label: 'Store Settings', icon: Settings },
+            { id: 'settings', label: isServiceVendor(vendor) ? 'Service Settings' : 'Store Settings', icon: Settings },
             { id: 'subscription', label: 'Subscription Plan', icon: CreditCard },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -1249,10 +1287,16 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   }
 
                   let rawAddr = order.address || order.delivery_address || order.full_address || 'Resident Address';
-                  const targetSocietyName = order.society_name || vendor?.society_name || vendor?.location || '';
-                  
-                  if (targetSocietyName && rawAddr.match(/,\s*(Society|Gated Community|Gated Housing Society)$/i)) {
-                    rawAddr = rawAddr.replace(/,\s*(Society|Gated Community|Gated Housing Society)$/i, `, ${targetSocietyName}`);
+                  const targetSocietyName = order.society_name || vendor?.society_name || vendor?.location || (Array.isArray(panelData?.societies) ? panelData.societies.find(s => String(s.society_id) === String(order.society_id || vendor?.society_id))?.society_name : '') || 'Omaxe Greenwood Residency';
+
+                  if (targetSocietyName) {
+                    rawAddr = rawAddr.replace(/,\s*(Local Society|Society|Gated Community|Gated Housing Society|Residential Complex|Community Complex|Anupam Apartment)$/i, `, ${targetSocietyName}`);
+                    rawAddr = rawAddr.replace(/\bLocal Society\b/gi, targetSocietyName);
+                    rawAddr = rawAddr.replace(/\bSociety\b/gi, targetSocietyName);
+
+                    if (!rawAddr.toLowerCase().includes(targetSocietyName.toLowerCase()) && !rawAddr.includes(',')) {
+                      rawAddr = `${rawAddr}, ${targetSocietyName}`;
+                    }
                   }
                   const deliveryAddr = rawAddr;
                   const orderItems = Array.isArray(order.items) ? order.items : [];
@@ -1858,14 +1902,21 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           </span>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => setTrackingOrder(purchase)}
-                          className="w-full mt-3 py-3 px-4 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer hover:scale-[1.02] border border-[#C8A878]/30"
-                        >
-                          <Truck className="w-4 h-4 text-[#C8A878] animate-pulse" />
-                          <span>Track Order Live</span>
-                        </button>
+                        {(() => {
+                          const pSt = String(purchase.status || purchase.order_status || '').toUpperCase().trim();
+                          const isPLiveActive = !['CANCELLED', 'CANCELED', 'REJECTED', 'DECLINED', 'FAILED', 'DELIVERED', 'COMPLETED', 'COMPLETE', 'DONE'].includes(pSt);
+                          if (!isPLiveActive) return null;
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setTrackingOrder(purchase)}
+                              className="w-full mt-3 py-3 px-4 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer hover:scale-[1.02] border border-[#C8A878]/30"
+                            >
+                              <Truck className="w-4 h-4 text-[#C8A878] animate-pulse" />
+                              <span>Track Order Live</span>
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                   );
@@ -1875,13 +1926,19 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           </div>
         )}
 
-        {/* 2. ITEMS / INVENTORY TAB */}
+        {/* 2. ITEMS / SERVICES CATALOG TAB */}
         {activeTab === 'items' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border/80 rounded-2xl p-5 shadow-xs">
               <div>
-                <h2 className="text-lg font-serif font-black text-ink uppercase tracking-wider">Store Inventory & Availability</h2>
-                <p className="text-xs text-muted-foreground font-medium mt-0.5">Toggle availability switch to make any item temporarily available/unavailable for customer ordering.</p>
+                <h2 className="text-lg font-serif font-black text-ink uppercase tracking-wider">
+                  {isServiceVendor(vendor) ? 'Services Catalog & Offerings' : 'Store Inventory & Availability'}
+                </h2>
+                <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                  {isServiceVendor(vendor) 
+                    ? 'Add, edit, and list all services provided by your business. Community residents can view your full catalog and submit direct enquiries.'
+                    : 'Toggle availability switch to make any item temporarily available/unavailable for customer ordering.'}
+                </p>
               </div>
 
               <button
@@ -1889,85 +1946,131 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 className="px-5 py-2.5 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs shadow-md flex items-center justify-center space-x-2 uppercase tracking-wider shrink-0 transition-all hover:scale-102 cursor-pointer"
               >
                 <Plus className="w-4 h-4 text-[#E6C35C]" />
-                <span>Add New Item</span>
+                <span>{isServiceVendor(vendor) ? 'Add New Service' : 'Add New Item'}</span>
               </button>
             </div>
 
-            <div className={`grid gap-5 ${
-              items.length === 1 
-                ? 'grid-cols-1 max-w-md' 
-                : items.length === 2 
-                  ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl' 
-                  : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3'
-            }`}>
-              {items.map((item, idx) => (
-                <div key={`item-${item.item_id || idx}-${idx}`} className="rounded-2xl bg-card border border-border/80 p-4 flex flex-col justify-between shadow-xs hover:shadow-md transition-all duration-200">
-                  <div>
-                    <div className="relative mb-3.5 h-44 sm:h-48 w-full rounded-xl overflow-hidden bg-secondary border border-border/40">
-                      <img
-                        src={getNormalizedImageUrl(item)}
-                        alt={item.item_name}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-2.5 right-2.5">
-                        <span className="px-2.5 py-1 text-[10px] font-black rounded-full bg-white/95 text-ink border border-border/50 shadow-xs backdrop-blur-xs">
-                          {item.category || 'General'}
-                        </span>
+            {items.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-3xl border border-[#1E3623]/15 p-8 shadow-xs space-y-3">
+                <div className="w-16 h-16 rounded-full bg-[#E3EFE6] border border-[#18281F]/20 flex items-center justify-center text-[#18281F] mx-auto shadow-2xs">
+                  {isServiceVendor(vendor) ? <Briefcase className="w-8 h-8 text-[#18281F]" /> : <Package className="w-8 h-8 text-[#18281F]" />}
+                </div>
+                <h3 className="text-base font-serif font-bold text-[#18281F]">
+                  {isServiceVendor(vendor) ? 'No Services Listed Yet' : 'No Items in Inventory'}
+                </h3>
+                <p className="text-muted-foreground text-xs font-medium max-w-sm mx-auto">
+                  {isServiceVendor(vendor)
+                    ? 'List your professional services with estimated rates and inclusions so community residents can enquire with you.'
+                    : 'Add products and items to start receiving orders from residents.'}
+                </p>
+                <button
+                  onClick={() => { resetItemForm(); setEditingItem(null); setShowAddItemModal(true); }}
+                  className="mt-2 px-5 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md inline-flex items-center gap-2 uppercase tracking-wider cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-[#C8A878]" />
+                  <span>{isServiceVendor(vendor) ? 'Create First Service' : 'Add First Item'}</span>
+                </button>
+              </div>
+            ) : (
+              <div className={`grid gap-5 ${
+                items.length === 1 
+                  ? 'grid-cols-1 max-w-md' 
+                  : items.length === 2 
+                    ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl' 
+                    : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3'
+              }`}>
+                {items.map((item, idx) => (
+                  <div key={`item-${item.item_id || idx}-${idx}`} className="rounded-2xl bg-card border border-border/80 p-4 flex flex-col justify-between shadow-xs hover:shadow-md transition-all duration-200">
+                    <div>
+                      <div className="relative mb-3.5 h-44 sm:h-48 w-full rounded-xl overflow-hidden bg-secondary border border-border/40">
+                        <img
+                          src={getNormalizedImageUrl(item)}
+                          alt={item.item_name}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-2.5 right-2.5">
+                          <span className="px-2.5 py-1 text-[10px] font-black rounded-full bg-white/95 text-ink border border-border/50 shadow-xs backdrop-blur-xs">
+                            {item.category || (isServiceVendor(vendor) ? 'Service' : 'General')}
+                          </span>
+                        </div>
+                        {isServiceVendor(vendor) && item.duration && (
+                          <div className="absolute bottom-2.5 left-2.5">
+                            <span className="px-2 py-0.5 text-[9.5px] font-bold rounded-full bg-black/75 text-[#E6C35C] border border-white/20 shadow-xs backdrop-blur-xs flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-[#E6C35C]" />
+                              <span>{item.duration}</span>
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <h3 className="font-serif font-extrabold text-ink text-base line-clamp-1">{item.item_name}</h3>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 mb-3 font-medium">
+                        {item.description || (isServiceVendor(vendor) ? 'Professional service provided at flat doorstep.' : 'Fresh store product')}
+                      </p>
+                      
+                      <div className="flex items-center justify-between text-xs mb-3.5 pt-2 border-t border-border/40">
+                        <div>
+                          <span className="text-base sm:text-lg font-black text-primary">
+                            {parseFloat(item.price) > 0 ? `₹${parseFloat(item.price).toFixed(2)}` : 'Quote Base'}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground ml-1 font-semibold">
+                            / {item.unit || (isServiceVendor(vendor) ? 'Service' : 'Piece')}
+                          </span>
+                        </div>
+                        {isServiceVendor(vendor) ? (
+                          <span className="text-[10px] font-bold text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            💬 Enquire Only
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold text-muted-foreground bg-secondary px-2.5 py-1 rounded-full border border-border/60">
+                            Stock: <strong className="text-ink">{item.stock}</strong> {item.unit}
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    <h3 className="font-serif font-extrabold text-ink text-base line-clamp-1">{item.item_name}</h3>
-                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5 mb-3 font-medium">{item.description || 'Fresh store product'}</p>
-                    
-                    <div className="flex items-center justify-between text-xs mb-3.5 pt-2 border-t border-border/40">
-                      <span className="text-base sm:text-lg font-black text-primary">₹{parseFloat(item.price).toFixed(2)}</span>
-                      <span className="text-xs font-bold text-muted-foreground bg-secondary px-2.5 py-1 rounded-full border border-border/60">
-                        Stock: <strong className="text-ink">{item.stock}</strong> {item.unit}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* ITEM AVAILABILITY TOGGLE SWITCH */}
-                  <div className="pt-3 border-t border-border/80 flex items-center justify-between gap-2">
-                    <div className="flex items-center space-x-2">
-                      <button
-                        type="button"
-                        onClick={(e) => handleToggleAvailability(item, e)}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                          isItemAvailable(item) ? 'bg-[#2E7D32]' : 'bg-slate-300'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
-                            isItemAvailable(item) ? 'translate-x-5' : 'translate-x-0'
+                    {/* ITEM AVAILABILITY TOGGLE SWITCH */}
+                    <div className="pt-3 border-t border-border/80 flex items-center justify-between gap-2">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleAvailability(item, e)}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                            isItemAvailable(item) ? 'bg-[#2E7D32]' : 'bg-slate-300'
                           }`}
-                        />
-                      </button>
-                      <span className={`text-xs font-bold ${isItemAvailable(item) ? 'text-[#2E7D32]' : 'text-slate-500'}`}>
-                        {isItemAvailable(item) ? 'Available' : 'Unavailable'}
-                      </span>
-                    </div>
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                              isItemAvailable(item) ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                        <span className={`text-xs font-bold ${isItemAvailable(item) ? 'text-[#2E7D32]' : 'text-slate-500'}`}>
+                          {isItemAvailable(item) ? (isServiceVendor(vendor) ? 'Accepting Enquiries' : 'Available') : 'Unavailable'}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center space-x-1.5">
-                      <button
-                        onClick={() => handleOpenEditItem(item)}
-                        className="p-2 rounded-xl bg-secondary hover:bg-border text-ink transition-colors border border-border/60 cursor-pointer"
-                        title="Edit item"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteItem(item.item_id)}
-                        className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors border border-rose-200 cursor-pointer"
-                        title="Delete item"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center space-x-1.5">
+                        <button
+                          onClick={() => handleOpenEditItem(item)}
+                          className="p-2 rounded-xl bg-secondary hover:bg-border text-ink transition-colors border border-border/60 cursor-pointer"
+                          title={isServiceVendor(vendor) ? 'Edit service' : 'Edit item'}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item.item_id)}
+                          className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors border border-rose-200 cursor-pointer"
+                          title={isServiceVendor(vendor) ? 'Delete service' : 'Delete item'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -3173,10 +3276,14 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 </div>
                 <div>
                   <h3 className="text-sm font-serif font-bold text-[#211A19]">
-                    {editingItem ? 'Edit Product Item' : 'Add New Product'}
+                    {isServiceVendor(panelData?.vendor) 
+                      ? (editingItem ? 'Edit Service Details' : 'Add New Service Offering')
+                      : (editingItem ? 'Edit Product Item' : 'Add New Product')}
                   </h3>
                   <p className="text-[10px] text-[#78716C] font-medium">
-                    Enter product details, pricing & stock quantity
+                    {isServiceVendor(panelData?.vendor)
+                      ? 'Enter service title, estimated pricing, duration & inclusions'
+                      : 'Enter product details, pricing & stock quantity'}
                   </p>
                 </div>
               </div>
@@ -3197,7 +3304,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 {/* 1. COMPACT PHOTO UPLOAD BAR */}
                 <div>
                   <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                    PRODUCT IMAGE
+                    {isServiceVendor(panelData?.vendor) ? 'SERVICE IMAGE / COVER' : 'PRODUCT IMAGE'}
                   </label>
                   <div className="flex items-center gap-3 bg-[#FAF8F5] p-2.5 rounded-2xl border border-[#E7DFD5]">
                     <div className="relative shrink-0">
@@ -3280,17 +3387,66 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                       </div>
                     </div>
                   </div>
+
+                  {/* Preset Service Photos */}
+                  {isServiceVendor(panelData?.vendor) && (
+                    <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+                      <span className="text-[10px] font-bold text-[#78716C]">Quick Photos:</span>
+                      <button
+                        type="button"
+                        onClick={() => setItemForm({ ...itemForm, image_url: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&auto=format&fit=crop&q=80' })}
+                        className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[10px] font-bold border border-[#E7DFD5]"
+                      >
+                        ❄️ AC Service
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setItemForm({ ...itemForm, image_url: 'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=800&auto=format&fit=crop&q=80' })}
+                        className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[10px] font-bold border border-[#E7DFD5]"
+                      >
+                        🔧 Plumbing
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setItemForm({ ...itemForm, image_url: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80' })}
+                        className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[10px] font-bold border border-[#E7DFD5]"
+                      >
+                        ⚡ Electrical
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setItemForm({ ...itemForm, image_url: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&auto=format&fit=crop&q=80' })}
+                        className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[10px] font-bold border border-[#E7DFD5]"
+                      >
+                        🧹 Cleaning
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setItemForm({ ...itemForm, image_url: 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?w=800&auto=format&fit=crop&q=80' })}
+                        className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[10px] font-bold border border-[#E7DFD5]"
+                      >
+                        💇 Salon
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setItemForm({ ...itemForm, image_url: 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800&auto=format&fit=crop&q=80' })}
+                        className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[10px] font-bold border border-[#E7DFD5]"
+                      >
+                        🧺 Laundry
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* 2. PRODUCT NAME */}
+                {/* 2. PRODUCT / SERVICE NAME */}
                 <div>
                   <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                    PRODUCT NAME *
+                    {isServiceVendor(panelData?.vendor) ? 'SERVICE NAME / TITLE *' : 'PRODUCT NAME *'}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Amul Gold Fresh Milk 1L"
+                    placeholder={isServiceVendor(panelData?.vendor) ? "e.g. Split AC Foam Jet Deep Servicing" : "e.g. Amul Gold Fresh Milk 1L"}
                     value={itemForm.item_name}
                     onChange={(e) => setItemForm({ ...itemForm, item_name: e.target.value })}
                     className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl px-3 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
@@ -3311,13 +3467,27 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         className="w-full bg-[#FAF8F5] border border-[#E7DFD5] hover:border-[#541D26] rounded-xl pl-7 pr-2 py-2 text-xs font-bold text-[#211A19] flex items-center justify-between cursor-pointer"
                       >
                         <Tag className="w-3 h-3 text-[#C8A878] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <span className="truncate">{itemForm.category || 'Category'}</span>
+                        <span className="truncate">{itemForm.category || (isServiceVendor(panelData?.vendor) ? 'Service' : 'Category')}</span>
                         <ChevronDown className={`w-3 h-3 text-[#541D26] shrink-0 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
                       </button>
 
                       {showCategoryDropdown && (
                         <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E7DFD5] rounded-xl shadow-2xl z-50 max-h-44 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
-                          {[
+                          {(isServiceVendor(panelData?.vendor) ? [
+                            'Home Maintenance',
+                            'AC & Appliances',
+                            'Plumbing & Sanitization',
+                            'Electrical & Wiring',
+                            'Deep Cleaning & Wash',
+                            'Salon, Spa & Grooming',
+                            'Laundry & Dry Cleaning',
+                            'Painting & Waterproofing',
+                            'Carpentry & Furniture',
+                            'Pest Control & Disinfection',
+                            'Tiffin & Catering',
+                            'Consultation & Inspection',
+                            'Custom Service'
+                          ] : [
                             'General',
                             'Dairy & Milk',
                             'Fresh Fruits & Vegetables',
@@ -3340,7 +3510,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             'Clothing & Tailoring',
                             'Home Decor & Pooja Needs',
                             'Services & Repairs'
-                          ].map((cat) => (
+                          ]).map((cat) => (
                             <div
                               key={cat}
                               onClick={() => {
@@ -3365,7 +3535,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   {/* Price (₹) */}
                   <div>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                      PRICE (₹) *
+                      {isServiceVendor(panelData?.vendor) ? 'STARTING RATE (₹) *' : 'PRICE (₹) *'}
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-[#541D26]">₹</span>
@@ -3374,7 +3544,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         step="0.01"
                         min="0"
                         required
-                        placeholder="199.00"
+                        placeholder={isServiceVendor(panelData?.vendor) ? "499.00" : "199.00"}
                         value={itemForm.price}
                         onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })}
                         className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl pl-7 pr-2.5 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
@@ -3383,12 +3553,12 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   </div>
                 </div>
 
-                {/* 4. UNIT & STOCK QUANTITY (2 COLUMNS) */}
+                {/* 4. UNIT & DURATION / STOCK (2 COLUMNS) */}
                 <div className="grid grid-cols-2 gap-2.5">
                   {/* Unit Select Dropdown */}
                   <div>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                      UNIT *
+                      {isServiceVendor(panelData?.vendor) ? 'PRICING UNIT *' : 'UNIT *'}
                     </label>
                     <div className="relative">
                       <button
@@ -3396,13 +3566,24 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         onClick={() => setShowUnitDropdown(!showUnitDropdown)}
                         className="w-full bg-[#FAF8F5] border border-[#E7DFD5] hover:border-[#541D26] rounded-xl px-3 py-2 text-xs font-bold text-[#211A19] flex items-center justify-between cursor-pointer"
                       >
-                        <span className="truncate">{itemForm.unit || 'Piece'}</span>
+                        <span className="truncate">{itemForm.unit || (isServiceVendor(panelData?.vendor) ? 'Service' : 'Piece')}</span>
                         <ChevronDown className={`w-3 h-3 text-[#541D26] shrink-0 transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
                       </button>
 
                       {showUnitDropdown && (
                         <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E7DFD5] rounded-xl shadow-xl z-50 max-h-36 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
-                          {[
+                          {(isServiceVendor(panelData?.vendor) ? [
+                            'Service',
+                            'Visit',
+                            'Hour',
+                            'Session',
+                            'Appliance',
+                            'Bathroom',
+                            'Room',
+                            'Piece',
+                            '5 kg Bag',
+                            'Custom Quote'
+                          ] : [
                             'Piece',
                             'Set',
                             'Packet',
@@ -3414,7 +3595,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             '500ml',
                             'Dozen',
                             'Bunch'
-                          ].map((u) => (
+                          ]).map((u) => (
                             <div
                               key={u}
                               onClick={() => {
@@ -3438,58 +3619,75 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     </div>
                   </div>
 
-                  {/* Stock Quantity Input */}
+                  {/* Stock Quantity OR Duration Input */}
                   <div>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                      STOCK QUANTITY *
+                      {isServiceVendor(panelData?.vendor) ? 'ESTIMATED DURATION' : 'STOCK QUANTITY *'}
                     </label>
                     <div className="relative">
-                      <Package className="w-3 h-3 text-[#C8A878] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <input
-                        type="number"
-                        min="0"
-                        required
-                        placeholder="e.g. 10"
-                        value={itemForm.stock}
-                        onChange={(e) => setItemForm({ ...itemForm, stock: e.target.value })}
-                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl pl-8 pr-2.5 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
-                      />
+                      {isServiceVendor(panelData?.vendor) ? (
+                        <>
+                          <Clock className="w-3 h-3 text-[#C8A878] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            placeholder="e.g. 45-60 mins"
+                            value={itemForm.duration || ''}
+                            onChange={(e) => setItemForm({ ...itemForm, duration: e.target.value })}
+                            className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl pl-8 pr-2.5 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Package className="w-3 h-3 text-[#C8A878] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="number"
+                            min="0"
+                            required
+                            placeholder="e.g. 10"
+                            value={itemForm.stock}
+                            onChange={(e) => setItemForm({ ...itemForm, stock: e.target.value })}
+                            className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl pl-8 pr-2.5 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
+                          />
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* 5. ITEM AVAILABILITY TOGGLE */}
+                {/* 5. AVAILABILITY TOGGLE */}
                 <div className="bg-[#FAF8F5] border border-[#E7DFD5] rounded-xl px-3.5 py-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${itemForm.is_available ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+                    <span className={`w-2 h-2 rounded-full ${itemForm.is_available !== false ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
                     <span className="text-xs font-extrabold uppercase tracking-wider text-[#211A19]">
-                      {itemForm.is_available ? 'Item Available for Orders' : 'Item Out of Stock / Hidden'}
+                      {itemForm.is_available !== false 
+                        ? (isServiceVendor(panelData?.vendor) ? 'Accepting Service Enquiries' : 'Item Available for Orders')
+                        : (isServiceVendor(panelData?.vendor) ? 'Temporarily Paused' : 'Item Out of Stock / Hidden')}
                     </span>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => setItemForm({ ...itemForm, is_available: !itemForm.is_available })}
+                    onClick={() => setItemForm({ ...itemForm, is_available: itemForm.is_available === false ? true : false })}
                     className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                      itemForm.is_available ? 'bg-[#541D26]' : 'bg-gray-300'
+                      itemForm.is_available !== false ? 'bg-[#541D26]' : 'bg-gray-300'
                     }`}
                   >
                     <span
                       className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#C8A878] shadow transition duration-200 ease-in-out ${
-                        itemForm.is_available ? 'translate-x-4' : 'translate-x-0 bg-white'
+                        itemForm.is_available !== false ? 'translate-x-4' : 'translate-x-0 bg-white'
                       }`}
                     />
                   </button>
                 </div>
 
-                {/* 6. DESCRIPTION (1 ROW) */}
+                {/* 6. DESCRIPTION & INCLUSIONS */}
                 <div>
                   <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                    DESCRIPTION (OPTIONAL)
+                    {isServiceVendor(panelData?.vendor) ? 'SERVICE INCLUSIONS & DESCRIPTION' : 'DESCRIPTION (OPTIONAL)'}
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Short item details..."
+                  <textarea
+                    rows={2}
+                    placeholder={isServiceVendor(panelData?.vendor) ? "What's included in this service, warranty, inspection details..." : "Short item details..."}
                     value={itemForm.description}
                     onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
                     className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl px-3 py-2 text-xs font-medium text-[#211A19] focus:outline-none"
@@ -3504,7 +3702,11 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   className="w-full py-3 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 border border-[#C8A878]/30 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4 text-[#C8A878]" />
-                  <span>{editingItem ? 'Save Changes' : 'Add Product to Store'}</span>
+                  <span>
+                    {isServiceVendor(panelData?.vendor)
+                      ? (editingItem ? 'Save Service Changes' : 'Add Service to Catalog')
+                      : (editingItem ? 'Save Changes' : 'Add Product to Store')}
+                  </span>
                 </button>
               </div>
             </form>

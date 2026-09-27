@@ -2,25 +2,43 @@ import React, { useState, useEffect } from 'react';
 import { Truck, Navigation, ChevronRight, CheckCircle2, Store, Clock, X } from 'lucide-react';
 import LiveOrderTrackerModal from './LiveOrderTrackerModal';
 
-export default function LiveOrderTrackerToast({ setRoute }) {
+export default function LiveOrderTrackerToast({ activeUser, setRoute }) {
   const [activeOrder, setActiveOrder] = useState(null);
   const [isTrackerOpen, setIsTrackerOpen] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
-  const isUserLoggedIn = () => {
+  const getLoggedInUser = () => {
+    if (activeUser) return activeUser;
     try {
-      const token = localStorage.getItem('userToken') || localStorage.getItem('token') || localStorage.getItem('digilocal_user_token');
-      const session = localStorage.getItem('digilocal_resident_session') || localStorage.getItem('user') || localStorage.getItem('digilocal_user');
-      if (!token && !session) return false;
-      return true;
-    } catch (_) {
-      return false;
-    }
+      const sessionStr = localStorage.getItem('digilocal_user_session');
+      if (sessionStr) {
+        const parsed = JSON.parse(sessionStr);
+        if (parsed && (parsed.user || parsed.name) && (!parsed.expiresAt || parsed.expiresAt > Date.now())) {
+          return parsed.user || parsed;
+        }
+      }
+    } catch (_) {}
+    return null;
+  };
+
+  const isOrderMatchingUser = (ord, user) => {
+    if (!ord || !user) return false;
+    const ordUserId = String(ord.user_id || ord.customer_id || '').trim();
+    const ordPhone = String(ord.phone || ord.customer_phone || ord.user_phone || '').replace(/[^0-9]/g, '').slice(-10);
+    const userId = String(user.user_id || user.id || '').trim();
+    const userPhone = String(user.phone || user.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+
+    if (userId && ordUserId && ordUserId === userId) return true;
+    if (userPhone && ordPhone && ordPhone === userPhone) return true;
+    if (!ordUserId && !ordPhone) return true; // placed in current active user session
+    return false;
   };
 
   const loadActiveOrder = () => {
     try {
-      if (!isUserLoggedIn()) {
+      const user = getLoggedInUser();
+      // If user is NOT logged in, NEVER show the tracking pill
+      if (!user) {
         setActiveOrder(null);
         return;
       }
@@ -28,15 +46,15 @@ export default function LiveOrderTrackerToast({ setRoute }) {
       const stored = localStorage.getItem('digilocal_active_order');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed && parsed.order_id) {
-          // If order is delivered more than 1 hour ago, don't show floating bar
-          const rawStatus = (parsed.status || '').toUpperCase();
-          if (rawStatus === 'DELIVERED' || rawStatus === 'COMPLETED') {
-            const timeDiff = Date.now() - new Date(parsed.order_timestamp || parsed.date || Date.now()).getTime();
-            if (timeDiff > 3600000) {
-              setActiveOrder(null);
-              return;
-            }
+        if (parsed && parsed.order_id && isOrderMatchingUser(parsed, user)) {
+          const rawStatus = String(parsed.status || '').toUpperCase();
+          // If order is cancelled or completed, remove live tracking immediately
+          if (['CANCELLED', 'CANCELED', 'REJECTED', 'DECLINED', 'FAILED', 'DELIVERED', 'COMPLETED', 'COMPLETE', 'DONE'].includes(rawStatus)) {
+            setActiveOrder(null);
+            try {
+              localStorage.removeItem('digilocal_active_order');
+            } catch (_) {}
+            return;
           }
           setActiveOrder(parsed);
           return;
@@ -48,11 +66,13 @@ export default function LiveOrderTrackerToast({ setRoute }) {
       if (userOrdersStr) {
         const userOrders = JSON.parse(userOrdersStr);
         if (Array.isArray(userOrders) && userOrders.length > 0) {
-          const latest = userOrders[0];
-          const st = (latest.status || '').toUpperCase();
-          if (st === 'PLACED' || st === 'PENDING' || st === 'ACCEPTED' || st === 'PREPARING' || st === 'OUT_FOR_DELIVERY') {
-            setActiveOrder(latest);
-            return;
+          const latest = userOrders.find(ord => isOrderMatchingUser(ord, user));
+          if (latest) {
+            const st = String(latest.status || '').toUpperCase();
+            if (st === 'PLACED' || st === 'PENDING' || st === 'ACCEPTED' || st === 'PREPARING' || st === 'OUT_FOR_DELIVERY' || st === 'IN_PROGRESS' || st === 'IN_TRANSIT') {
+              setActiveOrder(latest);
+              return;
+            }
           }
         }
       }
@@ -93,18 +113,20 @@ export default function LiveOrderTrackerToast({ setRoute }) {
       window.removeEventListener('digilocal_user_login', handleCustomOrder);
       clearInterval(interval);
     };
-  }, []);
+  }, [activeUser]);
 
   if (!activeOrder || isDismissed) return null;
 
-  const rawStatus = (activeOrder.status || 'PLACED').toUpperCase();
-  const isDelivered = rawStatus === 'DELIVERED' || rawStatus === 'COMPLETED';
+  const rawStatus = String(activeOrder.status || 'PLACED').toUpperCase();
+  // Do not display if order is cancelled or completed
+  if (['CANCELLED', 'CANCELED', 'REJECTED', 'DECLINED', 'FAILED', 'DELIVERED', 'COMPLETED', 'COMPLETE', 'DONE'].includes(rawStatus)) {
+    return null;
+  }
+
   const isPreparing = rawStatus === 'ACCEPTED' || rawStatus === 'PREPARING' || rawStatus === 'IN_PROGRESS';
   const isOutForDelivery = rawStatus === 'OUT_FOR_DELIVERY' || rawStatus === 'IN_TRANSIT';
 
-  const statusText = isDelivered 
-    ? 'Delivered to your doorstep' 
-    : isOutForDelivery 
+  const statusText = isOutForDelivery 
     ? 'Society runner on the way' 
     : isPreparing 
     ? 'Store preparing your items' 

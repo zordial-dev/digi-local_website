@@ -107,18 +107,23 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
     e.preventDefault();
     setOtpError('');
     
-    if (!userName.trim()) {
-      setOtpError('Please enter your Full Name.');
-      return;
-    }
-    if (!userPhone || userPhone.length < 7) {
-      setOtpError('Please enter a valid mobile phone number.');
+    if (!userPhone || userPhone.replace(/[^0-9]/g, '').length < 10) {
+      setOtpError('Please enter a valid 10-digit mobile phone number.');
       return;
     }
 
+    const cleanPhone = userPhone.replace(/[^0-9]/g, '').slice(-10);
+
     try {
       setLoading(true);
-      const res = await api.requestOtp(userPhone);
+      // Check if user exists before sending OTP
+      const checkRes = await api.checkUserPhone(cleanPhone);
+      if (!checkRes.exists) {
+        setOtpError('No resident account found with this mobile number. Please create an account / register first.');
+        return;
+      }
+
+      const res = await api.requestOtp(cleanPhone);
       const code = res.simulationOtp || res.otp || res.otpCode || Math.floor(100000 + Math.random() * 900000).toString();
       setGeneratedOtp(code);
       if (res?.verification_id || res?.verificationId) {
@@ -126,7 +131,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
       }
       setOtpInput('');
       setStep(2);
-      setInfoMsg(res.message || `Verification OTP sent to +91 ${userPhone}`);
+      setInfoMsg(res.message || `Verification OTP sent to +91 ${cleanPhone}`);
     } catch (err) {
       setOtpError(err.message || 'Failed to send verification OTP.');
     } finally {
@@ -134,7 +139,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
     }
   };
 
-  // Step 2: Verify Resident OTP & Log In -> Navigates to User Profile Page!
+  // Step 2: Verify Resident OTP & Log In -> Navigates to User Profile Page with REAL backend profile!
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setOtpError('');
@@ -145,48 +150,32 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
       return;
     }
 
-    let isVerified = false;
-    if (generatedOtp && enteredOtp === generatedOtp) {
-      isVerified = true;
-    } else {
-      try {
-        const verifyRes = await api.verifyOtp({
-          phone: userPhone,
-          otp: enteredOtp,
-          verification_id: verificationId
-        });
-        if (verifyRes && (verifyRes.success || verifyRes.valid)) {
-          isVerified = true;
-        }
-      } catch (err) {
-        if (enteredOtp === '123456' || enteredOtp === '482910' || enteredOtp === '849201' || enteredOtp === '999999') {
-          isVerified = true;
-        }
-      }
-    }
-
-    if (!isVerified) {
-      setOtpError('Invalid OTP code. Please enter the correct 6-digit verification code.');
-      return;
-    }
+    const cleanPhone = userPhone.replace(/[^0-9]/g, '').slice(-10);
 
     try {
       setLoading(true);
-      const residentSession = {
-        user_id: `usr_${Date.now()}`,
-        name: userName.trim(),
-        email: `${userName.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
-        phone: userPhone,
-        flat: flatAddress.trim(),
-        society_name: '',
-        society_id: '',
-        joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-        avatar: ''
-      };
-      
+      const res = await api.userLogin({
+        phone: cleanPhone,
+        otp: enteredOtp,
+        verification_id: verificationId,
+        isOtpLogin: true
+      });
+
+      const userObj = res.user || res.data?.user;
+      if (!userObj) {
+        throw new Error('No registered resident account found. Please register first.');
+      }
+
+      const accessToken = res.accessToken || res.data?.accessToken || res.token || `jwt_user_${Date.now()}`;
+      const refreshToken = res.refreshToken || res.data?.refreshToken;
+
+      if (accessToken) localStorage.setItem('accessToken', accessToken);
+      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+      if (userObj) localStorage.setItem('user', JSON.stringify(userObj));
+
       const session = {
-        user: residentSession,
-        token: `user_token_${Date.now()}`,
+        user: userObj,
+        token: accessToken,
         expiresAt: Date.now() + 86400000
       };
 
@@ -197,14 +186,14 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
       if (typeof setActiveVendor === 'function') setActiveVendor(null);
 
       localStorage.setItem('digilocal_user_session', JSON.stringify(session));
-      localStorage.setItem('digilocal_resident_session', JSON.stringify(residentSession));
-      if (setActiveUser) setActiveUser(residentSession);
+      localStorage.setItem('digilocal_resident_session', JSON.stringify(userObj));
+      if (setActiveUser) setActiveUser(userObj);
 
       handleResetModal();
       onClose();
       setRoute({ page: 'profile' });
     } catch (err) {
-      setOtpError(err.message || 'Login failed. Please try again.');
+      setOtpError(err.message || 'Login failed. Please verify and try again.');
     } finally {
       setLoading(false);
     }
@@ -216,11 +205,20 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
     setInfoMsg('');
   };
 
-  const handleResendOtp = () => {
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedOtp(code);
-    setOtpInput('');
-    setInfoMsg(`Verification OTP resent to +91 ${userPhone}`);
+  const handleResendOtp = async () => {
+    const cleanPhone = userPhone.replace(/[^0-9]/g, '').slice(-10);
+    try {
+      setLoading(true);
+      const res = await api.requestOtp(cleanPhone);
+      const code = res.simulationOtp || res.otp || res.otpCode || Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedOtp(code);
+      setOtpInput('');
+      setInfoMsg(`Verification OTP resent to +91 ${cleanPhone}`);
+    } catch (err) {
+      setOtpError(err.message || 'Failed to resend OTP');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return createPortal(
@@ -292,9 +290,25 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
 
           {/* Error Banner */}
           {otpError && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center space-x-2">
-              <span>⚠️</span>
-              <span>{otpError}</span>
+            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+              <div className="flex items-center space-x-2 min-w-0">
+                <span>⚠️</span>
+                <span>{otpError}</span>
+              </div>
+              {(otpError.toLowerCase().includes('register') || otpError.toLowerCase().includes('create') || otpError.toLowerCase().includes('no account') || otpError.toLowerCase().includes('not found')) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleResetModal();
+                    onClose();
+                    setRoute({ page: loginType === 'resident' ? 'register' : 'vendorRegister' });
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white text-[11px] font-extrabold transition-all cursor-pointer flex items-center space-x-1.5 shadow-xs border border-[#C8A878]/30 shrink-0 self-start sm:self-center"
+                >
+                  <span>{loginType === 'resident' ? 'Create Account' : 'Register Store'}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#C8A878]" />
+                </button>
+              )}
             </div>
           )}
 

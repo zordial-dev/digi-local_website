@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { api, getSocietyImage, getNormalizedImageUrl } from '../services/api';
-import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, ChevronLeft, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock, LogIn, Heart, SlidersHorizontal, Star } from 'lucide-react';
+import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, ChevronLeft, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock, LogIn, Heart, SlidersHorizontal, Star, MessageSquare } from 'lucide-react';
 import { getStoreStatus } from '../utils/storeHours';
 import { VendorCardSkeleton } from '../components/Skeletons';
 import { sanitizeSocietyLocation } from '../utils/locationResolver';
@@ -304,8 +304,21 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
 
     (allMasterVendors || []).forEach(v => {
       if (!v) return;
-      const status = String(v.status || '').toUpperCase();
-      if (status === 'SUSPENDED' || status === 'BLOCKED' || status === 'REJECTED') return;
+      const status = String(v.status || '').toUpperCase().trim();
+      const appStatus = String(v.approval_status || '').toUpperCase().trim();
+      if (
+        status === 'SUSPENDED' ||
+        status === 'BLOCKED' ||
+        status === 'INACTIVE' ||
+        status === 'PENDING' ||
+        status === 'REJECTED' ||
+        appStatus === 'PENDING' ||
+        appStatus === 'REJECTED' ||
+        v.is_active === false ||
+        v.isActive === false
+      ) {
+        return;
+      }
       const areaName = String(v.area || v.society_name || v.society || '').trim();
       if (areaName && !knownNames.has(areaName.toLowerCase()) && !areaName.toLowerCase().includes('dummy') && !areaName.toLowerCase().includes('test')) {
         knownNames.add(areaName.toLowerCase());
@@ -455,7 +468,25 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
 
   // Synchronous client-side filtered & sorted vendors - Supports searching and sorting by rating & distance!
   const sortedVendors = useMemo(() => {
-    let list = [...allMasterVendors];
+    let list = (allMasterVendors || []).filter(v => {
+      if (!v) return false;
+      const status = String(v.status || '').toUpperCase().trim();
+      const appStatus = String(v.approval_status || '').toUpperCase().trim();
+      if (
+        status === 'SUSPENDED' ||
+        status === 'BLOCKED' ||
+        status === 'INACTIVE' ||
+        status === 'PENDING' ||
+        status === 'REJECTED' ||
+        appStatus === 'PENDING' ||
+        appStatus === 'REJECTED' ||
+        v.is_active === false ||
+        v.isActive === false
+      ) {
+        return false;
+      }
+      return true;
+    });
 
     if (search && search.trim()) {
       const term = search.toLowerCase().trim();
@@ -1050,11 +1081,24 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                           ) : (
                             <button
                               type="button"
-                              className="w-full py-2 px-3 rounded-xl bg-[#541D26] text-white group-hover:bg-[#6B2732] transition-all duration-200 flex items-center justify-between font-extrabold text-[11px] shadow-2xs group-hover:shadow-xs uppercase tracking-wider cursor-pointer"
+                              className={`w-full py-2 px-3 rounded-xl transition-all duration-200 flex items-center justify-between font-extrabold text-[11px] shadow-2xs group-hover:shadow-xs uppercase tracking-wider cursor-pointer ${
+                                isService
+                                  ? 'bg-[#18281F] text-white group-hover:bg-[#253E30]'
+                                  : 'bg-[#541D26] text-white group-hover:bg-[#6B2732]'
+                              }`}
                             >
                               <div className="flex items-center space-x-1.5">
-                                <ShoppingCart className="w-3.5 h-3.5 text-[#C8A878] group-hover:text-white transition-colors" />
-                                <span>Explore Storefront</span>
+                                {isService ? (
+                                  <>
+                                    <MessageSquare className="w-3.5 h-3.5 text-[#C8A878] group-hover:text-white transition-colors" />
+                                    <span>View Services & Enquire</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ShoppingCart className="w-3.5 h-3.5 text-[#C8A878] group-hover:text-white transition-colors" />
+                                    <span>Explore Storefront</span>
+                                  </>
+                                )}
                               </div>
                               <ChevronRight className="w-3.5 h-3.5 text-[#C8A878] group-hover:translate-x-0.5 transition-transform" />
                             </button>

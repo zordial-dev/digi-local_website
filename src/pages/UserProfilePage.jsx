@@ -1163,14 +1163,21 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                         </div>
 
                         <div className="flex items-center space-x-1.5 border-l border-[#E5DAD0] pl-3">
-                          <button
-                            onClick={() => setTrackingOrder(order)}
-                            className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black transition-all flex items-center space-x-1 shadow-xs cursor-pointer animate-pulse"
-                            title="Track Live Swiggy/Zomato style order updates"
-                          >
-                            <Truck className="w-3.5 h-3.5 text-slate-950" />
-                            <span>Track Live</span>
-                          </button>
+                          {(() => {
+                            const orderStUpper = String(order.status || order.order_status || '').toUpperCase().trim();
+                            const isLiveActive = !['CANCELLED', 'CANCELED', 'REJECTED', 'DECLINED', 'FAILED', 'DELIVERED', 'COMPLETED', 'COMPLETE', 'DONE'].includes(orderStUpper);
+                            if (!isLiveActive) return null;
+                            return (
+                              <button
+                                onClick={() => setTrackingOrder(order)}
+                                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black transition-all flex items-center space-x-1 shadow-xs cursor-pointer animate-pulse"
+                                title="Track Live Swiggy/Zomato style order updates"
+                              >
+                                <Truck className="w-3.5 h-3.5 text-slate-950" />
+                                <span>Track Live</span>
+                              </button>
+                            );
+                          })()}
 
                           <button
                             onClick={() => setSelectedOrder(order)}
