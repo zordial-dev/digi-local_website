@@ -35,12 +35,20 @@ export function formatUserFacingError(err, context = 'phone') {
     return 'Network connection issue. Please check your internet connection and try again.';
   }
 
-  // 3. Rate Limiting & Too Many Requests
+  // 3. SMS Gateway Limits & Credits Exhausted
+  if (strLower.includes('sms_credits_exhausted') || strLower.includes('credits exhausted') || strLower.includes('gateway limits')) {
+    return 'SMS service is temporarily unavailable due to gateway limits. Please use Email OTP or contact support.';
+  }
+  if (strLower.includes('sms_gateway_error') || strLower.includes('gateway error') || strLower.includes('sms delivery failed')) {
+    return 'SMS service is temporarily unavailable. Please try again or use Email OTP.';
+  }
+
+  // 4. Rate Limiting & Too Many Requests
   if (strLower.includes('too-many-requests') || strLower.includes('too_many_attempts') || strLower.includes('quota-exceeded')) {
     return 'Too many verification requests for this mobile number. Please wait a few minutes before trying again.';
   }
 
-  // 4. Invalid Phone Number Format
+  // 5. Invalid Phone Number Format
   if (strLower.includes('invalid-phone-number') || strLower.includes('invalid_phone_number')) {
     return 'Please enter a valid 10-digit mobile phone number.';
   }

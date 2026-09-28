@@ -242,31 +242,14 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
   }, [activeUser]);
 
   const handleOpenServiceEnquiry = (serviceItem = null) => {
-    setSelectedServiceForEnquiry(serviceItem);
-    setServiceTitle(serviceItem ? (serviceItem.item_name || serviceItem.name || '') : '');
-    setServiceDescription('');
-    setPreferredTime('Today (ASAP)');
-
-    // Ensure prefilled contact
-    let u = activeUser;
-    if (!u) {
-      try {
-        const uStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
-        if (uStr) {
-          const parsed = JSON.parse(uStr);
-          u = parsed.user || parsed.resident || parsed;
-        }
-      } catch (_) {}
-    }
-    if (u) {
-      if (!enquiryResidentName && (u.name || u.full_name)) setEnquiryResidentName(u.name || u.full_name);
-      if (!enquiryResidentPhone && (u.phone || u.mobile || u.phone_number)) setEnquiryResidentPhone(u.phone || u.mobile || u.phone_number);
-      if (!enquiryFlatNumber && (u.flat || flatNumber)) setEnquiryFlatNumber(u.flat || flatNumber || '');
-    } else if (flatNumber && !enquiryFlatNumber) {
-      setEnquiryFlatNumber(flatNumber);
-    }
-
-    setShowServiceEnquiryModal(true);
+    setRoute({
+      page: 'serviceEnquiry',
+      societyId: societyId || vendorData?.society_id || 'all',
+      vendorId: vendorId,
+      serviceItem: serviceItem,
+      serviceId: serviceItem?.item_id || serviceItem?.id || null,
+      serviceTitle: serviceItem ? (serviceItem.item_name || serviceItem.name || '') : ''
+    });
   };
 
   useEffect(() => {
@@ -767,7 +750,21 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
         let rawItems = Array.isArray(data?.items) && data.items.length > 0
           ? data.items
-          : (Array.isArray(targetVendor.items) && targetVendor.items.length > 0 ? targetVendor.items : []);
+          : (Array.isArray(data?.services) && data.services.length > 0
+            ? data.services
+            : (Array.isArray(data?.products) && data.products.length > 0
+              ? data.products
+              : (Array.isArray(targetVendor.items) && targetVendor.items.length > 0 ? targetVendor.items : [])));
+
+        // Direct fetch from GET /api/vendors/:vendorId/items if not present in storefront payload
+        if (!rawItems || rawItems.length === 0) {
+          try {
+            const vendorItemsRes = await api.getVendorItems(vendorId);
+            if (Array.isArray(vendorItemsRes) && vendorItemsRes.length > 0) {
+              rawItems = vendorItemsRes;
+            }
+          } catch (_) {}
+        }
 
         // Fallback to local storage custom items if empty
         if (!rawItems || rawItems.length === 0) {
@@ -1235,7 +1232,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
           </div>
 
           {loading ? (
-            <div className="h-28 rounded-2xl bg-[#151415]/10 animate-pulse" />
+            <div className="h-28 rounded-2xl bg-[#211A19]/10 animate-pulse" />
           ) : vendorData && (
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="flex items-start space-x-5">
@@ -1245,17 +1242,17 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                   onError={(e) => {
                     e.target.src = 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=200&auto=format&fit=crop&q=80';
                   }}
-                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-[#151415]/15 bg-[#151415]/5 shadow-sm shrink-0"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-[#211A19]/15 bg-[#211A19]/5 shadow-sm shrink-0"
                 />
                 <div>
-                  <div className="flex items-center space-x-2 text-xs font-extrabold text-[#151415] mb-1.5 flex-wrap gap-2">
-                    <div className="flex items-center space-x-1.5 bg-[#151415]/10 px-3 py-1 rounded-full border border-[#151415]/15">
-                      <ShieldCheck className="w-4 h-4 text-[#151415]" />
+                  <div className="flex items-center space-x-2 text-xs font-extrabold text-[#211A19] mb-1.5 flex-wrap gap-2">
+                    <div className="flex items-center space-x-1.5 bg-[#211A19]/10 px-3 py-1 rounded-full border border-[#211A19]/15">
+                      <ShieldCheck className="w-4 h-4 text-[#211A19]" />
                       <span>Verified Store • {vendorData.shop_number || vendorData.shop_no ? `${vendorData.shop_number || vendorData.shop_no}, ` : ''}{vendorData.society_name || vendorData.society || vendorData.location || vendorData.address || 'Residential Community'}</span>
                     </div>
 
                     {(vendorData.category || vendorData.business_type) && (
-                      <span className="px-3 py-1 rounded-full bg-[#151415] text-[#F1EADE] text-[11px] font-extrabold uppercase tracking-wider">
+                      <span className="px-3 py-1 rounded-full bg-[#211A19] text-[#F6F0E8] text-[11px] font-extrabold uppercase tracking-wider">
                         {vendorData.category || vendorData.business_type}
                       </span>
                     )}
@@ -1295,27 +1292,27 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                   </div>
 
                   <div className="flex items-center gap-3 flex-wrap my-1">
-                    <h1 className="text-2xl sm:text-3xl font-serif font-black text-[#151415] uppercase tracking-tight block">
+                    <h1 className="text-2xl sm:text-3xl font-serif font-black text-[#211A19] uppercase tracking-tight block">
                       {vendorData.store_name || vendorData.name || vendorData.vendor_name || vendorData.business_name || vendorData.shop_name || vendorData.title || `Vendor #${vendorId}`}
                     </h1>
                   </div>
 
                   {(vendorData.description || vendorData.bio || vendorData.details || vendorData.about) && (
-                    <p className="text-xs sm:text-sm text-[#151415]/80 mt-1 line-clamp-2 max-w-xl font-medium leading-relaxed">
+                    <p className="text-xs sm:text-sm text-[#211A19]/80 mt-1 line-clamp-2 max-w-xl font-medium leading-relaxed">
                       {vendorData.description || vendorData.bio || vendorData.details || vendorData.about}
                     </p>
                   )}
                   
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-[#151415]/80 mt-3 font-semibold">
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-[#211A19]/80 mt-3 font-semibold">
                     {checkResidentAuth() ? (
                       <>
-                        <span className="flex items-center space-x-1.5 bg-[#151415]/5 px-3 py-1 rounded-full border border-[#151415]/10">
-                          <Phone className="w-3.5 h-3.5 text-[#151415]" />
+                        <span className="flex items-center space-x-1.5 bg-[#211A19]/5 px-3 py-1 rounded-full border border-[#211A19]/10">
+                          <Phone className="w-3.5 h-3.5 text-[#211A19]" />
                           <span>{vendorData.phone_number || vendorData.phone || vendorData.mobile || 'Contact Available'}</span>
                         </span>
                         {vendorData.gst_number && vendorData.gst_number.trim() && (
-                          <span className="px-3 py-1 rounded-full bg-[#151415]/5 border border-[#151415]/10 text-[#151415] font-bold flex items-center space-x-1.5 shadow-xs text-[11px]">
-                            <FileText className="w-3.5 h-3.5 text-[#151415]" />
+                          <span className="px-3 py-1 rounded-full bg-[#211A19]/5 border border-[#211A19]/10 text-[#211A19] font-bold flex items-center space-x-1.5 shadow-xs text-[11px]">
+                            <FileText className="w-3.5 h-3.5 text-[#211A19]" />
                             <span>GSTIN:</span>
                             <span className="font-mono">{vendorData.gst_number}</span>
                           </span>
@@ -1667,7 +1664,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-3.5 sm:gap-4">
                   {filteredItems.map((service) => {
                     const isAvail = service.is_available !== undefined ? Boolean(service.is_available) : true;
                     const priceNum = parseFloat(service.price || 0);
@@ -1677,26 +1674,26 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                     return (
                       <div
                         key={service.item_id || service.id}
-                        className="rounded-3xl overflow-hidden flex flex-col justify-between h-full w-full transition-all duration-200 shadow-xs hover:shadow-lg border border-border bg-white hover:border-[#541D26]/40 group"
+                        className="rounded-2xl overflow-hidden flex flex-col justify-between h-full w-full transition-all duration-200 shadow-xs hover:shadow-md border border-[#E5DAD0] bg-white hover:border-[#541D26]/40 group"
                       >
-                        <div className="p-4 flex-1 flex flex-col justify-between">
+                        <div className="p-3 flex-1 flex flex-col justify-between">
                           <div>
                             {/* Service Image with Category & Availability Badges */}
-                            <div className="relative mb-3.5 rounded-2xl overflow-hidden bg-secondary h-40 sm:h-44">
+                            <div className="relative mb-2.5 rounded-xl overflow-hidden bg-secondary h-28 sm:h-32">
                               <img
                                 src={getNormalizedImageUrl(service)}
                                 alt={service.item_name}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                               />
-                              <div className="absolute top-2.5 left-2.5">
-                                <span className="px-2.5 py-1 text-[10px] font-black rounded-full bg-black/70 text-white backdrop-blur-xs border border-white/20 shadow-xs flex items-center gap-1">
-                                  <Tag className="w-3 h-3 text-[#C8A878]" />
-                                  <span>{service.category || 'Service'}</span>
+                              <div className="absolute top-2 left-2">
+                                <span className="px-2 py-0.5 text-[9px] font-black rounded-full bg-black/70 text-white backdrop-blur-xs border border-white/20 shadow-xs flex items-center gap-1">
+                                  <Tag className="w-2.5 h-2.5 text-[#C8A878]" />
+                                  <span className="truncate max-w-[90px]">{service.category || 'Service'}</span>
                                 </span>
                               </div>
 
-                              <div className="absolute top-2.5 right-2.5">
-                                <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-full shadow-sm backdrop-blur-xs border ${
+                              <div className="absolute top-2 right-2">
+                                <span className={`px-2 py-0.5 text-[9px] font-extrabold rounded-full shadow-xs backdrop-blur-xs border ${
                                   isAvail 
                                     ? 'bg-emerald-600/90 text-white border-emerald-400/40' 
                                     : 'bg-amber-600/90 text-white border-amber-400/40'
@@ -1706,56 +1703,56 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                               </div>
 
                               {service.duration && (
-                                <div className="absolute bottom-2.5 left-2.5">
-                                  <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-white/95 text-[#211A19] shadow-sm backdrop-blur-xs border border-border flex items-center gap-1">
-                                    <Clock className="w-3 h-3 text-[#541D26]" />
+                                <div className="absolute bottom-2 left-2">
+                                  <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-white/95 text-[#211A19] shadow-xs backdrop-blur-xs border border-border flex items-center gap-1">
+                                    <Clock className="w-2.5 h-2.5 text-[#541D26]" />
                                     <span>{service.duration}</span>
                                   </span>
                                 </div>
                               )}
                             </div>
 
-                            <h3 className="text-base font-serif font-extrabold text-[#211A19] mb-1 line-clamp-1">
+                            <h3 className="text-xs sm:text-sm font-serif font-black text-[#211A19] mb-0.5 line-clamp-1">
                               {service.item_name}
                             </h3>
-                            <p className="text-muted-foreground text-xs line-clamp-2 font-medium leading-relaxed">
+                            <p className="text-muted-foreground text-[11px] line-clamp-2 font-medium leading-relaxed">
                               {service.description || 'Professional service provided at flat doorstep.'}
                             </p>
                           </div>
                         </div>
 
-                        {/* Service Card Footer with Pricing & Enquire Buttons (No Add to Cart) */}
-                        <div className="p-4 bg-[#FAF9F6] border-t border-border space-y-3">
+                        {/* Service Card Footer with Pricing & Enquire Buttons */}
+                        <div className="p-3 bg-[#FAF9F6] border-t border-[#E5DAD0] space-y-2">
                           <div className="flex items-center justify-between">
                             <div>
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">
                                 Estimated Rate
                               </span>
                               <div className="flex items-baseline gap-1">
-                                <span className="text-lg font-serif font-black text-[#541D26]">
+                                <span className="text-sm sm:text-base font-serif font-black text-[#541D26]">
                                   {priceNum > 0 ? `₹${priceNum.toFixed(2)}` : 'Quote on Request'}
                                 </span>
                                 {priceNum > 0 && service.unit && (
-                                  <span className="text-[11px] font-semibold text-muted-foreground">
+                                  <span className="text-[10px] font-semibold text-muted-foreground">
                                     / {service.unit}
                                   </span>
                                 )}
                               </div>
                             </div>
 
-                            <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200">
-                              Doorstep Visit
+                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200">
+                              Doorstep
                             </span>
                           </div>
 
-                          <div className="pt-1">
+                          <div className="pt-0.5">
                             <button
                               type="button"
                               onClick={() => handleOpenServiceEnquiry(service)}
-                              className="w-full py-3 px-4 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer border border-[#C8A878]/30 hover:scale-[1.01] active:scale-98"
+                              className="w-full py-2 px-3 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-[11px] uppercase tracking-wider shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer border border-[#C8A878]/30 hover:scale-[1.01] active:scale-98"
                             >
-                              <Send className="w-3.5 h-3.5 text-[#C8A878]" />
-                              <span>Enquire About Service</span>
+                              <Send className="w-3 h-3 text-[#C8A878]" />
+                              <span>Enquire Service</span>
                             </button>
                           </div>
                         </div>
@@ -1815,7 +1812,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3.5">
             {filteredItems.map((item) => {
               const timeStatus = getStoreTimeStatus(vendorData);
               const isStoreClosed = !timeStatus.isOpen;
@@ -1825,88 +1822,92 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
               return (
                 <div
                   key={item.item_id}
-                  className={`rounded-2xl overflow-hidden flex flex-col justify-between h-full w-full transition-all duration-200 shadow-xs bento-card ${
+                  className={`rounded-2xl overflow-hidden flex flex-col justify-between h-full w-full transition-all duration-200 shadow-2xs hover:shadow-sm bento-card ${
                     isStoreClosed
                       ? 'border border-rose-200/80 bg-rose-50/20 opacity-80'
                       : !isAvailable
                       ? 'border border-amber-200/80 bg-amber-50/20 opacity-80'
-                      : 'border border-emerald-200/70 hover:border-emerald-500/60 hover:shadow-md bg-white'
+                      : 'border border-[#E5DAD0] hover:border-[#541D26]/40 bg-white'
                   }`}
                 >
-                  <div className="p-3 flex-1 flex flex-col justify-between">
+                  <div className="p-2 sm:p-2.5 flex-1 flex flex-col justify-between">
                     <div>
-                      <div className="relative mb-2 rounded-xl overflow-hidden bg-secondary h-28 sm:h-32">
-                      <img
-                        src={getNormalizedImageUrl(item)}
-                        alt={item.item_name}
-                        className="w-full h-full object-cover"
-                      />
-                      
-                      <div className="absolute top-2 left-2">
-                        {isAvailable ? (
-                          <span className="px-2 py-0.5 text-[9px] font-extrabold bg-emerald-600 text-white rounded-full shadow-sm flex items-center gap-0.5">
-                            <Check className="w-2.5 h-2.5 text-white" />
-                            In Stock ({item.unit})
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 text-[9px] font-extrabold bg-amber-600 text-white rounded-full shadow-sm flex items-center gap-0.5">
-                            <AlertTriangle className="w-2.5 h-2.5" />
-                            Out of Stock
-                          </span>
+                      <div className="relative mb-2 rounded-xl overflow-hidden bg-secondary h-24 sm:h-28">
+                        <img
+                          src={getNormalizedImageUrl(item)}
+                          alt={item.item_name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        
+                        <div className="absolute top-1.5 left-1.5">
+                          {isAvailable ? (
+                            <span className="px-1.5 py-0.5 text-[8.5px] font-extrabold bg-emerald-700/90 text-white rounded-full shadow-xs flex items-center gap-0.5 backdrop-blur-xs">
+                              <Check className="w-2 h-2 text-white" />
+                              <span>In Stock</span>
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 text-[8.5px] font-extrabold bg-amber-700/90 text-white rounded-full shadow-xs flex items-center gap-0.5 backdrop-blur-xs">
+                              <AlertTriangle className="w-2 h-2" />
+                              <span>Out</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {item.category && (
+                          <div className="absolute top-1.5 right-1.5">
+                            <span className="px-1.5 py-0.5 text-[8.5px] font-bold bg-black/60 text-white border border-white/20 rounded-full shadow-xs backdrop-blur-xs truncate max-w-[70px]">
+                              {item.category}
+                            </span>
+                          </div>
                         )}
                       </div>
 
-                      <div className="absolute top-2 right-2">
-                        <span className="px-2 py-0.5 text-[9px] font-bold bg-card/90 text-ink border border-border rounded-full shadow-sm">
-                          {item.category || 'General'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <h3 className="text-xs sm:text-sm font-bold text-ink mb-1 line-clamp-1">{item.item_name}</h3>
-                    <p className="text-muted-foreground text-[11px] line-clamp-1 font-medium">
-                      {item.description || 'Fresh quality item.'}
-                    </p>
+                      <h3 className="text-xs font-bold text-[#211A19] mb-0.5 line-clamp-1 leading-snug">{item.item_name}</h3>
+                      <p className="text-muted-foreground text-[10.5px] line-clamp-1 font-medium">
+                        {item.unit ? `Per ${item.unit}` : (item.description || 'Fresh quality item')}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="p-2.5 sm:p-3 bg-secondary/40 border-t border-border flex items-center justify-between">
+                  <div className="p-2 sm:p-2.5 bg-[#FAF9F6] border-t border-[#E5DAD0] flex items-center justify-between gap-1">
                     <div>
-                      <span className="text-sm sm:text-base font-extrabold text-emerald-800">₹{parseFloat(item.price).toFixed(2)}</span>
-                      <span className="text-[10px] text-muted-foreground ml-0.5 font-medium">/ {item.unit}</span>
+                      <span className="text-xs sm:text-sm font-serif font-black text-[#541D26]">₹{parseFloat(item.price).toFixed(2)}</span>
                     </div>
 
                     {isStoreClosed ? (
-                      <span className="text-[10px] font-bold text-rose-700 px-2.5 py-1 rounded-full bg-rose-100 border border-rose-300 flex items-center gap-1">
-                        <Lock className="w-3 h-3 text-rose-600" />
-                        Closed
+                      <span className="text-[9px] font-bold text-rose-700 px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 flex items-center gap-0.5">
+                        <Lock className="w-2.5 h-2.5 text-rose-600" />
+                        <span>Closed</span>
                       </span>
                     ) : !isAvailable ? (
-                      <span className="text-[10px] font-bold text-amber-800 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300">
+                      <span className="text-[9px] font-bold text-amber-800 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200">
                         Unavailable
                       </span>
                     ) : inCart ? (
-                      <div className="flex items-center space-x-1.5 bg-emerald-50 border border-emerald-300 rounded-full p-0.5 shadow-sm">
+                      <div className="flex items-center space-x-1 bg-[#541D26]/10 border border-[#541D26]/30 rounded-lg p-0.5 shadow-2xs">
                         <button
+                          type="button"
                           onClick={() => updateQuantity(item.item_id, -1)}
-                          className="w-6 h-6 rounded-full bg-emerald-200 hover:bg-emerald-300 text-emerald-950 flex items-center justify-center font-bold"
+                          className="w-5 h-5 rounded-md bg-white hover:bg-[#FAF6EE] text-[#541D26] flex items-center justify-center font-bold text-xs cursor-pointer"
                         >
-                          <Minus className="w-3 h-3" />
+                          <Minus className="w-2.5 h-2.5" />
                         </button>
-                        <span className="text-xs font-extrabold text-emerald-950 px-1">{inCart.quantity}</span>
+                        <span className="text-xs font-extrabold text-[#541D26] px-1">{inCart.quantity}</span>
                         <button
+                          type="button"
                           onClick={() => updateQuantity(item.item_id, 1)}
-                          className="w-6 h-6 rounded-full bg-emerald-700 text-white hover:bg-emerald-800 flex items-center justify-center font-bold"
+                          className="w-5 h-5 rounded-md bg-[#541D26] text-white hover:bg-[#6B2732] flex items-center justify-center font-bold text-xs cursor-pointer"
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-2.5 h-2.5" />
                         </button>
                       </div>
                     ) : (
                       <button
+                        type="button"
                         onClick={() => addToCart(item)}
-                        className="px-3.5 py-1.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-sm flex items-center space-x-1 transition-all uppercase tracking-wider text-[10px]"
+                        className="px-2.5 py-1 rounded-lg bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-[10.5px] shadow-2xs flex items-center space-x-0.5 transition-all uppercase tracking-wider cursor-pointer"
                       >
-                        <Plus className="w-3 h-3 text-emerald-200" />
+                        <Plus className="w-2.5 h-2.5 text-[#C8A878]" />
                         <span>Add</span>
                       </button>
                     )}
@@ -2401,218 +2402,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
         document.body
       )}
 
-      {/* Service Enquiry Modal */}
-      {showServiceEnquiryModal && createPortal(
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[9999999] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200 overflow-hidden font-sans">
-          <div 
-            className="bg-white rounded-3xl p-6 sm:p-7 max-w-xl w-full shadow-2xl border border-[#E5DAD0] space-y-5 animate-in zoom-in-95 duration-200 relative max-h-[92vh] overflow-y-auto pointer-events-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={() => setShowServiceEnquiryModal(false)}
-              className="absolute right-5 top-5 w-8 h-8 rounded-full bg-[#FAF6EE] hover:bg-[#F0E6DD] text-[#211A19] flex items-center justify-center text-sm font-bold transition-all cursor-pointer"
-            >
-              ✕
-            </button>
 
-            {/* Modal Header */}
-            <div>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 mb-1.5">
-                <Briefcase className="w-3 h-3 text-emerald-600" />
-                Service Enquiry & Consultation
-              </span>
-              <h3 className="text-lg sm:text-xl font-serif font-black text-[#18281F]">
-                Enquire with {vendorData?.store_name || 'Service Provider'}
-              </h3>
-              <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                Submit your requirements for direct doorstep service assistance or quote.
-              </p>
-            </div>
-
-            {/* Selected Service Preview Card (if applicable) */}
-            {selectedServiceForEnquiry && (
-              <div className="bg-[#FAF9F6] p-3.5 rounded-2xl border border-[#18281F]/15 flex items-center gap-3.5 shadow-2xs">
-                <div className="w-16 h-16 rounded-xl overflow-hidden bg-secondary shrink-0 border border-border">
-                  <img
-                    src={getNormalizedImageUrl(selectedServiceForEnquiry)}
-                    alt={selectedServiceForEnquiry.item_name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <h4 className="text-xs font-bold text-[#18281F] truncate">
-                      {selectedServiceForEnquiry.item_name}
-                    </h4>
-                    {selectedServiceForEnquiry.category && (
-                      <span className="text-[9.5px] font-black px-2 py-0.2 bg-white rounded-full border border-border text-muted-foreground uppercase">
-                        {selectedServiceForEnquiry.category}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 text-[11px] mt-1 font-semibold text-muted-foreground">
-                    {selectedServiceForEnquiry.price && parseFloat(selectedServiceForEnquiry.price) > 0 ? (
-                      <span className="text-[#18281F] font-black">
-                        Rate: ₹{parseFloat(selectedServiceForEnquiry.price).toFixed(2)}
-                        {selectedServiceForEnquiry.unit ? ` / ${selectedServiceForEnquiry.unit}` : ''}
-                      </span>
-                    ) : (
-                      <span className="text-emerald-700 font-bold">Quote on Inspection</span>
-                    )}
-                    {selectedServiceForEnquiry.duration && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-muted-foreground" />
-                        <span>{selectedServiceForEnquiry.duration}</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleServiceEnquirySubmit} className="space-y-4">
-              {/* Service Title */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-[#18281F] uppercase tracking-wider">
-                  Service / Task Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., Tap Leakage Repair, AC Deep Cleaning, Home Haircut..."
-                  value={serviceTitle}
-                  onChange={(e) => setServiceTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-semibold text-[#18281F] placeholder:text-muted-foreground/60 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#18281F]/20 focus:border-[#18281F]"
-                />
-              </div>
-
-              {/* Requirement / Problem Description */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-[#18281F] uppercase tracking-wider">
-                  Requirement Details <span className="font-normal text-muted-foreground">(Optional)</span>
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Describe what needs fixing, specific brand/model, preferred materials, or access instructions..."
-                  value={serviceDescription}
-                  onChange={(e) => setServiceDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium text-[#18281F] placeholder:text-muted-foreground/60 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#18281F]/20 focus:border-[#18281F]"
-                />
-              </div>
-
-              {/* Preferred Time Slot */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-[#18281F] uppercase tracking-wider">
-                  Preferred Time Slot
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {TIME_SLOT_OPTIONS.map((slot) => {
-                    const isSelected = preferredTime === slot.value;
-                    return (
-                      <button
-                        key={slot.value}
-                        type="button"
-                        onClick={() => setPreferredTime(slot.value)}
-                        className={`p-2 rounded-xl text-left text-xs font-bold transition-all border cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#18281F] text-white border-[#18281F] shadow-2xs'
-                            : 'bg-[#FAF9F6] text-[#18281F] hover:bg-gray-100 border-[#E5DAD0]'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="truncate">{slot.badge}</span>
-                          {isSelected && <Check className="w-3 h-3 text-[#C8A878]" />}
-                        </div>
-                        <p className={`text-[10px] font-normal truncate mt-0.5 ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
-                          {slot.label}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Contact & Flat Location Details */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-[#18281F] uppercase tracking-wider">
-                    Your Name <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Resident Name"
-                    value={enquiryResidentName}
-                    onChange={(e) => setEnquiryResidentName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-semibold text-[#18281F] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#18281F]/20"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-[#18281F] uppercase tracking-wider">
-                    Phone Number <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    maxLength={14}
-                    placeholder="10-digit mobile"
-                    value={enquiryResidentPhone}
-                    onChange={(e) => setEnquiryResidentPhone(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-semibold text-[#18281F] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#18281F]/20"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-[#18281F] uppercase tracking-wider">
-                  Flat / Unit Number & Wing
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Flat 402, Tower B"
-                  value={enquiryFlatNumber}
-                  onChange={(e) => setEnquiryFlatNumber(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-semibold text-[#18281F] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#18281F]/20"
-                />
-              </div>
-
-              {/* Informational Policy Banner */}
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-[11px] space-y-0.5">
-                <div className="flex items-center gap-1.5 font-extrabold">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                  <span>Doorstep Direct Service Policy</span>
-                </div>
-                <p className="text-[10.5px] leading-relaxed">
-                  No online booking payment is required on DigiLocal. The service vendor receives your enquiry directly, calls/WhatsApp you to confirm details, and you settle charges directly upon satisfaction.
-                </p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center space-x-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowServiceEnquiryModal(false)}
-                  className="flex-1 py-3 rounded-2xl bg-[#FAF6EE] hover:bg-[#F0E6DD] text-[#211A19] font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingEnquiry}
-                  className="flex-1 py-3 rounded-2xl bg-[#18281F] hover:bg-[#253E30] text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
-                >
-                  <Send className="w-3.5 h-3.5 text-[#C8A878]" />
-                  <span>{submittingEnquiry ? 'Sending...' : 'Submit Service Enquiry'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* Notification Modal */}
       <NotificationModal

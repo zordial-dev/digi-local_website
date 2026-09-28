@@ -1022,17 +1022,17 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               className="bg-card border border-border hover:border-primary/40 rounded-[2rem] p-6 shadow-sm hover:shadow-md cursor-pointer transition-all duration-300 group space-y-4 flex flex-col justify-between"
             >
               <div className="space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                <div className="w-12 h-12 rounded-2xl bg-[#541D26]/10 border border-[#541D26]/20 flex items-center justify-center text-[#541D26] group-hover:scale-110 transition-transform">
                   <Store className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg font-serif font-extrabold text-ink group-hover:text-primary transition-colors">
+                <h3 className="text-lg font-serif font-extrabold text-ink group-hover:text-[#541D26] transition-colors">
                   Browse Societies
                 </h3>
                 <p className="text-xs text-muted-foreground font-medium leading-relaxed">
                   Explore active residential societies, listed vendors, and resident marketplace directory.
                 </p>
               </div>
-              <div className="pt-2 text-xs font-bold text-blue-600 flex items-center space-x-1">
+              <div className="pt-2 text-xs font-bold text-[#541D26] flex items-center space-x-1">
                 <span>Go to Homepage</span>
                 <span className="group-hover:translate-x-1 transition-transform">→</span>
               </div>
@@ -1071,24 +1071,24 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       
       {/* Thin Notification Alert Strip Banner for Real Incoming Orders (Left to Right Animation & Stays until closed) */}
       {newOrderAlert && (
-        <div className="sticky top-0 z-50 bg-gradient-to-r from-emerald-950 via-[#18281F] to-emerald-900 border-b border-emerald-500/30 text-white shadow-xl px-4 py-2.5 sm:px-6 flex items-center justify-between gap-3 animate-in slide-in-from-left duration-500 transform-gpu">
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-[#541D26] via-[#211A19] to-[#541D26] border-b border-[#C8A878]/30 text-white shadow-xl px-4 py-2.5 sm:px-6 flex items-center justify-between gap-3 animate-in slide-in-from-left duration-500 transform-gpu">
           <div className="flex items-center space-x-3 min-w-0">
             <span className="flex h-2.5 w-2.5 relative shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C8A878] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#C8A878]"></span>
             </span>
             
-            <div className="p-1 rounded-lg bg-emerald-500/20 text-[#E6C35C] shrink-0 border border-emerald-500/30">
+            <div className="p-1 rounded-lg bg-white/10 text-[#C8A878] shrink-0 border border-[#C8A878]/30">
               <Bell className="w-4 h-4 animate-bounce" />
             </div>
 
             <div className="flex items-center space-x-2 text-xs font-semibold truncate">
-              <span className="font-extrabold text-[#E6C35C] uppercase tracking-wider text-[11px] shrink-0">
+              <span className="font-extrabold text-[#C8A878] uppercase tracking-wider text-[11px] shrink-0">
                 New Order Alert!
               </span>
-              <span className="text-emerald-200/40 hidden sm:inline">•</span>
+              <span className="text-[#D6B7A5]/40 hidden sm:inline">•</span>
               <span className="truncate">
-                Order <span className="font-mono font-bold text-white">#{newOrderAlert.order_id}</span> — <span className="font-extrabold text-white">₹{newOrderAlert.total_amount}</span> ({newOrderAlert.items_count} items) by <span className="text-emerald-200 font-bold">{newOrderAlert.resident_name}</span>
+                Order <span className="font-mono font-bold text-white">#{newOrderAlert.order_id}</span> — <span className="font-extrabold text-white">₹{newOrderAlert.total_amount}</span> ({newOrderAlert.items_count} items) by <span className="text-[#D6B7A5] font-bold">{newOrderAlert.resident_name}</span>
               </span>
             </div>
           </div>
@@ -1099,15 +1099,15 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 setActiveTab('orders');
                 setNewOrderAlert(null);
               }}
-              className="px-3 py-1 rounded-full bg-[#E6C35C] hover:bg-[#f0d277] text-[#18281F] font-extrabold text-[11px] flex items-center space-x-1.5 shadow-sm transition-all hover:scale-105 cursor-pointer"
+              className="px-3 py-1 rounded-full bg-[#C8A878] hover:bg-[#d6b7a5] text-[#211A19] font-extrabold text-[11px] flex items-center space-x-1.5 shadow-sm transition-all hover:scale-105 cursor-pointer"
             >
               <span>View Order</span>
-              <ArrowRight className="w-3 h-3 text-[#18281F]" />
+              <ArrowRight className="w-3 h-3 text-[#211A19]" />
             </button>
 
             <button
               onClick={() => setNewOrderAlert(null)}
-              className="p-1.5 rounded-full text-emerald-300 hover:text-white hover:bg-emerald-800/50 transition-colors cursor-pointer"
+              className="p-1.5 rounded-full text-[#D6B7A5] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               title="Close Alert"
             >
               <X className="w-4 h-4" />
@@ -1247,7 +1247,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           <div>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-serif font-extrabold text-[#18281F] uppercase tracking-wider">
+                <h2 className="text-xl font-serif font-extrabold text-[#211A19] uppercase tracking-wider">
                   Incoming Customer Orders
                 </h2>
                 <p className="text-xs text-muted-foreground font-medium mt-0.5">
@@ -1255,18 +1255,18 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 </p>
               </div>
               {orders.length > 0 && (
-                <span className="px-3.5 py-1.5 rounded-full bg-[#18281F] text-[#E6C35C] font-extrabold text-xs shadow-xs">
+                <span className="px-3.5 py-1.5 rounded-full bg-[#541D26] text-[#C8A878] font-extrabold text-xs shadow-xs">
                   {orders.length} Active Order{orders.length > 1 ? 's' : ''}
                 </span>
               )}
             </div>
             
             {orders.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-3xl border border-[#1E3623]/15 p-8 shadow-xs">
-                <div className="w-16 h-16 rounded-full bg-[#E3EFE6] border border-[#18281F]/20 flex items-center justify-center text-[#18281F] mx-auto mb-3 shadow-2xs">
-                  <ShoppingBag className="w-8 h-8 text-[#18281F]" />
+              <div className="text-center py-16 bg-white rounded-3xl border border-border/80 p-8 shadow-xs">
+                <div className="w-16 h-16 rounded-full bg-[#EEE5DA] border border-[#541D26]/20 flex items-center justify-center text-[#541D26] mx-auto mb-3 shadow-2xs">
+                  <ShoppingBag className="w-8 h-8 text-[#541D26]" />
                 </div>
-                <h3 className="text-base font-serif font-bold text-[#18281F] mb-1">No customer orders received yet</h3>
+                <h3 className="text-base font-serif font-bold text-[#211A19] mb-1">No customer orders received yet</h3>
                 <p className="text-muted-foreground text-xs font-medium max-w-sm mx-auto">
                   When residents place orders for your store items, customer details and item lists will appear here live.
                 </p>
@@ -1311,18 +1311,18 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   return (
                     <div
                       key={order.order_id}
-                      className="rounded-3xl bg-white border border-[#1E3623]/15 p-6 flex flex-col lg:flex-row justify-between gap-6 shadow-xs hover:shadow-md transition-all relative overflow-hidden"
+                      className="rounded-3xl bg-white border border-border/80 p-6 flex flex-col lg:flex-row justify-between gap-6 shadow-xs hover:shadow-md transition-all relative overflow-hidden"
                     >
                       {/* Left Side: Order Identifiers & Customer Card */}
                       <div className="space-y-4 flex-1 min-w-0">
                         {/* Header: Order ID + Status Badge + Date */}
                         <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-border/60">
                           <div className="flex items-center space-x-2.5 min-w-0">
-                            <div className="px-2.5 py-1.5 rounded-xl bg-[#18281F] text-[#E6C35C] flex items-center justify-center font-black text-xs shadow-2xs shrink-0 gap-1">
-                              <ShoppingBag className="w-3.5 h-3.5 text-[#E6C35C]" />
+                            <div className="px-2.5 py-1.5 rounded-xl bg-[#541D26] text-[#C8A878] flex items-center justify-center font-black text-xs shadow-2xs shrink-0 gap-1">
+                              <ShoppingBag className="w-3.5 h-3.5 text-[#C8A878]" />
                               <span>#{order.order_id.toString().replace('ORD-', '').slice(-4)}</span>
                             </div>
-                            <span className="font-serif font-extrabold text-[#18281F] text-base tracking-wide truncate">
+                            <span className="font-serif font-extrabold text-[#211A19] text-base tracking-wide truncate">
                               Order #{order.order_id}
                             </span>
                           </div>
@@ -1330,7 +1330,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           <div className="flex items-center gap-2">
                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-2xs ${
                               statusUpper === 'PLACED'
-                                ? 'bg-[#EFF6FF] text-[#1D4ED8] border-blue-200'
+                                ? 'bg-[#541D26]/10 text-[#541D26] border-[#541D26]/30'
                                 : statusUpper === 'PENDING'
                                 ? 'bg-[#FFFBEB] text-[#B45309] border-amber-200'
                                 : statusUpper === 'CONFIRMED'
@@ -1338,7 +1338,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                                 : statusUpper === 'ACCEPTED' || statusUpper === 'PREPARING'
                                 ? 'bg-[#F0FDF4] text-[#15803D] border-green-200'
                                 : statusUpper === 'IN_PROGRESS' || statusUpper === 'OUT_FOR_DELIVERY'
-                                ? 'bg-[#F5F3FF] text-[#6D28D9] border-purple-200'
+                                ? 'bg-[#541D26]/10 text-[#541D26] border-[#541D26]/30'
                                 : statusUpper === 'COMPLETED' || statusUpper === 'DELIVERED'
                                 ? 'bg-[#ECFDF5] text-[#059669] border-emerald-300'
                                 : 'bg-[#FEF2F2] text-[#B91C1C] border-rose-200'
@@ -1347,18 +1347,18 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             </span>
 
                             <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1 bg-[#FAF9F6] px-2.5 py-1 rounded-full border border-border/60">
-                              <Clock className="w-3 h-3 text-[#18281F]" />
+                              <Clock className="w-3 h-3 text-[#211A19]" />
                               <span>{orderDateStr}</span>
                             </span>
                           </div>
                         </div>
 
                         {/* Customer Identity Card */}
-                        <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-[#1E3623]/10 space-y-2 text-xs font-semibold">
+                        <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-border/80 space-y-2 text-xs font-semibold">
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 text-[#18281F]">
-                              <User className="w-4 h-4 text-[#18281F] shrink-0" />
-                              <span className="font-extrabold text-sm text-[#18281F]">
+                            <div className="flex items-center gap-2 text-[#211A19]">
+                              <User className="w-4 h-4 text-[#541D26] shrink-0" />
+                              <span className="font-extrabold text-sm text-[#211A19]">
                                 {customerName}
                               </span>
                             </div>
@@ -1367,9 +1367,9 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                               <div className="flex items-center gap-2">
                                 <a
                                   href={`tel:${customerPhone}`}
-                                  className="text-xs font-bold text-emerald-900 hover:text-emerald-950 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-emerald-300 shadow-2xs"
+                                  className="text-xs font-bold text-[#541D26] hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-border shadow-2xs"
                                 >
-                                  <Phone className="w-3 h-3 text-emerald-700" />
+                                  <Phone className="w-3 h-3 text-[#541D26]" />
                                   <span>{customerPhone}</span>
                                 </a>
                               </div>
@@ -1377,8 +1377,8 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           </div>
 
                           <div className="flex items-start gap-2 text-muted-foreground pt-1 border-t border-border/50">
-                            <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                            <span className="font-semibold text-gray-700">
+                            <MapPin className="w-3.5 h-3.5 text-[#541D26] shrink-0 mt-0.5" />
+                            <span className="font-semibold text-[#211A19]">
                               {deliveryAddr}
                             </span>
                           </div>
@@ -1386,7 +1386,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
                         {/* Itemized Products List */}
                         <div className="space-y-2 pt-1">
-                          <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-[#18281F]">
+                          <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-[#211A19]">
                             <span>ORDER ITEMS ({orderItems.length})</span>
                             <span>ITEM SUB-TOTAL</span>
                           </div>
@@ -1403,19 +1403,19 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                                 return (
                                   <div key={idx} className="flex justify-between items-center text-xs font-semibold py-0.5">
                                     <div className="flex items-center gap-2 pr-2 min-w-0">
-                                      <span className="w-5 h-5 rounded-md bg-[#E3EFE6] text-[#18281F] text-[10px] font-extrabold flex items-center justify-center shrink-0">
+                                      <span className="w-5 h-5 rounded-md bg-[#EEE5DA] text-[#541D26] text-[10px] font-extrabold flex items-center justify-center shrink-0">
                                         ×{qty}
                                       </span>
-                                      <span className="text-[#18281F] font-bold truncate">
+                                      <span className="text-[#211A19] font-bold truncate">
                                         {item.item_name || item.name || 'Ordered Product'}
                                       </span>
                                       {unitLabel && (
-                                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200/80 text-[10px] font-extrabold shrink-0 shadow-2xs">
+                                        <span className="px-2 py-0.5 rounded-full bg-[#EEE5DA] text-[#211A19] border border-border/80 text-[10px] font-extrabold shrink-0 shadow-2xs">
                                           {badgeText}
                                         </span>
                                       )}
                                     </div>
-                                    <span className="font-extrabold text-[#18281F] shrink-0 font-mono">
+                                    <span className="font-extrabold text-[#211A19] shrink-0 font-mono">
                                       ₹{total.toFixed(2)}
                                     </span>
                                   </div>
@@ -1543,14 +1543,14 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
                       {/* Right Side: Total Amount & Order Lifecycle Action Buttons */}
                       <div className="flex flex-col justify-between items-end border-t lg:border-t-0 lg:border-l border-border/60 pt-4 lg:pt-0 lg:pl-6 min-w-[200px]">
-                        <div className="text-right w-full bg-[#FAF9F6] p-4 rounded-2xl border border-[#1E3623]/10">
+                        <div className="text-right w-full bg-[#FAF9F6] p-4 rounded-2xl border border-border/80">
                           <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
                             TOTAL ORDER AMOUNT
                           </span>
-                          <p className="text-2xl font-serif font-black text-[#18281F] mt-0.5">
+                          <p className="text-2xl font-serif font-black text-[#211A19] mt-0.5">
                             ₹{parseFloat(order.total_amount || 0).toFixed(2)}
                           </p>
-                          <span className="text-[10px] font-bold text-emerald-800 bg-[#E3EFE6] px-2 py-0.5 rounded-full inline-block mt-1">
+                          <span className="text-[10px] font-bold text-[#541D26] bg-[#541D26]/10 px-2 py-0.5 rounded-full inline-block mt-1">
                             {order.payment_method || 'Verified Resident Order'}
                           </span>
                         </div>
@@ -1572,15 +1572,15 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                               <button
                                 type="button"
                                 onClick={() => handleOrderStatusChange(order.order_id, 'OUT_FOR_DELIVERY')}
-                                className="w-full py-2.5 px-4 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                className="w-full py-2.5 px-4 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-[#C8A878]/30"
                               >
-                                <Truck className="w-4 h-4 text-white" />
+                                <Truck className="w-4 h-4 text-[#C8A878]" />
                                 <span>Dispatch / Out for Delivery</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleOrderStatusChange(order.order_id, 'COMPLETED')}
-                                className="w-full py-2 px-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-300 uppercase tracking-wider transition-colors cursor-pointer"
+                                className="w-full py-2 px-3 rounded-2xl bg-white hover:bg-secondary text-[#211A19] font-bold text-xs border border-border uppercase tracking-wider transition-colors cursor-pointer"
                               >
                                 Direct Mark Completed
                               </button>
@@ -1591,16 +1591,16 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             <button
                               type="button"
                               onClick={() => handleOrderStatusChange(order.order_id, 'COMPLETED')}
-                              className="w-full py-2.5 px-4 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                              className="w-full py-2.5 px-4 rounded-2xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-[#C8A878]/30"
                             >
-                              <CheckCircle2 className="w-4 h-4 text-white" />
+                              <CheckCircle2 className="w-4 h-4 text-[#C8A878]" />
                               <span>Mark Delivered to Doorstep</span>
                             </button>
                           )}
 
                           {(statusUpper === 'COMPLETED' || statusUpper === 'DELIVERED') && (
-                            <div className="w-full py-2.5 px-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 font-extrabold text-xs flex items-center justify-center gap-1.5 uppercase tracking-wider shadow-2xs">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <div className="w-full py-2.5 px-4 rounded-2xl bg-[#541D26]/10 border border-[#541D26]/20 text-[#541D26] font-extrabold text-xs flex items-center justify-center gap-1.5 uppercase tracking-wider shadow-2xs">
+                              <CheckCircle2 className="w-4 h-4 text-[#541D26]" />
                               <span>Order Delivered & Completed</span>
                             </div>
                           )}
@@ -1636,7 +1636,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card border border-border/80 rounded-2xl p-4 sm:p-5 shadow-xs">
               <div>
-                <h2 className="text-xl font-serif font-extrabold text-[#18281F] uppercase tracking-wider">
+                <h2 className="text-xl font-serif font-extrabold text-[#211A19] uppercase tracking-wider">
                   Service Enquiries & Requests
                 </h2>
                 <p className="text-xs text-muted-foreground font-medium mt-0.5">
@@ -1652,8 +1652,8 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     onClick={() => setEnquiryFilter(st)}
                     className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase transition-all ${
                       enquiryFilter === st
-                        ? 'bg-[#18281F] text-white shadow-xs'
-                        : 'text-muted-foreground hover:text-[#18281F]'
+                        ? 'bg-[#541D26] text-white shadow-xs'
+                        : 'text-muted-foreground hover:text-[#211A19]'
                     }`}
                   >
                     {st}
@@ -1665,7 +1665,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
             {enquiries.length === 0 ? (
               <div className="p-12 text-center bg-card border border-border rounded-3xl space-y-3">
                 <Briefcase className="w-12 h-12 text-muted-foreground mx-auto" />
-                <h3 className="text-base font-bold text-[#18281F]">No Service Requests Received Yet</h3>
+                <h3 className="text-base font-bold text-[#211A19]">No Service Requests Received Yet</h3>
                 <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                   When residents in your society or coverage radius request services, their details will appear here instantly.
                 </p>
@@ -1682,11 +1682,11 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     return (
                       <div key={enq.enquiry_id} className="bg-card border border-border rounded-2xl p-5 space-y-3 shadow-xs">
                         <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
-                          <span className="text-xs font-black text-[#18281F] uppercase tracking-wider">{enq.enquiry_id}</span>
+                          <span className="text-xs font-black text-[#211A19] uppercase tracking-wider">{enq.enquiry_id}</span>
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
                             enq.status === 'NEW' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
-                            enq.status === 'CONTACTED' ? 'bg-blue-100 text-blue-900 border border-blue-300' :
-                            enq.status === 'SCHEDULED' ? 'bg-purple-100 text-purple-900 border border-purple-300' :
+                            enq.status === 'CONTACTED' ? 'bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20' :
+                            enq.status === 'SCHEDULED' ? 'bg-[#EEE5DA] text-[#211A19] border border-border' :
                             'bg-emerald-100 text-emerald-900 border border-emerald-300'
                           }`}>
                             ● {enq.status}
@@ -1694,25 +1694,25 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         </div>
 
                         <div className="space-y-1.5 text-xs">
-                          <div className="flex items-center gap-2 text-[#18281F] font-bold">
-                            <User className="w-4 h-4 text-emerald-700" />
+                          <div className="flex items-center gap-2 text-[#211A19] font-bold">
+                            <User className="w-4 h-4 text-[#541D26]" />
                             <span>{enq.resident_name || 'Resident'}</span>
                             {enq.flat_number && <span className="text-muted-foreground font-normal">(Flat {enq.flat_number})</span>}
                           </div>
 
                           {enq.society_name && (
                             <div className="flex items-center gap-2 text-muted-foreground font-medium">
-                              <Building2 className="w-3.5 h-3.5 text-amber-600" />
+                              <Building2 className="w-3.5 h-3.5 text-[#541D26]" />
                               <span>{enq.society_name}</span>
                             </div>
                           )}
 
                           <div className="p-3 bg-[#FAF9F6] rounded-xl border border-border/60 space-y-1 my-2">
-                            <span className="text-[11px] font-bold text-[#18281F] block">{enq.service_title}</span>
+                            <span className="text-[11px] font-bold text-[#211A19] block">{enq.service_title}</span>
                             {enq.description && <p className="text-[11px] text-muted-foreground">{enq.description}</p>}
                             {enq.preferred_time && (
-                              <span className="text-[10px] font-bold text-emerald-800 flex items-center gap-1 pt-1">
-                                <Clock className="w-3 h-3 text-emerald-600" /> Preferred: {enq.preferred_time}
+                              <span className="text-[10px] font-bold text-[#541D26] flex items-center gap-1 pt-1">
+                                <Clock className="w-3 h-3 text-[#541D26]" /> Preferred: {enq.preferred_time}
                               </span>
                             )}
                           </div>
@@ -1731,7 +1731,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                               }}
                               className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
                                 enq.status === statusOpt
-                                  ? 'bg-[#18281F] text-white shadow-2xs'
+                                  ? 'bg-[#541D26] text-white shadow-2xs'
                                   : 'bg-white border border-border text-muted-foreground hover:bg-gray-100'
                               }`}
                             >
@@ -1832,7 +1832,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                               statusUpper === 'DELIVERED' || statusUpper === 'COMPLETED'
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                                 : statusUpper === 'CONFIRMED' || statusUpper === 'ACCEPTED'
-                                ? 'bg-blue-50 text-blue-800 border-blue-300'
+                                ? 'bg-[#541D26]/10 text-[#541D26] border-[#541D26]/30'
                                 : statusUpper === 'PENDING'
                                 ? 'bg-amber-50 text-amber-800 border-amber-300'
                                 : 'bg-rose-50 text-rose-800 border-rose-300'
@@ -1943,19 +1943,19 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
               <button
                 onClick={() => { resetItemForm(); setEditingItem(null); setShowAddItemModal(true); }}
-                className="px-5 py-2.5 rounded-full bg-[#18281F] hover:bg-black text-white font-bold text-xs shadow-md flex items-center justify-center space-x-2 uppercase tracking-wider shrink-0 transition-all hover:scale-102 cursor-pointer"
+                className="px-5 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md flex items-center justify-center space-x-2 uppercase tracking-wider shrink-0 transition-all hover:scale-102 cursor-pointer border border-[#C8A878]/30"
               >
-                <Plus className="w-4 h-4 text-[#E6C35C]" />
+                <Plus className="w-4 h-4 text-[#C8A878]" />
                 <span>{isServiceVendor(vendor) ? 'Add New Service' : 'Add New Item'}</span>
               </button>
             </div>
 
             {items.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-3xl border border-[#1E3623]/15 p-8 shadow-xs space-y-3">
-                <div className="w-16 h-16 rounded-full bg-[#E3EFE6] border border-[#18281F]/20 flex items-center justify-center text-[#18281F] mx-auto shadow-2xs">
-                  {isServiceVendor(vendor) ? <Briefcase className="w-8 h-8 text-[#18281F]" /> : <Package className="w-8 h-8 text-[#18281F]" />}
+              <div className="text-center py-16 bg-white rounded-3xl border border-border/80 p-8 shadow-xs space-y-3">
+                <div className="w-16 h-16 rounded-full bg-[#EEE5DA] border border-[#541D26]/20 flex items-center justify-center text-[#541D26] mx-auto shadow-2xs">
+                  {isServiceVendor(vendor) ? <Briefcase className="w-8 h-8 text-[#541D26]" /> : <Package className="w-8 h-8 text-[#541D26]" />}
                 </div>
-                <h3 className="text-base font-serif font-bold text-[#18281F]">
+                <h3 className="text-base font-serif font-bold text-[#211A19]">
                   {isServiceVendor(vendor) ? 'No Services Listed Yet' : 'No Items in Inventory'}
                 </h3>
                 <p className="text-muted-foreground text-xs font-medium max-w-sm mx-auto">
@@ -1965,7 +1965,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 </p>
                 <button
                   onClick={() => { resetItemForm(); setEditingItem(null); setShowAddItemModal(true); }}
-                  className="mt-2 px-5 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md inline-flex items-center gap-2 uppercase tracking-wider cursor-pointer"
+                  className="mt-2 px-5 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md inline-flex items-center gap-2 uppercase tracking-wider cursor-pointer border border-[#C8A878]/30"
                 >
                   <Plus className="w-4 h-4 text-[#C8A878]" />
                   <span>{isServiceVendor(vendor) ? 'Create First Service' : 'Add First Item'}</span>
@@ -1995,8 +1995,8 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         </div>
                         {isServiceVendor(vendor) && item.duration && (
                           <div className="absolute bottom-2.5 left-2.5">
-                            <span className="px-2 py-0.5 text-[9.5px] font-bold rounded-full bg-black/75 text-[#E6C35C] border border-white/20 shadow-xs backdrop-blur-xs flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-[#E6C35C]" />
+                            <span className="px-2 py-0.5 text-[9.5px] font-bold rounded-full bg-black/75 text-[#C8A878] border border-white/20 shadow-xs backdrop-blur-xs flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-[#C8A878]" />
                               <span>{item.duration}</span>
                             </span>
                           </div>
@@ -2078,10 +2078,10 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
         {activeTab === 'settings' && (
           <div className="w-full space-y-6">
             {/* Store Settings Top Header Card */}
-            <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="bg-white border border-[#E5DAD0] rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-serif font-extrabold text-[#0A1428] uppercase tracking-wider">Store & Service Configuration</h2>
-                <p className="text-xs text-[#787F8C] font-medium mt-0.5">Configure store details, operating hours, taxes, charges, order limits, payment & location details.</p>
+                <h2 className="text-xl font-serif font-extrabold text-[#211A19] uppercase tracking-wider">Store & Service Configuration</h2>
+                <p className="text-xs text-[#211A19]/60 font-medium mt-0.5">Configure store details, operating hours, taxes, charges, order limits, payment & location details.</p>
               </div>
               <button
                 type="button"
@@ -2089,11 +2089,11 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 disabled={savingSettings}
                 className={`px-6 py-3 rounded-xl font-bold text-xs shadow-md uppercase tracking-wider transition-all border shrink-0 cursor-pointer flex items-center justify-center gap-2 ${
                   saveSuccess
-                    ? 'bg-emerald-700 text-white border-emerald-500'
+                    ? 'bg-[#541D26] text-white border-[#541D26]'
                     : 'bg-[#541D26] hover:bg-[#6B2732] text-white border-[#C8A878]/30'
                 }`}
               >
-                <CheckCircle2 className={`w-4 h-4 ${saveSuccess ? 'text-emerald-200' : 'text-[#C8A878]'}`} />
+                <CheckCircle2 className={`w-4 h-4 text-[#C8A878]`} />
                 <span>{savingSettings ? 'Saving...' : saveSuccess ? '✓ Settings Saved!' : 'Save All Settings'}</span>
               </button>
             </div>
@@ -2104,9 +2104,9 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 {/* LEFT COLUMN: BRANDING, TIMINGS, TAXES, ORDER LIMITS */}
                 <div className="space-y-6">
                   {/* SECTION 1: BRANDING & CONTACT */}
-                  <div className="p-5 sm:p-6 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#C5A880]/15 pb-2.5">
-                      <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider flex items-center gap-2">
+                  <div className="p-5 sm:p-6 rounded-2xl bg-white border border-[#E5DAD0] shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#E5DAD0] pb-2.5">
+                      <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
                         <Store className="w-4 h-4 text-[#541D26]" />
                         <span>1. Store Profile & Merchant Contact</span>
                       </h3>
@@ -2122,7 +2122,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           placeholder="e.g. Flower's Point"
                           value={settingsForm.store_name}
                           onChange={(e) => setSettingsForm({ ...settingsForm, store_name: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
                         />
                       </div>
 
@@ -2135,7 +2135,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. Aarushi"
                             value={settingsForm.vendor_name}
                             onChange={(e) => setSettingsForm({ ...settingsForm, vendor_name: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
                           />
                         </div>
 
@@ -2146,7 +2146,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. aarushi20@gmail.com"
                             value={settingsForm.email}
                             onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
                           />
                         </div>
                       </div>
@@ -2160,7 +2160,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. 9784319840"
                             value={settingsForm.phone_number}
                             onChange={(e) => setSettingsForm({ ...settingsForm, phone_number: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
                           />
                         </div>
 
@@ -2171,7 +2171,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. Shop 101"
                             value={settingsForm.shop_number}
                             onChange={(e) => setSettingsForm({ ...settingsForm, shop_number: e.target.value, shop_no: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
                           />
                         </div>
 
@@ -2183,7 +2183,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. 08ABCDE1234F1Z5"
                             value={settingsForm.gstin || settingsForm.gst_number}
                             onChange={(e) => setSettingsForm({ ...settingsForm, gstin: e.target.value.toUpperCase(), gst_number: e.target.value.toUpperCase() })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19] uppercase"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19] uppercase"
                           />
                         </div>
 
@@ -2195,7 +2195,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. ABCDE1234F"
                             value={settingsForm.pan_number || settingsForm.pan || settingsForm.panNumber || ''}
                             onChange={(e) => setSettingsForm({ ...settingsForm, pan_number: e.target.value.toUpperCase(), pan: e.target.value.toUpperCase(), panNumber: e.target.value.toUpperCase() })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19] uppercase"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19] uppercase"
                           />
                         </div>
                       </div>
@@ -2212,7 +2212,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="https://images.unsplash.com/..."
                             value={settingsForm.logo}
                             onChange={(e) => setSettingsForm({ ...settingsForm, logo: e.target.value })}
-                            className="flex-1 px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                            className="flex-1 px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
                           />
                           {settingsForm.logo && (
                             <div className="w-10 h-10 rounded-xl border border-border overflow-hidden shrink-0 bg-gray-100 flex items-center justify-center">
@@ -2233,28 +2233,28 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           <button
                             type="button"
                             onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80' })}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-[11px] font-bold border border-emerald-200 transition-colors cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[#211A19] text-[11px] font-bold border border-[#E5DAD0] transition-colors cursor-pointer"
                           >
                             🌸 Florist / Bouquet
                           </button>
                           <button
                             type="button"
                             onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&auto=format&fit=crop&q=80' })}
-                            className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200 transition-colors cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[#211A19] text-[11px] font-bold border border-[#E5DAD0] transition-colors cursor-pointer"
                           >
                             🍞 Bakery & Cakes
                           </button>
                           <button
                             type="button"
                             onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80' })}
-                            className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-900 text-[11px] font-bold border border-blue-200 transition-colors cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[#211A19] text-[11px] font-bold border border-[#E5DAD0] transition-colors cursor-pointer"
                           >
                             🥦 Fresh Grocery
                           </button>
                           <button
                             type="button"
                             onClick={() => setSettingsForm({ ...settingsForm, logo: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=800&auto=format&fit=crop&q=80' })}
-                            className="px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-900 text-[11px] font-bold border border-cyan-200 transition-colors cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[#211A19] text-[11px] font-bold border border-[#E5DAD0] transition-colors cursor-pointer"
                           >
                             🥛 Dairy Products
                           </button>
@@ -2269,109 +2269,109 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           placeholder="Brief description of your storefront..."
                           value={settingsForm.description}
                           onChange={(e) => setSettingsForm({ ...settingsForm, description: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19]"
                         />
                       </div>
                     </div>
                   </div>
 
                   {/* SECTION 2: STORE TIMINGS */}
-                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#C5A880]/15 pb-2">
-                      <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider">2. Store Operating Timings & Availability</h3>
+                  <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#E5DAD0] pb-2">
+                      <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider">2. Store Operating Timings & Availability</h3>
                       <span className="text-[10px] text-muted-foreground font-medium">Controls store open/closed badges & ordering</span>
                     </div>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Opening Time</label>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Opening Time</label>
                         <input
                           type="text"
                           placeholder="e.g. 08:00 AM"
                           value={settingsForm.opening_timing}
                           onChange={(e) => setSettingsForm({ ...settingsForm, opening_timing: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Closing Time</label>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Closing Time</label>
                         <input
                           type="text"
                           placeholder="e.g. 10:00 PM"
                           value={settingsForm.closing_timing}
                           onChange={(e) => setSettingsForm({ ...settingsForm, closing_timing: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                         />
                       </div>
                     </div>
                   </div>
 
                   {/* SECTION 3: TAXES & CHARGES */}
-                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
-                    <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider border-b border-[#C5A880]/15 pb-2">3. Taxes & Charges</h3>
+                  <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] shadow-sm space-y-4">
+                    <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider border-b border-[#E5DAD0] pb-2">3. Taxes & Charges</h3>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">GST Tax (%)</label>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">GST Tax (%)</label>
                         <input
                           type="number"
                           step="0.1"
                           placeholder="5.0"
                           value={settingsForm.gst_percentage}
                           onChange={(e) => setSettingsForm({ ...settingsForm, gst_percentage: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Service Charge (%)</label>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Service Charge (%)</label>
                         <input
                           type="number"
                           step="0.1"
                           placeholder="0.0"
                           value={settingsForm.service_charge_percentage}
                           onChange={(e) => setSettingsForm({ ...settingsForm, service_charge_percentage: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Packaging / Delivery (₹)</label>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Packaging / Delivery (₹)</label>
                         <input
                           type="number"
                           step="1"
                           placeholder="0"
                           value={settingsForm.delivery_charge}
                           onChange={(e) => setSettingsForm({ ...settingsForm, delivery_charge: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                         />
                       </div>
                     </div>
                   </div>
 
                   {/* SECTION 4: ORDER LIMITS */}
-                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
-                    <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider border-b border-[#C5A880]/15 pb-2">4. Order Restrictions & Limits</h3>
+                  <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] shadow-sm space-y-4">
+                    <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider border-b border-[#E5DAD0] pb-2">4. Order Restrictions & Limits</h3>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Minimum Order Value (₹)</label>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Minimum Order Value (₹)</label>
                         <input
                           type="number"
                           step="1"
                           placeholder="0"
                           value={settingsForm.min_order_value}
                           onChange={(e) => setSettingsForm({ ...settingsForm, min_order_value: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Max Item Quantity Limit</label>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Max Item Quantity Limit</label>
                         <input
                           type="number"
                           step="1"
                           placeholder="10"
                           value={settingsForm.max_quantity_limit}
                           onChange={(e) => setSettingsForm({ ...settingsForm, max_quantity_limit: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#541D26]"
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                         />
                       </div>
                     </div>
@@ -2381,8 +2381,8 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 {/* RIGHT COLUMN: LOCATION, PAYMENTS, NOTIFICATIONS, DANGER ZONE */}
                 <div className="space-y-6">
                   {/* SECTION 4.5: STORE AREA, CITY, STATE & PINCODE SETTINGS */}
-                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4 relative">
-                    <div className="flex items-center justify-between border-b border-[#C5A880]/15 pb-2.5 flex-wrap gap-2">
+                  <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] shadow-sm space-y-4 relative">
+                    <div className="flex items-center justify-between border-b border-[#E5DAD0]/50 pb-2.5 flex-wrap gap-2">
                       <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-[#541D26]" />
                         <span>Store Location Details</span>
@@ -2408,24 +2408,24 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             }
                           }}
                           onBlur={handleStoreLocationBlur}
-                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                         />
 
                         {/* Autocomplete Dropdown */}
                         {showLocationDropdown && locationSuggestions.length > 0 && (
-                          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#C5A880]/40 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto divide-y divide-[#C5A880]/15">
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E5DAD0] rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto divide-y divide-[#E5DAD0]/50">
                             {locationSuggestions.map((sug, idx) => (
                               <button
                                 key={idx}
                                 type="button"
                                 onMouseDown={() => handleSelectLocationSuggestion(sug)}
-                                className="w-full text-left px-3.5 py-2 hover:bg-[#FAF9F6] text-xs transition-colors flex items-center justify-between group cursor-pointer"
+                                className="w-full text-left px-3.5 py-2 hover:bg-[#FAF8F5] text-xs transition-colors flex items-center justify-between group cursor-pointer"
                               >
                                 <div className="flex items-center gap-2">
                                   <MapPin className="w-3.5 h-3.5 text-[#541D26] shrink-0" />
                                   <span className="font-bold text-[#211A19] group-hover:text-[#541D26]">{sug.area}</span>
                                 </div>
-                                <span className="text-[10px] text-[#78716C] font-medium ml-2">
+                                <span className="text-[10px] text-[#211A19]/60 font-medium ml-2">
                                   {sug.city}{sug.state ? `, ${sug.state}` : ''} {sug.pincode ? `(${sug.pincode})` : ''}
                                 </span>
                               </button>
@@ -2442,7 +2442,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. Jaipur"
                             value={settingsForm.city || ''}
                             onChange={(e) => setSettingsForm({ ...settingsForm, city: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                           />
                         </div>
                         <div>
@@ -2452,7 +2452,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. Rajasthan"
                             value={settingsForm.state || ''}
                             onChange={(e) => setSettingsForm({ ...settingsForm, state: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                           />
                         </div>
                         <div>
@@ -2476,7 +2476,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                                 }
                               }
                             }}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                           />
                         </div>
                       </div>
@@ -2484,8 +2484,8 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   </div>
 
                   {/* SECTION 4.6: BANK ACCOUNT & UPI PAYMENT SETTINGS */}
-                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#C5A880]/15 pb-2.5">
+                  <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#E5DAD0]/50 pb-2.5">
                       <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
                         <CreditCard className="w-4 h-4 text-[#541D26]" />
                         <span>Bank Account & UPI Payment Settings</span>
@@ -2502,7 +2502,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. Aarushi"
                             value={settingsForm.account_holder_name || ''}
                             onChange={(e) => setSettingsForm({ ...settingsForm, account_holder_name: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                           />
                         </div>
                         <div>
@@ -2512,7 +2512,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. HDFC Bank"
                             value={settingsForm.bank_name || ''}
                             onChange={(e) => setSettingsForm({ ...settingsForm, bank_name: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                           />
                         </div>
                       </div>
@@ -2526,7 +2526,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. 918273645019"
                             value={settingsForm.account_number || ''}
                             onChange={(e) => setSettingsForm({ ...settingsForm, account_number: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                           />
                         </div>
                         <div>
@@ -2536,7 +2536,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. HDFC0001234"
                             value={settingsForm.ifsc_code || ''}
                             onChange={(e) => setSettingsForm({ ...settingsForm, ifsc_code: e.target.value.toUpperCase() })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none uppercase"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none uppercase"
                           />
                         </div>
                       </div>
@@ -2550,7 +2550,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="e.g. freshbites@upi"
                             value={settingsForm.upi_id || ''}
                             onChange={(e) => setSettingsForm({ ...settingsForm, upi_id: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                           />
                         </div>
                         <div>
@@ -2560,14 +2560,14 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             placeholder="https://imgh.in/host/vendor_upi_qr.png"
                             value={settingsForm.qr_code_url || ''}
                             onChange={(e) => setSettingsForm({ ...settingsForm, qr_code_url: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                           />
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#C5A880]/15 pb-2.5">
+                  <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#E5DAD0]/50 pb-2.5">
                       <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
                         <Bell className="w-4 h-4 text-[#541D26]" />
                         <span>Store Order Notification Preferences</span>
@@ -2575,7 +2575,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     </div>
 
                     <div className="space-y-3 text-xs font-semibold text-[#211A19]">
-                      <div className="flex items-center justify-between p-3.5 bg-[#FAF9F6] rounded-xl border border-[#C5A880]/20">
+                      <div className="flex items-center justify-between p-3.5 bg-[#FAF8F5] rounded-xl border border-[#E5DAD0]">
                         <div>
                           <p className="font-bold text-[#211A19]">WhatsApp Order Status Alerts</p>
                           <p className="text-[11px] text-[#211A19]/70 font-normal">Receive instant new order & status change alerts on merchant WhatsApp number</p>
@@ -2588,7 +2588,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         />
                       </div>
 
-                      <div className="flex items-center justify-between p-3.5 bg-[#FAF9F6] rounded-xl border border-[#C5A880]/20">
+                      <div className="flex items-center justify-between p-3.5 bg-[#FAF8F5] rounded-xl border border-[#E5DAD0]">
                         <div>
                           <p className="font-bold text-[#211A19]">SMS Merchant Notifications</p>
                           <p className="text-[11px] text-[#211A19]/70 font-normal">Receive order confirmation & dispatch SMS updates</p>
@@ -2604,13 +2604,13 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   </div>
 
                   {/* CHANGE PASSWORD SECURITY SECTION */}
-                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
-                    <div className="border-b border-[#C5A880]/15 pb-2.5">
+                  <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] shadow-sm space-y-4">
+                    <div className="border-b border-[#E5DAD0]/50 pb-2.5">
                       <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
                         <KeyRound className="w-4 h-4 text-[#541D26]" />
                         <span>Change Merchant Password</span>
                       </h3>
-                      <p className="text-[11px] text-[#78716C] font-medium mt-0.5">
+                      <p className="text-[11px] text-[#211A19]/60 font-medium mt-0.5">
                         Update your store login password. Minimum 6 characters required.
                       </p>
                     </div>
@@ -2713,13 +2713,13 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   </div>
 
                   {/* ACCOUNT ACTIONS & SECURITY SECTION IN STORE SETTINGS */}
-                  <div className="p-5 rounded-2xl bg-white border border-[#C5A880]/30 shadow-sm space-y-4">
-                    <div className="border-b border-[#C5A880]/15 pb-2.5">
+                  <div className="p-5 rounded-2xl bg-white border border-[#E5DAD0] shadow-sm space-y-4">
+                    <div className="border-b border-[#E5DAD0]/50 pb-2.5">
                       <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
                         <ShieldAlert className="w-4 h-4 text-[#541D26]" />
                         <span>Account Actions & Security</span>
                       </h3>
-                      <p className="text-[11px] text-[#78716C] font-medium mt-0.5">
+                      <p className="text-[11px] text-[#211A19]/60 font-medium mt-0.5">
                         Manage your active merchant login session or permanently delete your vendor storefront.
                       </p>
                     </div>
@@ -2729,7 +2729,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                       <button
                         type="button"
                         onClick={() => setShowLogoutModal(true)}
-                        className="w-full px-5 py-3 rounded-xl bg-[#FAF9F6] hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26]/40 font-bold text-xs uppercase tracking-wider shadow-2xs transition-all cursor-pointer flex items-center justify-center space-x-2 group"
+                        className="w-full px-5 py-3 rounded-xl bg-[#FAF8F5] hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26]/40 font-bold text-xs uppercase tracking-wider shadow-2xs transition-all cursor-pointer flex items-center justify-center space-x-2 group"
                       >
                         <LogOut className="w-4 h-4 text-[#541D26] group-hover:text-white transition-colors" />
                         <span>Log Out</span>
@@ -2750,7 +2750,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               </div>
 
               {/* Save All Settings Footer Button */}
-              <div className="p-4 bg-white border border-[#C5A880]/30 rounded-2xl shadow-sm flex justify-end">
+              <div className="p-4 bg-white border border-[#E5DAD0] rounded-2xl shadow-sm flex justify-end">
                 <button
                   type="submit"
                   disabled={savingSettings}
@@ -2771,7 +2771,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   </div>
                   <div>
                     <h2 className="text-xl font-serif font-extrabold text-[#211A19] uppercase tracking-wider">Your Shop QR Code</h2>
-                    <p className="text-xs text-[#78716C] font-medium">Customers scan this to open your shop directly</p>
+                    <p className="text-xs text-[#211A19]/60 font-medium">Customers scan this to open your shop directly</p>
                   </div>
                 </div>
 
@@ -2795,7 +2795,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                   {/* Info & Actions */}
                   <div className="flex-1 space-y-4 text-sm w-full">
                     <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#E7DFD5] space-y-2">
-                      <p className="text-[11px] text-[#78716C] font-medium uppercase tracking-wider">Shop Direct Link</p>
+                      <p className="text-[11px] text-[#211A19]/60 font-medium uppercase tracking-wider">Shop Direct Link</p>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-[#211A19] font-bold break-all">
                           localhost:5000/shop/{vendor.vendor_id}
@@ -2866,21 +2866,21 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           <div className="w-full space-y-6">
 
             {/* Direct Bank Account & Settlements Ledger Card (Section 5.C) */}
-            <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#C5A880]/20 pb-4">
+            <div className="bg-white border border-[#E5DAD0] rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5DAD0] pb-4">
                 <div>
-                  <h2 className="text-xl font-serif font-extrabold text-[#0A1428] uppercase tracking-wider flex items-center gap-2">
+                  <h2 className="text-xl font-serif font-extrabold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
                     <CreditCard className="w-5 h-5 text-[#541D26]" />
                     <span>Bank Settlements & Payment Ledger</span>
                   </h2>
-                  <p className="text-xs text-[#787F8C] font-medium mt-0.5">
+                  <p className="text-xs text-[#211A19]/60 font-medium mt-0.5">
                     Real-time Cashfree direct customer settlements, attributed payouts, and bank transfers.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={loadVendorPaymentLedger}
-                  className="px-3.5 py-1.5 rounded-full bg-[#FAF9F6] hover:bg-[#EEE5DA] border border-[#C5A880]/30 text-[#0A1428] text-xs font-bold flex items-center gap-1.5 transition-all self-start sm:self-auto cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-full bg-[#FAF9F6] hover:bg-[#EEE5DA] border border-[#E5DAD0] text-[#211A19] text-xs font-bold flex items-center gap-1.5 transition-all self-start sm:self-auto cursor-pointer"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 text-[#541D26] ${loadingLedger ? 'animate-spin' : ''}`} />
                   <span>Refresh Ledger</span>
@@ -2889,21 +2889,21 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
               {/* Settlement Summary Stats Banner */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20">
-                  <span className="text-[11px] font-bold text-[#787F8C] uppercase tracking-wider block mb-1">Total Settled Revenue</span>
+                <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0]">
+                  <span className="text-[11px] font-bold text-[#211A19]/60 uppercase tracking-wider block mb-1">Total Settled Revenue</span>
                   <span className="text-2xl font-serif font-black text-[#541D26]">
                     ₹{(ledgerData?.summary?.total_settled_amount || 0).toFixed(2)}
                   </span>
                 </div>
-                <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20">
-                  <span className="text-[11px] font-bold text-[#787F8C] uppercase tracking-wider block mb-1">Settled Transactions</span>
-                  <span className="text-2xl font-serif font-black text-[#0A1428]">
+                <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0]">
+                  <span className="text-[11px] font-bold text-[#211A19]/60 uppercase tracking-wider block mb-1">Settled Transactions</span>
+                  <span className="text-2xl font-serif font-black text-[#211A19]">
                     {ledgerData?.summary?.total_successful_transactions || 0}
                   </span>
                 </div>
-                <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20">
-                  <span className="text-[11px] font-bold text-[#787F8C] uppercase tracking-wider block mb-1">Linked Settlement Bank</span>
-                  <span className="text-xs font-mono font-bold text-[#0A1428] block truncate">
+                <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0]">
+                  <span className="text-[11px] font-bold text-[#211A19]/60 uppercase tracking-wider block mb-1">Linked Settlement Bank</span>
+                  <span className="text-xs font-mono font-bold text-[#211A19] block truncate">
                     {ledgerData?.vendor_bank_account ? `•••• ${String(ledgerData.vendor_bank_account).slice(-4)} (${ledgerData?.vendor_ifsc || 'IFSC Set'})` : (settingsForm.account_number ? `•••• ${String(settingsForm.account_number).slice(-4)}` : 'Not Linked Yet')}
                   </span>
                 </div>
@@ -2911,31 +2911,31 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
               {/* Settlements Transactions List */}
               <div>
-                <h3 className="text-xs font-serif font-bold text-[#0A1428] uppercase tracking-wider mb-3">Recent Credited Settlements</h3>
+                <h3 className="text-xs font-serif font-bold text-[#211A19] uppercase tracking-wider mb-3">Recent Credited Settlements</h3>
                 {ledgerData?.payments && ledgerData.payments.length > 0 ? (
-                  <div className="divide-y divide-[#C5A880]/15 border border-[#C5A880]/20 rounded-xl overflow-hidden">
+                  <div className="divide-y divide-[#E5DAD0]/60 border border-[#E5DAD0] rounded-xl overflow-hidden">
                     {ledgerData.payments.map((p, idx) => (
                       <div key={p.payment_id || idx} className="p-3.5 bg-[#FAF9F6]/50 flex items-center justify-between text-xs font-medium hover:bg-[#FAF9F6] transition-colors">
                         <div className="space-y-0.5">
                           <div className="flex items-center space-x-2">
-                            <span className="font-mono font-bold text-[#0A1428]">{p.order_id}</span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold uppercase">
+                            <span className="font-mono font-bold text-[#211A19]">{p.order_id}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 font-bold uppercase">
                               {p.payment_status || 'SUCCESS'}
                             </span>
                           </div>
-                          <p className="text-[11px] text-[#787F8C]">
-                            Customer: <strong className="text-[#0A1428]">{p.customer_name || 'Resident'}</strong> • Ref: <span className="font-mono">{p.cashfree_payment_id || `cf_${p.payment_id}`}</span>
+                          <p className="text-[11px] text-[#211A19]/60">
+                            Customer: <strong className="text-[#211A19]">{p.customer_name || 'Resident'}</strong> • Ref: <span className="font-mono">{p.cashfree_payment_id || `cf_${p.payment_id}`}</span>
                           </p>
                         </div>
                         <div className="text-right">
                           <span className="font-bold text-sm text-[#541D26] block">₹{Number(p.amount || 0).toFixed(2)}</span>
-                          <span className="text-[10px] text-[#787F8C]">{p.created_at ? new Date(p.created_at).toLocaleDateString() : 'Settled'}</span>
+                          <span className="text-[10px] text-[#211A19]/60">{p.created_at ? new Date(p.created_at).toLocaleDateString() : 'Settled'}</span>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="p-6 text-center rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20 text-xs text-[#787F8C]">
+                  <div className="p-6 text-center rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs text-[#211A19]/60">
                     No online payments recorded for settlement yet. Completed Cashfree orders will appear here automatically.
                   </div>
                 )}
@@ -2943,45 +2943,45 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
             </div>
 
             {/* Subscription Status */}
-            <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-8 shadow-sm">
-              <h2 className="text-xl font-serif font-extrabold text-[#0A1428] mb-1 uppercase tracking-wider">Active Subscription Status</h2>
-              <p className="text-xs text-[#787F8C] mb-6 font-medium">Vendor access control & subscription validity details.</p>
+            <div className="bg-white border border-[#E5DAD0] rounded-2xl p-8 shadow-sm">
+              <h2 className="text-xl font-serif font-extrabold text-[#211A19] mb-1 uppercase tracking-wider">Active Subscription Status</h2>
+              <p className="text-xs text-[#211A19]/60 mb-6 font-medium">Vendor access control & subscription validity details.</p>
 
               {subscription ? (
-                <div className="p-6 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 space-y-4">
-                  <div className="flex justify-between items-center border-b border-[#C5A880]/20 pb-3">
-                    <span className="text-xs text-[#787F8C] font-medium">Subscription Status:</span>
-                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-[#E8F5E9] text-[#2E7D32] border border-[#2E7D32]/30 uppercase">
+                <div className="p-6 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] space-y-4">
+                  <div className="flex justify-between items-center border-b border-[#E5DAD0] pb-3">
+                    <span className="text-xs text-[#211A19]/70 font-medium">Subscription Status:</span>
+                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 uppercase">
                       {subscription.status}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 text-xs font-medium">
                     <div>
-                      <span className="text-[#787F8C]">Start Date:</span>
-                      <p className="font-bold text-[#0A1428]">{subscription.start_date || 'Approved Date'}</p>
+                      <span className="text-[#211A19]/60">Start Date:</span>
+                      <p className="font-bold text-[#211A19]">{subscription.start_date || 'Approved Date'}</p>
                     </div>
                     <div>
-                      <span className="text-[#787F8C]">Expiry Date (1 Year):</span>
-                      <p className="font-bold text-[#C5A880]">{subscription.end_date || '1 Year After Start'}</p>
+                      <span className="text-[#211A19]/60">Expiry Date (1 Year):</span>
+                      <p className="font-bold text-[#541D26]">{subscription.end_date || '1 Year After Start'}</p>
                     </div>
                   </div>
                 </div>
               ) : (
-                <p className="text-[#787F8C] text-xs">No subscription record found.</p>
+                <p className="text-[#211A19]/60 text-xs">No subscription record found.</p>
               )}
             </div>
 
-            <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-8 shadow-sm">
-              <h3 className="text-base font-serif font-bold text-[#0A1428] mb-4 uppercase tracking-wider">Transaction History</h3>
+            <div className="bg-white border border-[#E5DAD0] rounded-2xl p-8 shadow-sm">
+              <h3 className="text-base font-serif font-bold text-[#211A19] mb-4 uppercase tracking-wider">Transaction History</h3>
               <div className="space-y-3">
                 {payments.map((p) => (
-                  <div key={p.payment_id} className="p-4 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20 flex items-center justify-between text-xs font-medium shadow-sm">
+                  <div key={p.payment_id} className="p-4 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] flex items-center justify-between text-xs font-medium shadow-sm">
                     <div>
-                      <p className="font-bold text-[#0A1428]">₹{parseFloat(p.amount).toFixed(2)} - {p.payment_method}</p>
-                      <p className="text-[11px] text-[#787F8C]">Txn Ref: {p.transaction_id}</p>
+                      <p className="font-bold text-[#211A19]">₹{parseFloat(p.amount).toFixed(2)} - {p.payment_method}</p>
+                      <p className="text-[11px] text-[#211A19]/60">Txn Ref: {p.transaction_id}</p>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#E8F5E9] text-[#2E7D32]">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20">
                       {p.status}
                     </span>
                   </div>
@@ -3808,7 +3808,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           onClick={() => setShowLogoutModal(false)}
         >
           <div 
-            className="relative bg-white border border-[#C5A880]/40 rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 text-center my-auto shrink-0 max-h-[90vh] overflow-y-auto animate-in zoom-in-95"
+            className="relative bg-white border border-[#E5DAD0] rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 text-center my-auto shrink-0 max-h-[90vh] overflow-y-auto animate-in zoom-in-95"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-16 h-16 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 text-[#541D26] flex items-center justify-center mx-auto shadow-sm">

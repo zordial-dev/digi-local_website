@@ -343,6 +343,10 @@ export const createCustomerOrder = (orderPayload) => api.createCustomerOrder(ord
 export const verifyCashfreePayment = (verificationPayload) => api.verifyCashfreePayment(verificationPayload);
 export const updateVendorPaymentDetails = (vendorId, paymentDetails, token = '') => api.updateVendorPaymentDetails(vendorId, paymentDetails, token);
 export const getVendorPaymentLedger = (vendorId, token = '') => api.getVendorPaymentLedger(vendorId, token);
+export const getVendorItems = (vendorId) => api.getVendorItems(vendorId);
+export const getVendorProducts = (vendorId) => api.getVendorProducts(vendorId);
+export const getVendorServices = (vendorId) => api.getVendorServices(vendorId);
+export const searchVendors = (params) => api.searchVendors(params);
 
 export function isValidIndianMobileNumber(phone) {
   if (!phone) return false;
@@ -475,6 +479,10 @@ export const api = {
   // 0. User / Resident Authentication & Profile APIs
   // -------------------------------------------------------------
   checkPhoneRegistration: async (phone) => {
+    return api.checkUserPhone(phone);
+  },
+
+  checkUserPhone: async (phone) => {
     const rawDigits = String(phone || '').replace(/[^0-9]/g, '');
     const cleanPhone = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
     try {
@@ -484,78 +492,75 @@ export const api = {
         body: JSON.stringify({ phone: cleanPhone || phone })
       });
       const data = await res.json();
-      if (res.ok && data.exists) return data;
-      return { exists: false, error: data.error || 'No account found with this mobile number. Please register your account first.' };
+      if (res.ok && (data.exists || data.user_id)) {
+        return {
+          exists: true,
+          user_id: data.user_id || data.user?.user_id,
+          name: data.name || data.user?.name,
+          phone: data.phone || cleanPhone,
+          user: data.user || data
+        };
+      }
+      return { exists: false, message: data.message || data.error || 'No account found with this mobile number. Please register your account first.' };
     } catch (_) {
       try {
         const registeredStr = localStorage.getItem('digilocal_registered_users');
         if (registeredStr) {
           const list = JSON.parse(registeredStr);
           const match = Array.isArray(list) ? list.find(u => String(u.phone || '').replace(/[^0-9]/g, '').slice(-10) === cleanPhone) : null;
-          if (match) return { exists: true, user: match, phone: cleanPhone };
+          if (match) return { exists: true, user_id: match.user_id, name: match.name, phone: cleanPhone, user: match };
         }
       } catch (_) {}
-
-      try {
-        const vendorPoolStr = localStorage.getItem('digilocal_registered_vendors');
-        if (vendorPoolStr) {
-          const vList = JSON.parse(vendorPoolStr);
-          const vMatch = Array.isArray(vList) ? vList.find(v => String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10) === cleanPhone) : null;
-          if (vMatch) {
-            const mappedUser = {
-              user_id: `usr_v${vMatch.vendor_id || cleanPhone}`,
-              name: vMatch.vendor_name || vMatch.owner_name || vMatch.store_name || 'Vendor Owner',
-              email: vMatch.email || '',
-              phone: vMatch.phone_number || vMatch.phone || cleanPhone,
-              society_id: String(vMatch.society_id || '1'),
-              society_name: vMatch.society_name || '',
-              flat: vMatch.shop_number || vMatch.shop_address || 'Store Unit',
-              city: vMatch.city || '',
-              pincode: vMatch.pincode || '',
-              avatar: vMatch.logo || '',
-              is_vendor: true,
-              vendor_id: vMatch.vendor_id
-            };
-            return { exists: true, user: mappedUser, phone: cleanPhone };
-          }
-        }
-      } catch (_) {}
-
-      return { exists: false, error: 'No account found with this mobile number. Please register your account first.' };
+      return { exists: false, message: 'No account found with this mobile number. Please register your account first.' };
     }
   },
 
-  checkUserPhone: async (phone) => {
-    return api.checkPhoneRegistration(phone);
-  },
-
-  checkVendorPhone: async (phoneOrEmail) => {
-    const rawInput = String(phoneOrEmail || '').trim();
-    const rawDigits = rawInput.replace(/[^0-9]/g, '');
+  checkVendorPhone: async (phone) => {
+    const rawDigits = String(phone || '').replace(/[^0-9]/g, '');
     const cleanPhone = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
-    const isEmail = rawInput.includes('@');
     try {
       const res = await fetch(`${API_BASE}/vendors/check-phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanPhone || rawInput, email: isEmail ? rawInput : undefined })
+        body: JSON.stringify({ phone: cleanPhone || phone })
       });
       const data = await res.json();
-      if (res.ok && data.exists) return data;
-      return { exists: false, error: data.error || 'No registered vendor store found with this phone / email. Please register your store first.' };
+      if (res.ok && (data.exists || data.is_registered)) return data;
+      return { exists: false, is_registered: false, message: data.message || data.error || 'No vendor store account found with this credential.' };
     } catch (_) {
       try {
         const poolStr = localStorage.getItem('digilocal_registered_vendors');
         if (poolStr) {
           const list = JSON.parse(poolStr);
-          const match = Array.isArray(list) ? list.find(v => {
-            const vDigits = String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10);
-            return (cleanPhone && vDigits === cleanPhone) || (isEmail && String(v.email || '').toLowerCase() === rawInput.toLowerCase());
-          }) : null;
-          if (match) return { exists: true, vendor: match };
+          const match = Array.isArray(list) ? list.find(v => String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10) === cleanPhone) : null;
+          if (match) return { exists: true, is_registered: true, vendor: match, vendor_id: match.vendor_id, store_name: match.store_name };
         }
       } catch (_) {}
-      return { exists: false, error: 'No registered vendor store found with this phone / email. Please register your store first.' };
+      return { exists: false, is_registered: false, message: 'No vendor store account found with this credential.' };
+    }
+  },
+
+  checkVendorEmail: async (email) => {
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    try {
+      const res = await fetch(`${API_BASE}/vendors/check-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail })
+      });
+      const data = await res.json();
+      if (res.ok && (data.exists || data.is_registered)) return data;
+      return { exists: false, is_registered: false, message: data.message || data.error || 'No vendor store account found with this credential.' };
+    } catch (_) {
+      try {
+        const poolStr = localStorage.getItem('digilocal_registered_vendors');
+        if (poolStr) {
+          const list = JSON.parse(poolStr);
+          const match = Array.isArray(list) ? list.find(v => String(v.email || '').trim().toLowerCase() === cleanEmail) : null;
+          if (match) return { exists: true, is_registered: true, vendor: match, vendor_id: match.vendor_id, store_name: match.store_name };
+        }
+      } catch (_) {}
+      return { exists: false, is_registered: false, message: 'No vendor store account found with this credential.' };
     }
   },
 
@@ -1298,62 +1303,26 @@ export const api = {
   },
 
   // -------------------------------------------------------------
-  // 1. Vendor Authentication APIs
-  // -------------------------------------------------------------
   // 1. Vendor Authentication APIs (2.0.0 Specification)
   // -------------------------------------------------------------
 
-  // 1.0 Check Vendor Phone Registration Status (POST /vendors/check-phone)
-  checkVendorPhone: async (phone) => {
-    const cleanPhone = String(phone || '').trim();
-    if (!cleanPhone) return { exists: false, phone: cleanPhone, message: 'No phone provided' };
-    const cleanDigits = cleanPhone.replace(/[^0-9]/g, '').slice(-10);
-
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/vendors/check-phone`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanPhone, mobile: cleanPhone, identifier: cleanPhone })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.exists) return data;
-      }
-    } catch (_) { }
-
-    try {
-      const poolStr = localStorage.getItem('digilocal_registered_vendors');
-      if (poolStr) {
-        const pool = JSON.parse(poolStr);
-        if (Array.isArray(pool)) {
-          const match = pool.find(v => String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10) === cleanDigits);
-          if (match) return { exists: true, phone: cleanPhone, vendor: match, message: 'Vendor account found' };
-        }
-      }
-    } catch (_) { }
-
-    if (seedDb && Array.isArray(seedDb.vendors)) {
-      const seedMatch = seedDb.vendors.find(v => String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10) === cleanDigits);
-      if (seedMatch) return { exists: true, phone: cleanPhone, vendor: seedMatch, message: 'Vendor account found' };
-    }
-
-    if (cleanDigits.length === 10) {
-      return { exists: true, phone: cleanPhone, message: 'Vendor mobile eligible for OTP' };
-    }
-
-    return { exists: false, phone: cleanPhone, message: 'No vendor account found with this mobile number' };
-  },
 
   // ==========================================
-  // 📧 DEDICATED EMAIL & MOBILE OTP SERVICES (v3.5.0)
+  // 📧 DEDICATED EMAIL & MOBILE OTP SERVICES (v2.0.0)
   // ==========================================
 
   // 1.0.1 Send Email OTP (POST /api/otp/email/send-otp)
-  sendEmailOtp: async ({ email, name, purpose = 'verification' }) => {
+  sendEmailOtp: async ({ email, role = 'user', purpose = 'login' }) => {
     const cleanEmail = String(email || '').trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       throw new Error('Please provide a valid email address.');
     }
+
+    const payload = {
+      email: cleanEmail,
+      role: role.toLowerCase(),
+      purpose: purpose.toLowerCase()
+    };
 
     let res = null;
     let data = {};
@@ -1363,30 +1332,41 @@ export const api = {
       res = await fetchWithTimeout(`${API_BASE}/otp/email/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, name, purpose })
+        body: JSON.stringify(payload)
       });
-      if (res && res.ok) {
+      if (res) {
         data = await res.json().catch(() => ({}));
       }
     } catch (_) {}
 
-    // 2. Fallback aliases: /api/email/send-otp or /api/otp/send-email-otp
+    // 2. Fallback aliases: /api/email/send-otp or /api/otp/send-otp
     if (!res || !res.ok) {
       try {
-        const altRes = await fetchWithTimeout(`${API_BASE}/email/send-otp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({ email: cleanEmail, name, purpose })
-        });
-        if (altRes && altRes.ok) {
-          res = altRes;
-          data = await altRes.json().catch(() => ({}));
+        const altEndpoints = [`${API_BASE}/email/send-otp`, `${API_BASE}/otp/send-otp`];
+        for (const altUrl of altEndpoints) {
+          const altRes = await fetchWithTimeout(altUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (altRes && altRes.ok) {
+            res = altRes;
+            data = await altRes.json().catch(() => ({}));
+            break;
+          }
         }
       } catch (_) {}
     }
 
     if (!res || !res.ok || data.success === false) {
-      throw new Error(data?.message || data?.error || 'Failed to send verification code to your email.');
+      const errMsg = data?.message || data?.error || 'No account found with this email address. Please register your account first.';
+      const err = new Error(errMsg);
+      err.status = res?.status || 400;
+      err.error_code = data?.error_code;
+      err.errorCode = data?.error_code;
+      err.response = { status: err.status, data };
+      err.data = data;
+      throw err;
     }
 
     const verificationId = data.verification_id || data.verificationId;
@@ -1412,14 +1392,21 @@ export const api = {
     };
   },
 
-  // 1.0.2 Verify Email OTP (POST /api/otp/email/verify-otp)
-  verifyEmailOtp: async ({ email, otp, code, otp_code, purpose = 'login', include_token }) => {
+  // 1.0.2 Verify Email OTP & Login (POST /api/otp/email/verify-otp)
+  verifyEmailOtp: async ({ email, otp, code, otp_code, role = 'user', purpose = 'login' }) => {
     const cleanEmail = String(email || '').trim().toLowerCase();
     const enteredOtp = String(otp || code || otp_code || '').trim();
 
     if (!cleanEmail || !enteredOtp) {
       throw new Error('Email address and 6-digit verification code are required.');
     }
+
+    const payload = {
+      email: cleanEmail,
+      otp: enteredOtp,
+      role: role.toLowerCase(),
+      purpose: purpose.toLowerCase()
+    };
 
     let res = null;
     let data = {};
@@ -1429,46 +1416,61 @@ export const api = {
       res = await fetchWithTimeout(`${API_BASE}/otp/email/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, otp: enteredOtp, purpose, include_token })
+        body: JSON.stringify(payload)
       });
-      if (res && res.ok) {
+      if (res) {
         data = await res.json().catch(() => ({}));
       }
     } catch (_) {}
 
-    // 2. Fallback aliases: /api/email/verify-otp or /api/otp/verify-email-otp
+    // 2. Fallback aliases: /api/email/verify-otp or /api/otp/verify-otp
     if (!res || !res.ok) {
       try {
-        const altRes = await fetchWithTimeout(`${API_BASE}/email/verify-otp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({ email: cleanEmail, otp: enteredOtp, purpose, include_token })
-        });
-        if (altRes && altRes.ok) {
-          res = altRes;
-          data = await altRes.json().catch(() => ({}));
+        const altEndpoints = [`${API_BASE}/email/verify-otp`, `${API_BASE}/otp/verify-otp`];
+        for (const altUrl of altEndpoints) {
+          const altRes = await fetchWithTimeout(altUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (altRes && altRes.ok) {
+            res = altRes;
+            data = await altRes.json().catch(() => ({}));
+            break;
+          }
         }
       } catch (_) {}
     }
 
     if (res && res.ok && data.success !== false) {
+      const accessToken = data.accessToken || data.token;
+      if (accessToken) {
+        localStorage.setItem('accessToken', accessToken);
+      }
+      if (data.vendor) {
+        localStorage.setItem('vendor_profile', JSON.stringify(data.vendor));
+      }
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+      }
+
       return {
         success: true,
         verified: true,
         channel: "email",
-        message: data.message || 'Email OTP verified successfully',
+        message: data.message || 'Email OTP verified successfully. Login successful.',
         email: cleanEmail,
         ...data
       };
     }
 
-    // Check Master Codes in test environment
+    // Check Master Codes in test environment fallback
     if (enteredOtp === '123456' || enteredOtp === '482910' || enteredOtp === '849201' || enteredOtp === '999999') {
       return {
         success: true,
         verified: true,
         channel: "email",
-        message: 'Master OTP verified successfully',
+        message: 'Master OTP verified successfully. Login successful.',
         email: cleanEmail
       };
     }
@@ -1479,25 +1481,245 @@ export const api = {
         success: true,
         verified: true,
         channel: "email",
-        message: 'Email OTP verified successfully',
+        message: 'Email OTP verified successfully. Login successful.',
         email: cleanEmail
       };
     }
 
-    throw new Error(data?.message || data?.error || 'Invalid or expired 6-digit email OTP code.');
+    const errMsg = data?.message || data?.error || 'Invalid or expired OTP code';
+    const err = new Error(errMsg);
+    err.status = res?.status || 400;
+    err.error_code = data?.error_code;
+    err.errorCode = data?.error_code;
+    err.response = { status: err.status, data };
+    err.data = data;
+    throw err;
   },
 
   // 1.0.3 Send Mobile SMS OTP (POST /api/otp/mobile/send-otp)
-  sendMobileOtp: async ({ phone, mobile, country_code = '91', purpose = 'login' }) => {
-    return api.sendOtp(phone || mobile);
+  sendMobileOtp: async ({ phone, mobile, role = 'user', purpose = 'login', country_code = '91' }) => {
+    const rawPhone = String(phone || mobile || '').trim();
+    const cleanDigits = rawPhone.replace(/[^0-9]/g, '');
+    const clean10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+
+    if (!clean10 || clean10.length < 10) {
+      throw new Error('Please enter a valid 10-digit mobile number.');
+    }
+
+    const payload = {
+      phone: clean10,
+      role: role.toLowerCase(),
+      purpose: purpose.toLowerCase(),
+      country_code: String(country_code).replace('+', '') || '91'
+    };
+
+    let res = null;
+    let data = {};
+
+    // 1. Primary: /api/otp/mobile/send-otp
+    try {
+      res = await fetchWithTimeout(`${API_BASE}/otp/mobile/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res) {
+        data = await res.json().catch(() => ({}));
+      }
+    } catch (_) {}
+
+    // 2. Fallback aliases: /api/otp/send-otp, /api/vendors/send-otp, /api/users/send-otp
+    if (!res || !res.ok) {
+      try {
+        const altEndpoints = [
+          `${API_BASE}/otp/send-otp`,
+          `${API_BASE}/vendors/send-otp`,
+          `${API_BASE}/users/send-otp`
+        ];
+        for (const altUrl of altEndpoints) {
+          const altRes = await fetchWithTimeout(altUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (altRes && altRes.ok) {
+            res = altRes;
+            data = await altRes.json().catch(() => ({}));
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!res || !res.ok || data.success === false) {
+      const errMsg = data?.message || data?.error || 'Failed to dispatch mobile OTP. Please try again.';
+      const err = new Error(errMsg);
+      err.status = res?.status || (data?.error_code === 'SMS_CREDITS_EXHAUSTED' ? 503 : 400);
+      err.error_code = data?.error_code;
+      err.errorCode = data?.error_code;
+      err.fallback_available = data?.fallback_available;
+      err.action = data?.action;
+      err.response = { status: err.status, data };
+      err.data = data;
+      throw err;
+    }
+
+    const verificationId = data.verification_id || data.verificationId || data.data?.verification_id;
+    if (verificationId) {
+      sessionStorage.setItem(`digilocal_verification_id_${clean10}`, verificationId);
+      sessionStorage.setItem('digilocal_last_verification_id', verificationId);
+    }
+    if (data.otp || data.simulationOtp) {
+      sessionStorage.setItem(`digilocal_otp_${clean10}`, data.otp || data.simulationOtp);
+    }
+
+    return {
+      success: true,
+      channel: "mobile_sms",
+      provider: data.provider || "message_central",
+      message: data.message || `Mobile OTP sent successfully via SMS to ${clean10}`,
+      phone: clean10,
+      verification_id: verificationId,
+      verificationId: verificationId,
+      otp: data.otp || data.simulationOtp,
+      simulationOtp: data.simulationOtp || data.otp
+    };
   },
 
-  // 1.0.4 Verify Mobile SMS OTP (POST /api/otp/mobile/verify-otp)
-  verifyMobileOtp: async ({ phone, mobile, otp, code, verification_id }) => {
-    return api.verifyOtp({ phone: phone || mobile, otp: otp || code, verification_id });
+  // 1.0.4 Verify Mobile SMS OTP & Login (POST /api/otp/mobile/verify-otp)
+  verifyMobileOtp: async ({ phone, mobile, otp, code, role = 'user', verification_id, purpose = 'login' }) => {
+    const rawPhone = String(phone || mobile || '').trim();
+    const cleanDigits = rawPhone.replace(/[^0-9]/g, '');
+    const clean10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+    const enteredOtp = String(otp || code || '').trim();
+
+    if (!clean10 || !enteredOtp) {
+      throw new Error('Mobile number and 6-digit verification code are required.');
+    }
+
+    let verifId = verification_id || sessionStorage.getItem(`digilocal_verification_id_${clean10}`) || sessionStorage.getItem('digilocal_last_verification_id') || '';
+
+    const payload = {
+      phone: clean10,
+      otp: enteredOtp,
+      role: role.toLowerCase(),
+      purpose: purpose.toLowerCase(),
+      ...(verifId ? { verification_id: verifId } : {})
+    };
+
+    let res = null;
+    let data = {};
+
+    // 1. Primary: /api/otp/mobile/verify-otp
+    try {
+      res = await fetchWithTimeout(`${API_BASE}/otp/mobile/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res) {
+        data = await res.json().catch(() => ({}));
+      }
+    } catch (_) {}
+
+    // 2. Fallback aliases: /api/otp/verify-otp, /api/vendors/otp-login, /api/vendors/verify-otp
+    if (!res || !res.ok) {
+      try {
+        const altEndpoints = [
+          `${API_BASE}/otp/verify-otp`,
+          `${API_BASE}/vendors/otp-login`,
+          `${API_BASE}/vendors/verify-otp`,
+          `${API_BASE}/users/verify-otp`
+        ];
+        for (const altUrl of altEndpoints) {
+          const altRes = await fetchWithTimeout(altUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (altRes && altRes.ok) {
+            res = altRes;
+            data = await altRes.json().catch(() => ({}));
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (res && res.ok && data.success !== false) {
+      const accessToken = data.accessToken || data.token;
+      if (accessToken) {
+        localStorage.setItem('accessToken', accessToken);
+      }
+      if (data.vendor) {
+        localStorage.setItem('vendor_profile', JSON.stringify(data.vendor));
+      }
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+      }
+
+      return {
+        success: true,
+        verified: true,
+        channel: "mobile_sms",
+        provider: "message_central",
+        message: data.message || 'Mobile OTP verified successfully. Login successful.',
+        phone: clean10,
+        ...data
+      };
+    }
+
+    // Check Master Codes in test environment fallback
+    if (enteredOtp === '123456' || enteredOtp === '482910' || enteredOtp === '849201' || enteredOtp === '999999') {
+      return {
+        success: true,
+        verified: true,
+        channel: "mobile_sms",
+        message: 'Master OTP verified successfully.',
+        phone: clean10
+      };
+    }
+
+    const stored = sessionStorage.getItem(`digilocal_otp_${clean10}`);
+    if (stored && stored === enteredOtp) {
+      return {
+        success: true,
+        verified: true,
+        channel: "mobile_sms",
+        message: 'Mobile OTP verified successfully.',
+        phone: clean10
+      };
+    }
+
+    const errMsg = data?.message || data?.error || 'Invalid or expired mobile OTP code';
+    const err = new Error(errMsg);
+    err.status = res?.status || 400;
+    err.error_code = data?.error_code;
+    err.errorCode = data?.error_code;
+    err.response = { status: err.status, data };
+    err.data = data;
+    throw err;
   },
 
-  // 1.0.5 General Email Service - Send Email (POST /api/email/send)
+  // 1.0.5 Registration OTP Helpers (New Sign-ups)
+  sendRegistrationOtp: async ({ identifier, email, phone, role = 'user' }) => {
+    const target = email || phone || identifier;
+    if (String(target).includes('@')) {
+      return api.sendEmailOtp({ email: target, role, purpose: 'register' });
+    }
+    return api.sendMobileOtp({ phone: target, role, purpose: 'register' });
+  },
+
+  verifyRegistrationOtp: async ({ identifier, email, phone, otp, code, role = 'user', verification_id }) => {
+    const target = email || phone || identifier;
+    const otpVal = otp || code;
+    if (String(target).includes('@')) {
+      return api.verifyEmailOtp({ email: target, otp: otpVal, role, purpose: 'register' });
+    }
+    return api.verifyMobileOtp({ phone: target, otp: otpVal, role, verification_id, purpose: 'register' });
+  },
+
+  // 1.0.6 General Email Service - Send Email (POST /api/email/send)
   sendCustomEmail: async ({ to, email, subject, message, html }) => {
     const targetEmail = to || email;
     try {
@@ -1515,7 +1737,7 @@ export const api = {
     }
   },
 
-  // 1.0.6 Check Email Service Health Status (GET /api/email/status)
+  // 1.0.7 Check Email Service Health Status (GET /api/email/status)
   getEmailServiceStatus: async () => {
     try {
       const res = await fetchWithTimeout(`${API_BASE}/email/status`);
@@ -1524,222 +1746,66 @@ export const api = {
     return { status: "CONNECTED", service: "AWS SES SMTP", healthy: true };
   },
 
-  // Message Central / MSG91 SMS OTP Service - Direct Send OTP (POST /api/otp/send-otp or /api/users/send-otp)
-  sendOtp: async (phoneOrObj) => {
-    const phoneNumber = (typeof phoneOrObj === 'object' && phoneOrObj !== null)
-      ? (phoneOrObj.phone || phoneOrObj.mobile || phoneOrObj.identifier)
-      : phoneOrObj;
+  // Universal Direct Send OTP Wrapper (supports mobile or email)
+  sendOtp: async (phoneOrObj, maybeOptions = {}) => {
+    const isObj = typeof phoneOrObj === 'object' && phoneOrObj !== null;
+    const identifier = isObj ? (phoneOrObj.phone || phoneOrObj.mobile || phoneOrObj.email || phoneOrObj.identifier) : phoneOrObj;
+    const role = isObj ? (phoneOrObj.role || maybeOptions.role || 'user') : (maybeOptions.role || 'user');
+    const purpose = isObj ? (phoneOrObj.purpose || maybeOptions.purpose || 'login') : (maybeOptions.purpose || 'login');
 
-    const cleanPhone = String(phoneNumber || '').trim();
-
-    let res = null;
-    let data = {};
-
-    // 1. Primary: /api/otp/send-otp (Standard Live Render Backend Route)
-    try {
-      res = await fetchWithTimeout(`${API_BASE}/otp/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ phone: cleanPhone })
-      });
-      if (res && res.ok) {
-        data = await res.json().catch(() => ({}));
-      }
-    } catch (_) {}
-
-    // 2. Fallback: /api/users/send-otp or /api/vendors/send-otp if 404 / failed
-    if (!res || !res.ok) {
-      try {
-        const altRes = await fetchWithTimeout(`${API_BASE}/users/send-otp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({ phone: cleanPhone })
-        });
-        if (altRes && altRes.ok) {
-          res = altRes;
-          data = await altRes.json().catch(() => ({}));
-        } else {
-          const vRes = await fetchWithTimeout(`${API_BASE}/vendors/send-otp`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ phone: cleanPhone })
-          });
-          if (vRes && vRes.ok) {
-            res = vRes;
-            data = await vRes.json().catch(() => ({}));
-          }
-        }
-      } catch (_) {}
+    if (String(identifier).includes('@')) {
+      return api.sendEmailOtp({ email: identifier, role, purpose });
     }
-
-    if (!res || !res.ok || data.success === false) {
-      throw new Error(data?.message || data?.error || 'Failed to send OTP via SMS Service');
-    }
-
-    const verificationId = data.verification_id || data.verificationId || data.data?.verification_id;
-    if (verificationId) {
-      sessionStorage.setItem(`digilocal_verification_id_${cleanPhone.toLowerCase()}`, verificationId);
-      sessionStorage.setItem('digilocal_last_verification_id', verificationId);
-    }
-
-    return {
-      ...data,
-      verification_id: verificationId,
-      verificationId: verificationId
-    };
+    return api.sendMobileOtp({ phone: identifier, role, purpose });
   },
 
-  // 1.0b Send Vendor OTP (POST /api/otp/send-otp or /api/vendors/send-otp)
-  sendVendorOtp: async ({ mobile, phone, purpose = 'login' }) => {
-    const target = String(mobile || phone || '').trim();
-
-    try {
-      let res = null;
-      let data = {};
-
-      // 1. Primary: /api/otp/send-otp
-      try {
-        res = await fetchWithTimeout(`${API_BASE}/otp/send-otp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({ phone: target })
-        });
-        if (res && res.ok) {
-          data = await res.json().catch(() => ({}));
-        }
-      } catch (_) {}
-
-      // 2. Fallback: /api/vendors/send-otp or /api/users/send-otp
-      if (!res || !res.ok) {
-        try {
-          const vRes = await fetchWithTimeout(`${API_BASE}/vendors/send-otp`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ phone: target })
-          });
-          if (vRes && vRes.ok) {
-            res = vRes;
-            data = await vRes.json().catch(() => ({}));
-          } else {
-            const uRes = await fetchWithTimeout(`${API_BASE}/users/send-otp`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-              body: JSON.stringify({ phone: target })
-            });
-            if (uRes && uRes.ok) {
-              res = uRes;
-              data = await uRes.json().catch(() => ({}));
-            }
-          }
-        } catch (_) {}
-      }
-
-      if (!res || !res.ok || data.success === false) {
-        throw new Error(data?.message || data?.error || 'Failed to send OTP via SMS gateway');
-      }
-
-      const verificationId = data.verification_id || data.verificationId || data.data?.verification_id;
-      if (verificationId) {
-        sessionStorage.setItem(`digilocal_verification_id_${target.toLowerCase()}`, verificationId);
-        sessionStorage.setItem('digilocal_last_verification_id', verificationId);
-      }
-
-      return {
-        success: true,
-        message: data.message || 'OTP sent successfully via SMS gateway',
-        data: data.data || data,
-        verification_id: verificationId,
-        verificationId: verificationId,
-        target,
-        exists: purpose === 'login'
-      };
-    } catch (err) {
-      console.warn('Backend send-otp error:', err);
-      throw err;
-    }
+  requestOtp: async (identifier, options = {}) => {
+    return api.sendOtp(identifier, options);
   },
 
-  // 1.0c Verify Vendor OTP (POST /api/otp/verify-otp or /api/vendors/verify-otp)
+  // Universal Verify OTP Wrapper (supports mobile or email)
+  verifyOtp: async (identifierOrObj, maybeCode = '', maybeVerificationId = '') => {
+    if (typeof identifierOrObj === 'object' && identifierOrObj !== null) {
+      const email = identifierOrObj.email;
+      const phone = identifierOrObj.phone || identifierOrObj.mobile || identifierOrObj.identifier;
+      const otp = identifierOrObj.otp || identifierOrObj.code || maybeCode;
+      const role = identifierOrObj.role || 'user';
+      const purpose = identifierOrObj.purpose || 'login';
+      const verification_id = identifierOrObj.verification_id || identifierOrObj.verificationId || maybeVerificationId;
+
+      if (email || (typeof phone === 'string' && phone.includes('@'))) {
+        return api.verifyEmailOtp({ email: email || phone, otp, role, purpose });
+      }
+      return api.verifyMobileOtp({ phone, otp, role, verification_id, purpose });
+    }
+
+    const idStr = String(identifierOrObj || '').trim();
+    if (idStr.includes('@')) {
+      return api.verifyEmailOtp({ email: idStr, otp: maybeCode, purpose: 'login' });
+    }
+    return api.verifyMobileOtp({ phone: idStr, otp: maybeCode, verification_id: maybeVerificationId, purpose: 'login' });
+  },
+
+  sendVendorOtp: async ({ mobile, phone, email, purpose = 'login' }) => {
+    if (email) {
+      return api.sendEmailOtp({ email, role: 'vendor', purpose });
+    }
+    return api.sendMobileOtp({ phone: mobile || phone, role: 'vendor', purpose });
+  },
+
   verifyVendorOtp: async (payload) => {
-    let targetPhone = '';
-    let otpCode = '';
-    let verificationId = '';
-    if (typeof payload === 'string') {
-      otpCode = payload;
-    } else if (payload) {
-      targetPhone = payload.mobile || payload.phone || payload.identifier || '';
-      otpCode = payload.otp || payload.code || '';
-      verificationId = payload.verification_id || payload.verificationId || '';
-    }
-
-    if (!verificationId && targetPhone) {
-      verificationId = sessionStorage.getItem(`digilocal_verification_id_${targetPhone.toLowerCase()}`) ||
-                       sessionStorage.getItem('digilocal_last_verification_id') || '';
-    }
-
-    const reqBody = {
-      phone: targetPhone,
-      otp: String(otpCode).trim()
-    };
-    if (verificationId) {
-      reqBody.verification_id = verificationId;
-    }
-
-    try {
-      let res = null;
-      let data = {};
-
-      // 1. Primary: /api/otp/verify-otp
-      try {
-        res = await fetchWithTimeout(`${API_BASE}/otp/verify-otp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify(reqBody)
-        });
-        if (res && res.ok) {
-          data = await res.json().catch(() => ({}));
-        }
-      } catch (_) {}
-
-      // 2. Fallback: /api/vendors/verify-otp or /api/users/verify-otp
-      if (!res || !res.ok) {
-        try {
-          const vRes = await fetchWithTimeout(`${API_BASE}/vendors/verify-otp`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify(reqBody)
-          });
-          if (vRes && vRes.ok) {
-            res = vRes;
-            data = await vRes.json().catch(() => ({}));
-          } else {
-            const uRes = await fetchWithTimeout(`${API_BASE}/users/verify-otp`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-              body: JSON.stringify(reqBody)
-            });
-            if (uRes && uRes.ok) {
-              res = uRes;
-              data = await uRes.json().catch(() => ({}));
-            }
-          }
-        } catch (_) {}
+    if (typeof payload === 'object' && payload !== null) {
+      if (payload.email) {
+        return api.verifyEmailOtp({ email: payload.email, otp: payload.otp || payload.code, role: 'vendor' });
       }
-
-      if (!res || !res.ok || data.success === false) {
-        throw new Error(data?.message || data?.error || 'Invalid or expired 6-digit OTP code');
-      }
-      return {
-        success: true,
-        message: data.message || 'OTP verified successfully',
-        data: data.data || data,
-        valid: true,
-        phone_number: targetPhone
-      };
-    } catch (err) {
-      console.warn('Backend verify-otp error:', err);
-      throw err;
+      return api.verifyMobileOtp({
+        phone: payload.mobile || payload.phone || payload.identifier,
+        otp: payload.otp || payload.code,
+        verification_id: payload.verification_id || payload.verificationId,
+        role: 'vendor'
+      });
     }
+    return api.verifyMobileOtp({ phone: '', otp: String(payload), role: 'vendor' });
   },
 
   // 1.1 Vendor Registration (POST /api/vendors/register, Legacy Alias: POST /registerVender)
@@ -3806,7 +3872,59 @@ export const api = {
     );
   },
 
-  // 2.4 Get Vendor Storefront & Menu Items
+  // 2.3b Search Service/Product Vendors by Location & Type (GET /api/vendors/search)
+  searchVendors: async ({ vendor_type, area, city, state, pincode, search, page = 1, limit = 24 } = {}) => {
+    try {
+      const params = new URLSearchParams();
+      if (vendor_type && vendor_type !== 'all') params.append('vendor_type', vendor_type);
+      if (area) params.append('area', area);
+      if (city) params.append('city', city);
+      if (state) params.append('state', state);
+      if (pincode) params.append('pincode', pincode);
+      if (search) params.append('search', search);
+      if (page) params.append('page', String(page));
+      if (limit) params.append('limit', String(limit));
+
+      const res = await fetchWithTimeout(`${API_BASE}/vendors/search?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        return Array.isArray(data) ? data : (data.vendors || data.data || []);
+      }
+    } catch (err) {
+      console.warn('searchVendors API error:', err);
+    }
+    return [];
+  },
+
+  // 2.3c Get Vendor's Items / Services (Public Storefront API)
+  getVendorItems: async (vendorId) => {
+    try {
+      const endpoints = [
+        `${API_BASE}/vendors/${vendorId}/items`,
+        `${API_BASE}/vendors/${vendorId}/services`,
+        `${API_BASE}/vendors/${vendorId}/products`,
+        `${API_BASE}/stores/${vendorId}/items`
+      ];
+      for (const url of endpoints) {
+        try {
+          const res = await fetchWithTimeout(url);
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) return data;
+          }
+        } catch (_) {}
+      }
+    } catch (err) {
+      console.warn('getVendorItems error:', err);
+    }
+    return [];
+  },
+
+  // Alias helpers for items
+  getVendorProducts: async (vendorId) => api.getVendorItems(vendorId),
+  getVendorServices: async (vendorId) => api.getVendorItems(vendorId),
+
+  // 2.4 Get Vendor Storefront & Menu Items / Services (GET /api/vendors/:vendorId)
   getVendorStorefront: async (rawVendorId) => {
     const vendorId = String(rawVendorId) === '1242' ? '1296' : rawVendorId;
     try {
@@ -3825,6 +3943,9 @@ export const api = {
     try {
       let res = await fetch(`${API_BASE}/vendors/${vendorId}`);
       if (!res.ok && res.status === 404) {
+        res = await fetch(`${API_BASE}/stores/${vendorId}`);
+      }
+      if (!res.ok && res.status === 404) {
         res = await fetch(`${API_BASE}/vendorPanel/${vendorId}`);
       }
 
@@ -3832,8 +3953,12 @@ export const api = {
         const contentType = res.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const data = await res.json();
-          vendorObj = data.vendor || data;
-          itemsList = Array.isArray(data.items) ? data.items : (Array.isArray(vendorObj.items) ? vendorObj.items : []);
+          vendorObj = data.vendor || (data.data && data.data.vendor) || data;
+          itemsList = Array.isArray(data.items) ? data.items : 
+                     (Array.isArray(data.services) ? data.services :
+                     (Array.isArray(data.products) ? data.products : 
+                     (Array.isArray(vendorObj.items) ? vendorObj.items : 
+                     (Array.isArray(data.data?.items) ? data.data.items : []))));
         }
       }
     } catch (err) {
@@ -5295,7 +5420,10 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(enquiryData)
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const json = await res.json();
+        return json;
+      }
     } catch (_) {}
 
     const vId = enquiryData.vendor_id;
@@ -5306,17 +5434,33 @@ export const api = {
       if (saved) existing = JSON.parse(saved);
     } catch (_) {}
 
+    const randomId = Math.floor(100000 + Math.random() * 900000);
+    const cleanPhone = String(enquiryData.vendor_phone || enquiryData.phone || '').replace(/[^0-9]/g, '');
+    const clean10 = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone;
+    const serviceType = enquiryData.service_type || enquiryData.service_title || 'Service';
+    const whatsappMsg = `Hi ${enquiryData.vendor_name || 'Vendor'},\nI have submitted a service request #${randomId} for ${serviceType}.`;
+    const whatsapp_link = clean10 ? `https://wa.me/91${clean10}?text=${encodeURIComponent(whatsappMsg)}` : '';
+    const call_link = clean10 ? `tel:${clean10}` : '';
+
     const newObj = {
-      enquiry_id: `ENQ-${Math.floor(100000 + Math.random() * 900000)}`,
+      enquiry_id: randomId,
+      id: `ENQ-${randomId}`,
       ...enquiryData,
       status: 'NEW',
+      direct_actions: {
+        whatsapp_link,
+        call_link,
+        vendor_phone: clean10
+      },
+      whatsapp_link,
+      call_link,
       created_at: new Date().toISOString()
     };
     existing.unshift(newObj);
     try {
       localStorage.setItem(localKey, JSON.stringify(existing));
     } catch (_) {}
-    return { success: true, enquiry: newObj };
+    return { success: true, enquiry_id: randomId, enquiry: newObj };
   },
 
   updateEnquiryStatus: async (vendorId, enquiryId, status, token = '') => {

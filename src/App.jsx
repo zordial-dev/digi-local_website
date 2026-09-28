@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from './components/Navbar';
-import Footer from './components/Footer';
+// Layout Components
+import Navbar from './components/layout/Navbar';
+import Footer from './components/layout/Footer';
+import FloatingCartBar from './components/layout/FloatingCartBar';
+
+// Modals & Overlays
+import LoginModal from './components/modals/LoginModal';
+import SupportDeskModal from './components/modals/SupportDeskModal';
+import BlockedAccountModal from './components/modals/BlockedAccountModal';
+import UserStrikeWarningModal from './components/modals/UserStrikeWarningModal';
+
+// UI & Toast Components
+import LiveOrderTrackerToast from './components/ui/LiveOrderTrackerToast';
+
+// Pages
 import HomePage from './pages/HomePage';
 import SocietyVendorsPage from './pages/SocietyVendorsPage';
 import VendorStorefrontPage from './pages/VendorStorefrontPage';
@@ -11,12 +24,9 @@ import InfoPages from './pages/InfoPages';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import UserProfilePage from './pages/UserProfilePage';
-import LoginModal from './components/LoginModal';
-import SupportDeskModal from './components/SupportDeskModal';
-import BlockedAccountModal from './components/BlockedAccountModal';
-import UserStrikeWarningModal from './components/UserStrikeWarningModal';
-import FloatingCartBar from './components/FloatingCartBar';
-import LiveOrderTrackerToast from './components/LiveOrderTrackerToast';
+import ServiceEnquiryPage from './pages/ServiceEnquiryPage';
+
+// API Services
 import { api } from './services/api';
 
 function getRouteFromPath(path = window.location.pathname) {
@@ -77,6 +87,14 @@ function getRouteFromPath(path = window.location.pathname) {
   if (parts[0] === 'vendorpanel' && parts[1]) {
     return { page: 'vendorDashboard', vendorId: parts[1] };
   }
+  if (parts.length === 3 && (parts[2] === 'enquire' || parts[2] === 'enquiry')) {
+    const targetVendorId = parts[1] === '1242' ? '1296' : parts[1];
+    return { page: 'serviceEnquiry', societyId: parts[0], vendorId: targetVendorId };
+  }
+  if ((parts[0] === 'enquiry' || parts[0] === 'enquire') && parts[1]) {
+    const targetVendorId = parts[1] === '1242' ? '1296' : parts[1];
+    return { page: 'serviceEnquiry', societyId: 'all', vendorId: targetVendorId };
+  }
   if (parts[0] === 'storefront' && parts[1] && parts[2]) {
     return { page: 'vendorStorefront', societyId: parts[1], vendorId: parts[2] };
   }
@@ -117,6 +135,8 @@ function getPathFromRoute(route) {
       return (!route.societyId || route.societyId === 'all') ? '/vendors' : `/${route.societyId}`;
     case 'vendorStorefront':
       return `/${route.societyId || 1}/${route.vendorId}`;
+    case 'serviceEnquiry':
+      return `/${route.societyId || 'all'}/${route.vendorId}/enquiry`;
     case 'vendorRegister':
       return '/vendor-register';
     case 'vendorDashboard':
@@ -479,7 +499,17 @@ export default function App() {
           />
         )}
 
-        {!['home', 'login', 'register', 'profile', 'societyVendors', 'vendorStorefront', 'vendorRegister', 'vendorDashboard', 'admin', 'info'].includes(route.page) && (
+        {route.page === 'serviceEnquiry' && (
+          <ServiceEnquiryPage
+            currentRoute={route}
+            setRoute={setRoute}
+            activeUser={activeUser}
+            activeVendor={activeVendor}
+            onOpenLoginModal={() => setIsLoginModalOpen(true)}
+          />
+        )}
+
+        {!['home', 'login', 'register', 'profile', 'societyVendors', 'vendorStorefront', 'serviceEnquiry', 'vendorRegister', 'vendorDashboard', 'admin', 'info'].includes(route.page) && (
           <HomePage currentRoute={route} setRoute={setRoute} onOpenLogin={() => setRoute({ page: 'login' })} />
         )}
       </main>

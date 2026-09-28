@@ -285,24 +285,24 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           onExploreClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
         />
 
-        {/* PRODUCT FEATURES & HIGHLIGHTS BENTO GRID (Pure White Cards over Warm Cream Background) */}
+        {/* PRODUCT FEATURES & HIGHLIGHTS BENTO GRID */}
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
           variants={containerVariants}
-          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
+          className="w-full max-w-6xl mx-auto my-8 sm:my-10 px-4 sm:px-6 relative"
         >
           <FloatingDoodles section="bento" />
-          <div className="text-center max-w-2xl mx-auto mb-8 space-y-2 flex flex-col items-center">
-            <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
+          <div className="text-center max-w-xl mx-auto mb-6 space-y-1.5 flex flex-col items-center">
+            <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
               <span className="w-1.5 h-1.5 rounded-full bg-[#541D26]" />
               <span>Why DigiLocal</span>
             </span>
             <ScrollTextReveal
               as="h2"
               mode="word"
-              className="text-2xl sm:text-3xl font-serif font-black text-[#211A19] uppercase tracking-tight justify-center"
+              className="text-xl sm:text-2xl font-serif font-black text-[#211A19] uppercase tracking-tight justify-center"
             >
               The Hyperlocal Advantage
             </ScrollTextReveal>
@@ -310,85 +310,85 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
               as="p"
               mode="word"
               delay={0.15}
-              className="text-xs sm:text-sm text-[#211A19]/75 font-medium justify-center"
+              className="text-xs text-[#211A19]/75 font-medium justify-center"
             >
               Designed for residential communities to empower local commerce with zero friction.
             </ScrollTextReveal>
           </div>
 
-          <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+          <motion.div variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
             {/* Card 1: 15-Min Delivery */}
-            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-[2rem] p-6 sm:p-7 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-1 group flex flex-col justify-between">
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-4.5 sm:p-5 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-0.5 group flex flex-col justify-between">
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-4 group-hover:scale-110 transition-transform">
-                  <Zap className="w-6 h-6 text-[#541D26]" />
+                <div className="w-9 h-9 rounded-xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-3 group-hover:scale-105 transition-transform">
+                  <Zap className="w-4.5 h-4.5 text-[#541D26]" />
                 </div>
-                <h3 className="text-lg font-serif font-bold text-[#211A19] mb-1">
+                <h3 className="text-sm font-serif font-bold text-[#211A19] mb-1">
                   15-Min Express Delivery
                 </h3>
-                <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
+                <p className="text-[11.5px] text-[#211A19]/75 leading-relaxed font-medium">
                   Orders are fulfilled directly from neighborhood stores within your area for instant delivery.
                 </p>
               </div>
-              <div className="mt-4 pt-4 border-t border-[#E5DAD0] text-[11px] font-bold text-[#541D26] flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#541D26]" />
+              <div className="mt-3 pt-3 border-t border-[#E5DAD0] text-[10.5px] font-bold text-[#541D26] flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-[#541D26]" />
                 <span>Hyperlocal Speed</span>
               </div>
             </motion.div>
 
             {/* Card 2: Verified Local Stores */}
-            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-[2rem] p-6 sm:p-7 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-1 group flex flex-col justify-between">
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-4.5 sm:p-5 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-0.5 group flex flex-col justify-between">
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-4 group-hover:scale-110 transition-transform">
-                  <ShieldCheck className="w-6 h-6 text-[#541D26]" />
+                <div className="w-9 h-9 rounded-xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-3 group-hover:scale-105 transition-transform">
+                  <ShieldCheck className="w-4.5 h-4.5 text-[#541D26]" />
                 </div>
-                <h3 className="text-lg font-serif font-bold text-[#211A19] mb-1">
+                <h3 className="text-sm font-serif font-bold text-[#211A19] mb-1">
                   100% Verified Merchants
                 </h3>
-                <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
+                <p className="text-[11.5px] text-[#211A19]/75 leading-relaxed font-medium">
                   Every vendor undergoes identity, GSTIN, and business location verification before listing.
                 </p>
               </div>
-              <div className="mt-4 pt-4 border-t border-[#E5DAD0] text-[11px] font-bold text-[#541D26] flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#541D26]" />
+              <div className="mt-3 pt-3 border-t border-[#E5DAD0] text-[10.5px] font-bold text-[#541D26] flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-[#541D26]" />
                 <span>Verified & Trustworthy</span>
               </div>
             </motion.div>
 
             {/* Card 3: Farm Fresh & Organic */}
-            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-[2rem] p-6 sm:p-7 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-1 group flex flex-col justify-between">
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-4.5 sm:p-5 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-0.5 group flex flex-col justify-between">
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-4 group-hover:scale-110 transition-transform">
-                  <ShoppingBag className="w-6 h-6 text-[#541D26]" />
+                <div className="w-9 h-9 rounded-xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-3 group-hover:scale-105 transition-transform">
+                  <ShoppingBag className="w-4.5 h-4.5 text-[#541D26]" />
                 </div>
-                <h3 className="text-lg font-serif font-bold text-[#211A19] mb-1">
+                <h3 className="text-sm font-serif font-bold text-[#211A19] mb-1">
                   Farm Fresh & Organic
                 </h3>
-                <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
+                <p className="text-[11.5px] text-[#211A19]/75 leading-relaxed font-medium">
                   Direct access to organic produce, A2 cow milk, artisan bakeries, and handcrafted local goods.
                 </p>
               </div>
-              <div className="mt-4 pt-4 border-t border-[#E5DAD0] text-[11px] font-bold text-[#541D26] flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#541D26]" />
+              <div className="mt-3 pt-3 border-t border-[#E5DAD0] text-[10.5px] font-bold text-[#541D26] flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-[#541D26]" />
                 <span>Pure & Organic</span>
               </div>
             </motion.div>
 
             {/* Card 4: Seamless Order Tracking */}
-            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-[2rem] p-6 sm:p-7 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-1 group flex flex-col justify-between">
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-4.5 sm:p-5 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-0.5 group flex flex-col justify-between">
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-4 group-hover:scale-110 transition-transform">
-                  <Truck className="w-6 h-6 text-[#541D26]" />
+                <div className="w-9 h-9 rounded-xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-3 group-hover:scale-110 transition-transform">
+                  <Truck className="w-4.5 h-4.5 text-[#541D26]" />
                 </div>
-                <h3 className="text-lg font-serif font-bold text-[#211A19] mb-1">
+                <h3 className="text-sm font-serif font-bold text-[#211A19] mb-1">
                   Seamless Order Tracking
                 </h3>
-                <p className="text-xs text-[#211A19]/75 leading-relaxed font-medium">
-                  Real-time in-website live order tracking, Cash on Delivery (COD), and direct neighborhood store fulfillment.
+                <p className="text-[11.5px] text-[#211A19]/75 leading-relaxed font-medium">
+                  Real-time in-website live order tracking, Cash on Delivery (COD), and direct store fulfillment.
                 </p>
               </div>
-              <div className="mt-4 pt-4 border-t border-[#E5DAD0] text-[11px] font-bold text-[#541D26] flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#541D26]" />
+              <div className="mt-3 pt-3 border-t border-[#E5DAD0] text-[10.5px] font-bold text-[#541D26] flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-[#541D26]" />
                 <span>Instant Updates</span>
               </div>
             </motion.div>
@@ -401,20 +401,20 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
           variants={containerVariants}
-          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
+          className="w-full max-w-6xl mx-auto my-8 sm:my-10 px-4 sm:px-6 relative"
         >
           <FloatingDoodles section="mission" />
-          <div className="bg-[#211A19] text-white rounded-[2.5rem] p-8 sm:p-12 shadow-2xl relative overflow-hidden border border-white/10">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
-              <motion.div variants={itemVariants} className="lg:col-span-7 space-y-4">
-                <span className="inline-flex items-center space-x-2 px-3 py-1 rounded-md bg-white/10 text-[#D6B7A5] text-[10px] font-bold tracking-widest uppercase border border-[#D6B7A5]/30 backdrop-blur-md">
+          <div className="bg-[#211A19] text-white rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xl relative overflow-hidden border border-white/10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center relative z-10">
+              <motion.div variants={itemVariants} className="lg:col-span-7 space-y-3.5">
+                <span className="inline-flex items-center space-x-2 px-2.5 py-0.5 rounded-md bg-white/10 text-[#D6B7A5] text-[10px] font-bold tracking-widest uppercase border border-[#D6B7A5]/30 backdrop-blur-md">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#C8A878] animate-pulse" />
                   <span>Company Vision & Mission</span>
                 </span>
                 <ScrollTextReveal
                   as="h2"
                   mode="word"
-                  className="text-2xl sm:text-4xl font-serif font-black text-white leading-tight"
+                  className="text-xl sm:text-2xl lg:text-3xl font-serif font-black text-white leading-tight"
                 >
                   Empowering Local Merchants, Enriching Residential Communities.
                 </ScrollTextReveal>
@@ -422,49 +422,49 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                   as="p"
                   mode="word"
                   delay={0.15}
-                  className="text-xs sm:text-sm text-[#D6B7A5] leading-relaxed font-medium"
+                  className="text-xs text-[#D6B7A5] leading-relaxed font-medium"
                 >
                   DigiLocal was built to bridge the gap between residents and neighborhood vendors. By eliminating middleman markups and giving local store owners digital tools, we foster thriving, self-sustaining community economies.
                 </ScrollTextReveal>
-                <div className="pt-2 flex items-center gap-4 flex-wrap">
+                <div className="pt-2 flex items-center gap-3 flex-wrap">
                   <button
                     onClick={() => setRoute({ page: 'info', tab: 'about-us' })}
-                    className="px-6 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all"
+                    className="px-5 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all"
                   >
                     <span>Our Story</span>
-                    <ArrowRight className="w-4 h-4 text-white" />
+                    <ArrowRight className="w-3.5 h-3.5 text-white" />
                   </button>
                   <button
                     onClick={() => setRoute({ page: 'info', tab: 'how-it-works' })}
-                    className="px-6 py-2.5 rounded-full bg-transparent hover:bg-white/10 text-white font-extrabold text-xs uppercase tracking-wider transition-all border border-[#D6B7A5]/40 flex items-center gap-1.5 cursor-pointer"
+                    className="px-5 py-2.5 rounded-full bg-transparent hover:bg-white/10 text-white font-extrabold text-xs uppercase tracking-wider transition-all border border-[#D6B7A5]/40 flex items-center gap-1.5 cursor-pointer"
                   >
                     <span>How It Works</span>
-                    <ArrowUpRight className="w-4 h-4 text-[#C8A878]" />
+                    <ArrowUpRight className="w-3.5 h-3.5 text-[#C8A878]" />
                   </button>
                 </div>
               </motion.div>
 
               {/* Live Stats Grid */}
-              <motion.div variants={containerVariants} className="lg:col-span-5 grid grid-cols-2 gap-4">
-                <motion.div variants={itemVariants} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center transition-all hover:border-[#C8A878]/40">
-                  <span className="text-[10px] font-extrabold text-[#C8A878] tracking-widest block mb-0.5">01</span>
-                  <div className="text-3xl sm:text-4xl font-serif font-black text-white">50+</div>
-                  <div className="text-[11px] font-bold text-[#D6B7A5] uppercase tracking-wider mt-1">Cities Serviced</div>
+              <motion.div variants={containerVariants} className="lg:col-span-5 grid grid-cols-2 gap-3">
+                <motion.div variants={itemVariants} className="bg-white/5 border border-white/10 rounded-xl p-4 text-center transition-all hover:border-[#C8A878]/40">
+                  <span className="text-[9px] font-extrabold text-[#C8A878] tracking-widest block mb-0.5">01</span>
+                  <div className="text-2xl sm:text-3xl font-serif font-black text-white">50+</div>
+                  <div className="text-[10px] font-bold text-[#D6B7A5] uppercase tracking-wider mt-0.5">Cities Serviced</div>
                 </motion.div>
-                <motion.div variants={itemVariants} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center transition-all hover:border-[#C8A878]/40">
-                  <span className="text-[10px] font-extrabold text-[#C8A878] tracking-widest block mb-0.5">02</span>
-                  <div className="text-3xl sm:text-4xl font-serif font-black text-white">10,000+</div>
-                  <div className="text-[11px] font-bold text-[#D6B7A5] uppercase tracking-wider mt-1">Active Residents</div>
+                <motion.div variants={itemVariants} className="bg-white/5 border border-white/10 rounded-xl p-4 text-center transition-all hover:border-[#C8A878]/40">
+                  <span className="text-[9px] font-extrabold text-[#C8A878] tracking-widest block mb-0.5">02</span>
+                  <div className="text-2xl sm:text-3xl font-serif font-black text-white">10,000+</div>
+                  <div className="text-[10px] font-bold text-[#D6B7A5] uppercase tracking-wider mt-0.5">Active Residents</div>
                 </motion.div>
-                <motion.div variants={itemVariants} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center transition-all hover:border-[#C8A878]/40">
-                  <span className="text-[10px] font-extrabold text-[#C8A878] tracking-widest block mb-0.5">03</span>
-                  <div className="text-3xl sm:text-4xl font-serif font-black text-white">1,200+</div>
-                  <div className="text-[11px] font-bold text-[#D6B7A5] uppercase tracking-wider mt-1">Verified Stores</div>
+                <motion.div variants={itemVariants} className="bg-white/5 border border-white/10 rounded-xl p-4 text-center transition-all hover:border-[#C8A878]/40">
+                  <span className="text-[9px] font-extrabold text-[#C8A878] tracking-widest block mb-0.5">03</span>
+                  <div className="text-2xl sm:text-3xl font-serif font-black text-white">1,200+</div>
+                  <div className="text-[10px] font-bold text-[#D6B7A5] uppercase tracking-wider mt-0.5">Verified Stores</div>
                 </motion.div>
-                <motion.div variants={itemVariants} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center transition-all hover:border-[#C8A878]/40">
-                  <span className="text-[10px] font-extrabold text-[#C8A878] tracking-widest block mb-0.5">04</span>
-                  <div className="text-3xl sm:text-4xl font-serif font-black text-white">99.4%</div>
-                  <div className="text-[11px] font-bold text-[#D6B7A5] uppercase tracking-wider mt-1">On-Time Delivery</div>
+                <motion.div variants={itemVariants} className="bg-white/5 border border-white/10 rounded-xl p-4 text-center transition-all hover:border-[#C8A878]/40">
+                  <span className="text-[9px] font-extrabold text-[#C8A878] tracking-widest block mb-0.5">04</span>
+                  <div className="text-2xl sm:text-3xl font-serif font-black text-white">99.4%</div>
+                  <div className="text-[10px] font-bold text-[#D6B7A5] uppercase tracking-wider mt-0.5">On-Time Delivery</div>
                 </motion.div>
               </motion.div>
             </div>
@@ -477,18 +477,18 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
           variants={containerVariants}
-          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
+          className="w-full max-w-6xl mx-auto my-8 sm:my-10 px-4 sm:px-6 relative"
         >
           <FloatingDoodles section="howItWorks" />
-          <div className="text-center max-w-2xl mx-auto mb-10 space-y-2 flex flex-col items-center">
-            <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
+          <div className="text-center max-w-xl mx-auto mb-6 space-y-1.5 flex flex-col items-center">
+            <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
               <span className="w-1.5 h-1.5 rounded-full bg-[#541D26]" />
               <span>Simple & Transparent Process</span>
             </span>
             <ScrollTextReveal
               as="h2"
               mode="word"
-              className="text-2xl sm:text-3xl font-serif font-black text-[#211A19] uppercase tracking-tight justify-center"
+              className="text-xl sm:text-2xl font-serif font-black text-[#211A19] uppercase tracking-tight justify-center"
             >
               How DigiLocal Works
             </ScrollTextReveal>
@@ -496,45 +496,45 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
               as="p"
               mode="word"
               delay={0.15}
-              className="text-xs sm:text-sm text-[#211A19]/75 font-medium justify-center"
+              className="text-xs text-[#211A19]/75 font-medium justify-center"
             >
               Experience effortless shopping from neighborhood stores in 3 simple steps.
             </ScrollTextReveal>
           </div>
 
-          <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
             {/* Step 1 */}
-            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-3xl p-7 shadow-xs relative text-center flex flex-col items-center group hover:border-[#541D26]/40 transition-all">
-              <span className="text-[10px] font-extrabold text-[#541D26] tracking-widest uppercase mb-2 block">Step 01</span>
-              <div className="w-12 h-12 rounded-full bg-[#541D26] text-white font-serif font-black text-lg flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform">
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-5 shadow-xs relative text-center flex flex-col items-center group hover:border-[#541D26]/40 transition-all">
+              <span className="text-[9.5px] font-extrabold text-[#541D26] tracking-widest uppercase mb-1.5 block">Step 01</span>
+              <div className="w-9 h-9 rounded-full bg-[#541D26] text-white font-serif font-black text-sm flex items-center justify-center mb-2.5 shadow-xs group-hover:scale-110 transition-transform">
                 1
               </div>
-              <h3 className="text-base font-bold text-[#211A19] mb-1">Search Your Locality or Item</h3>
-              <p className="text-xs text-[#211A19]/75 font-medium leading-relaxed">
+              <h3 className="text-sm font-bold text-[#211A19] mb-1">Search Locality or Item</h3>
+              <p className="text-[11.5px] text-[#211A19]/75 font-medium leading-relaxed">
                 Enter your area, society, pincode, or store name to view active vendors servicing your neighborhood.
               </p>
             </motion.div>
 
             {/* Step 2 */}
-            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-3xl p-7 shadow-xs relative text-center flex flex-col items-center group hover:border-[#541D26]/40 transition-all">
-              <span className="text-[10px] font-extrabold text-[#541D26] tracking-widest uppercase mb-2 block">Step 02</span>
-              <div className="w-12 h-12 rounded-full bg-[#541D26] text-white font-serif font-black text-lg flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform">
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-5 shadow-xs relative text-center flex flex-col items-center group hover:border-[#541D26]/40 transition-all">
+              <span className="text-[9.5px] font-extrabold text-[#541D26] tracking-widest uppercase mb-1.5 block">Step 02</span>
+              <div className="w-12 h-12 rounded-full bg-[#541D26] text-white font-serif font-black text-sm flex items-center justify-center mb-2.5 shadow-xs group-hover:scale-110 transition-transform">
                 2
               </div>
-              <h3 className="text-base font-bold text-[#211A19] mb-1">Select Fresh Goods & Services</h3>
-              <p className="text-xs text-[#211A19]/75 font-medium leading-relaxed">
+              <h3 className="text-sm font-bold text-[#211A19] mb-1">Select Fresh Goods & Services</h3>
+              <p className="text-[11.5px] text-[#211A19]/75 font-medium leading-relaxed">
                 Browse organic groceries, artisan bakes, dairy, medicines, or book skilled home repair services.
               </p>
             </motion.div>
 
             {/* Step 3 */}
-            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-3xl p-7 shadow-xs relative text-center flex flex-col items-center group hover:border-[#541D26]/40 transition-all">
-              <span className="text-[10px] font-extrabold text-[#541D26] tracking-widest uppercase mb-2 block">Step 03</span>
-              <div className="w-12 h-12 rounded-full bg-[#541D26] text-white font-serif font-black text-lg flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform">
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-5 shadow-xs relative text-center flex flex-col items-center group hover:border-[#541D26]/40 transition-all">
+              <span className="text-[9.5px] font-extrabold text-[#541D26] tracking-widest uppercase mb-1.5 block">Step 03</span>
+              <div className="w-12 h-12 rounded-full bg-[#541D26] text-white font-serif font-black text-sm flex items-center justify-center mb-2.5 shadow-xs group-hover:scale-110 transition-transform">
                 3
               </div>
-              <h3 className="text-base font-bold text-[#211A19] mb-1">Enjoy Doorstep Delivery</h3>
-              <p className="text-xs text-[#211A19]/75 font-medium leading-relaxed">
+              <h3 className="text-sm font-bold text-[#211A19] mb-1">Enjoy Doorstep Delivery</h3>
+              <p className="text-[11.5px] text-[#211A19]/75 font-medium leading-relaxed">
                 Receive your order in 15 minutes with real-time status updates and direct vendor support.
               </p>
             </motion.div>
@@ -597,17 +597,17 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           whileInView="visible"
           viewport={{ once: true, amount: 0.25 }}
           variants={containerVariants}
-          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto my-12 px-4 relative"
+          className="w-full max-w-6xl mx-auto my-8 sm:my-10 px-4 sm:px-6 relative"
         >
           <FloatingDoodles section="zordial" />
-          <div className="bg-white border border-[#E7DFD5] rounded-[2.5rem] p-6 sm:p-10 lg:p-12 shadow-sm relative overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div className="bg-white border border-[#E7DFD5] rounded-3xl p-6 sm:p-8 lg:p-9 shadow-xs relative overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
             
             {/* Background ambient glow */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-[#C8A878]/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+            <div className="absolute top-0 right-0 w-80 h-80 bg-[#C8A878]/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
 
             {/* Left Column: Product Information & Architectural Story */}
-            <motion.div variants={itemVariants} className="lg:col-span-7 space-y-4 sm:space-y-5 text-left">
-              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
+            <motion.div variants={itemVariants} className="lg:col-span-7 space-y-3.5 text-left">
+              <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
                 <Building2 className="w-3.5 h-3.5 text-[#541D26]" />
                 <span>Product of Zordial Technologies</span>
               </div>
@@ -615,7 +615,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
               <ScrollTextReveal
                 as="h2"
                 mode="word"
-                className="text-2xl sm:text-3xl lg:text-4xl font-serif font-black text-[#211A19] leading-tight"
+                className="text-xl sm:text-2xl lg:text-3xl font-serif font-black text-[#211A19] leading-tight"
               >
                 Engineered & Powered by Zordial Technologies
               </ScrollTextReveal>
@@ -624,70 +624,70 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                 as="p"
                 mode="word"
                 delay={0.12}
-                className="text-xs sm:text-sm text-[#211A19]/80 font-medium leading-relaxed"
+                className="text-xs text-[#211A19]/80 font-medium leading-relaxed"
               >
                 DigiLocal was conceived, architected, and engineered by Zordial — a premier software technology company specializing in transforming ambitious ideas into enterprise-grade applications. Zordial provides the underlying core technology stack and infrastructure that powers DigiLocal.
               </ScrollTextReveal>
 
               {/* 3 Key Capabilities Pills */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] text-left space-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E7DFD5] text-left space-y-0.5">
                   <div className="flex items-center gap-1.5 text-[#541D26] font-bold text-xs">
                     <Cpu className="w-3.5 h-3.5 text-[#541D26]" />
                     <span>Core Engine</span>
                   </div>
-                  <p className="text-[11px] text-[#78716C] font-medium leading-snug">
+                  <p className="text-[10.5px] text-[#78716C] font-medium leading-snug">
                     Hyperlocal society & flat unit mapping
                   </p>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] text-left space-y-1">
+                <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E7DFD5] text-left space-y-0.5">
                   <div className="flex items-center gap-1.5 text-[#541D26] font-bold text-xs">
                     <Zap className="w-3.5 h-3.5 text-[#541D26]" />
                     <span>Direct Routing</span>
                   </div>
-                  <p className="text-[11px] text-[#78716C] font-medium leading-snug">
+                  <p className="text-[10.5px] text-[#78716C] font-medium leading-snug">
                     Zero-commission order fulfillment gateway
                   </p>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#E7DFD5] text-left space-y-1">
+                <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E7DFD5] text-left space-y-0.5">
                   <div className="flex items-center gap-1.5 text-[#541D26] font-bold text-xs">
                     <ShieldCheck className="w-3.5 h-3.5 text-[#541D26]" />
                     <span>Security</span>
                   </div>
-                  <p className="text-[11px] text-[#78716C] font-medium leading-snug">
+                  <p className="text-[10.5px] text-[#78716C] font-medium leading-snug">
                     Enterprise encryption & data privacy
                   </p>
                 </div>
               </div>
 
               {/* Action Button */}
-              <div className="flex flex-wrap items-center gap-3 pt-2">
+              <div className="flex flex-wrap items-center gap-3 pt-1">
                 <a
                   href="https://zordial.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-6 py-3 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center space-x-2 border border-[#C8A878]/30 transition-all cursor-pointer"
+                  className="px-5 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-sm flex items-center space-x-1.5 border border-[#C8A878]/30 transition-all cursor-pointer"
                 >
-                  <Globe className="w-4 h-4 text-[#C8A878]" />
+                  <Globe className="w-3.5 h-3.5 text-[#C8A878]" />
                   <span>Visit zordial.com</span>
-                  <ExternalLink className="w-3.5 h-3.5 text-[#C8A878]" />
+                  <ExternalLink className="w-3 h-3 text-[#C8A878]" />
                 </a>
               </div>
             </motion.div>
 
             {/* Right Column: Zordial Logo Card */}
             <motion.div variants={itemVariants} className="lg:col-span-5 flex flex-col items-center justify-center">
-              <div className="w-full bg-[#FAF8F5] border border-[#E7DFD5] rounded-3xl p-6 sm:p-8 flex flex-col items-center text-center space-y-4 shadow-2xs hover:border-[#C8A878]/60 transition-all group">
-                <div className="w-full max-w-[240px] sm:max-w-[280px] p-2 bg-white rounded-2xl border border-[#E7DFD5]/60 shadow-xs flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+              <div className="w-full bg-[#FAF8F5] border border-[#E7DFD5] rounded-2xl p-5 sm:p-6 flex flex-col items-center text-center space-y-3 shadow-2xs hover:border-[#C8A878]/60 transition-all group">
+                <div className="w-full max-w-[220px] sm:max-w-[240px] p-2 bg-white rounded-xl border border-[#E7DFD5]/60 shadow-xs flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
                   <ZordialLogo className="w-full h-auto" />
                 </div>
                 <div>
                   <h4 className="text-xs font-black tracking-wider uppercase text-[#211A19]">
                     Zordial Technologies Private Limited
                   </h4>
-                  <p className="text-[11px] text-[#78716C] font-medium mt-0.5">
+                  <p className="text-[10.5px] text-[#78716C] font-medium mt-0.5">
                     Transforming Ideas Into Enterprise Applications
                   </p>
                 </div>
@@ -712,18 +712,18 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           whileInView="visible"
           viewport={{ once: true, amount: 0.3 }}
           variants={containerVariants}
-          className="w-full max-w-[97%] xl:max-w-[95%] mx-auto mt-10 px-4 relative"
+          className="w-full max-w-6xl mx-auto mt-8 sm:mt-10 px-4 sm:px-6 relative"
         >
           <FloatingDoodles section="cta" />
-          <div className="bg-[#EEE5DA] border border-[#E5DAD0] rounded-[2.5rem] p-8 sm:p-12 text-center relative overflow-hidden shadow-xs">
-            <motion.div variants={itemVariants} className="max-w-2xl mx-auto space-y-4">
-              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-md bg-[#541D26] text-white text-[10px] font-bold tracking-widest uppercase border border-[#541D26] shadow-xs">
+          <div className="bg-[#EEE5DA] border border-[#E5DAD0] rounded-3xl p-6 sm:p-9 text-center relative overflow-hidden shadow-xs">
+            <motion.div variants={itemVariants} className="max-w-2xl mx-auto space-y-3">
+              <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md bg-[#541D26] text-white text-[10px] font-bold tracking-widest uppercase border border-[#541D26] shadow-xs">
                 <span>Get Started Today</span>
               </span>
               <ScrollTextReveal
                 as="h2"
                 mode="word"
-                className="text-2xl sm:text-4xl font-serif font-black text-[#211A19] justify-center"
+                className="text-xl sm:text-3xl font-serif font-black text-[#211A19] justify-center"
               >
                 Ready to Explore Your Neighborhood Marketplace?
               </ScrollTextReveal>
@@ -731,24 +731,24 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                 as="p"
                 mode="word"
                 delay={0.15}
-                className="text-xs sm:text-sm text-[#211A19]/75 font-medium leading-relaxed justify-center"
+                className="text-xs text-[#211A19]/75 font-medium leading-relaxed justify-center"
               >
                 Whether you're a resident looking for fresh local products or a merchant wanting to expand your business, DigiLocal is your platform.
               </ScrollTextReveal>
-              <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                 <button
                   onClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
-                  className="px-7 py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center space-x-2 cursor-pointer transition-all"
+                  className="px-6 py-3 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center space-x-2 cursor-pointer transition-all"
                 >
                   <span>Browse All Vendors</span>
-                  <ArrowUpRight className="w-4 h-4 text-white" />
+                  <ArrowUpRight className="w-3.5 h-3.5 text-white" />
                 </button>
 
                 <button
                   onClick={() => setRoute({ page: 'vendorRegister' })}
-                  className="px-7 py-3.5 rounded-full bg-white hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26] font-extrabold text-xs uppercase tracking-wider shadow-sm flex items-center space-x-2 cursor-pointer transition-all"
+                  className="px-6 py-3 rounded-full bg-white hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26] font-extrabold text-xs uppercase tracking-wider shadow-xs flex items-center space-x-2 cursor-pointer transition-all"
                 >
-                  <Store className="w-4 h-4 currentColor" />
+                  <Store className="w-3.5 h-3.5 currentColor" />
                   <span>Register As Merchant</span>
                 </button>
               </div>

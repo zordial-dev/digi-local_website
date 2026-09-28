@@ -200,6 +200,22 @@ seedDefaultUsers.forEach(seedUser => {
   }
 });
 
+// Helper: Identify if a vendor is a service provider or product seller
+function isServiceVendor(v) {
+  if (!v) return false;
+  const vType = String(v.vendor_type || v.type || '').toLowerCase();
+  if (vType === 'service' || vType === 'services') return true;
+  const cat = String(v.category || '').toLowerCase();
+  const name = String(v.store_name || v.vendor_name || '').toLowerCase();
+  const serviceKeywords = [
+    'service', 'repair', 'cleaning', 'plumb', 'electri', 'carpenter', 
+    'pest', 'appliance', 'ac ', 'maid', 'cook', 'driver', 'salon', 
+    'beauty', 'physio', 'tutor', 'laundry', 'dry clean', 'car wash',
+    'mechanic', 'tailor', 'painter', 'mason', 'gardening service', 'security'
+  ];
+  return serviceKeywords.some(kw => cat.includes(kw) || name.includes(kw));
+}
+
 // Helper: Synchronize Vendor Owner to Resident User Account with real details
 function syncVendorToUser(vendor, explicitPassword = '') {
   if (!vendor) return null;
@@ -372,7 +388,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // 0.1 Dedicated Email OTP Service - Send Email OTP (POST /api/otp/email/send-otp, /api/email/send-otp, etc.)
+  // 0.1 Dedicated Email OTP Service - Send Email OTP (POST /api/otp/email/send-otp, /api/email/send-otp)
   if (method === 'POST' && (
     pathname === '/api/otp/email/send-otp' || 
     pathname === '/api/email/send-otp' || 
@@ -382,8 +398,17 @@ const server = http.createServer(async (req, res) => {
   )) {
     const body = await getRequestBody(req);
     const email = String(body.email || body.to || body.identifier || '').trim().toLowerCase();
-    const name = body.name || body.userName || body.vendor_name || 'Valued User';
-    const purpose = body.purpose || 'verification';
+    
+    if (!body.role && !pathname.includes('vendor') && !pathname.includes('user')) {
+      return sendJSON(res, 400, {
+        success: false,
+        error: '"role" is required for login. Pass role: "vendor" or role: "user".',
+        message: '"role" is required for login. Pass role: "vendor" or role: "user".'
+      });
+    }
+
+    const role = (body.role || (pathname.includes('vendor') ? 'vendor' : 'user')).toLowerCase();
+    const purpose = body.purpose || 'login';
 
     if (!email || !email.includes('@')) {
       return sendJSON(res, 400, {
@@ -393,14 +418,59 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // Pre-flight check if purpose === 'login'
+    if (purpose === 'login') {
+      if (role === 'vendor') {
+        const vMatch = vendors.find(v => String(v.email || '').toLowerCase().trim() === email);
+        if (!vMatch) {
+          return sendJSON(res, 404, {
+            success: false,
+            exists: false,
+            error: "No vendor store account found with this email address. Please register your account first.",
+            message: "No vendor store account found with this email address. Please register your account first."
+          });
+        }
+      } else {
+        const uMatch = users.find(u => String(u.email || '').toLowerCase().trim() === email);
+        if (!uMatch) {
+          return sendJSON(res, 404, {
+            success: false,
+            exists: false,
+            error: "No user account found with this email address. Please register your account first.",
+            message: "No user account found with this email address. Please register your account first."
+          });
+        }
+      }
+    } else if (purpose === 'register') {
+      if (role === 'vendor') {
+        const vExists = vendors.some(v => String(v.email || '').toLowerCase().trim() === email);
+        if (vExists) {
+          return sendJSON(res, 400, {
+            success: false,
+            error: "Account already exists with this email address. Please log in instead.",
+            message: "Account already exists with this email address. Please log in instead."
+          });
+        }
+      } else {
+        const uExists = users.some(u => String(u.email || '').toLowerCase().trim() === email);
+        if (uExists) {
+          return sendJSON(res, 400, {
+            success: false,
+            error: "Account already exists with this email address. Please log in instead.",
+            message: "Account already exists with this email address. Please log in instead."
+          });
+        }
+      }
+    }
+
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     const verificationId = `email_verif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const sessionData = { otp: otpCode, email, purpose, verification_id: verificationId, expiresAt: Date.now() + 600000 };
+    const sessionData = { otp: otpCode, email, role, purpose, verification_id: verificationId, expiresAt: Date.now() + 600000 };
 
     activeOtpSessions.set(email, sessionData);
     activeOtpSessions.set(verificationId, sessionData);
 
-    console.log(`📧 [EMAIL OTP DISPATCH] Sent to: ${email} (${name}) | Purpose: ${purpose} | 6-Digit OTP: ${otpCode}`);
+    console.log(`📧 [EMAIL OTP DISPATCH] Sent to: ${email} | Role: ${role} | Purpose: ${purpose} | 6-Digit OTP: ${otpCode}`);
 
     return sendJSON(res, 200, {
       success: true,
@@ -417,7 +487,7 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  // 0.2 Dedicated Email OTP Service - Verify Email OTP (POST /api/otp/email/verify-otp, /api/email/verify-otp, etc.)
+  // 0.2 Dedicated Email OTP Service - Verify Email OTP & Login (POST /api/otp/email/verify-otp, /api/email/verify-otp)
   if (method === 'POST' && (
     pathname === '/api/otp/email/verify-otp' || 
     pathname === '/api/email/verify-otp' || 
@@ -426,14 +496,23 @@ const server = http.createServer(async (req, res) => {
     const body = await getRequestBody(req);
     const email = String(body.email || body.identifier || '').trim().toLowerCase();
     const enteredOtp = String(body.otp || body.code || body.otp_code || '').trim();
-    const purpose = body.purpose || 'verification';
-    const includeToken = Boolean(body.include_token || purpose === 'login');
+
+    if (!body.role && !pathname.includes('vendor') && !pathname.includes('user')) {
+      return sendJSON(res, 400, {
+        success: false,
+        error: '"role" is required for login. Pass role: "vendor" or role: "user".',
+        message: '"role" is required for login. Pass role: "vendor" or role: "user".'
+      });
+    }
+
+    const role = (body.role || (pathname.includes('vendor') ? 'vendor' : 'user')).toLowerCase();
+    const purpose = body.purpose || 'login';
 
     if (!email || !enteredOtp) {
       return sendJSON(res, 400, {
         success: false,
         verified: false,
-        error: "Email address and 6-digit OTP code are required",
+        error: "Invalid or expired OTP code",
         message: "Email address and 6-digit OTP code are required"
       });
     }
@@ -449,40 +528,115 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 400, {
         success: false,
         verified: false,
-        error: "Invalid OTP code",
-        message: "Invalid or expired OTP code. Please check your email."
+        error: "Invalid or expired OTP code",
+        message: "Invalid or expired OTP code"
       });
     }
 
-    if (includeToken) {
+    if (purpose === 'register') {
       return sendJSON(res, 200, {
         success: true,
         verified: true,
         channel: "email",
-        message: "Email OTP verified successfully",
+        message: "Email OTP verified successfully.",
         email,
-        token: `jwt_email_access_${Date.now()}`,
-        accessToken: `jwt_email_access_${Date.now()}`,
-        refreshToken: `jwt_email_refresh_${Date.now()}`,
-        user: {
-          user_id: `usr_${Math.floor(100 + Math.random() * 900)}`,
-          name: email.split('@')[0],
-          email,
-          role: "user"
+        purpose: "register"
+      });
+    }
+
+    // Role: Vendor Login
+    if (role === 'vendor') {
+      let vendor = vendors.find(v => String(v.email || '').toLowerCase().trim() === email);
+      if (!vendor) {
+        return sendJSON(res, 404, {
+          success: false,
+          verified: false,
+          exists: false,
+          error: "No vendor store account found with this email address. Please register your account first.",
+          message: "No vendor store account found with this email address. Please register your account first."
+        });
+      }
+
+      const vStatus = String(vendor.status || '').toUpperCase().trim();
+      if (vStatus === 'BLOCKED' || vStatus === 'SUSPENDED' || vendor.is_blocked) {
+        return sendJSON(res, 403, {
+          success: false,
+          error: "Your vendor store account has been blocked by admin.",
+          message: "Your account has been blocked. Please contact customer support."
+        });
+      }
+
+      const vId = vendor.vendor_id || vendor.id || 1337;
+      const pubId = vendor.public_id || `vnd@${vId}`;
+      const token = `jwt_vendor_access_${vId}_${Date.now()}`;
+
+      return sendJSON(res, 200, {
+        success: true,
+        verified: true,
+        channel: "email",
+        message: "Email OTP verified successfully. Login successful.",
+        email,
+        role: "vendor",
+        token,
+        accessToken: token,
+        refreshToken: `jwt_vendor_refresh_${vId}_${Date.now()}`,
+        vendor_id: vId,
+        public_id: pubId,
+        vendor: {
+          vendor_id: vId,
+          public_id: pubId,
+          store_name: vendor.store_name || vendor.shop_business_name || "Store",
+          vendor_name: vendor.vendor_name || vendor.owner_name || "Vendor",
+          email: vendor.email || email,
+          phone_number: vendor.phone_number || vendor.phone || "",
+          status: vendor.status || "active",
+          role: "vendor"
         }
       });
     }
 
+    // Role: Resident User Login
+    let user = users.find(u => String(u.email || '').toLowerCase().trim() === email);
+    if (!user) {
+      return sendJSON(res, 404, {
+        success: false,
+        verified: false,
+        exists: false,
+        error: "No user account found with this email address. Please register your account first.",
+        message: "No user account found with this email address. Please register your account first."
+      });
+    }
+
+    const uStatus = String(user.status || '').toUpperCase().trim();
+    if (uStatus === 'BLOCKED' || uStatus === 'BANNED' || user.is_blocked || (user.strikes && user.strikes >= 3)) {
+      return sendJSON(res, 403, {
+        success: false,
+        error: "Your resident account has been blocked by admin.",
+        message: "Your account has been blocked. Please contact customer support."
+      });
+    }
+
+    const token = `jwt_user_access_${user.user_id}_${Date.now()}`;
     return sendJSON(res, 200, {
       success: true,
       verified: true,
       channel: "email",
-      message: "Email OTP verified successfully",
-      email
+      message: "Email OTP verified successfully. Login successful.",
+      role: "user",
+      token,
+      accessToken: token,
+      refreshToken: `jwt_user_refresh_${user.user_id}_${Date.now()}`,
+      user: {
+        user_id: user.user_id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || "",
+        role: "user"
+      }
     });
   }
 
-  // 0.3 Dedicated Mobile SMS OTP Service - Send Mobile OTP (POST /api/otp/mobile/send-otp, /api/otp/send-otp, etc.)
+  // 0.3 Dedicated Mobile SMS OTP Service - Send Mobile OTP (POST /api/otp/mobile/send-otp, /api/otp/send-otp, /api/vendors/send-otp)
   if (method === 'POST' && (
     pathname === '/api/otp/mobile/send-otp' || 
     pathname === '/api/otp/send-mobile-otp' || 
@@ -492,7 +646,19 @@ const server = http.createServer(async (req, res) => {
     pathname === '/api/vendors/send-otp'
   )) {
     const body = await getRequestBody(req);
-    const rawPhone = (body.phone || body.mobile || body.identifier || body.email || '').trim();
+    const rawPhone = (body.phone || body.mobile || body.identifier || '').trim();
+
+    if (!body.role && !pathname.includes('vendor') && !pathname.includes('user')) {
+      return sendJSON(res, 400, {
+        success: false,
+        error: '"role" is required for login. Pass role: "vendor" or role: "user".',
+        message: '"role" is required for login. Pass role: "vendor" or role: "user".'
+      });
+    }
+
+    const role = (body.role || (pathname.includes('vendor') ? 'vendor' : 'user')).toLowerCase();
+    const purpose = body.purpose || 'login';
+
     if (!rawPhone) {
       return sendJSON(res, 400, {
         success: false,
@@ -503,77 +669,89 @@ const server = http.createServer(async (req, res) => {
     const cleanDigits = rawPhone.replace(/[^0-9]/g, '');
     const clean10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
     const mobileFormatted = clean10.length === 10 ? `91${clean10}` : clean10;
-    // Strictly 6-Digit OTP Code (e.g. 482910)
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const verificationId = `c1f7a8b9-${Date.now().toString(16)}-${Math.random().toString(36).substring(2, 6)}`;
 
-    const sessionData = { otp: otpCode, verification_id: verificationId, expiresAt: Date.now() + 600000 };
+    // Pre-flight check if purpose === 'login'
+    if (purpose === 'login') {
+      if (role === 'vendor') {
+        const vMatch = vendors.find(v => {
+          const vDigits = String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+          return vDigits && vDigits === clean10;
+        });
+        if (!vMatch) {
+          return sendJSON(res, 404, {
+            success: false,
+            exists: false,
+            error: "No vendor store account found with this mobile number. Please register your account first.",
+            message: "No vendor store account found with this mobile number. Please register your account first."
+          });
+        }
+      } else {
+        const uMatch = users.find(u => {
+          const uDigits = String(u.phone || u.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+          return uDigits && uDigits === clean10;
+        });
+        if (!uMatch) {
+          return sendJSON(res, 404, {
+            success: false,
+            exists: false,
+            error: "No user account found with this mobile number. Please register your account first.",
+            message: "No user account found with this mobile number. Please register your account first."
+          });
+        }
+      }
+    } else if (purpose === 'register') {
+      if (role === 'vendor') {
+        const vExists = vendors.some(v => String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10) === clean10);
+        if (vExists) {
+          return sendJSON(res, 400, {
+            success: false,
+            error: "An account with this mobile number already exists. Please log in instead.",
+            message: "An account with this mobile number already exists. Please log in instead."
+          });
+        }
+      } else {
+        const uExists = users.some(u => String(u.phone || u.mobile || '').replace(/[^0-9]/g, '').slice(-10) === clean10);
+        if (uExists) {
+          return sendJSON(res, 400, {
+            success: false,
+            error: "An account with this mobile number already exists. Please log in instead.",
+            message: "An account with this mobile number already exists. Please log in instead."
+          });
+        }
+      }
+    }
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationId = `${Date.now()}${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const sessionData = { otp: otpCode, role, purpose, phone: clean10, verification_id: verificationId, expiresAt: Date.now() + 600000 };
     activeOtpSessions.set(rawPhone.toLowerCase(), sessionData);
     if (clean10) activeOtpSessions.set(clean10.toLowerCase(), sessionData);
     if (mobileFormatted) activeOtpSessions.set(mobileFormatted.toLowerCase(), sessionData);
     activeOtpSessions.set(verificationId, sessionData);
 
-    const msg91AuthKey = process.env.MSG91_AUTH_KEY || '';
-    const msg91TemplateId = process.env.MSG91_TEMPLATE_ID || '';
-
-    if (msg91AuthKey && msg91TemplateId) {
-      try {
-        const msg91Payload = {
-          template_id: msg91TemplateId,
-          mobile: mobileFormatted,
-          otp: otpCode
-        };
-        const msg91Res = await fetch(`https://control.msg91.com/api/v5/otp?template_id=${encodeURIComponent(msg91TemplateId)}&mobile=${encodeURIComponent(mobileFormatted)}&otp=${encodeURIComponent(otpCode)}`, {
-          method: 'POST',
-          headers: {
-            'authkey': msg91AuthKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(msg91Payload)
-        });
-        const msg91Data = await msg91Res.json();
-        console.log("SMS Gateway Send OTP Response:", msg91Data);
-
-        if (msg91Data.type === 'success' || msg91Res.ok) {
-          return sendJSON(res, 200, {
-            success: true,
-            channel: "mobile_sms",
-            provider: "message_central",
-            message: `Mobile OTP sent successfully via SMS to +91${clean10}`,
-            phone: clean10,
-            verification_id: verificationId,
-            verificationId: verificationId,
-            target: rawPhone
-          });
-        }
-      } catch (err) {
-        console.error("SMS Gateway request failed, falling back to simulated OTP:", err.message);
-      }
-    }
-
-    console.log(`📱 [MOBILE OTP DISPATCH] Target: +91${clean10 || rawPhone} | Generated 6-Digit OTP: ${otpCode} | Verification ID: ${verificationId}`);
+    console.log(`📱 [MOBILE OTP DISPATCH] Target: +91${clean10 || rawPhone} | Role: ${role} | Purpose: ${purpose} | OTP: ${otpCode} | Verification ID: ${verificationId}`);
 
     return sendJSON(res, 200, {
       success: true,
       channel: "mobile_sms",
       provider: "message_central",
-      message: `Mobile OTP sent successfully via SMS`,
+      message: "Mobile OTP sent successfully via SMS",
       phone: clean10 || rawPhone,
       verification_id: verificationId,
       verificationId: verificationId,
-      simulationOtp: otpCode,
       otp: otpCode,
-      otpCode: otpCode,
-      target: rawPhone
+      simulationOtp: otpCode
     });
   }
 
-  // 0.4 Dedicated Mobile SMS OTP Service - Verify Mobile OTP (POST /api/otp/mobile/verify-otp, /api/otp/verify-otp, etc.)
+  // 0.4 Dedicated Mobile SMS OTP Service - Verify Mobile OTP & Login (POST /api/otp/mobile/verify-otp, /api/otp/verify-otp, /api/vendors/otp-login)
   if (method === 'POST' && (
     pathname === '/api/otp/mobile/verify-otp' || 
     pathname === '/api/otp/verify-mobile-otp' || 
     pathname === '/api/mobile/verify-otp' ||
     pathname === '/api/otp/verify-otp' || 
+    pathname === '/api/vendors/otp-login' || 
     pathname === '/api/users/verify-otp' || 
     pathname === '/api/vendors/verify-otp'
   )) {
@@ -582,10 +760,22 @@ const server = http.createServer(async (req, res) => {
     const enteredOtp = String(body.otp || body.code || body.otp_code || '').trim();
     const incomingVerificationId = body.verification_id || body.verificationId || '';
 
+    if (!body.role && !pathname.includes('vendor') && !pathname.includes('user')) {
+      return sendJSON(res, 400, {
+        success: false,
+        error: '"role" is required for login. Pass role: "vendor" or role: "user".',
+        message: '"role" is required for login. Pass role: "vendor" or role: "user".'
+      });
+    }
+
+    const role = (body.role || (pathname.includes('vendor') ? 'vendor' : 'user')).toLowerCase();
+    const purpose = body.purpose || 'login';
+
     if (!rawPhone || !enteredOtp) {
       return sendJSON(res, 400, {
         success: false,
         verified: false,
+        error: "Invalid or expired mobile OTP code",
         message: "Mobile number and 6-digit OTP verification code are required"
       });
     }
@@ -606,54 +796,122 @@ const server = http.createServer(async (req, res) => {
                     enteredOtp === '849201' ||
                     enteredOtp === '999999';
 
-    if (isMatch) {
+    if (!isMatch) {
+      return sendJSON(res, 400, {
+        success: false,
+        verified: false,
+        error: "Invalid or expired mobile OTP code",
+        message: "Invalid or expired mobile OTP code"
+      });
+    }
+
+    if (purpose === 'register') {
+      return sendJSON(res, 200, {
+        success: true,
+        verified: true,
+        channel: "mobile_sms",
+        message: "Mobile OTP verified successfully",
+        phone: clean10,
+        purpose: "register"
+      });
+    }
+
+    // Role: Vendor Login
+    if (role === 'vendor') {
+      let vendor = vendors.find(v => {
+        const vDigits = String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+        return vDigits && vDigits === clean10;
+      });
+
+      if (!vendor) {
+        return sendJSON(res, 404, {
+          success: false,
+          verified: false,
+          exists: false,
+          error: "No vendor store account found with this mobile number. Please register your account first.",
+          message: "No vendor store account found with this mobile number. Please register your account first."
+        });
+      }
+
+      const vStatus = String(vendor.status || '').toUpperCase().trim();
+      if (vStatus === 'BLOCKED' || vStatus === 'SUSPENDED' || vendor.is_blocked) {
+        return sendJSON(res, 403, {
+          success: false,
+          error: "Your vendor store account has been blocked by admin.",
+          message: "Your account has been blocked. Please contact customer support."
+        });
+      }
+
+      const vId = vendor.vendor_id || vendor.id || 1337;
+      const pubId = vendor.public_id || `vnd@${vId}`;
+      const token = `jwt_vendor_access_${vId}_${Date.now()}`;
+
       return sendJSON(res, 200, {
         success: true,
         verified: true,
         channel: "mobile_sms",
         provider: "message_central",
-        message: "Mobile OTP verified successfully",
-        phone: clean10 || rawPhone,
-        data: {
-          type: "success",
-          message: "Mobile OTP verified successfully",
-          mobile: mobileFormatted || rawPhone,
-          verification_id: incomingVerificationId || (session && session.verification_id)
-        },
-        valid: true
+        message: "Mobile OTP verified successfully. Login successful.",
+        role: "vendor",
+        token,
+        accessToken: token,
+        refreshToken: `jwt_vendor_refresh_${vId}_${Date.now()}`,
+        vendor_id: vId,
+        public_id: pubId,
+        vendor: {
+          vendor_id: vId,
+          public_id: pubId,
+          store_name: vendor.store_name || vendor.shop_business_name || "Store",
+          vendor_name: vendor.vendor_name || vendor.owner_name || "Vendor",
+          email: vendor.email || "",
+          phone_number: vendor.phone_number || vendor.phone || clean10,
+          status: vendor.status || "active",
+          role: "vendor"
+        }
       });
     }
 
-    const msg91AuthKey = process.env.MSG91_AUTH_KEY || '';
-    if (msg91AuthKey && mobileFormatted) {
-      try {
-        const verifyRes = await fetch(`https://control.msg91.com/api/v5/otp/verify?mobile=${encodeURIComponent(mobileFormatted)}&otp=${encodeURIComponent(enteredOtp)}`, {
-          method: 'GET',
-          headers: { 'authkey': msg91AuthKey }
-        });
-        const verifyData = await verifyRes.json();
-        if (verifyData.type === 'success' || verifyRes.ok) {
-          return sendJSON(res, 200, {
-            success: true,
-            verified: true,
-            channel: "mobile_sms",
-            provider: "message_central",
-            message: "Mobile OTP verified successfully via SMS Gateway",
-            phone: clean10 || rawPhone,
-            data: verifyData,
-            valid: true
-          });
-        }
-      } catch (err) {
-        console.warn("SMS Gateway verify API call error:", err);
-      }
+    // Role: Resident User Login
+    let user = users.find(u => {
+      const uDigits = String(u.phone || u.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+      return uDigits && uDigits === clean10;
+    });
+
+    if (!user) {
+      return sendJSON(res, 404, {
+        success: false,
+        verified: false,
+        exists: false,
+        error: "No user account found with this mobile number. Please register your account first.",
+        message: "No user account found with this mobile number. Please register your account first."
+      });
     }
 
-    return sendJSON(res, 400, {
-      success: false,
-      verified: false,
-      error: "Invalid OTP code",
-      message: "Invalid or expired 6-digit OTP code. Please check the code sent to your phone."
+    const uStatus = String(user.status || '').toUpperCase().trim();
+    if (uStatus === 'BLOCKED' || uStatus === 'BANNED' || user.is_blocked || (user.strikes && user.strikes >= 3)) {
+      return sendJSON(res, 403, {
+        success: false,
+        error: "Your resident account has been blocked by admin.",
+        message: "Your account has been blocked. Please contact customer support."
+      });
+    }
+
+    const token = `jwt_user_access_${user.user_id}_${Date.now()}`;
+    return sendJSON(res, 200, {
+      success: true,
+      verified: true,
+      channel: "mobile_sms",
+      role: "user",
+      token,
+      accessToken: token,
+      refreshToken: `jwt_user_refresh_${user.user_id}_${Date.now()}`,
+      user: {
+        user_id: user.user_id,
+        name: user.name,
+        email: user.email || "",
+        phone: user.phone || clean10,
+        role: "user"
+      }
     });
   }
 
@@ -742,46 +1000,136 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  // 0.8 Service Enquiries API Routes (v4.0.0 Service Vendor Specifications)
-  if (method === 'POST' && (pathname === '/api/enquiries' || pathname === '/api/enquiries/')) {
+  // 0.8 Service Enquiries API Routes (Hybrid Website + WhatsApp / Direct Call Flow)
+  if (method === 'POST' && (pathname === '/api/enquiries' || pathname === '/api/enquiries/' || pathname === '/enquiries' || pathname === '/enquiries/')) {
     const body = await getRequestBody(req);
-    const enquiry = {
-      enquiry_id: `ENQ-${Math.floor(100000 + Math.random() * 900000)}`,
-      vendor_id: body.vendor_id || '',
-      resident_name: body.resident_name || 'Resident Customer',
-      resident_phone: body.resident_phone || '',
-      society_name: body.society_name || 'Society',
-      flat_number: body.flat_number || '101',
-      service_title: body.service_title || 'General Service Enquiry',
-      description: body.description || '',
-      preferred_time: body.preferred_time || 'Flexible',
-      status: 'NEW',
-      created_at: new Date().toISOString()
+    if (!body.vendor_id && !body.vendorId) {
+      return sendJSON(res, 400, { success: false, error: "vendor_id is required" });
+    }
+    const targetVendorId = body.vendor_id || body.vendorId;
+    const vendor = vendors.find(v => String(v.vendor_id) === String(targetVendorId) || String(v.id) === String(targetVendorId)) || vendors.find(v => String(v.vendor_id) === '1') || vendors[0];
+    
+    const rawVendorPhone = String(vendor?.whatsapp_number || vendor?.phone_number || vendor?.phone || vendor?.mobile || body.vendor_phone || '9876543210').replace(/[^0-9]/g, '');
+    const cleanVendorPhone = rawVendorPhone.length >= 10 ? rawVendorPhone.slice(-10) : (rawVendorPhone || '9876543210');
+    const vendorStoreName = vendor?.store_name || vendor?.shop_business_name || vendor?.vendor_name || body.vendor_name || "Service Vendor";
+    const serviceType = (body.service_type || body.service_title || body.service_name || body.title || "Custom Service Request").trim();
+
+    const enquiryNum = Math.floor(100000 + Math.random() * 900000);
+    const enquiryId = enquiryNum;
+    const enquiryIdStr = `ENQ-${enquiryNum}`;
+
+    // Step 2: Automatically generate WhatsApp link with pre-filled message
+    const whatsappMsg = `Hi ${vendorStoreName},\nI have submitted a service request #${enquiryIdStr} for ${serviceType}.`;
+    const whatsapp_link = cleanVendorPhone ? `https://wa.me/91${cleanVendorPhone}?text=${encodeURIComponent(whatsappMsg)}` : '';
+    const call_link = cleanVendorPhone ? `tel:${cleanVendorPhone}` : '';
+
+    const direct_actions = {
+      whatsapp_link: whatsapp_link,
+      call_link: call_link,
+      vendor_phone: cleanVendorPhone,
+      vendor_whatsapp: cleanVendorPhone
     };
-    console.log(`🛠️ [SERVICE ENQUIRY RECEIVED] Vendor: ${enquiry.vendor_id} | Service: "${enquiry.service_title}" | Resident: ${enquiry.resident_name}`);
+
+    // Step 1: Save enquiry in database with status = 'NEW'
+    const newEnquiry = {
+      enquiry_id: enquiryId,
+      id: enquiryIdStr,
+      vendor_id: Number(targetVendorId) || targetVendorId,
+      vendor_name: vendorStoreName,
+      user_id: body.user_id || body.userId || null,
+      user_name: (body.user_name || body.resident_name || body.name || "Resident").trim(),
+      user_phone: (body.user_phone || body.resident_phone || body.phone || "").trim(),
+      resident_name: (body.user_name || body.resident_name || body.name || "Resident").trim(),
+      resident_phone: (body.user_phone || body.resident_phone || body.phone || "").trim(),
+      service_type: serviceType,
+      service_title: serviceType,
+      service_id: body.service_id || null,
+      description: (body.description || body.requirement_details || "").trim(),
+      preferred_time: body.preferred_time || "Today (ASAP)",
+      issue_photos: Array.isArray(body.issue_photos) ? body.issue_photos : (body.issue_photos ? [body.issue_photos] : []),
+      society_id: body.society_id || vendor?.society_id || 1,
+      society_name: body.society_name || vendor?.society_name || "Resident Society",
+      flat_number: body.flat_number || body.flat || "",
+      building_number: body.building_number || body.tower || "",
+      is_urgent: Boolean(body.is_urgent),
+      status: "NEW",
+      direct_actions: direct_actions,
+      whatsapp_link: whatsapp_link,
+      call_link: call_link,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    enquiries.unshift(newEnquiry);
+    saveDB();
+
+    console.log(`🛠️ [HYBRID SERVICE ENQUIRY] #${enquiryIdStr} | Vendor: ${vendorStoreName} (${cleanVendorPhone}) | Resident: ${newEnquiry.user_name}`);
+
+    // Step 3: Return response with enquiry_id, status = 'NEW', and direct_actions (whatsapp_link, call_link)
     return sendJSON(res, 201, {
       success: true,
-      message: 'Service enquiry submitted successfully.',
-      enquiry
+      status_code: 201,
+      enquiry_id: enquiryId,
+      enquiry: {
+        enquiry_id: enquiryId,
+        status: "NEW",
+        vendor_id: newEnquiry.vendor_id,
+        user_name: newEnquiry.user_name,
+        user_phone: newEnquiry.user_phone,
+        service_type: newEnquiry.service_type,
+        preferred_time: newEnquiry.preferred_time,
+        description: newEnquiry.description,
+        direct_actions: direct_actions,
+        whatsapp_link: whatsapp_link,
+        call_link: call_link,
+        created_at: newEnquiry.created_at
+      },
+      message: "Service enquiry created successfully."
+    });
+  }
+
+  if (method === 'GET' && (pathname === '/api/enquiries' || pathname === '/api/enquiries/' || pathname === '/enquiries')) {
+    const vId = parsedUrl.query.vendor_id || parsedUrl.query.vendorId;
+    const phone = parsedUrl.query.phone || parsedUrl.query.resident_phone || parsedUrl.query.user_phone;
+    let list = [...enquiries];
+    if (vId) list = list.filter(e => String(e.vendor_id) === String(vId));
+    if (phone) {
+      const cleanPhone = String(phone).replace(/[^0-9]/g, '').slice(-10);
+      list = list.filter(e => String(e.user_phone || e.resident_phone || '').replace(/[^0-9]/g, '').slice(-10) === cleanPhone);
+    }
+    return sendJSON(res, 200, {
+      success: true,
+      total_count: list.length,
+      enquiries: list
     });
   }
 
   if (method === 'GET' && pathname.match(/^\/api\/vendors\/([^\/]+)\/enquiries$/)) {
     const match = pathname.match(/^\/api\/vendors\/([^\/]+)\/enquiries$/);
     const vendorId = match ? match[1] : '';
+    const vendorEnquiries = enquiries.filter(e => String(e.vendor_id) === String(vendorId));
     return sendJSON(res, 200, {
       success: true,
       vendor_id: vendorId,
-      enquiries: []
+      enquiries: vendorEnquiries
     });
   }
 
-  if (method === 'PUT' && pathname.match(/^\/api\/vendors\/([^\/]+)\/enquiries\/([^\/]+)$/)) {
-    const match = pathname.match(/^\/api\/vendors\/([^\/]+)\/enquiries\/([^\/]+)$/);
+  if (method === 'PUT' && (pathname.match(/^\/api\/vendors\/([^\/]+)\/enquiries\/([^\/]+)$/) || pathname.includes('/enquiries/'))) {
+    const parts = pathname.split('/').filter(Boolean);
+    const enquiryId = parts[parts.length - 1];
     const body = await getRequestBody(req);
+    const enquiry = enquiries.find(e => String(e.enquiry_id) === String(enquiryId) || String(e.id) === String(enquiryId));
+    if (!enquiry) {
+      return sendJSON(res, 404, { success: false, error: "Service enquiry not found" });
+    }
+    enquiry.status = body.status || enquiry.status || 'CONTACTED';
+    enquiry.updated_at = new Date().toISOString();
+    saveDB();
     return sendJSON(res, 200, {
       success: true,
-      status: body.status || 'CONTACTED'
+      status: enquiry.status,
+      enquiry
     });
   }
 
@@ -814,15 +1162,17 @@ const server = http.createServer(async (req, res) => {
     if (match) {
       return sendJSON(res, 200, {
         exists: true,
-        phone: clean10 || rawPhone,
-        message: "Account found",
-        user: match
+        user_id: match.user_id || `usr_${match.id || clean10}`,
+        name: match.name || "Resident User",
+        phone: match.phone || clean10 || rawPhone,
+        user: match,
+        message: "Account found"
       });
     } else {
-      return sendJSON(res, 404, {
+      return sendJSON(res, 200, {
         exists: false,
         phone: clean10 || rawPhone,
-        error: "No account found with this mobile number. Please register your account first."
+        message: "No account found with this mobile number. Please register your account first."
       });
     }
   }
@@ -1207,12 +1557,22 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  // 1.1 Vendor Check Phone / Email Registration (POST /api/vendors/check-phone)
-  if (method === 'POST' && (pathname === '/api/vendors/check-phone' || pathname === '/api/vendors/check-phone/')) {
+  // 1.1 Vendor Check Phone / Email Registration (POST /api/vendors/check-phone, POST /api/vendors/check-email)
+  if (method === 'POST' && (
+    pathname === '/api/vendors/check-phone' || 
+    pathname === '/api/vendors/check-phone/' ||
+    pathname === '/api/vendors/check-email' ||
+    pathname === '/api/vendors/check-email/'
+  )) {
     const body = await getRequestBody(req);
     const rawInput = String(body.phone || body.mobile || body.phone_number || body.email || body.identifier || '').trim();
     if (!rawInput) {
-      return sendJSON(res, 400, { error: "Phone number or email is required" });
+      return sendJSON(res, 400, { 
+        exists: false,
+        is_registered: false,
+        error: "Phone number or email is required",
+        message: "Phone number or email is required" 
+      });
     }
     const cleanDigits = rawInput.replace(/[^0-9]/g, '');
     const cleanPhone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : '';
@@ -1227,15 +1587,24 @@ const server = http.createServer(async (req, res) => {
     });
 
     if (match) {
+      const vId = match.vendor_id || match.id || 1337;
       return sendJSON(res, 200, {
         exists: true,
-        vendor: match,
-        message: "Vendor account found"
+        is_registered: true,
+        vendor_id: vId,
+        public_id: match.public_id || `vnd@${vId}`,
+        store_name: match.store_name || match.shop_business_name || "Vendor Store",
+        vendor_name: match.vendor_name || match.owner_name || "Vendor",
+        phone_number: match.phone_number || match.phone || cleanPhone,
+        email: match.email || (isEmail ? rawInput : ""),
+        status: match.status || "active",
+        message: "Vendor store account found."
       });
     } else {
-      return sendJSON(res, 404, {
+      return sendJSON(res, 200, {
         exists: false,
-        error: "No registered vendor store found with this phone number / email. Please register your store first."
+        is_registered: false,
+        message: "No vendor store account found with this credential."
       });
     }
   }
@@ -1396,13 +1765,22 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, 200, filtered);
   }
 
-  // GET /api/vendors/search (Search vendors by area, location, pincode, city, state, or category)
-  if (method === 'GET' && pathname === '/api/vendors/search') {
+  // GET /api/vendors/search and /api/stores/search (Search vendors by area, location, pincode, city, state, or vendor_type)
+  const isVendorSearchRoute = method === 'GET' && (
+    pathname === '/api/vendors/search' || 
+    pathname === '/api/stores/search' ||
+    pathname === '/vendors/search' ||
+    pathname === '/stores/search'
+  );
+
+  if (isVendorSearchRoute) {
     const area = (parsedUrl.query.area || parsedUrl.query.location || parsedUrl.query.search || parsedUrl.query.q || '').toLowerCase().trim();
     const city = (parsedUrl.query.city || '').toLowerCase().trim();
     const state = (parsedUrl.query.state || '').toLowerCase().trim();
     const pincode = (parsedUrl.query.pincode || '').toLowerCase().trim();
     const vendorType = (parsedUrl.query.vendor_type || parsedUrl.query.type || '').toLowerCase().trim();
+    const page = parseInt(parsedUrl.query.page || '1', 10);
+    const limit = parseInt(parsedUrl.query.limit || '24', 10);
 
     let list = vendors.filter(v => {
       if (!v) return false;
@@ -1427,27 +1805,54 @@ const server = http.createServer(async (req, res) => {
       if (state && !(v.state || '').toLowerCase().includes(state)) return false;
       if (pincode && !(v.pincode || '').toLowerCase().includes(pincode)) return false;
       if (vendorType && vendorType !== 'all') {
-        const vType = (v.vendor_type || 'product').toLowerCase();
-        if (vType !== vendorType) return false;
+        const isSvc = isServiceVendor(v);
+        const actualType = isSvc ? 'service' : 'product';
+        if (actualType !== vendorType && (v.vendor_type || '').toLowerCase() !== vendorType) return false;
       }
 
       return true;
     });
 
-    const enrichedList = list.map(v => ({
-      ...v,
-      vendor_id: v.vendor_id || v.id,
-      store_name: v.store_name || v.shop_business_name || 'Store',
-      vendor_name: v.vendor_name || v.owner_name || 'Vendor',
-      category: v.category || 'General',
-      location: v.location || v.area || 'Local Area',
-      city: v.city || 'Noida',
-      state: v.state || 'Uttar Pradesh',
-      pincode: v.pincode || '201301',
-      society_name: v.society_name || 'Greenwood Residency',
-      status: v.status || 'ACTIVE',
-      coverage_badge: v.coverage_badge || `Location: ${v.area || v.location || 'Local Area'}`
-    }));
+    const enrichedList = list.map(v => {
+      const isSvc = isServiceVendor(v);
+      return {
+        ...v,
+        vendor_id: Number(v.vendor_id) || v.vendor_id || v.id,
+        vendor_type: v.vendor_type || (isSvc ? 'service' : 'product'),
+        can_add_items: false,
+        store_name: v.store_name || v.shop_business_name || 'Store',
+        vendor_name: v.vendor_name || v.owner_name || 'Vendor',
+        category: v.category || (isSvc ? 'Home Services' : 'General'),
+        location: v.location || v.area || 'Local Area',
+        city: v.city || 'Noida',
+        state: v.state || 'Uttar Pradesh',
+        pincode: v.pincode || '201301',
+        society_name: v.society_name || 'Greenwood Residency',
+        status: v.status || 'ACTIVE',
+        coverage_badge: v.coverage_badge || `Location: ${v.area || v.location || 'Local Area'}`
+      };
+    });
+
+    const totalRecords = enrichedList.length;
+    const totalPages = Math.ceil(totalRecords / limit) || 1;
+    const startIndex = (page - 1) * limit;
+    const paginated = enrichedList.slice(startIndex, startIndex + limit);
+
+    if (parsedUrl.query.page || parsedUrl.query.limit) {
+      return sendJSON(res, 200, {
+        success: true,
+        data: paginated,
+        vendors: paginated,
+        meta: {
+          total_records: totalRecords,
+          total_pages: totalPages,
+          current_page: page,
+          page_size: limit,
+          has_next: page < totalPages,
+          has_prev: page > 1
+        }
+      });
+    }
 
     return sendJSON(res, 200, enrichedList);
   }
@@ -1593,17 +1998,34 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  if (method === 'GET' && pathname.startsWith('/api/vendors/')) {
-    const parts = pathname.split('/');
-    const targetVendorId = parts[3];
-    const subRoute = parts[4];
+  // 1.5c Get Vendor Profile, Items, Products, Services, Enquiries
+  const isVendorDetailOrItemsRoute = method === 'GET' && (
+    (pathname.startsWith('/api/vendors/') && !pathname.startsWith('/api/vendors/search') && !pathname.startsWith('/api/vendors/check-phone') && !pathname.startsWith('/api/vendors/check-coverage')) ||
+    (pathname.startsWith('/api/stores/') && !pathname.startsWith('/api/stores/search')) ||
+    (pathname.startsWith('/vendors/') && !pathname.startsWith('/vendors/search')) ||
+    (pathname.startsWith('/stores/') && !pathname.startsWith('/stores/search'))
+  );
+
+  if (isVendorDetailOrItemsRoute) {
+    const parts = pathname.split('/').filter(Boolean);
+    let targetVendorId = '';
+    let subRoute = '';
+
+    const vendorsIdx = parts.findIndex(p => p === 'vendors' || p === 'stores');
+    if (vendorsIdx !== -1) {
+      targetVendorId = parts[vendorsIdx + 1];
+      subRoute = parts[vendorsIdx + 2] || '';
+    } else {
+      targetVendorId = parts[0] === 'api' ? parts[2] : parts[1];
+      subRoute = parts[0] === 'api' ? parts[3] || '' : parts[2] || '';
+    }
 
     if (subRoute === 'enquiries') {
       const vendorEnquiries = enquiries.filter(e => String(e.vendor_id) === String(targetVendorId));
       return sendJSON(res, 200, { success: true, enquiries: vendorEnquiries });
     }
 
-    const vendor = vendors.find(v => String(v.vendor_id) === String(targetVendorId));
+    const vendor = vendors.find(v => String(v.vendor_id) === String(targetVendorId) || String(v.id) === String(targetVendorId));
     if (!vendor) return sendJSON(res, 404, { error: "Vendor store not found or has been deleted" });
 
     const vStatus = String(vendor.status || '').toUpperCase().trim();
@@ -1622,7 +2044,7 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 404, { error: "Vendor store is currently inactive or not available." });
     }
 
-    // Check user location coverage restriction
+    // Check user location coverage restriction if passed
     const userLatRaw = parsedUrl.query.user_lat !== undefined ? parsedUrl.query.user_lat : parsedUrl.query.lat;
     const userLngRaw = parsedUrl.query.user_lng !== undefined ? parsedUrl.query.user_lng : parsedUrl.query.lng;
 
@@ -1652,8 +2074,63 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    const vendorItems = items.filter(i => String(i.vendor_id) === String(targetVendorId));
-    return sendJSON(res, 200, { vendor, items: vendorItems });
+    const isSvc = isServiceVendor(vendor);
+    const vendorType = vendor.vendor_type || (isSvc ? 'service' : 'product');
+
+    // Format all catalog items / services
+    const rawVendorItems = items.filter(i => String(i.vendor_id) === String(targetVendorId) || String(i.vendor_id) === String(vendor.vendor_id));
+    const formattedItems = rawVendorItems.map(i => {
+      const price = Number(i.price || i.unit_price || 0);
+      const isAvailable = i.in_stock !== false && i.is_available !== false && i.is_available !== 0;
+      return {
+        item_id: Number(i.item_id || i.id) || i.item_id || i.id,
+        vendor_id: Number(i.vendor_id) || Number(targetVendorId) || targetVendorId,
+        item_name: i.item_name || i.name || (isSvc ? "Service Offering" : "Store Item"),
+        name: i.item_name || i.name || (isSvc ? "Service Offering" : "Store Item"),
+        price: price,
+        unit_price: price,
+        category: i.category || vendor.category || (isSvc ? "Appliance Services" : "General"),
+        description: i.description || (isSvc ? "Service by verified professional" : ""),
+        in_stock: isAvailable,
+        is_available: isAvailable,
+        image_url: i.image_url || i.image || (Array.isArray(i.images) && i.images[0]) || "",
+        image: i.image_url || i.image || (Array.isArray(i.images) && i.images[0]) || "",
+        images: Array.isArray(i.images) && i.images.length > 0 ? i.images : (i.image_url || i.image ? [i.image_url || i.image] : []),
+        unit: i.unit || (isSvc ? "Service" : "Piece"),
+        created_at: i.created_at || new Date().toISOString()
+      };
+    });
+
+    // 1. GET /api/vendors/:vendorId/items, /products, /services -> Returns array of in_stock items/services
+    if (subRoute === 'items' || subRoute === 'products' || subRoute === 'services') {
+      const inStockItems = formattedItems.filter(i => i.in_stock === true);
+      return sendJSON(res, 200, inStockItems);
+    }
+
+    // 2. GET /api/vendors/:vendorId -> Returns Full Storefront (Vendor Info + Services/Products)
+    const enrichedVendor = {
+      ...vendor,
+      vendor_id: Number(vendor.vendor_id) || vendor.vendor_id,
+      vendor_type: vendorType,
+      can_add_items: false
+    };
+
+    return sendJSON(res, 200, {
+      success: true,
+      vendor_id: enrichedVendor.vendor_id,
+      vendor_type: vendorType,
+      can_add_items: false,
+      store_name: vendor.store_name || vendor.shop_business_name || "Store",
+      vendor: enrichedVendor,
+      items: formattedItems,
+      products: formattedItems,
+      services: formattedItems,
+      catalog: formattedItems,
+      data: {
+        vendor: enrichedVendor,
+        items: formattedItems
+      }
+    });
   }
 
   // Check Coverage Zones endpoint (POST /api/vendors/check-coverage)
@@ -1760,40 +2237,7 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, 200, { success: true, message: "Vendor coverage settings updated successfully", vendor });
   }
 
-  // Service Enquiries Submit & Status Update APIs
-  if (method === 'POST' && pathname === '/api/enquiries') {
-    const body = await getRequestBody(req);
-    const enquiryId = `ENQ-${Math.floor(100000 + Math.random() * 900000)}`;
-    const newEnquiry = {
-      enquiry_id: enquiryId,
-      vendor_id: body.vendor_id,
-      resident_name: body.resident_name || body.customer_name || 'Resident',
-      resident_phone: body.resident_phone || body.phone_number || '',
-      society_name: body.society_name || '',
-      flat_number: body.flat_number || '',
-      service_title: body.service_title || 'Service Request',
-      description: body.description || '',
-      preferred_time: body.preferred_time || 'ASAP',
-      status: 'NEW',
-      created_at: new Date().toISOString()
-    };
-    enquiries.push(newEnquiry);
-    saveDB();
-    return sendJSON(res, 201, { success: true, message: "Service enquiry submitted successfully!", enquiry: newEnquiry });
-  }
 
-  if (method === 'PUT' && pathname.includes('/enquiries/')) {
-    const parts = pathname.split('/');
-    const enquiryId = parts[parts.length - 1];
-    const body = await getRequestBody(req);
-    const enquiry = enquiries.find(e => String(e.enquiry_id) === String(enquiryId));
-
-    if (!enquiry) return sendJSON(res, 404, { error: "Service enquiry record not found" });
-
-    enquiry.status = body.status || enquiry.status;
-    saveDB();
-    return sendJSON(res, 200, { success: true, message: "Enquiry status updated successfully", enquiry });
-  }
 
   // -------------------------------------------------------------
   // 3. DIGILOCAL ORDER STATUS & LIFECYCLE STATE MACHINE APIs
@@ -2141,19 +2585,37 @@ const server = http.createServer(async (req, res) => {
   }
 
   // 4. VENDOR DASHBOARD & CATALOG APIs
-  if (method === 'GET' && pathname.startsWith('/api/vendorPanel/')) {
-    const parts = pathname.split('/');
-    const rawVendorId = parts[3];
+  if (method === 'GET' && (pathname.startsWith('/api/vendorPanel/') || pathname.startsWith('/vendorPanel/'))) {
+    const parts = pathname.split('/').filter(Boolean);
+    const rawVendorId = parts[parts.length - 1];
     const vendorId = Number(rawVendorId) || rawVendorId;
-    const vendor = vendors.find(v => String(v.vendor_id) === String(vendorId)) || vendors[0];
+    const vendor = vendors.find(v => String(v.vendor_id) === String(vendorId) || String(v.id) === String(vendorId)) || vendors[0];
+    const isSvc = isServiceVendor(vendor);
+    const vendorType = vendor.vendor_type || (isSvc ? 'service' : 'product');
+
     const vendorItems = items.filter(i => String(i.vendor_id) === String(vendorId) || String(vendorId) === '1');
     const vendorOrders = orders.filter(o => String(o.vendor_id) === String(vendorId) || String(o.vendorId) === String(vendorId) || !o.vendor_id);
+    const vendorEnquiries = enquiries.filter(e => String(e.vendor_id) === String(vendorId));
+
+    const enrichedVendor = {
+      ...vendor,
+      vendor_id: Number(vendor.vendor_id) || vendor.vendor_id,
+      vendor_type: vendorType,
+      can_add_items: false
+    };
+
     return sendJSON(res, 200, {
-      vendor,
+      success: true,
+      vendor: enrichedVendor,
+      vendor_type: vendorType,
+      can_add_items: false,
       items: vendorItems,
+      products: vendorItems,
+      services: vendorItems,
       orders: vendorOrders,
       subscription: { status: "ACTIVE", end_date: "2027-07-31" },
-      payments: [{ payment_id: 1, amount: 2999.00, status: "SUCCESS" }]
+      payments: [{ payment_id: 1, amount: 2999.00, status: "SUCCESS" }],
+      ...(isSvc ? { enquiries: vendorEnquiries } : {})
     });
   }
 
@@ -2178,6 +2640,8 @@ const server = http.createServer(async (req, res) => {
       data: platformConfig
     });
   }
+
+
 
   // 6. SUPPORT DESK INTAKE & TICKET WORKFLOW APIs
   if (method === 'POST' && (pathname === '/support/tickets' || pathname === '/api/support/tickets')) {

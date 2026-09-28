@@ -1142,15 +1142,15 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
             <form onSubmit={handleNextStep1} className="space-y-3.5 animate-in fade-in">
               
               {/* 1. ADD YOUR COMPLETE ADDRESS (SOCIETY / AREA / SECTOR) */}
-              <div className="bg-[#FAF9F6] border border-[#1E3623]/20 rounded-2xl p-3.5 space-y-2.5 shadow-xs">
-                <label className="text-xs font-extrabold text-[#1E3623] flex items-center justify-between uppercase tracking-wider">
+              <div className="bg-[#FAF9F6] border border-border/80 rounded-2xl p-3.5 space-y-2.5 shadow-xs">
+                <label className="text-xs font-extrabold text-[#211A19] flex items-center justify-between uppercase tracking-wider">
                   <span className="flex items-center gap-1.5">
-                    <Building2 className="w-4 h-4 text-[#00592E]" />
+                    <Building2 className="w-4 h-4 text-[#541D26]" />
                     <span>Add Your Complete Address (Society / Area / Sector) *</span>
                   </span>
                   {isSocietySelected || areaName || societySearch ? (
-                    <span className="px-2 py-0.5 bg-emerald-500/15 text-emerald-800 text-[10px] font-extrabold rounded-full flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Selected
+                    <span className="px-2 py-0.5 bg-[#541D26]/10 text-[#541D26] text-[10px] font-extrabold rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-[#541D26]" /> Selected
                     </span>
                   ) : (
                     <span className="text-[10px] text-amber-700 font-bold">* Required</span>
@@ -1166,7 +1166,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                 {/* Single Location Search Input Field */}
                 <div className="relative" ref={societyDropdownRef}>
                   <div className="relative">
-                    <Building2 className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isSocietySelected || areaName || selectedSocietyId ? 'text-[#00592E]' : 'text-muted-foreground'}`} />
+                    <Building2 className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isSocietySelected || areaName || selectedSocietyId ? 'text-[#541D26]' : 'text-muted-foreground'}`} />
                     <input
                       type="text"
                       placeholder="Search or enter society, area or sector (e.g. Mansarovar, ATS Advantage)..."
@@ -1197,20 +1197,20 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                       {/* Live Geocoded Area Results (from OpenStreetMap & Master Locations DB) */}
                       {liveLocationSuggestions.length > 0 && (
                         <div className="space-y-1 pb-1">
-                          <div className="px-3 py-1 text-[10px] font-black text-emerald-800 uppercase tracking-wider bg-emerald-50/60 rounded-lg flex items-center justify-between">
+                          <div className="px-3 py-1 text-[10px] font-black text-[#541D26] uppercase tracking-wider bg-[#541D26]/10 rounded-lg flex items-center justify-between">
                             <span>📍 Matched Real-World Areas ({liveLocationSuggestions.length})</span>
-                            <span className="text-[9px] text-emerald-700 font-bold">Autofills City & Pincode</span>
+                            <span className="text-[9px] text-[#541D26] font-bold">Autofills City & Pincode</span>
                           </div>
                           {liveLocationSuggestions.map((loc, idx) => (
                             <div
                               key={`live-loc-${idx}`}
                               onClick={() => handleSelectLiveLocation(loc)}
-                              className="px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer hover:bg-emerald-50 transition-colors flex items-center justify-between group border border-transparent hover:border-emerald-200"
+                              className="px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer hover:bg-secondary/40 transition-colors flex items-center justify-between group border border-transparent hover:border-border"
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <MapPin className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                                <MapPin className="w-3.5 h-3.5 text-[#541D26] shrink-0" />
                                 <div className="min-w-0">
-                                  <p className="font-extrabold text-[#1E3623] group-hover:text-emerald-800 truncate">{loc.area}</p>
+                                  <p className="font-extrabold text-[#211A19] group-hover:text-[#541D26] truncate">{loc.area}</p>
                                   <p className="text-[10px] text-muted-foreground truncate">{loc.city}{loc.state ? `, ${loc.state}` : ''}{loc.pincode ? ` • ${loc.pincode}` : ''}</p>
                                 </div>
                               </div>
@@ -1519,7 +1519,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
               
               {/* 1. OWNER NAME */}
               <div>
-                <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                <label className="block text-xs font-bold text-[#211A19] mb-1">
                   Owner Name *
                 </label>
                 <input
@@ -1528,13 +1528,13 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                   placeholder="Enter owner name"
                   value={ownerName}
                   onChange={(e) => setOwnerName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#1E3623] text-ink transition-all shadow-xs"
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink transition-all shadow-xs"
                 />
               </div>
 
               {/* 2. MOBILE NUMBER WITH INLINE OTP VERIFICATION BUTTON */}
               <div>
-                <label className="block text-xs font-bold text-[#1E3623] mb-1">
+                <label className="block text-xs font-bold text-[#211A19] mb-1">
                   Mobile Number *
                 </label>
 

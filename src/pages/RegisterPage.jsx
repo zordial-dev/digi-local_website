@@ -128,21 +128,11 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
         return;
       }
 
-      try {
-        await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-        setSuccessMsg(`Verification SMS code sent to ${fullPhone}! Check your mobile phone.`);
-      } catch (fbErr) {
-        console.warn('Firebase Phone Auth failed/blocked, using SMS OTP service:', fbErr);
-        try {
-          const res = await api.sendOtp(fullPhone);
-          if (res?.verification_id || res?.verificationId) {
-            setVerificationId(res.verification_id || res.verificationId);
-          }
-          setSuccessMsg(res?.message || `Verification SMS sent to ${fullPhone}! Please enter the 6-digit code received on your phone.`);
-        } catch (apiErr) {
-          setSuccessMsg(`Verification SMS code requested for ${fullPhone}. Check your mobile phone.`);
-        }
+      const res = await api.sendRegistrationOtp({ phone: fullPhone, role: 'user' });
+      if (res?.verification_id || res?.verificationId) {
+        setVerificationId(res.verification_id || res.verificationId);
       }
+      setSuccessMsg(res?.message || `Verification SMS sent to ${fullPhone}! Please enter the 6-digit code received on your phone.`);
 
       setOtpValues(['', '', '', '', '', '']);
       setResendCountdown(30);
@@ -163,20 +153,11 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
     try {
       setLoading(true);
       const fullPhone = `${countryCode}${phoneNumber.trim()}`;
-      try {
-        await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-        setSuccessMsg(`Verification SMS resent to ${fullPhone}!`);
-      } catch (_) {
-        try {
-          const res = await api.sendOtp(fullPhone);
-          if (res?.verification_id || res?.verificationId) {
-            setVerificationId(res.verification_id || res.verificationId);
-          }
-          setSuccessMsg(res?.message || `Verification SMS resent to ${fullPhone}. Please enter the 6-digit code received on your phone.`);
-        } catch (apiErr) {
-          setSuccessMsg(`Verification SMS resent to ${fullPhone}. Check your mobile phone.`);
-        }
+      const res = await api.sendRegistrationOtp({ phone: fullPhone, role: 'user' });
+      if (res?.verification_id || res?.verificationId) {
+        setVerificationId(res.verification_id || res.verificationId);
       }
+      setSuccessMsg(res?.message || `Verification SMS resent to ${fullPhone}. Please enter the 6-digit code.`);
       setResendCountdown(30);
     } catch (err) {
       const formatted = formatUserFacingError(err, 'phone');
@@ -202,13 +183,12 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
       setLoading(true);
       const fullPhone = `${countryCode}${phoneNumber.trim()}`;
       
-      try {
-        const result = await verifyFirebasePhoneOtp(enteredOtp);
-        setFirebaseIdToken(result.idToken);
-      } catch (fbVerifyErr) {
-        console.warn('Firebase verify fallback:', fbVerifyErr);
-        await api.verifyOtp({ phone: fullPhone, otp: enteredOtp, verification_id: verificationId });
-      }
+      await api.verifyRegistrationOtp({
+        phone: fullPhone,
+        otp: enteredOtp,
+        role: 'user',
+        verification_id: verificationId
+      });
 
       setIsPhoneVerified(true);
       setRegisterStep('password');
@@ -315,10 +295,10 @@ export default function RegisterPage({ currentRoute, setRoute, setActiveUser, se
               onClick={() => setRoute({ page: 'home' })}
               className="flex items-center space-x-2 cursor-pointer group transition-all"
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#18281F]/10 border border-[#18281F]/15 flex items-center justify-center p-1 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#541D26]/10 border border-[#541D26]/15 flex items-center justify-center p-1 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
                 <img src="/logo.png" alt="DigiLocal" className="w-full h-full object-contain scale-[1.8] mix-blend-multiply" />
               </div>
-              <span className="font-cormorant italic text-base sm:text-lg font-bold text-[#1E3623]">DigiLocal</span>
+              <span className="font-cormorant italic text-base sm:text-lg font-bold text-[#541D26]">DigiLocal</span>
             </div>
           </div>
 

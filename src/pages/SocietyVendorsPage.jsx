@@ -917,8 +917,8 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
         </div>
 
         {loading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-3.5">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
               <VendorCardSkeleton key={i} />
             ))}
           </div>
@@ -948,7 +948,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
 
           return (
             <>
-              <div id="vendors-grid-container" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4">
+              <div id="vendors-grid-container" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-3.5">
                 {paginatedVendors.map((vendor) => {
                   const isService = isServiceVendor(vendor);
                   const storeImage = getCategoryCoverImage(vendor);
@@ -973,8 +973,8 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                     >
                       <div className="flex flex-col h-full justify-between">
                         <div>
-                          {/* 1. Cover Image Header (Slim & Modern h-28 sm:h-32) */}
-                          <div className="h-28 sm:h-32 w-full relative bg-[#211A19] overflow-hidden shrink-0">
+                          {/* 1. Cover Image Header (Slim & Compact h-24 sm:h-28) */}
+                          <div className="h-24 sm:h-28 w-full relative bg-[#211A19] overflow-hidden shrink-0">
                             {storeImage ? (
                               <img
                                 src={storeImage}
@@ -1081,11 +1081,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                           ) : (
                             <button
                               type="button"
-                              className={`w-full py-2 px-3 rounded-xl transition-all duration-200 flex items-center justify-between font-extrabold text-[11px] shadow-2xs group-hover:shadow-xs uppercase tracking-wider cursor-pointer ${
-                                isService
-                                  ? 'bg-[#18281F] text-white group-hover:bg-[#253E30]'
-                                  : 'bg-[#541D26] text-white group-hover:bg-[#6B2732]'
-                              }`}
+                              className="w-full py-2 px-3 rounded-xl transition-all duration-200 flex items-center justify-between font-extrabold text-[11px] shadow-2xs group-hover:shadow-xs uppercase tracking-wider cursor-pointer bg-[#541D26] text-white hover:bg-[#6B2732]"
                             >
                               <div className="flex items-center space-x-1.5">
                                 {isService ? (
@@ -1140,7 +1136,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                           document.getElementById('vendors-grid-container')?.scrollIntoView({ behavior: 'smooth' });
                         }}
                         className={`w-9 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentPage === pg
-                            ? 'bg-[#18281F] text-white shadow-xs'
+                            ? 'bg-[#541D26] text-white shadow-xs'
                             : 'bg-background hover:bg-secondary text-ink border border-border'
                           }`}
                       >

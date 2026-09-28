@@ -402,24 +402,9 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
       setError('');
       try {
         if (accountType === 'resident') {
-          let firebaseToken = null;
-          if (!isEmail) {
-            try {
-              const result = await verifyFirebasePhoneOtp(code);
-              firebaseToken = result.idToken;
-            } catch (fbVerifyErr) {
-              console.warn('Firebase OTP verify fallback to API verification:', fbVerifyErr);
-              await api.verifyOtp({ phone: fullPhone, otp: code, verification_id: verificationId });
-            }
-          }
-
-          const res = await api.userLogin({
-            phone: fullPhone,
-            firebase_token: firebaseToken || undefined,
-            otp: code,
-            verification_id: verificationId,
-            isOtpLogin: true
-          });
+          const res = isEmail
+            ? await api.verifyEmailOtp({ email: rawContact, otp: code, role: 'user' })
+            : await api.verifyMobileOtp({ phone: fullPhone, otp: code, role: 'user', verification_id: verificationId });
 
           const accessToken = res.accessToken || res.data?.accessToken || res.token;
           const refreshToken = res.refreshToken || res.data?.refreshToken;
@@ -453,23 +438,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           setOtpUserSessionData({ userObj, session });
           setShowOtpPasswordModal(true);
         } else {
-          // VENDOR OTP LOGIN FLOW (2.0.0 API Spec: POST /vendors/login)
-          let firebaseToken = null;
-          if (!isEmail) {
-            try {
-              const result = await verifyFirebasePhoneOtp(code);
-              firebaseToken = result.idToken;
-            } catch (_) {}
-          }
-
-          const res = await api.loginVendor({
-            mobile: fullPhone,
-            phone: fullPhone,
-            email: rawContact,
-            otp: code,
-            verification_id: verificationId,
-            firebase_token: firebaseToken || undefined
-          });
+          // VENDOR OTP LOGIN FLOW (2.0.0 API Spec: POST /api/otp/mobile/verify-otp or POST /api/otp/email/verify-otp)
+          const res = isEmail
+            ? await api.verifyEmailOtp({ email: rawContact, otp: code, role: 'vendor' })
+            : await api.verifyMobileOtp({ phone: fullPhone, otp: code, role: 'vendor', verification_id: verificationId });
 
           const accessToken = res.accessToken || res.data?.accessToken || res.token;
           const refreshToken = res.refreshToken || res.data?.refreshToken;
@@ -486,7 +458,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           } catch (_) {}
 
           if (!vendorObj) {
-            throw new Error('No registered vendor store found with this phone number. Please register your store first.');
+            throw new Error('No registered vendor store found with this credential. Please register your store first.');
           }
 
           if (accessToken) {
@@ -536,59 +508,52 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
     setError('');
     setLoading(true);
     try {
+      // Step 1: Pre-flight check
       if (accountType === 'resident') {
         const checkRes = await api.checkUserPhone(fullPhone);
         if (!checkRes.exists) {
-          setError('No account found with this mobile number. Please register your account first.');
+          setError('No resident user account found with this mobile number. Please register your account first.');
           setShowRegisterPrompt(true);
           return;
         }
       } else {
-        const checkRes = await api.checkVendorPhone(fullPhone);
+        const checkRes = isEmail 
+          ? await api.checkVendorEmail(rawContact)
+          : await api.checkVendorPhone(fullPhone);
         if (!checkRes.exists) {
-          setError('No registered vendor store found with this phone / email. Please register your store first.');
+          setError(isEmail ? 'No vendor store account found with this email address. Please register your account first.' : 'No vendor store account found with this mobile number. Please register your account first.');
           setShowRegisterPrompt(true);
           return;
         }
       }
 
-      if (!isEmail) {
-        try {
-          await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-          setOtpSentMsg(`Verification SMS code sent to ${fullPhone}! Check your mobile phone.`);
-        } catch (fbErr) {
-          console.warn('Firebase Phone Auth error, attempting backend OTP service:', fbErr);
-          try {
-            const res = await api.sendOtp(fullPhone);
-            if (res?.verification_id || res?.verificationId) {
-              setVerificationId(res.verification_id || res.verificationId);
-            }
-            setOtpSentMsg(res?.message || `Verification SMS sent to ${fullPhone}! Check your mobile phone.`);
-          } catch (_) {
-            setOtpSentMsg(`Enter the 6-digit OTP code sent to ${fullPhone}.`);
-          }
-        }
+      // Step 2: Send OTP
+      if (isEmail) {
+        const res = await api.sendEmailOtp({ email: rawContact, role: accountType === 'vendor' ? 'vendor' : 'user', purpose: 'login' });
+        setOtpSentMsg(res?.message || `Verification OTP sent to ${rawContact}.`);
       } else {
-        try {
-          const res = await api.requestOtp(rawContact);
-          if (res?.verification_id || res?.verificationId) {
-            setVerificationId(res.verification_id || res.verificationId);
-          }
-          setOtpSentMsg(res?.message || `Verification OTP sent to ${rawContact}.`);
-        } catch (_) {
-          setOtpSentMsg(`Enter the 6-digit OTP code sent to ${rawContact}.`);
+        const res = await api.sendMobileOtp({ phone: fullPhone, role: accountType === 'vendor' ? 'vendor' : 'user', purpose: 'login' });
+        if (res?.verification_id || res?.verificationId) {
+          setVerificationId(res.verification_id || res.verificationId);
         }
+        setOtpSentMsg(res?.message || `Verification SMS sent to ${fullPhone}! Check your mobile phone.`);
       }
 
       setAuthMethod('otp');
       setOtpBoxes(Array(6).fill(''));
       setResendCountdown(30);
     } catch (err) {
-      // Even if background SMS dispatch returns a notice, allow opening OTP input
-      setAuthMethod('otp');
-      setOtpBoxes(Array(6).fill(''));
-      setResendCountdown(30);
-      setOtpSentMsg(`Please enter your 6-digit OTP verification code for ${fullPhone}.`);
+      const isSmsCreditErr = err?.status === 503 || err?.error_code === 'SMS_CREDITS_EXHAUSTED' || err?.data?.error_code === 'SMS_CREDITS_EXHAUSTED';
+      const isSmsGatewayErr = err?.status === 502 || err?.error_code === 'SMS_GATEWAY_ERROR' || err?.data?.error_code === 'SMS_GATEWAY_ERROR';
+
+      if (isSmsCreditErr) {
+        setError('SMS service is temporarily unavailable due to gateway limits. Please log in using Email OTP or contact support.');
+      } else if (isSmsGatewayErr) {
+        setError('SMS service is temporarily unavailable. Please try again or use Email OTP.');
+      } else {
+        setError(err.message || 'Failed to initiate OTP login.');
+      }
+      setAuthMethod('password');
     } finally {
       setLoading(false);
     }
@@ -602,27 +567,28 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
     setError('');
     setLoading(true);
     try {
-      if (!isEmail) {
-        try {
-          await sendFirebasePhoneOtp(fullPhone, 'recaptcha-container');
-          setOtpSentMsg(`Verification SMS code resent to ${fullPhone}. Check your mobile phone.`);
-        } catch (_) {
-          const res = await api.sendOtp(fullPhone);
-          if (res?.verification_id || res?.verificationId) {
-            setVerificationId(res.verification_id || res.verificationId);
-          }
-          setOtpSentMsg(res?.message || `Verification SMS resent to ${fullPhone}. Check your mobile phone.`);
-        }
+      if (isEmail) {
+        const res = await api.sendEmailOtp({ email: rawContact, role: accountType === 'vendor' ? 'vendor' : 'user', purpose: 'login' });
+        setOtpSentMsg(res?.message || `Verification OTP resent to ${rawContact}.`);
       } else {
-        const res = await api.requestOtp(rawContact);
+        const res = await api.sendMobileOtp({ phone: fullPhone, role: accountType === 'vendor' ? 'vendor' : 'user', purpose: 'login' });
         if (res?.verification_id || res?.verificationId) {
           setVerificationId(res.verification_id || res.verificationId);
         }
-        setOtpSentMsg(res?.message || `Verification OTP resent to ${rawContact}.`);
+        setOtpSentMsg(res?.message || `Verification SMS resent to ${fullPhone}. Check your mobile phone.`);
       }
       setResendCountdown(30);
     } catch (err) {
-      setError(err.message || 'Failed to resend verification code.');
+      const isSmsCreditErr = err?.status === 503 || err?.error_code === 'SMS_CREDITS_EXHAUSTED' || err?.data?.error_code === 'SMS_CREDITS_EXHAUSTED';
+      const isSmsGatewayErr = err?.status === 502 || err?.error_code === 'SMS_GATEWAY_ERROR' || err?.data?.error_code === 'SMS_GATEWAY_ERROR';
+
+      if (isSmsCreditErr) {
+        setError('SMS service is temporarily unavailable due to gateway limits. Please use Email OTP.');
+      } else if (isSmsGatewayErr) {
+        setError('SMS service is temporarily unavailable. Please try again or use Email OTP.');
+      } else {
+        setError(err.message || 'Failed to resend verification code.');
+      }
     } finally {
       setLoading(false);
     }

@@ -304,15 +304,15 @@ export default function AdminDashboardPage({ setRoute }) {
     <div className="min-h-screen bg-[#FAF9F6] text-[#1F2229] pb-20">
       
       {/* Top Admin Header */}
-      <div className="bg-white border-b border-[#C5A880]/20 py-8 shadow-sm">
+      <div className="bg-white border-b border-[#E5DAD0] py-8 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#F6F3EC] text-[#0A1428] border border-[#C5A880]/30 text-xs font-bold mb-2 uppercase tracking-wider">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#C5A880]" />
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 text-xs font-bold mb-2 uppercase tracking-wider">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#C8A878]" />
                 <span>DigiLocal Central Admin Control</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#0A1428] uppercase tracking-wide">Admin Management Portal</h1>
+              <h1 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#211A19] uppercase tracking-wide">Admin Management Portal</h1>
             </div>
 
             <button
@@ -321,21 +321,21 @@ export default function AdminDashboardPage({ setRoute }) {
                 else if (activeTab === 'vendors') loadVendors(search);
                 else if (activeTab === 'societies') loadSocieties(search);
               }}
-              className="px-4 py-2.5 rounded-xl bg-[#FAF9F6] hover:bg-[#F6F3EC] text-[#0A1428] text-xs font-bold flex items-center space-x-2 border border-[#C5A880]/30 shadow-sm uppercase tracking-wider self-start sm:self-auto"
+              className="px-4 py-2.5 rounded-xl bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[#211A19] text-xs font-bold flex items-center space-x-2 border border-[#E5DAD0] shadow-sm uppercase tracking-wider self-start sm:self-auto cursor-pointer"
             >
-              <RefreshCw className="w-4 h-4 text-[#C5A880]" />
+              <RefreshCw className="w-4 h-4 text-[#541D26]" />
               <span>Refresh Data</span>
             </button>
           </div>
 
           {/* Section Tabs */}
-          <div className="flex items-center space-x-3 mt-8 border-b border-[#C5A880]/20 overflow-x-auto">
+          <div className="flex items-center space-x-3 mt-8 border-b border-[#E5DAD0] overflow-x-auto">
             <button
               onClick={() => setActiveTab('requests')}
-              className={`px-5 py-3 rounded-t-xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider ${
+              className={`px-5 py-3 rounded-t-xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider cursor-pointer ${
                 activeTab === 'requests'
-                  ? 'bg-[#F6F3EC] text-[#0A1428] border-[#0A1428] font-extrabold'
-                  : 'text-[#787F8C] hover:text-[#0A1428] border-transparent'
+                  ? 'bg-[#EEE5DA] text-[#541D26] border-[#541D26] font-extrabold'
+                  : 'text-[#211A19]/60 hover:text-[#541D26] border-transparent'
               }`}
             >
               <Clock className="w-4 h-4" />
@@ -344,10 +344,10 @@ export default function AdminDashboardPage({ setRoute }) {
 
             <button
               onClick={() => setActiveTab('vendors')}
-              className={`px-5 py-3 rounded-t-xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider ${
+              className={`px-5 py-3 rounded-t-xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider cursor-pointer ${
                 activeTab === 'vendors'
-                  ? 'bg-[#F6F3EC] text-[#0A1428] border-[#0A1428] font-extrabold'
-                  : 'text-[#787F8C] hover:text-[#0A1428] border-transparent'
+                  ? 'bg-[#EEE5DA] text-[#541D26] border-[#541D26] font-extrabold'
+                  : 'text-[#211A19]/60 hover:text-[#541D26] border-transparent'
               }`}
             >
               <Store className="w-4 h-4" />
@@ -356,37 +356,37 @@ export default function AdminDashboardPage({ setRoute }) {
 
             <button
               onClick={() => setActiveTab('societies')}
-              className={`px-5 py-3 rounded-t-xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider ${
+              className={`px-5 py-3 rounded-t-xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider cursor-pointer ${
                 activeTab === 'societies'
-                  ? 'bg-[#F6F3EC] text-[#0A1428] border-[#0A1428] font-extrabold'
-                  : 'text-[#787F8C] hover:text-[#0A1428] border-transparent'
+                  ? 'bg-[#EEE5DA] text-[#541D26] border-[#541D26] font-extrabold'
+                  : 'text-[#211A19]/60 hover:text-[#541D26] border-transparent'
               }`}
             >
-              <Building2 className="w-4 h-4 text-[#2E7D32]" />
+              <Building2 className="w-4 h-4 text-[#541D26]" />
               <span>Societies Management</span>
             </button>
 
             <button
               onClick={() => setActiveTab('branding')}
-              className={`px-5 py-3 rounded-t-xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider ${
+              className={`px-5 py-3 rounded-t-xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider cursor-pointer ${
                 activeTab === 'branding'
-                  ? 'bg-[#F6F3EC] text-[#0A1428] border-[#0A1428] font-extrabold'
-                  : 'text-[#787F8C] hover:text-[#0A1428] border-transparent'
+                  ? 'bg-[#EEE5DA] text-[#541D26] border-[#541D26] font-extrabold'
+                  : 'text-[#211A19]/60 hover:text-[#541D26] border-transparent'
               }`}
             >
-              <Image className="w-4 h-4 text-[#C5A880]" />
+              <Image className="w-4 h-4 text-[#C8A878]" />
               <span>Platform Logo & Branding</span>
             </button>
 
             <button
               onClick={() => setActiveTab('cms')}
-              className={`px-5 py-3 rounded-t-xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider ${
+              className={`px-5 py-3 rounded-t-xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider cursor-pointer ${
                 activeTab === 'cms'
-                  ? 'bg-[#F6F3EC] text-[#0A1428] border-[#0A1428] font-extrabold'
-                  : 'text-[#787F8C] hover:text-[#0A1428] border-transparent'
+                  ? 'bg-[#EEE5DA] text-[#541D26] border-[#541D26] font-extrabold'
+                  : 'text-[#211A19]/60 hover:text-[#541D26] border-transparent'
               }`}
             >
-              <FileText className="w-4 h-4 text-[#C5A880]" />
+              <FileText className="w-4 h-4 text-[#C8A878]" />
               <span>CMS & Support Contacts</span>
             </button>
           </div>
@@ -400,8 +400,8 @@ export default function AdminDashboardPage({ setRoute }) {
         {activeTab === 'requests' && (
           <div>
             <div className="mb-6">
-              <h2 className="text-lg font-serif font-bold text-[#0A1428] uppercase tracking-wider">Vendor Registration Approval Queue</h2>
-              <p className="text-xs text-[#787F8C] font-medium">Review vendor details and payment. Accepting will activate their 1-Year subscription starting from approval date.</p>
+              <h2 className="text-lg font-serif font-bold text-[#211A19] uppercase tracking-wider">Vendor Registration Approval Queue</h2>
+              <p className="text-xs text-[#211A19]/60 font-medium">Review vendor details and payment. Accepting will activate their 1-Year subscription starting from approval date.</p>
             </div>
 
             {loading ? (
@@ -411,45 +411,45 @@ export default function AdminDashboardPage({ setRoute }) {
                 ))}
               </div>
             ) : (!Array.isArray(requests) || requests.length === 0) ? (
-              <div className="text-center py-16 bg-white rounded-2xl border border-[#C5A880]/20 p-8 shadow-sm">
-                <Check className="w-12 h-12 text-[#2E7D32] mx-auto mb-3" />
-                <h3 className="text-base font-bold text-[#0A1428] mb-1">No Pending Vendor Requests</h3>
-                <p className="text-[#787F8C] text-xs font-medium">All vendor applications have been processed.</p>
+              <div className="text-center py-16 bg-white rounded-2xl border border-[#E5DAD0] p-8 shadow-sm">
+                <Check className="w-12 h-12 text-[#541D26] mx-auto mb-3" />
+                <h3 className="text-base font-bold text-[#211A19] mb-1">No Pending Vendor Requests</h3>
+                <p className="text-[#211A19]/60 text-xs font-medium">All vendor applications have been processed.</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {(Array.isArray(requests) ? requests : []).map((req) => (
-                  <div key={req.vendor_id} className="rounded-2xl bg-white border border-[#C5A880]/25 p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-sm">
+                  <div key={req.vendor_id} className="rounded-2xl bg-white border border-[#E5DAD0] p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-sm">
                     <div className="flex items-start space-x-4">
                       <img
                         src={req.logo || 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80'}
                         alt={req.store_name}
-                        className="w-16 h-16 rounded-xl object-cover border border-[#C5A880]/30 bg-[#FAF9F6] shadow-sm"
+                        className="w-16 h-16 rounded-xl object-cover border border-[#E5DAD0] bg-[#FAF8F5] shadow-sm"
                       />
                       <div className="space-y-1">
                         <div className="flex items-center space-x-2">
-                          <h3 className="text-lg font-bold text-[#0A1428]">{req.store_name}</h3>
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F6F3EC] text-[#0A1428] border border-[#C5A880]/30 uppercase">
+                          <h3 className="text-lg font-bold text-[#211A19]">{req.store_name}</h3>
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 uppercase">
                             PENDING APPROVAL
                           </span>
                         </div>
 
-                        <p className="text-xs text-[#787F8C] font-medium">
-                          Vendor Name: <strong>{req.vendor_name}</strong> • Email: <strong className="text-[#C5A880]">{req.email}</strong>
+                        <p className="text-xs text-[#211A19]/70 font-medium">
+                          Vendor Name: <strong>{req.vendor_name}</strong> • Email: <strong className="text-[#541D26]">{req.email}</strong>
                         </p>
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-[#787F8C] pt-1 font-medium">
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-[#211A19]/70 pt-1 font-medium">
                           <span className="flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-[#C5A880]" />
+                            <MapPin className="w-3.5 h-3.5 text-[#C8A878]" />
                             {req.society_name} ({req.location || req.area})
                           </span>
-                          <span>• Shop No: <strong className="text-[#0A1428]">{req.shop_number || req.shop_no || 'Shop 101'}</strong></span>
+                          <span>• Shop No: <strong className="text-[#211A19]">{req.shop_number || req.shop_no || 'Shop 101'}</strong></span>
                           <span>• Phone: {req.phone_number || 'N/A'}</span>
                           {req.gst_number && <span>• GST: {req.gst_number}</span>}
                         </div>
 
-                        <div className="p-3 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/20 text-xs text-[#0A1428] mt-2 font-medium">
-                          <span className="font-bold text-[#2E7D32]">Razorpay Payment Received: ₹{req.paid_amount || '2,999.00'}</span>
-                          <span className="text-[#787F8C] ml-2">({req.payment_method || 'UPI'} - Txn: {req.transaction_id || 'N/A'})</span>
+                        <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] text-xs text-[#211A19] mt-2 font-medium">
+                          <span className="font-bold text-[#541D26]">Razorpay Payment Received: ₹{req.paid_amount || '2,999.00'}</span>
+                          <span className="text-[#211A19]/60 ml-2">({req.payment_method || 'UPI'} - Txn: {req.transaction_id || 'N/A'})</span>
                         </div>
                       </div>
                     </div>
@@ -463,9 +463,9 @@ export default function AdminDashboardPage({ setRoute }) {
                       </button>
                       <button
                         onClick={() => handleApproveRequest(req.vendor_id)}
-                        className="px-6 py-2.5 rounded-xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-bold text-xs shadow-md flex items-center space-x-1.5 uppercase tracking-wider cursor-pointer"
+                        className="px-6 py-2.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md flex items-center space-x-1.5 uppercase tracking-wider cursor-pointer"
                       >
-                        <Check className="w-4 h-4" />
+                        <Check className="w-4 h-4 text-[#C8A878]" />
                         <span>Accept & Activate 1-Yr Subscription</span>
                       </button>
                     </div>
@@ -481,19 +481,19 @@ export default function AdminDashboardPage({ setRoute }) {
           <div>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-lg font-serif font-bold text-[#0A1428] uppercase tracking-wider">Registered Vendors Directory</h2>
-                <p className="text-xs text-[#787F8C] font-medium">Clicking on any vendor opens details, transaction history, package placement, and subscription 1-year expiry date.</p>
+                <h2 className="text-lg font-serif font-bold text-[#211A19] uppercase tracking-wider">Registered Vendors Directory</h2>
+                <p className="text-xs text-[#211A19]/60 font-medium">Clicking on any vendor opens details, transaction history, package placement, and subscription 1-year expiry date.</p>
               </div>
 
               <div className="w-full md:w-80">
                 <div className="relative">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C5A880]" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C8A878]" />
                   <input
                     type="text"
                     placeholder="Search vendor or society name..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                   />
                 </div>
               </div>
@@ -502,101 +502,101 @@ export default function AdminDashboardPage({ setRoute }) {
             {loading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-20 rounded-2xl bg-white border border-[#C5A880]/20 animate-pulse" />
+                  <div key={i} className="h-20 rounded-2xl bg-white border border-[#E5DAD0] animate-pulse" />
                 ))}
               </div>
             ) : (!Array.isArray(vendors) || vendors.length === 0) ? (
-              <div className="text-center py-16 bg-[#FAF9F6] rounded-2xl border border-[#C5A880]/20 p-8 shadow-sm">
-                <Store className="w-12 h-12 text-[#787F8C] mx-auto mb-3" />
-                <h3 className="text-base font-bold text-[#0A1428] mb-1">No Vendors Found</h3>
-                <p className="text-xs text-[#787F8C]">No vendor profiles match your current search criteria.</p>
+              <div className="text-center py-16 bg-[#FAF8F5] rounded-2xl border border-[#E5DAD0] p-8 shadow-sm">
+                <Store className="w-12 h-12 text-[#211A19]/40 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-[#211A19] mb-1">No Vendors Found</h3>
+                <p className="text-xs text-[#211A19]/60">No vendor profiles match your current search criteria.</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {vendors.map((vendor) => {
                   const isExpanded = expandedVendorId === vendor.vendor_id;
                   return (
-                    <div key={vendor.vendor_id} className="bg-white rounded-2xl border border-[#C5A880]/20 shadow-sm overflow-hidden transition-all">
+                    <div key={vendor.vendor_id} className="bg-white rounded-2xl border border-[#E5DAD0] shadow-sm overflow-hidden transition-all">
                       <div
                         onClick={() => setExpandedVendorId(isExpanded ? null : vendor.vendor_id)}
-                        className="p-5 flex items-center justify-between cursor-pointer hover:bg-[#FAF9F6] transition-colors"
+                        className="p-5 flex items-center justify-between cursor-pointer hover:bg-[#FAF8F5] transition-colors"
                       >
                         <div className="flex items-center space-x-4">
                           <img
                             src={vendor.logo || 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80'}
                             alt={vendor.store_name}
-                            className="w-12 h-12 rounded-xl object-cover border border-[#C5A880]/30 bg-[#FAF9F6] shadow-sm"
+                            className="w-12 h-12 rounded-xl object-cover border border-[#E5DAD0] bg-[#FAF8F5] shadow-sm"
                           />
                           <div>
                             <div className="flex items-center space-x-2">
-                              <h3 className="font-bold text-[#0A1428] text-base">{vendor.store_name}</h3>
+                              <h3 className="font-bold text-[#211A19] text-base">{vendor.store_name}</h3>
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                vendor.status === 'ACTIVE' ? 'bg-[#E8F5E9] text-[#2E7D32] border border-[#2E7D32]/30' :
-                                vendor.status === 'PENDING' ? 'bg-[#F6F3EC] text-[#0A1428] border border-[#C5A880]/30' :
+                                vendor.status === 'ACTIVE' ? 'bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/30' :
+                                vendor.status === 'PENDING' ? 'bg-[#EEE5DA] text-[#211A19] border border-[#E5DAD0]' :
                                 'bg-rose-50 text-rose-800 border border-rose-200'
                               }`}>
                                 {vendor.status}
                               </span>
                             </div>
-                            <p className="text-xs text-[#787F8C] font-medium">
-                              Vendor: {vendor.vendor_name} • Shop: <strong className="text-[#0A1428]">{vendor.shop_number || vendor.shop_no || 'Shop 101'}</strong> • Society: <strong className="text-[#C5A880]">{vendor.society_name}</strong>
+                            <p className="text-xs text-[#211A19]/60 font-medium">
+                              Vendor: {vendor.vendor_name} • Shop: <strong className="text-[#211A19]">{vendor.shop_number || vendor.shop_no || 'Shop 101'}</strong> • Society: <strong className="text-[#541D26]">{vendor.society_name}</strong>
                             </p>
                           </div>
                         </div>
 
                         <div className="flex items-center space-x-6">
                           <div className="text-right hidden sm:block">
-                            <span className="text-[11px] text-[#787F8C] font-medium">Subscription Expiry</span>
-                            <p className="text-xs font-bold text-[#0A1428]">
+                            <span className="text-[11px] text-[#211A19]/60 font-medium">Subscription Expiry</span>
+                            <p className="text-xs font-bold text-[#211A19]">
                               {vendor.end_date ? vendor.end_date : (vendor.status === 'ACTIVE' ? '1 Year Active' : 'Not Started')}
                             </p>
                           </div>
                           {isExpanded ? (
-                            <ChevronUp className="w-5 h-5 text-[#787F8C]" />
+                            <ChevronUp className="w-5 h-5 text-[#211A19]/60" />
                           ) : (
-                            <ChevronDown className="w-5 h-5 text-[#787F8C]" />
+                            <ChevronDown className="w-5 h-5 text-[#211A19]/60" />
                           )}
                         </div>
                       </div>
 
                       {/* Expandable Drawer */}
                       {isExpanded && (
-                        <div className="p-6 bg-[#FAF9F6] border-t border-[#C5A880]/20 space-y-6">
+                        <div className="p-6 bg-[#FAF8F5] border-t border-[#E5DAD0] space-y-6">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             
-                            <div className="p-4 rounded-xl bg-white border border-[#C5A880]/25 shadow-sm">
-                              <div className="flex items-center space-x-2 text-[#0A1428] font-bold text-xs uppercase mb-2">
-                                <CreditCard className="w-4 h-4 text-[#C5A880]" />
+                            <div className="p-4 rounded-xl bg-white border border-[#E5DAD0] shadow-sm">
+                              <div className="flex items-center space-x-2 text-[#211A19] font-bold text-xs uppercase mb-2">
+                                <CreditCard className="w-4 h-4 text-[#C8A878]" />
                                 <span>Package Placement</span>
                               </div>
-                              <p className="text-xs font-bold text-[#0A1428]">{vendor.package_placement}</p>
-                              <p className="text-[11px] text-[#787F8C] mt-1 font-medium">Unlimited catalog items & direct WhatsApp resident messaging.</p>
+                              <p className="text-xs font-bold text-[#211A19]">{vendor.package_placement}</p>
+                              <p className="text-[11px] text-[#211A19]/60 mt-1 font-medium">Unlimited catalog items & direct WhatsApp resident messaging.</p>
                             </div>
 
-                            <div className="p-4 rounded-xl bg-white border border-[#C5A880]/25 shadow-sm">
-                              <div className="flex items-center space-x-2 text-[#0A1428] font-bold text-xs uppercase mb-2">
-                                <Calendar className="w-4 h-4 text-[#C5A880]" />
+                            <div className="p-4 rounded-xl bg-white border border-[#E5DAD0] shadow-sm">
+                              <div className="flex items-center space-x-2 text-[#211A19] font-bold text-xs uppercase mb-2">
+                                <Calendar className="w-4 h-4 text-[#C8A878]" />
                                 <span>Subscription Dates</span>
                               </div>
-                              <div className="text-xs space-y-1 text-[#787F8C] font-medium">
+                              <div className="text-xs space-y-1 text-[#211A19]/70 font-medium">
                                 <div className="flex justify-between">
                                   <span>Start Date:</span>
-                                  <span className="font-bold text-[#0A1428]">{vendor.start_date || 'N/A'}</span>
+                                  <span className="font-bold text-[#211A19]">{vendor.start_date || 'N/A'}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Expiry Date (1 Yr):</span>
-                                  <span className="font-bold text-[#C5A880]">{vendor.end_date || 'N/A'}</span>
+                                  <span className="font-bold text-[#541D26]">{vendor.end_date || 'N/A'}</span>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="p-4 rounded-xl bg-white border border-[#C5A880]/25 shadow-sm">
-                              <div className="flex items-center space-x-2 text-[#2E7D32] font-bold text-xs uppercase mb-2">
+                            <div className="p-4 rounded-xl bg-white border border-[#E5DAD0] shadow-sm">
+                              <div className="flex items-center space-x-2 text-[#541D26] font-bold text-xs uppercase mb-2">
                                 <User className="w-4 h-4" />
                                 <span>Vendor Details</span>
                               </div>
-                              <div className="text-xs space-y-1 text-[#787F8C] font-medium">
-                                <p>Shop No: <strong className="text-[#0A1428]">{vendor.shop_number || vendor.shop_no || 'Shop 101'}</strong></p>
+                              <div className="text-xs space-y-1 text-[#211A19]/70 font-medium">
+                                <p>Shop No: <strong className="text-[#211A19]">{vendor.shop_number || vendor.shop_no || 'Shop 101'}</strong></p>
                                 <p>Address: {vendor.address || 'N/A'}</p>
                                 <p>Email: {vendor.email || 'N/A'}</p>
                                 <p>Phone: {vendor.country_code ? `${vendor.country_code} ${vendor.phone_number}` : (vendor.phone_number || 'N/A')}</p>
@@ -606,24 +606,24 @@ export default function AdminDashboardPage({ setRoute }) {
                           </div>
 
                           <div>
-                            <h4 className="text-xs font-bold text-[#0A1428] uppercase tracking-wider mb-3">Transaction History</h4>
+                            <h4 className="text-xs font-bold text-[#211A19] uppercase tracking-wider mb-3">Transaction History</h4>
                             {Array.isArray(vendor.payments) && vendor.payments.length > 0 ? (
                               <div className="space-y-2">
                                 {vendor.payments.map((pay) => (
-                                  <div key={pay.payment_id || Math.random()} className="p-3 rounded-xl bg-white border border-[#C5A880]/20 flex items-center justify-between text-xs font-medium shadow-sm">
+                                  <div key={pay.payment_id || Math.random()} className="p-3 rounded-xl bg-white border border-[#E5DAD0] flex items-center justify-between text-xs font-medium shadow-sm">
                                     <div>
-                                      <span className="font-bold text-[#0A1428]">₹{pay.amount ? parseFloat(pay.amount).toFixed(2) : '0.00'}</span>
-                                      <span className="text-[#787F8C] ml-2">via {pay.payment_method || 'N/A'}</span>
-                                      <span className="text-[#787F8C] ml-2">(Txn: {pay.transaction_id || 'N/A'})</span>
+                                      <span className="font-bold text-[#211A19]">₹{pay.amount ? parseFloat(pay.amount).toFixed(2) : '0.00'}</span>
+                                      <span className="text-[#211A19]/60 ml-2">via {pay.payment_method || 'N/A'}</span>
+                                      <span className="text-[#211A19]/60 ml-2">(Txn: {pay.transaction_id || 'N/A'})</span>
                                     </div>
-                                    <span className="px-2 py-0.5 rounded bg-[#E8F5E9] text-[#2E7D32] font-bold">
+                                    <span className="px-2 py-0.5 rounded bg-[#541D26]/10 text-[#541D26] font-bold">
                                       {pay.status}
                                     </span>
                                   </div>
                                 ))}
                               </div>
                             ) : (
-                              <p className="text-xs text-[#787F8C]">No payment transaction records found.</p>
+                              <p className="text-xs text-[#211A19]/60">No payment transaction records found.</p>
                             )}
                           </div>
 
@@ -642,13 +642,13 @@ export default function AdminDashboardPage({ setRoute }) {
           <div>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-lg font-serif font-bold text-[#0A1428] uppercase tracking-wider">Societies Management</h2>
-                <p className="text-xs text-[#787F8C] font-medium">Admin can view registered societies and add new societies to DigiLocal.</p>
+                <h2 className="text-lg font-serif font-bold text-[#211A19] uppercase tracking-wider">Societies Management</h2>
+                <p className="text-xs text-[#211A19]/60 font-medium">Admin can view registered societies and add new societies to DigiLocal.</p>
               </div>
 
               <button
                 onClick={() => setShowAddSocietyModal(true)}
-                className="px-4 py-2.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md flex items-center space-x-1.5 uppercase tracking-wider self-start"
+                className="px-4 py-2.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md flex items-center space-x-1.5 uppercase tracking-wider self-start cursor-pointer transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 <span>+ Add New Society</span>
@@ -658,20 +658,20 @@ export default function AdminDashboardPage({ setRoute }) {
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-16 rounded-xl bg-white border border-[#C5A880]/20 animate-pulse" />
+                  <div key={i} className="h-16 rounded-xl bg-white border border-[#E5DAD0] animate-pulse" />
                 ))}
               </div>
             ) : (!Array.isArray(societies) || societies.length === 0) ? (
-              <div className="text-center py-16 bg-[#FAF9F6] rounded-2xl border border-[#C5A880]/20 p-8 shadow-sm">
-                <Building2 className="w-12 h-12 text-[#787F8C] mx-auto mb-3" />
-                <h3 className="text-base font-bold text-[#0A1428] mb-1">No Societies Registered</h3>
+              <div className="text-center py-16 bg-[#FAF8F5] rounded-2xl border border-[#E5DAD0] p-8 shadow-sm">
+                <Building2 className="w-12 h-12 text-[#211A19]/40 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-[#211A19] mb-1">No Societies Registered</h3>
               </div>
             ) : (
               <div className="space-y-3">
                 {(Array.isArray(societies) ? societies : []).map((soc) => (
-                  <div key={soc.society_id} className="p-4 rounded-xl bg-white border border-[#C5A880]/25 flex items-center justify-between shadow-sm">
+                  <div key={soc.society_id} className="p-4 rounded-xl bg-white border border-[#E5DAD0] flex items-center justify-between shadow-sm">
                     <div className="flex items-center space-x-3.5">
-                      <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#C5A880]/30 shrink-0 bg-[#F6F3EC]">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#E5DAD0] shrink-0 bg-[#EEE5DA]">
                         <img 
                           src={getSocietyImage(soc)} 
                           alt={soc.society_name} 
@@ -680,22 +680,22 @@ export default function AdminDashboardPage({ setRoute }) {
                       </div>
                       <div>
                         <div className="flex items-center space-x-2">
-                          <h4 className="font-bold text-[#0A1428] text-sm">{soc.society_name}</h4>
+                          <h4 className="font-bold text-[#211A19] text-sm">{soc.society_name}</h4>
                           {soc.society_id && (
-                            <span className="px-2 py-0.5 text-[9px] font-extrabold bg-[#0A1428] text-[#C5A880] rounded-md uppercase tracking-wider">
+                            <span className="px-2 py-0.5 text-[9px] font-extrabold bg-[#541D26] text-[#C8A878] rounded-md uppercase tracking-wider">
                               {soc.society_id}
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center space-x-1 text-xs text-[#787F8C] font-medium mt-0.5">
-                          <MapPin className="w-3.5 h-3.5 text-[#C5A880]" />
+                        <div className="flex items-center space-x-1 text-xs text-[#211A19]/60 font-medium mt-0.5">
+                          <MapPin className="w-3.5 h-3.5 text-[#C8A878]" />
                           <span>{soc.location}</span>
                         </div>
                       </div>
                     </div>
 
-                    <span className="px-3 py-1 text-xs font-bold bg-[#E8F5E9] text-[#2E7D32] border border-[#2E7D32]/30 rounded-full flex items-center gap-1">
-                      <Store className="w-3.5 h-3.5 text-[#2E7D32]" />
+                    <span className="px-3 py-1 text-xs font-bold bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 rounded-full flex items-center gap-1">
+                      <Store className="w-3.5 h-3.5 text-[#541D26]" />
                       {soc.vendor_count || 0} Vendors
                     </span>
                   </div>
@@ -707,19 +707,19 @@ export default function AdminDashboardPage({ setRoute }) {
 
         {/* 4. PLATFORM LOGO & BRANDING SETTINGS */}
         {activeTab === 'branding' && (
-          <div className="max-w-2xl bg-white border border-[#C5A880]/30 rounded-2xl p-8 shadow-sm space-y-6">
+          <div className="max-w-2xl bg-white border border-[#E5DAD0] rounded-2xl p-8 shadow-sm space-y-6">
             <div>
-              <h2 className="text-xl font-serif font-extrabold text-[#0A1428] mb-1 uppercase tracking-wider">
+              <h2 className="text-xl font-serif font-extrabold text-[#211A19] mb-1 uppercase tracking-wider">
                 Platform Logo & Branding Settings
               </h2>
-              <p className="text-xs text-[#787F8C] font-medium">
+              <p className="text-xs text-[#211A19]/60 font-medium">
                 Admin can update the official DigiLocal logo image URL displayed across the platform navbar, header, and home screen.
               </p>
             </div>
 
             {/* Live Logo Preview Box */}
-            <div className="p-6 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/25 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
-              <div className="w-24 h-24 rounded-2xl bg-white border-2 border-[#C5A880]/40 p-2 flex items-center justify-center shadow-md">
+            <div className="p-6 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
+              <div className="w-24 h-24 rounded-2xl bg-white border-2 border-[#C8A878]/40 p-2 flex items-center justify-center shadow-md">
                 <img
                   src={platformLogoInput || '/logo.png'}
                   alt="DigiLocal Platform Logo Preview"
@@ -728,15 +728,15 @@ export default function AdminDashboardPage({ setRoute }) {
                 />
               </div>
               <div className="text-center sm:text-left space-y-1">
-                <span className="text-[10px] font-bold text-[#C5A880] uppercase tracking-widest">Active Logo Preview</span>
-                <h3 className="text-base font-serif font-bold text-[#0A1428]">DigiLocal Network Logo</h3>
-                <p className="text-xs text-[#787F8C] font-medium">This logo is displayed in the main top header navigation, hero banner, and login pages.</p>
+                <span className="text-[10px] font-bold text-[#C8A878] uppercase tracking-widest">Active Logo Preview</span>
+                <h3 className="text-base font-serif font-bold text-[#211A19]">DigiLocal Network Logo</h3>
+                <p className="text-xs text-[#211A19]/60 font-medium">This logo is displayed in the main top header navigation, hero banner, and login pages.</p>
               </div>
             </div>
 
             <form onSubmit={handleSaveLogo} className="space-y-5">
               <div>
-                <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1.5">
+                <label className="block text-xs font-bold text-[#211A19] uppercase mb-1.5">
                   Platform Product Name *
                 </label>
                 <input
@@ -745,12 +745,12 @@ export default function AdminDashboardPage({ setRoute }) {
                   placeholder="e.g. DigiLocal"
                   value={platformNameInput}
                   onChange={(e) => setPlatformNameInput(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1.5">
+                <label className="block text-xs font-bold text-[#211A19] uppercase mb-1.5">
                   Platform Logo Image URL *
                 </label>
                 <input
@@ -759,25 +759,25 @@ export default function AdminDashboardPage({ setRoute }) {
                   placeholder="https://imgh.in/host/ucila6"
                   value={platformLogoInput}
                   onChange={(e) => setPlatformLogoInput(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                 />
               </div>
 
               {/* Quick Select Buttons */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-[#0A1428] uppercase">Preset Logo Options:</span>
+                <span className="text-[11px] font-bold text-[#211A19] uppercase">Preset Logo Options:</span>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => setPlatformLogoInput('https://imgh.in/host/ucila6')}
-                    className="px-3 py-1.5 rounded-lg bg-[#F6F3EC] hover:bg-[#EAE5D9] text-[#0A1428] border border-[#C5A880]/30 text-[11px] font-bold transition-colors"
+                    className="px-3 py-1.5 rounded-lg bg-[#EEE5DA] hover:bg-[#E5DAD0] text-[#211A19] border border-[#E5DAD0] text-[11px] font-bold transition-colors cursor-pointer"
                   >
                     Use Hosted Logo (imgh.in/host/ucila6)
                   </button>
                   <button
                     type="button"
                     onClick={() => setPlatformLogoInput('/logo.png')}
-                    className="px-3 py-1.5 rounded-lg bg-[#F6F3EC] hover:bg-[#EAE5D9] text-[#0A1428] border border-[#C5A880]/30 text-[11px] font-bold transition-colors"
+                    className="px-3 py-1.5 rounded-lg bg-[#EEE5DA] hover:bg-[#E5DAD0] text-[#211A19] border border-[#E5DAD0] text-[11px] font-bold transition-colors cursor-pointer"
                   >
                     Use Local Asset (/logo.png)
                   </button>
@@ -787,7 +787,7 @@ export default function AdminDashboardPage({ setRoute }) {
               <button
                 type="submit"
                 disabled={savingLogo}
-                className="w-full py-3.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider transition-all"
+                className="w-full py-3.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all cursor-pointer"
               >
                 {savingLogo ? 'Updating Platform Logo...' : 'Save Platform Logo'}
               </button>
@@ -799,21 +799,21 @@ export default function AdminDashboardPage({ setRoute }) {
         {activeTab === 'cms' && (
           <div className="space-y-8">
             <div className="mb-2">
-              <h2 className="text-lg font-serif font-bold text-[#0A1428] uppercase tracking-wider">CMS & Support Contacts Management</h2>
-              <p className="text-xs text-[#787F8C] font-medium">Manage legal pages content (Privacy Policy, Terms & Conditions, Help & Support, About Us) and customer support helpline contacts persisted in PostgreSQL database.</p>
+              <h2 className="text-lg font-serif font-bold text-[#211A19] uppercase tracking-wider">CMS & Support Contacts Management</h2>
+              <p className="text-xs text-[#211A19]/60 font-medium">Manage legal pages content (Privacy Policy, Terms & Conditions, Help & Support, About Us) and customer support helpline contacts persisted in PostgreSQL database.</p>
             </div>
 
             {/* SECTION 1: SUPPORT CONTACT DETAILS EDITOR */}
-            <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div className="border-b border-[#C5A880]/15 pb-4 flex items-center justify-between">
+            <div className="bg-white border border-[#E5DAD0] rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="border-b border-[#E5DAD0] pb-4 flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-serif font-bold text-[#0A1428] uppercase flex items-center gap-2">
-                    <PhoneCall className="w-4.5 h-4.5 text-[#C5A880]" />
+                  <h3 className="text-base font-serif font-bold text-[#211A19] uppercase flex items-center gap-2">
+                    <PhoneCall className="w-4.5 h-4.5 text-[#C8A878]" />
                     <span>Support Contact Details (PUT /api/cms/contacts)</span>
                   </h3>
-                  <p className="text-xs text-[#787F8C] mt-0.5 font-medium">Phone helpline, email, toll-free number, WhatsApp support, working hours & corporate address.</p>
+                  <p className="text-xs text-[#211A19]/60 mt-0.5 font-medium">Phone helpline, email, toll-free number, WhatsApp support, working hours & corporate address.</p>
                 </div>
-                <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-[10px] font-black uppercase rounded-full border border-emerald-300">
+                <span className="px-3 py-1 bg-[#541D26]/10 text-[#541D26] text-[10px] font-black uppercase rounded-full border border-[#541D26]/20">
                   Database Persisted
                 </span>
               </div>
@@ -821,80 +821,80 @@ export default function AdminDashboardPage({ setRoute }) {
               <form onSubmit={handleSaveSupportContacts} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Helpline Phone *</label>
+                    <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Helpline Phone *</label>
                     <input
                       type="text"
                       required
                       placeholder="+91 800-562-5999"
                       value={supportContacts.phone}
                       onChange={(e) => setSupportContacts({ ...supportContacts, phone: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Official Support Email *</label>
+                    <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Official Support Email *</label>
                     <input
                       type="email"
                       required
                       placeholder="support@digilocal.in"
                       value={supportContacts.email}
                       onChange={(e) => setSupportContacts({ ...supportContacts, email: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Toll-Free Number</label>
+                    <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Toll-Free Number</label>
                     <input
                       type="text"
                       placeholder="1800-123-4567"
                       value={supportContacts.toll_free}
                       onChange={(e) => setSupportContacts({ ...supportContacts, toll_free: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">WhatsApp Support Number</label>
+                    <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">WhatsApp Support Number</label>
                     <input
                       type="text"
                       placeholder="+91 80056 25999"
                       value={supportContacts.whatsapp}
                       onChange={(e) => setSupportContacts({ ...supportContacts, whatsapp: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Working Hours</label>
+                  <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Working Hours</label>
                   <input
                     type="text"
                     placeholder="Monday to Saturday: 9:00 AM - 8:00 PM IST"
                     value={supportContacts.working_hours}
                     onChange={(e) => setSupportContacts({ ...supportContacts, working_hours: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Corporate Address</label>
+                  <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Corporate Address</label>
                   <textarea
                     rows={2}
                     placeholder="DigiLocal Tech Hub, Tower B, Sector 62, Noida, UP - 201309"
                     value={supportContacts.address}
                     onChange={(e) => setSupportContacts({ ...supportContacts, address: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={savingContacts}
-                  className="px-6 py-3 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider transition-all cursor-pointer"
+                  className="px-6 py-3 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all cursor-pointer"
                 >
                   {savingContacts ? 'Saving Support Contacts...' : 'Save Support Contacts'}
                 </button>
@@ -902,17 +902,17 @@ export default function AdminDashboardPage({ setRoute }) {
             </div>
 
             {/* SECTION 2: CMS & LEGAL PAGES MARKDOWN EDITOR */}
-            <div className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div className="border-b border-[#C5A880]/15 pb-4">
-                <h3 className="text-base font-serif font-bold text-[#0A1428] uppercase flex items-center gap-2">
-                  <FileText className="w-4.5 h-4.5 text-[#C5A880]" />
+            <div className="bg-white border border-[#E5DAD0] rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="border-b border-[#E5DAD0] pb-4">
+                <h3 className="text-base font-serif font-bold text-[#211A19] uppercase flex items-center gap-2">
+                  <FileText className="w-4.5 h-4.5 text-[#C8A878]" />
                   <span>CMS Page Content Editor (PUT /api/cms/pages/:slug)</span>
                 </h3>
-                <p className="text-xs text-[#787F8C] mt-0.5 font-medium">Select page slug and edit title, meta description, and markdown document content.</p>
+                <p className="text-xs text-[#211A19]/60 mt-0.5 font-medium">Select page slug and edit title, meta description, and markdown document content.</p>
               </div>
 
               {/* Page Slug Selector Tabs */}
-              <div className="flex items-center space-x-2 border-b border-[#C5A880]/20 overflow-x-auto pb-1">
+              <div className="flex items-center space-x-2 border-b border-[#E5DAD0] overflow-x-auto pb-1">
                 {[
                   { slug: 'help-support', label: 'Help & Support' },
                   { slug: 'about-us', label: 'About Us' },
@@ -923,10 +923,10 @@ export default function AdminDashboardPage({ setRoute }) {
                     key={tab.slug}
                     type="button"
                     onClick={() => setSelectedCmsSlug(tab.slug)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-wider ${
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-wider cursor-pointer ${
                       selectedCmsSlug === tab.slug
-                        ? 'bg-[#0A1428] text-white shadow-sm'
-                        : 'bg-[#F6F3EC] text-[#787F8C] hover:text-[#0A1428]'
+                        ? 'bg-[#541D26] text-white shadow-sm'
+                        : 'bg-[#EEE5DA] text-[#211A19]/70 hover:text-[#211A19]'
                     }`}
                   >
                     {tab.label}
@@ -936,44 +936,44 @@ export default function AdminDashboardPage({ setRoute }) {
 
               <form onSubmit={handleSaveCmsPage} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Page Title *</label>
+                  <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Page Title *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Help & Support Center"
                     value={cmsForm.title}
                     onChange={(e) => setCmsForm({ ...cmsForm, title: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Meta Description</label>
+                  <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Meta Description</label>
                   <input
                     type="text"
                     placeholder="Meta description for SEO search engines..."
                     value={cmsForm.meta_description}
                     onChange={(e) => setCmsForm({ ...cmsForm, meta_description: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none focus:border-[#C5A880]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Page Content (Markdown / Text) *</label>
+                  <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Page Content (Markdown / Text) *</label>
                   <textarea
                     rows={12}
                     required
                     placeholder="# Page Heading..."
                     value={cmsForm.content}
                     onChange={(e) => setCmsForm({ ...cmsForm, content: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-[#FAF9F6] border border-[#C5A880]/30 text-xs font-mono text-[#0A1428] focus:outline-none focus:border-[#C5A880] leading-relaxed"
+                    className="w-full px-4 py-3 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] text-xs font-mono text-[#211A19] focus:outline-none focus:border-[#541D26] leading-relaxed"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={savingCms}
-                  className="px-6 py-3 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider transition-all cursor-pointer"
+                  className="px-6 py-3 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md uppercase tracking-wider transition-all cursor-pointer"
                 >
                   {savingCms ? `Saving [${selectedCmsSlug}]...` : `Save Page Content [${selectedCmsSlug}]`}
                 </button>
@@ -991,52 +991,52 @@ export default function AdminDashboardPage({ setRoute }) {
           onClick={() => setShowAddSocietyModal(false)}
         >
           <div 
-            className="bg-white border border-[#C5A880]/30 rounded-2xl p-6 sm:p-8 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl my-auto shrink-0 pointer-events-auto"
+            className="bg-white border border-[#E5DAD0] rounded-2xl p-6 sm:p-8 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl my-auto shrink-0 pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-serif font-bold text-[#0A1428] uppercase">Add New Society</h3>
-              <button onClick={() => setShowAddSocietyModal(false)} className="text-[#787F8C] hover:text-[#0A1428] cursor-pointer">
+              <h3 className="text-lg font-serif font-bold text-[#211A19] uppercase">Add New Society</h3>
+              <button onClick={() => setShowAddSocietyModal(false)} className="text-[#211A19]/60 hover:text-[#211A19] cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleAddSocietySubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Society Name</label>
+                <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Society Name</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Palm Meadows Apartment"
                   value={newSociety.society_name}
                   onChange={(e) => setNewSociety({ ...newSociety, society_name: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0A1428] uppercase mb-1">Location / Area</label>
+                <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Location / Area</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Whitefield, Bangalore"
                   value={newSociety.location}
                   onChange={(e) => setNewSociety({ ...newSociety, location: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl bg-white border border-[#C5A880]/30 text-xs font-medium focus:outline-none"
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26]"
                 />
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#C5A880]/15">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#E5DAD0]">
                 <button
                   type="button"
                   onClick={() => setShowAddSocietyModal(false)}
-                  className="px-4 py-2 text-[#787F8C] hover:text-[#0A1428] text-xs font-semibold uppercase cursor-pointer"
+                  className="px-4 py-2 text-[#211A19]/70 hover:text-[#211A19] text-xs font-semibold uppercase cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0A1428] hover:bg-[#C5A880] text-white hover:text-[#0A1428] font-bold text-xs shadow-md uppercase tracking-wider cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md uppercase tracking-wider cursor-pointer transition-colors"
                 >
                   Save Society
                 </button>
