@@ -16,6 +16,7 @@
 // ==========================================
 export { default as Navbar } from './layout/Navbar';
 export { default as Footer } from './layout/Footer';
+export { default as FooterReveal } from './layout/FooterReveal';
 export { default as FloatingCartBar } from './layout/FloatingCartBar';
 
 // ==========================================
@@ -30,6 +31,7 @@ export { default as ResidentOrderCheckoutModal } from './modals/ResidentOrderChe
 export { default as DeliveryAddressModal } from './modals/DeliveryAddressModal';
 export { default as DeliveryLocationModal } from './modals/DeliveryLocationModal';
 export { default as DummyPaymentModal } from './modals/DummyPaymentModal';
+export { default as DirectVendorPaymentModal } from './modals/DirectVendorPaymentModal';
 export { default as NotificationModal } from './modals/NotificationModal';
 export { default as UserLocationPromptModal } from './modals/UserLocationPromptModal';
 

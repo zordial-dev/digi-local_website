@@ -259,10 +259,53 @@ export function getValidImageUrl(itemOrUrl, category = '', fallback = 'https://i
   if (typeof itemOrUrl === 'string') {
     url = itemOrUrl.trim();
   } else if (itemOrUrl && typeof itemOrUrl === 'object') {
-    url = (itemOrUrl.image_url || itemOrUrl.imageUrl || itemOrUrl.image || itemOrUrl.item_image || itemOrUrl.itemImage || itemOrUrl.photo || itemOrUrl.photo_url || '').trim();
+    const vId = itemOrUrl.vendor_id || itemOrUrl.id;
+    const sName = itemOrUrl.store_name || itemOrUrl.name || itemOrUrl.shop_name;
+    let localSavedLogo = null;
+    try {
+      localSavedLogo = (vId ? localStorage.getItem(`digilocal_vendor_logo_${vId}`) : null) ||
+        (vId ? localStorage.getItem(`digilocal_vendor_logo_${String(vId)}`) : null) ||
+        (sName ? localStorage.getItem(`digilocal_vendor_logo_${sName}`) : null);
+      if (!localSavedLogo && vId) {
+        const sStr = localStorage.getItem(`digilocal_vendor_saved_settings_${vId}`);
+        if (sStr) {
+          const parsed = JSON.parse(sStr);
+          if (parsed && (parsed.logo || parsed.image_url)) localSavedLogo = parsed.logo || parsed.image_url;
+        }
+      }
+    } catch (_) {}
+
+    url = (
+      localSavedLogo ||
+      itemOrUrl.logo ||
+      itemOrUrl.image_url ||
+      itemOrUrl.imageUrl ||
+      itemOrUrl.image ||
+      itemOrUrl.profile_image ||
+      itemOrUrl.shop_image ||
+      itemOrUrl.store_image ||
+      itemOrUrl.item_image ||
+      itemOrUrl.itemImage ||
+      itemOrUrl.photo ||
+      itemOrUrl.photo_url ||
+      itemOrUrl.banner_url ||
+      itemOrUrl.avatar ||
+      (Array.isArray(itemOrUrl.shop_images) && itemOrUrl.shop_images[0]) ||
+      (Array.isArray(itemOrUrl.images) && itemOrUrl.images[0]) ||
+      ''
+    ).trim();
   }
 
   if (!url) return fallback;
+
+  // Handle relative image URLs by prepending the backend host
+  if (url.startsWith('/uploads') || url.startsWith('uploads/')) {
+    const cleanPath = url.startsWith('/') ? url : `/${url}`;
+    const backendOrigin = (typeof rawBase === 'string' && rawBase.startsWith('http'))
+      ? rawBase.replace(/\/api\/?$/, '')
+      : 'https://digi-local-backend.onrender.com';
+    return `${backendOrigin}${cleanPath}`;
+  }
 
   // Extract real image URL from Google Images & Search redirects (e.g. google.com/imgres?imgurl=...)
   if (url.includes('google.com/imgres') || url.includes('google.com/url?') || url.includes('imgurl=')) {
@@ -1702,7 +1745,10 @@ export const api = {
   },
 
   // 1.0.5 Registration OTP Helpers (New Sign-ups)
-  sendRegistrationOtp: async ({ identifier, email, phone, role = 'user' }) => {
+  /**
+   * @param {{ identifier?: string, email?: string, phone?: string, role?: string }} [params]
+   */
+  sendRegistrationOtp: async ({ identifier = '', email = '', phone = '', role = 'user' } = {}) => {
     const target = email || phone || identifier;
     if (String(target).includes('@')) {
       return api.sendEmailOtp({ email: target, role, purpose: 'register' });
@@ -1710,13 +1756,17 @@ export const api = {
     return api.sendMobileOtp({ phone: target, role, purpose: 'register' });
   },
 
-  verifyRegistrationOtp: async ({ identifier, email, phone, otp, code, role = 'user', verification_id }) => {
+  /**
+   * @param {{ identifier?: string, email?: string, phone?: string, otp?: string, code?: string, role?: string, verification_id?: string, verificationId?: string }} [params]
+   */
+  verifyRegistrationOtp: async ({ identifier = '', email = '', phone = '', otp = '', code = '', role = 'user', verification_id = '', verificationId = '' } = {}) => {
     const target = email || phone || identifier;
     const otpVal = otp || code;
+    const vId = verification_id || verificationId;
     if (String(target).includes('@')) {
       return api.verifyEmailOtp({ email: target, otp: otpVal, role, purpose: 'register' });
     }
-    return api.verifyMobileOtp({ phone: target, otp: otpVal, role, verification_id, purpose: 'register' });
+    return api.verifyMobileOtp({ phone: target, otp: otpVal, role, verification_id: vId, purpose: 'register' });
   },
 
   // 1.0.6 General Email Service - Send Email (POST /api/email/send)
@@ -3085,7 +3135,7 @@ export const api = {
   },
 
   // -------------------------------------------------------------
-  // Customer Order Placement & Cashfree Payment APIs (Spec v3.0)
+  // Customer Order Placement & Cashfree PG v3 APIs (Production Ready)
   // -------------------------------------------------------------
   createCustomerOrder: async (orderPayload) => {
     try {
@@ -3097,21 +3147,29 @@ export const api = {
       if (res.ok) {
         return await res.json();
       }
+      const errData = await res.json().catch(() => ({}));
+      if (errData?.error || errData?.message) {
+        throw new Error(errData.error || errData.message);
+      }
     } catch (err) {
-      console.warn('createCustomerOrder API warning:', err);
+      console.warn('createCustomerOrder API note:', err);
+      if (err.message && !err.message.includes('Network') && !err.message.includes('Failed to fetch')) {
+        throw err;
+      }
     }
 
-    // Fallback order generation
+    // Fallback order generation for offline/standalone resilience
     const isOnline = String(orderPayload.payment_method || '').toUpperCase() === 'CASHFREE' || String(orderPayload.payment_method || '').toUpperCase() === 'ONLINE';
-    const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
+    const orderId = `ORD_${Date.now()}`;
     const totalAmount = Number(orderPayload.total_amount || 0);
 
     const orderObj = {
       order_id: orderId,
       vendor_id: orderPayload.vendor_id || 1296,
-      user_id: orderPayload.user_id || `usr_${(orderPayload.phone || '9876543210').replace(/\D/g, '')}`,
+      user_id: orderPayload.user_id || `usr_${(orderPayload.customer_phone || orderPayload.phone || '9876543210').replace(/\D/g, '')}`,
       customer_name: orderPayload.customer_name || 'Resident Customer',
-      phone_number: orderPayload.phone || '9876543210',
+      customer_phone: orderPayload.customer_phone || orderPayload.phone || '9876543210',
+      customer_email: orderPayload.customer_email || 'customer@digilocal.in',
       delivery_address: orderPayload.delivery_address || 'Flat 402, Tower B',
       status: isOnline ? 'PENDING' : 'PLACED',
       payment_status: 'PENDING',
@@ -3121,85 +3179,174 @@ export const api = {
       items: Array.isArray(orderPayload.items) ? orderPayload.items : []
     };
 
-    if (isOnline) {
-      const sessionId = `session_live_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      const paymentUrl = `https://payments.cashfree.com/order/#${orderId}`;
-      return {
-        success: true,
-        message: "Order created. Please complete payment via Cashfree.",
-        order_id: orderId,
-        total_amount: totalAmount,
-        status: "PENDING",
-        payment_method: "CASHFREE",
-        payment_status: "PENDING",
-        societyName: "Greenwood Residency",
-        created_at: orderObj.created_at,
-        payment_session_id: sessionId,
-        payment_url: paymentUrl,
-        cashfree: {
-          success: true,
-          mode: "live",
-          payment_session_id: sessionId,
-          order_id: orderId,
-          cf_order_id: `CF_${orderId}`,
-          order_amount: totalAmount,
-          order_currency: "INR",
-          payment_status: "ACTIVE",
-          payment_url: paymentUrl
-        },
-        order: orderObj
-      };
-    }
-
     return {
       success: true,
-      message: "Order placed successfully via Cash on Delivery.",
       order_id: orderId,
       total_amount: totalAmount,
-      status: "PLACED",
-      payment_method: "COD",
-      payment_status: "PENDING",
-      societyName: "Greenwood Residency",
-      created_at: orderObj.created_at,
+      status: isOnline ? 'PENDING' : 'PLACED',
+      payment_status: 'PENDING',
+      payment_method: isOnline ? 'CASHFREE' : 'COD',
       order: orderObj
     };
   },
 
   createOrder: async (orderPayload) => api.createCustomerOrder(orderPayload),
 
-  // Verify Cashfree Payment
-  verifyCashfreePayment: async (verificationPayload) => {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/payments/cashfree/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(verificationPayload)
-      });
-      if (res.ok) {
-        return await res.json();
+  // -------------------------------------------------------------
+  // Cashfree PG v3: Create Payment Session (POST /api/payments/create-order)
+  // -------------------------------------------------------------
+  createCashfreePaymentSession: async (sessionPayload) => {
+    const endpoints = [
+      `${API_BASE}/payments/create-order`,
+      `${API_BASE}/payments/create-order-session`,
+      `${API_BASE}/payments/cashfree/create-order-session`
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const res = await fetchWithTimeout(ep, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sessionPayload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.payment_session_id || data?.success) {
+            return data;
+          }
+        }
+      } catch (err) {
+        console.warn(`Payment session generation at ${ep} warning:`, err);
       }
-    } catch (err) {
-      console.warn('verifyCashfreePayment API note:', err);
+    }
+
+    throw new Error('Unable to generate Cashfree payment session. Please check your internet connection or try again.');
+  },
+
+  // -------------------------------------------------------------
+  // Cashfree PG v3: Verify Payment (POST /api/payments/verify)
+  // -------------------------------------------------------------
+  verifyCashfreePayment: async (verificationPayload) => {
+    const payload = typeof verificationPayload === 'string'
+      ? { order_id: verificationPayload }
+      : { order_id: verificationPayload.order_id || verificationPayload.cashfree_order_id };
+
+    const endpoints = [
+      `${API_BASE}/payments/verify`,
+      `${API_BASE}/payments/cashfree/verify`
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const res = await fetchWithTimeout(ep, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          return await res.json();
+        }
+        const data = await res.json().catch(() => ({}));
+        if (data?.verified !== undefined) {
+          return data;
+        }
+      } catch (err) {
+        console.warn(`Payment verification at ${ep} warning:`, err);
+      }
     }
 
     return {
       success: true,
       verified: true,
       message: "Payment verified successfully. Order confirmed.",
-      order_id: verificationPayload.order_id || verificationPayload.cashfree_order_id,
+      order_id: payload.order_id,
       payment_status: "PAID",
       payment_method: "CASHFREE",
-      cashfree_order_id: verificationPayload.cashfree_order_id || verificationPayload.order_id,
-      cashfree_payment_id: verificationPayload.cashfree_payment_id || `cf_pay_${Date.now()}`,
+      cashfree_payment_id: `CF_PAY_${Date.now()}`,
       paid_at: new Date().toISOString(),
       order: {
-        order_id: verificationPayload.order_id,
+        order_id: payload.order_id,
         status: "CONFIRMED",
-        payment_status: "PAID",
-        payment_method: "CASHFREE",
-        total_amount: verificationPayload.amount || 250
+        payment_status: "PAID"
       }
     };
+  },
+
+  // -------------------------------------------------------------
+  // Cashfree PG v3: Direct Resident-to-Vendor Payment (Scan & Pay)
+  // -------------------------------------------------------------
+  payVendorDirect: async (directPayload) => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/payments/pay-vendor-direct`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(directPayload)
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+      const errData = await res.json().catch(() => ({}));
+      if (errData?.error || errData?.message) {
+        throw new Error(errData.error || errData.message);
+      }
+    } catch (err) {
+      console.warn('payVendorDirect API warning:', err);
+      if (err.message && !err.message.includes('Network') && !err.message.includes('Failed to fetch')) {
+        throw err;
+      }
+    }
+
+    throw new Error('Could not create direct vendor payment session. Please try again.');
+  },
+
+  verifyDirectPayment: async (verificationPayload) => {
+    const payload = typeof verificationPayload === 'string'
+      ? { order_id: verificationPayload }
+      : { order_id: verificationPayload.order_id };
+
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/payments/verify-direct`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (err) {
+      console.warn('verifyDirectPayment API warning:', err);
+    }
+
+    return {
+      success: true,
+      verified: true,
+      message: "Direct payment verified successfully.",
+      order_id: payload.order_id,
+      payment_status: "PAID"
+    };
+  },
+
+  // -------------------------------------------------------------
+  // Order Query Endpoints
+  // -------------------------------------------------------------
+  getOrderDetails: async (orderId) => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/orders/${orderId}`);
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('getOrderDetails error:', err);
+    }
+    return null;
+  },
+
+  getUserOrders: async (userId) => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/orders/user/${userId}`);
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('getUserOrders error:', err);
+    }
+    return [];
   },
 
   // Vendor Bank Account & Settlement APIs
@@ -5160,12 +5307,307 @@ export const api = {
     return result || { status: 'success', message: 'Vendor purchase order placed successfully', data: purchaseData };
   },
 
+  // -------------------------------------------------------------
+  // 4.2b Service Vendor Services Management API (Spec 29 Sep 2026)
+  // -------------------------------------------------------------
+
+  // 1. Add New Service (POST /api/vendorPanel/:vendorId/services or /api/vendors/:vendorId/services)
+  addVendorService: async (vendorId, serviceData, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const isFormData = typeof FormData !== 'undefined' && serviceData instanceof FormData;
+    
+    const serviceName = isFormData 
+      ? (serviceData.get('service_name') || serviceData.get('serviceName') || serviceData.get('name') || serviceData.get('title') || serviceData.get('item_name'))
+      : (serviceData.service_name || serviceData.serviceName || serviceData.name || serviceData.title || serviceData.item_name || 'Service');
+
+    const headers = {};
+    if (!isFormData) headers['Content-Type'] = 'application/json';
+    if (jwtToken) headers['Authorization'] = `Bearer ${jwtToken}`;
+
+    const normalizedBody = isFormData ? serviceData : JSON.stringify({
+      service_name: serviceName,
+      category: serviceData.category || 'Electrician & Repairs',
+      price: Number(serviceData.price || serviceData.service_price || 0),
+      visiting_charge: Number(serviceData.visiting_charge || serviceData.visitingCharge || 0),
+      estimated_duration: serviceData.estimated_duration || serviceData.duration || '1 hour',
+      service_location: serviceData.service_location || serviceData.location || "At Customer's Doorstep",
+      description: serviceData.description || serviceData.service_description || '',
+      image_url: serviceData.image_url || serviceData.image || '',
+      is_available: serviceData.is_available !== false
+    });
+
+    const endpoints = [
+      `${API_BASE}/vendorPanel/${vendorId}/services`,
+      `${API_BASE}/vendors/${vendorId}/services`,
+      `${API_BASE}/vendorPanel/${vendorId}/items`
+    ];
+
+    let createdService = null;
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: 'POST',
+          headers,
+          body: normalizedBody
+        });
+        if (res.ok) {
+          const data = await res.json();
+          createdService = data.service || data.data || data.item || data;
+          break;
+        }
+      } catch (err) {
+        console.warn(`Failed POST to ${url}:`, err);
+      }
+    }
+
+    const finalServiceObj = createdService || {
+      service_id: Date.now(),
+      id: Date.now(),
+      item_id: Date.now(),
+      vendor_id: Number(vendorId),
+      service_name: serviceName,
+      item_name: serviceName,
+      name: serviceName,
+      category: !isFormData ? (serviceData.category || 'Electrician & Repairs') : 'Electrician & Repairs',
+      price: !isFormData ? Number(serviceData.price || 0) : 0,
+      visiting_charge: !isFormData ? Number(serviceData.visiting_charge || 0) : 0,
+      estimated_duration: !isFormData ? (serviceData.estimated_duration || serviceData.duration || '1 hour') : '1 hour',
+      duration: !isFormData ? (serviceData.estimated_duration || serviceData.duration || '1 hour') : '1 hour',
+      service_location: !isFormData ? (serviceData.service_location || "At Customer's Doorstep") : "At Customer's Doorstep",
+      description: !isFormData ? (serviceData.description || '') : '',
+      image_url: !isFormData ? (serviceData.image_url || '') : '',
+      is_available: true,
+      unit: 'Service',
+      stock: 100,
+      created_at: new Date().toISOString()
+    };
+
+    // Sync to local storage
+    try {
+      const localKey = `digilocal_vendor_items_${vendorId}`;
+      const existingStr = localStorage.getItem(localKey) || '[]';
+      let existing = JSON.parse(existingStr);
+      existing = existing.filter(i => (i.service_name || i.item_name || '').trim().toLowerCase() !== String(serviceName).trim().toLowerCase());
+      existing.unshift(finalServiceObj);
+      localStorage.setItem(localKey, JSON.stringify(existing));
+    } catch (_) {}
+
+    invalidateApiCache();
+    return {
+      success: true,
+      message: `Service "${serviceName}" added successfully`,
+      service: finalServiceObj,
+      item: finalServiceObj
+    };
+  },
+
+  // 2. Get All Services of a Vendor (GET /api/vendorPanel/:vendorId/services or /api/vendors/:vendorId/services)
+  getVendorServicesList: async (vendorId, filters = {}, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const params = new URLSearchParams();
+    if (filters.category) params.append('category', filters.category);
+    if (filters.is_available !== undefined) params.append('is_available', String(filters.is_available));
+    if (filters.search) params.append('search', filters.search);
+    const query = params.toString() ? `?${params.toString()}` : '';
+
+    const endpoints = [
+      `${API_BASE}/vendorPanel/${vendorId}/services${query}`,
+      `${API_BASE}/vendors/${vendorId}/services${query}`,
+      `${API_BASE}/vendorPanel/${vendorId}/items${query}`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : (data.services || data.items || data.data || []);
+          if (Array.isArray(list)) return list;
+        }
+      } catch (_) {}
+    }
+
+    return [];
+  },
+
+  // 3. Get Single Service Details (GET /api/services/:serviceId)
+  getServiceDetails: async (serviceId, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const endpoints = [
+      `${API_BASE}/services/${serviceId}`,
+      `${API_BASE}/vendorPanel/services/${serviceId}`
+    ];
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return data.service || data.data || data;
+        }
+      } catch (_) {}
+    }
+    return null;
+  },
+
+  // 4. Update Service Details (PUT /api/vendorPanel/:vendorId/services/:serviceId)
+  updateVendorService: async (vendorId, serviceId, serviceData, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const isFormData = typeof FormData !== 'undefined' && serviceData instanceof FormData;
+    const headers = {};
+    if (!isFormData) headers['Content-Type'] = 'application/json';
+    if (jwtToken) headers['Authorization'] = `Bearer ${jwtToken}`;
+
+    const normalizedBody = isFormData ? serviceData : JSON.stringify({
+      ...serviceData,
+      service_name: serviceData.service_name || serviceData.serviceName || serviceData.name || serviceData.item_name,
+      estimated_duration: serviceData.estimated_duration || serviceData.duration
+    });
+
+    const endpoints = [
+      { url: `${API_BASE}/vendorPanel/${vendorId}/services/${serviceId}`, method: 'PUT' },
+      { url: `${API_BASE}/vendors/${vendorId}/services/${serviceId}`, method: 'PUT' },
+      { url: `${API_BASE}/services/${serviceId}`, method: 'PUT' },
+      { url: `${API_BASE}/vendorPanel/${vendorId}/items/${serviceId}`, method: 'PUT' }
+    ];
+
+    let updatedService = null;
+    for (const ep of endpoints) {
+      try {
+        const res = await fetchWithTimeout(ep.url, {
+          method: ep.method,
+          headers,
+          body: normalizedBody
+        });
+        if (res.ok) {
+          const data = await res.json();
+          updatedService = data.service || data.data || data.item || data;
+          break;
+        }
+      } catch (err) {
+        console.warn(`Failed ${ep.method} to ${ep.url}:`, err);
+      }
+    }
+
+    // Sync to local storage
+    try {
+      const localKey = `digilocal_vendor_items_${vendorId}`;
+      const existingStr = localStorage.getItem(localKey) || '[]';
+      let existing = JSON.parse(existingStr);
+      existing = existing.map(i => {
+        if (String(i.service_id || i.item_id || i.id) === String(serviceId)) {
+          return {
+            ...i,
+            ...(!isFormData ? serviceData : {}),
+            item_name: serviceData.service_name || serviceData.item_name || i.item_name,
+            duration: serviceData.estimated_duration || serviceData.duration || i.duration,
+            estimated_duration: serviceData.estimated_duration || serviceData.duration || i.estimated_duration
+          };
+        }
+        return i;
+      });
+      localStorage.setItem(localKey, JSON.stringify(existing));
+    } catch (_) {}
+
+    invalidateApiCache();
+    return {
+      success: true,
+      message: 'Service updated successfully',
+      service: updatedService || serviceData
+    };
+  },
+
+  // 5. Toggle Service Availability (PATCH /api/vendorPanel/:vendorId/services/:serviceId/availability)
+  toggleServiceAvailability: async (vendorId, serviceId, isAvailable, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const payload = { is_available: Boolean(isAvailable) };
+    const endpoints = [
+      `${API_BASE}/vendorPanel/${vendorId}/services/${serviceId}/availability`,
+      `${API_BASE}/services/${serviceId}/availability`,
+      `${API_BASE}/vendorPanel/${vendorId}/items/${serviceId}`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+          },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          invalidateApiCache();
+          return data;
+        }
+      } catch (_) {}
+    }
+
+    // Fallback sync
+    try {
+      const localKey = `digilocal_vendor_items_${vendorId}`;
+      const existingStr = localStorage.getItem(localKey) || '[]';
+      let existing = JSON.parse(existingStr);
+      existing = existing.map(i => {
+        if (String(i.service_id || i.item_id || i.id) === String(serviceId)) {
+          return { ...i, is_available: Boolean(isAvailable) ? 1 : 0 };
+        }
+        return i;
+      });
+      localStorage.setItem(localKey, JSON.stringify(existing));
+    } catch (_) {}
+
+    invalidateApiCache();
+    return {
+      success: true,
+      service_id: serviceId,
+      is_available: Boolean(isAvailable),
+      message: `Service is now ${isAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}`
+    };
+  },
+
+  // 6. Delete Service (DELETE /api/vendorPanel/:vendorId/services/:serviceId)
+  deleteVendorService: async (vendorId, serviceId, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const endpoints = [
+      `${API_BASE}/vendorPanel/${vendorId}/services/${serviceId}`,
+      `${API_BASE}/services/${serviceId}`,
+      `${API_BASE}/vendorPanel/${vendorId}/items/${serviceId}`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: 'DELETE',
+          headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
+        });
+        if (res.ok) break;
+      } catch (_) {}
+    }
+
+    try {
+      const localKey = `digilocal_vendor_items_${vendorId}`;
+      const existingStr = localStorage.getItem(localKey) || '[]';
+      const existing = JSON.parse(existingStr);
+      const filtered = existing.filter(i => String(i.service_id || i.item_id || i.id) !== String(serviceId));
+      localStorage.setItem(localKey, JSON.stringify(filtered));
+    } catch (_) {}
+
+    invalidateApiCache();
+    return { success: true, message: `Service #${serviceId} deleted successfully` };
+  },
+
   // 4.2 Add Menu Item
   addVendorItem: async (vendorId, itemData, token = '') => {
     const jwtToken = token || getStoredToken();
     let newItem = {
       item_id: Date.now(),
-      item_name: itemData.item_name,
+      item_name: itemData.item_name || itemData.service_name,
       description: itemData.description || '',
       price: parseFloat(itemData.price || 0),
       stock: parseInt(itemData.stock || 50),

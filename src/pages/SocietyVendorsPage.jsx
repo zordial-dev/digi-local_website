@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { motion } from 'motion/react';
 import { api, getSocietyImage, getNormalizedImageUrl } from '../services/api';
 import { Search, Store, Phone, ShieldCheck, ShoppingCart, ChevronRight, ChevronLeft, FileText, Clock, MapPin, Building2, ArrowLeft, ChevronDown, Check, Sparkles, X, Lock, LogIn, Heart, SlidersHorizontal, Star, MessageSquare } from 'lucide-react';
 import { getStoreStatus } from '../utils/storeHours';
@@ -949,7 +950,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
           return (
             <>
               <div id="vendors-grid-container" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-3.5">
-                {paginatedVendors.map((vendor) => {
+                {paginatedVendors.map((vendor, index) => {
                   const isService = isServiceVendor(vendor);
                   const storeImage = getCategoryCoverImage(vendor);
                   const status = getStoreStatus(
@@ -959,8 +960,13 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                   );
 
                   return (
-                    <div
+                    <motion.div
                       key={vendor.vendor_id}
+                      initial={{ opacity: 0, y: 24 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-20px' }}
+                      transition={{ duration: 0.45, delay: Math.min(index * 0.04, 0.3), ease: [0.16, 1, 0.3, 1] }}
+                      whileHover={{ y: -4, transition: { duration: 0.18 } }}
                       onClick={() => {
                         if (!isLoggedIn) {
                           setSelectedVendorForPrompt(vendor);
@@ -969,7 +975,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                         }
                         setRoute({ page: 'vendorStorefront', societyId: vendor.society_id || currentSocietyId || 1, vendorId: vendor.vendor_id });
                       }}
-                      className="group rounded-2xl bg-white border border-[#E5DAD0] hover:border-[#541D26]/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col justify-between relative shadow-xs h-full w-full"
+                      className="group rounded-2xl bg-white border border-[#E5DAD0] hover:border-[#541D26]/40 hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden flex flex-col justify-between relative shadow-xs h-full w-full"
                     >
                       <div className="flex flex-col h-full justify-between">
                         <div>
@@ -1101,7 +1107,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                           )}
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>

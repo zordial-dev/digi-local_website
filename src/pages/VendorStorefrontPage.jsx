@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { api, getNormalizedImageUrl, getStoreTimeStatus, isServiceVendor } from '../services/api';
-import { ArrowLeft, ShoppingBag, Store, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn, Clock, Heart, Star, Sparkles, CheckCircle2, ChevronDown, Calendar, Briefcase, Tag } from 'lucide-react';
+import { openCashfreeModal, getCashfree } from '../services/cashfree';
+import { ArrowLeft, ShoppingBag, Store, Plus, Minus, X, Check, Search, ShieldCheck, Phone, AlertTriangle, FileText, MessageSquare, HelpCircle, Send, Home, MapPin, Edit3, CreditCard, Lock, User, Building2, LogIn, Clock, Heart, Star, Sparkles, CheckCircle2, ChevronDown, Calendar, Briefcase, Tag, Globe, QrCode } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import DummyPaymentModal from '../components/DummyPaymentModal';
+import DirectVendorPaymentModal from '../components/modals/DirectVendorPaymentModal';
 import LiveOrderTrackerToast from '../components/LiveOrderTrackerToast';
 import LoginModal from '../components/LoginModal';
 import DeliveryAddressModal from '../components/DeliveryAddressModal';
@@ -203,11 +205,42 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
   // Modals & Tracking
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showDirectPayModal, setShowDirectPayModal] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [lastPlacedOrder, setLastPlacedOrder] = useState(null);
   const [activeOrder, setActiveOrder] = useState(null);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info' });
+
+  // Pre-load Cashfree SDK and handle return_url callbacks on mount
+  useEffect(() => {
+    getCashfree().catch(err => console.warn('Cashfree pre-load notice:', err));
+
+    // Handle return_url payment verification if redirected back with order_id
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const returnOrderId = searchParams.get('order_id');
+      if (returnOrderId) {
+        api.verifyCashfreePayment({ order_id: returnOrderId })
+          .then(res => {
+            if (res?.verified && (res?.payment_status === 'PAID' || res?.order?.payment_status === 'PAID')) {
+              setModalConfig({
+                isOpen: true,
+                title: '🎉 Payment Verified & Order Confirmed!',
+                message: `Your payment was successfully verified with Cashfree for Order #${returnOrderId}.`,
+                type: 'success',
+                confirmText: 'View Orders',
+                onConfirm: () => {
+                  setModalConfig(prev => ({ ...prev, isOpen: false }));
+                  setRoute({ page: 'userProfile', tab: 'orders' });
+                }
+              });
+            }
+          })
+          .catch(err => console.warn('Auto return verification error:', err));
+      }
+    }
+  }, []);
 
   // Service Enquiry State
   const [showServiceEnquiryModal, setShowServiceEnquiryModal] = useState(false);
@@ -417,7 +450,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
     return false;
   };
 
-  // 1. Cashfree Online Checkout (Section 2 & 3 Integration)
+  // 1. Cashfree Online Checkout (Official Cashfree PG v3 Flow)
   const handleCheckoutCashfree = async () => {
     if (!checkResidentAuth()) {
       setModalConfig({
@@ -452,12 +485,13 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       const resolvedSoc = vendorData?.society_name || vendorData?.location || currentUser?.society_name || currentUser?.society || 'Omaxe Greenwood Residency';
       const cleanAddrStr = `${cleanFlatStr}, ${resolvedSoc}`;
 
+      // Step 1: POST /api/orders (Creates order with status PENDING)
       const orderPayload = {
         vendor_id: Number(vendorData?.vendor_id || vendorId) || 1,
         society_id: Number(vendorData?.society_id || societyId) || 1,
         user_id: currentUser?.user_id || currentUser?.id || (resPhone ? `usr_${resPhone}` : 'usr_guest'),
         customer_name: resName,
-        phone: resPhone,
+        customer_phone: resPhone,
         customer_email: currentUser?.email || 'customer@digilocal.in',
         delivery_address: cleanAddrStr,
         payment_method: 'CASHFREE',
@@ -470,42 +504,56 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
         }))
       };
 
-      const res = await api.createCustomerOrder(orderPayload);
-      const orderId = res?.order_id || `ORD-${Date.now().toString().slice(-4)}`;
-      const sessionId = res?.payment_session_id;
+      const orderRes = await api.createCustomerOrder(orderPayload);
+      if (!orderRes || (!orderRes.order_id && !orderRes.data?.order_id && !orderRes.id)) {
+        throw new Error(orderRes?.error || orderRes?.message || 'Failed to create order on server');
+      }
 
-      // If Cashfree SDK is active in window
-      if (typeof window.Cashfree === 'function' && sessionId) {
-        try {
-          const cashfree = window.Cashfree({ mode: 'production' });
-          cashfree.checkout({
-            paymentSessionId: sessionId,
-            redirectTarget: '_modal'
-          }).then(async (result) => {
-            if (result.error) {
-              console.warn('Cashfree payment dismissed or failed:', result.error);
-              setModalConfig({
-                isOpen: true,
-                title: 'Payment Incomplete',
-                message: 'Payment was not completed. You can retry anytime.',
-                type: 'warning'
-              });
-            }
-            if (result.paymentDetails) {
-              await api.verifyCashfreePayment({
-                order_id: orderId,
-                cashfree_order_id: orderId,
-                cashfree_payment_id: result.paymentDetails?.paymentId || `cf_pay_${Date.now()}`
-              });
+      const orderId = orderRes?.order_id || orderRes?.data?.order_id || orderRes?.id;
+      let sessionId = orderRes?.payment_session_id || orderRes?.data?.payment_session_id;
+
+      // Step 2: POST /api/payments/create-order (Generate Cashfree payment session if not returned in order)
+      if (!sessionId) {
+        const returnUrl = typeof window !== 'undefined'
+          ? `${window.location.origin}${window.location.pathname}?order_id=${orderId}`
+          : '';
+
+        const sessionRes = await api.createCashfreePaymentSession({
+          order_id: orderId,
+          amount: subtotal,
+          customer_name: resName,
+          customer_phone: resPhone,
+          customer_email: currentUser?.email || 'customer@digilocal.in',
+          return_url: returnUrl
+        });
+
+        sessionId = sessionRes?.payment_session_id || sessionRes?.data?.payment_session_id;
+      }
+
+      if (!sessionId) {
+        throw new Error('Payment gateway session token could not be generated. Please try again.');
+      }
+
+      // Step 3: Launch Cashfree PG v3 Modal SDK
+      const checkoutResult = await openCashfreeModal(
+        sessionId,
+        async (paymentDetails) => {
+          // Step 4: POST /api/payments/verify
+          try {
+            const verifyRes = await api.verifyCashfreePayment({
+              order_id: orderId
+            });
+
+            if (verifyRes?.verified || verifyRes?.payment_status === 'PAID' || verifyRes?.success) {
               saveOrderToUserProfile(orderId, subtotal, cart, {
-                paymentMethod: 'Cashfree Online Payment',
-                transactionId: result.paymentDetails?.paymentId || `cf_pay_${Date.now()}`
+                paymentMethod: 'CASHFREE',
+                transactionId: verifyRes?.cashfree_payment_id || paymentDetails?.paymentId || `CF_${orderId}`
               });
               setShowCartDrawer(false);
               setModalConfig({
                 isOpen: true,
                 title: '🎉 Payment Verified & Order Confirmed!',
-                message: `Your payment of ₹${subtotal.toFixed(2)} was verified via Cashfree. Order #${orderId} is confirmed and out for preparation.`,
+                message: `Your payment of ₹${subtotal.toFixed(2)} was verified via Cashfree. Order #${orderId} is confirmed and sent to ${vendorData?.store_name || 'the vendor'}.`,
                 type: 'success',
                 confirmText: 'Track Order Live',
                 onConfirm: () => {
@@ -513,20 +561,47 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                   setRoute({ page: 'userProfile', tab: 'orders' });
                 }
               });
+            } else {
+              setModalConfig({
+                isOpen: true,
+                title: 'Payment Verification Processing',
+                message: 'Your payment was submitted. The order ledger is updating. Check your orders page momentarily.',
+                type: 'info',
+                confirmText: 'View Orders',
+                onConfirm: () => {
+                  setModalConfig(prev => ({ ...prev, isOpen: false }));
+                  setRoute({ page: 'userProfile', tab: 'orders' });
+                }
+              });
             }
-          }).catch(() => {
-            setShowPaymentModal(true);
+          } catch (verErr) {
+            console.error('Verification error:', verErr);
+            setModalConfig({
+              isOpen: true,
+              title: 'Order Awaiting Verification',
+              message: 'Payment completed in modal. The status will update shortly in your orders history.',
+              type: 'info'
+            });
+          }
+        },
+        (cancelError) => {
+          console.warn('Cashfree payment dismissed:', cancelError);
+          setModalConfig({
+            isOpen: true,
+            title: 'Payment Incomplete',
+            message: 'The Cashfree payment modal was closed before completing payment. You can retry anytime.',
+            type: 'warning'
           });
-          return;
-        } catch (_) {
-          setShowPaymentModal(true);
         }
-      } else {
-        setShowPaymentModal(true);
-      }
+      );
     } catch (err) {
-      console.warn('Cashfree order flow fallback to modal:', err);
-      setShowPaymentModal(true);
+      console.error('Cashfree order flow error:', err);
+      setModalConfig({
+        isOpen: true,
+        title: 'Payment Initialization Failed',
+        message: err.message || 'Could not initiate Cashfree payment session. Please try again.',
+        type: 'error'
+      });
     } finally {
       setPlacingOrder(false);
     }
@@ -737,12 +812,48 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
         }
 
         const resolvedStoreName = targetVendor.store_name || targetVendor.name || targetVendor.vendor_name || targetVendor.business_name || targetVendor.shop_business_name || targetVendor.shop_name || targetVendor.title || `Vendor Store #${vendorId}`;
+        
+        const savedCustomLogo = (vendorId ? localStorage.getItem(`digilocal_vendor_logo_${vendorId}`) : null) ||
+          (vendorId ? localStorage.getItem(`digilocal_vendor_logo_${String(vendorId)}`) : null) ||
+          (targetVendor.vendor_id ? localStorage.getItem(`digilocal_vendor_logo_${targetVendor.vendor_id}`) : null) ||
+          (targetVendor.store_name ? localStorage.getItem(`digilocal_vendor_logo_${targetVendor.store_name}`) : null) ||
+          (resolvedStoreName ? localStorage.getItem(`digilocal_vendor_logo_${resolvedStoreName}`) : null);
+
+        let savedSettingsLogo = null;
+        try {
+          const sStr = localStorage.getItem(`digilocal_vendor_saved_settings_${vendorId}`) || (targetVendor.vendor_id ? localStorage.getItem(`digilocal_vendor_saved_settings_${targetVendor.vendor_id}`) : null);
+          if (sStr) {
+            const parsedS = JSON.parse(sStr);
+            if (parsedS && (parsedS.logo || parsedS.image_url || parsedS.image)) {
+              savedSettingsLogo = parsedS.logo || parsedS.image_url || parsedS.image;
+            }
+          }
+        } catch (_) {}
+
+        const realLogo = savedCustomLogo ||
+          savedSettingsLogo ||
+          targetVendor.logo ||
+          targetVendor.image_url ||
+          targetVendor.image ||
+          targetVendor.profile_image ||
+          targetVendor.shop_image ||
+          targetVendor.store_image ||
+          targetVendor.photo ||
+          targetVendor.photo_url ||
+          targetVendor.banner_url ||
+          targetVendor.avatar ||
+          (Array.isArray(targetVendor.shop_images) && targetVendor.shop_images.length > 0 ? targetVendor.shop_images[0] : null) ||
+          (Array.isArray(targetVendor.images) && targetVendor.images.length > 0 ? targetVendor.images[0] : null) ||
+          'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80';
+
         const normalizedVendor = {
           ...targetVendor,
           store_name: resolvedStoreName,
           society_name: targetVendor.society_name || targetVendor.society || targetVendor.location || targetVendor.address || targetVendor.area || 'Residential Community',
           category: targetVendor.category || targetVendor.business_category || targetVendor.business_type || targetVendor.vendor_type || 'General Store',
-          logo: targetVendor.logo || targetVendor.image_url || targetVendor.shop_images?.[0] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
+          logo: realLogo,
+          image_url: realLogo,
+          image: realLogo,
           phone_number: targetVendor.phone_number || targetVendor.phone || targetVendor.mobile || targetVendor.contact || ''
         };
 
@@ -1237,10 +1348,10 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="flex items-start space-x-5">
                 <img
-                  src={getNormalizedImageUrl(vendorData.logo || vendorData.image_url) || 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=200&auto=format&fit=crop&q=80'}
+                  src={getNormalizedImageUrl(vendorData)}
                   alt={vendorData.store_name || 'Vendor Logo'}
                   onError={(e) => {
-                    e.target.src = 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=200&auto=format&fit=crop&q=80';
+                    e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&auto=format&fit=crop&q=80';
                   }}
                   className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-[#211A19]/15 bg-[#211A19]/5 shadow-sm shrink-0"
                 />
@@ -1328,15 +1439,27 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                 </div>
               </div>
 
-              {cartItemCount > 0 && !isServiceVendor(vendorData) && (
+              <div className="flex items-center flex-wrap gap-2.5">
                 <button
-                  onClick={() => setShowCartDrawer(true)}
-                  className="px-6 py-3.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold shadow-md flex items-center justify-center space-x-3 transition-all tracking-wider uppercase text-xs"
+                  type="button"
+                  onClick={() => setShowDirectPayModal(true)}
+                  className="px-4 py-3 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold shadow-sm flex items-center justify-center space-x-2 transition-all tracking-wide text-xs border border-emerald-600 hover:shadow-md cursor-pointer"
+                  title="Pay vendor directly for counter or quick purchases via Cashfree PG"
                 >
-                  <ShoppingBag className="w-4 h-4 text-gold" />
-                  <span>View Cart ({cartItemCount}) • ₹{subtotal.toFixed(2)}</span>
+                  <CreditCard className="w-4 h-4 text-emerald-200" />
+                  <span>⚡ Direct Pay</span>
                 </button>
-              )}
+
+                {cartItemCount > 0 && !isServiceVendor(vendorData) && (
+                  <button
+                    onClick={() => setShowCartDrawer(true)}
+                    className="px-6 py-3.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold shadow-md flex items-center justify-center space-x-3 transition-all tracking-wider uppercase text-xs cursor-pointer"
+                  >
+                    <ShoppingBag className="w-4 h-4 text-gold" />
+                    <span>View Cart ({cartItemCount}) • ₹{subtotal.toFixed(2)}</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1738,10 +1861,30 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                                   </span>
                                 )}
                               </div>
+                              {service.visiting_charge && parseFloat(service.visiting_charge) > 0 && (
+                                <div className="text-[10px] font-bold text-amber-900 mt-0.5">
+                                  Visiting: ₹{parseFloat(service.visiting_charge).toFixed(0)}
+                                </div>
+                              )}
                             </div>
 
-                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200">
-                              Doorstep
+                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200 flex items-center gap-1">
+                              {service.service_location?.includes('Shop') ? (
+                                <>
+                                  <Building2 className="w-2.5 h-2.5 text-emerald-700" />
+                                  <span>Shop / Clinic</span>
+                                </>
+                              ) : service.service_location?.includes('Online') ? (
+                                <>
+                                  <Globe className="w-2.5 h-2.5 text-emerald-700" />
+                                  <span>Online</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Home className="w-2.5 h-2.5 text-emerald-700" />
+                                  <span>Doorstep</span>
+                                </>
+                              )}
                             </span>
                           </div>
 
@@ -2403,6 +2546,22 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
       )}
 
 
+
+      {/* Direct Vendor Counter Pay Modal (Cashfree PG v3) */}
+      <DirectVendorPaymentModal
+        isOpen={showDirectPayModal}
+        onClose={() => setShowDirectPayModal(false)}
+        vendor={vendorData}
+        activeUser={activeUser}
+        onSuccess={(verifiedData) => {
+          setModalConfig({
+            isOpen: true,
+            title: '🎉 Payment Successful!',
+            message: `Direct payment to ${vendorData?.store_name || 'the vendor'} was verified successfully with Cashfree. Reference ID: ${verifiedData?.order_id || verifiedData?.cashfree_payment_id || 'CONFIRMED'}`,
+            type: 'success'
+          });
+        }}
+      />
 
       {/* Notification Modal */}
       <NotificationModal

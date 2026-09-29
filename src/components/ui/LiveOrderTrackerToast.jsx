@@ -125,6 +125,7 @@ export default function LiveOrderTrackerToast({ activeUser, setRoute }) {
 
   const isPreparing = rawStatus === 'ACCEPTED' || rawStatus === 'PREPARING' || rawStatus === 'IN_PROGRESS';
   const isOutForDelivery = rawStatus === 'OUT_FOR_DELIVERY' || rawStatus === 'IN_TRANSIT';
+  const isDelivered = ['DELIVERED', 'COMPLETED', 'COMPLETE', 'DONE'].includes(rawStatus);
 
   const statusText = isOutForDelivery 
     ? 'Society runner on the way' 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { api, getNormalizedImageUrl, getItemUnitLabel, formatItemQuantityBadge, isServiceVendor } from '../services/api';
-import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, ShieldAlert, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight, Briefcase, Star, MessageSquare, Send, Truck, Lock, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { Store, Package, ShoppingBag, Settings, CreditCard, Plus, Edit2, Trash2, RefreshCw, X, XCircle, ShieldCheck, ShieldAlert, CheckCircle2, LogOut, QrCode, Download, Copy, ExternalLink, Building2, Sparkles, Upload, Camera, Tag, Image as ImageIcon, ChevronDown, Check, User, Phone, MapPin, Clock, MessageCircle, AlertCircle, AlertTriangle, Bell, Volume2, ArrowRight, Briefcase, Star, MessageSquare, Send, Truck, Lock, KeyRound, Eye, EyeOff, Globe, Home } from 'lucide-react';
 import NotificationModal from '../components/NotificationModal';
 import VendorStatusBanner from '../components/VendorStatusBanner';
 import { QRCodeSVG } from 'qrcode.react';
@@ -235,9 +235,12 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     item_name: '',
     description: '',
     price: '',
+    visiting_charge: '',
+    duration: '1 hour',
+    service_location: "At Customer's Doorstep",
     stock: '',
-    category: 'General',
-    unit: 'Piece',
+    category: 'Electrician & Repairs',
+    unit: 'Service',
     is_available: true,
     image_url: ''
   });
@@ -245,8 +248,10 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   // Custom Dropdowns for Add/Edit Item Modal
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [showDurationDropdown, setShowDurationDropdown] = useState(false);
   const unitDropdownRef = useRef(null);
   const categoryDropdownRef = useRef(null);
+  const durationDropdownRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -255,6 +260,9 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       }
       if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target)) {
         setShowCategoryDropdown(false);
+      }
+      if (durationDropdownRef.current && !durationDropdownRef.current.contains(event.target)) {
+        setShowDurationDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -599,8 +607,11 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
   const isItemAvailable = (item) => {
     if (!item) return false;
-    const stockNum = parseInt(item.stock ?? 0);
-    if (stockNum <= 0) return false;
+    const isService = isServiceVendor(panelData?.vendor);
+    if (!isService) {
+      const stockNum = parseInt(item.stock ?? 0);
+      if (stockNum <= 0) return false;
+    }
     if (item.is_available === false || item.is_available === 0 || item.is_available === '0' || item.is_available === 'false') {
       return false;
     }
@@ -614,6 +625,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     }
     const currentAvail = isItemAvailable(item);
     const newAvail = !currentAvail;
+    const isService = isServiceVendor(panelData?.vendor);
     const stockNum = parseInt(item.stock ?? 0);
     const newStock = newAvail ? (stockNum <= 0 ? 10 : stockNum) : stockNum;
 
@@ -621,22 +633,28 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     setPanelData((prev) => {
       if (!prev) return prev;
       const updatedItems = (prev.items || []).map((i) =>
-        i.item_id === item.item_id ? { ...i, is_available: newAvail ? 1 : 0, stock: newStock } : i
+        (i.item_id === item.item_id || (i.service_id && i.service_id === item.service_id))
+          ? { ...i, is_available: newAvail ? 1 : 0, stock: newStock }
+          : i
       );
       return { ...prev, items: updatedItems };
     });
 
     try {
-      await api.updateVendorItem(vendorId, item.item_id, {
-        is_available: newAvail ? 1 : 0,
-        stock: newStock
-      });
+      if (isService) {
+        await api.toggleServiceAvailability(vendorId, item.service_id || item.item_id, newAvail);
+      } else {
+        await api.updateVendorItem(vendorId, item.item_id, {
+          is_available: newAvail ? 1 : 0,
+          stock: newStock
+        });
+      }
     } catch (err) {
       loadPanelData();
       setModalConfig({
         isOpen: true,
         title: 'Status Update Error',
-        message: 'Failed to update item availability status.',
+        message: 'Failed to update availability status.',
         type: 'error'
       });
     }
@@ -650,16 +668,31 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       const isAvail = isService ? (itemForm.is_available !== false && itemForm.is_available !== 0) : (stockNum > 0 && itemForm.is_available !== false && itemForm.is_available !== 0);
       const payload = {
         ...itemForm,
+        service_name: itemForm.item_name,
+        name: itemForm.item_name,
+        title: itemForm.item_name,
         stock: stockNum,
         is_available: isAvail ? 1 : 0,
         unit: itemForm.unit || (isService ? 'Service' : 'Piece'),
-        duration: itemForm.duration || (isService ? '45 - 60 mins' : '')
+        duration: itemForm.duration || (isService ? '1 hour' : ''),
+        estimated_duration: itemForm.duration || (isService ? '1 hour' : ''),
+        visiting_charge: itemForm.visiting_charge !== undefined ? String(itemForm.visiting_charge) : '',
+        service_location: itemForm.service_location || "At Customer's Doorstep"
       };
 
       if (editingItem) {
-        await api.updateVendorItem(vendorId, editingItem.item_id, payload);
+        const targetId = editingItem.service_id || editingItem.item_id;
+        if (isService) {
+          await api.updateVendorService(vendorId, targetId, payload);
+        } else {
+          await api.updateVendorItem(vendorId, targetId, payload);
+        }
       } else {
-        await api.addVendorItem(vendorId, payload);
+        if (isService) {
+          await api.addVendorService(vendorId, payload);
+        } else {
+          await api.addVendorItem(vendorId, payload);
+        }
       }
       setShowAddItemModal(false);
       setEditingItem(null);
@@ -676,22 +709,29 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   };
 
   const handleDeleteItem = (itemId) => {
+    const isService = isServiceVendor(panelData?.vendor);
     setModalConfig({
       isOpen: true,
-      title: 'Delete Store Item',
-      message: 'Are you sure you want to delete this menu item from your store catalog?',
+      title: isService ? 'Delete Service' : 'Delete Store Item',
+      message: isService
+        ? 'Are you sure you want to remove this service from your business catalog?'
+        : 'Are you sure you want to delete this menu item from your store catalog?',
       type: 'confirm',
-      confirmText: 'Delete Item',
+      confirmText: isService ? 'Delete Service' : 'Delete Item',
       onConfirm: async () => {
         setModalConfig({ isOpen: false });
         try {
-          await api.deleteVendorItem(vendorId, itemId);
+          if (isService) {
+            await api.deleteVendorService(vendorId, itemId);
+          } else {
+            await api.deleteVendorItem(vendorId, itemId);
+          }
           loadPanelData();
         } catch (err) {
           setModalConfig({
             isOpen: true,
             title: 'Delete Failed',
-            message: 'Could not delete item. Please try again.',
+            message: 'Could not delete service. Please try again.',
             type: 'error'
           });
         }
@@ -703,15 +743,21 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     setEditingItem(item);
     const stockVal = item.stock !== undefined && item.stock !== null ? String(item.stock) : '10';
     const stockNum = parseInt(stockVal || 0);
-    const availVal = stockNum > 0 ? (item.is_available !== false && item.is_available !== 0 && item.is_available !== '0' && item.is_available !== 'false') : false;
+    const isService = isServiceVendor(panelData?.vendor);
+    const availVal = isService
+      ? (item.is_available !== false && item.is_available !== 0 && item.is_available !== '0' && item.is_available !== 'false')
+      : (stockNum > 0 && item.is_available !== false && item.is_available !== 0 && item.is_available !== '0' && item.is_available !== 'false');
 
     setItemForm({
-      item_name: item.item_name,
+      item_name: item.item_name || '',
       description: item.description || '',
-      price: item.price,
+      price: item.price !== undefined ? String(item.price) : '',
+      visiting_charge: item.visiting_charge !== undefined && item.visiting_charge !== null ? String(item.visiting_charge) : '',
+      duration: item.duration || (isService ? '1 hour' : ''),
+      service_location: item.service_location || "At Customer's Doorstep",
       stock: stockVal,
-      category: item.category || 'General',
-      unit: item.unit || 'Piece',
+      category: item.category || (isService ? 'Electrician & Repairs' : 'General'),
+      unit: item.unit || (isService ? 'Service' : 'Piece'),
       is_available: availVal,
       image_url: item.image_url || ''
     });
@@ -719,16 +765,23 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   };
 
   const resetItemForm = () => {
+    const isService = isServiceVendor(panelData?.vendor);
     setItemForm({
       item_name: '',
       description: '',
       price: '',
+      visiting_charge: '',
+      duration: isService ? '1 hour' : '',
+      service_location: "At Customer's Doorstep",
       stock: '',
-      category: 'General',
-      unit: 'Piece',
+      category: isService ? 'Electrician & Repairs' : 'General',
+      unit: isService ? 'Service' : 'Piece',
       is_available: true,
       image_url: ''
     });
+    setShowCategoryDropdown(false);
+    setShowUnitDropdown(false);
+    setShowDurationDropdown(false);
   };
 
   const handleOrderStatusChange = async (orderId, newStatus) => {
@@ -796,6 +849,14 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       if (vendorId && settingsForm) {
         try {
           localStorage.setItem('digilocal_vendor_saved_settings_' + vendorId, JSON.stringify(settingsForm));
+          if (settingsForm.logo || settingsForm.image_url) {
+            const logoVal = settingsForm.logo || settingsForm.image_url;
+            localStorage.setItem(`digilocal_vendor_logo_${vendorId}`, logoVal);
+            localStorage.setItem(`digilocal_vendor_logo_${String(vendorId)}`, logoVal);
+            if (settingsForm.store_name) {
+              localStorage.setItem(`digilocal_vendor_logo_${settingsForm.store_name}`, logoVal);
+            }
+          }
         } catch (_) {}
       }
 
@@ -1929,12 +1990,12 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
         {/* 2. ITEMS / SERVICES CATALOG TAB */}
         {activeTab === 'items' && (
           <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border/80 rounded-2xl p-5 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 bg-white border border-[#E5DAD0] rounded-2xl p-4 sm:px-5 sm:py-4 shadow-xs">
               <div>
-                <h2 className="text-lg font-serif font-black text-ink uppercase tracking-wider">
+                <h2 className="text-base sm:text-lg font-serif font-black text-[#211A19] uppercase tracking-wider">
                   {isServiceVendor(vendor) ? 'Services Catalog & Offerings' : 'Store Inventory & Availability'}
                 </h2>
-                <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                <p className="text-xs text-[#211A19]/60 font-medium mt-0.5 max-w-2xl">
                   {isServiceVendor(vendor) 
                     ? 'Add, edit, and list all services provided by your business. Community residents can view your full catalog and submit direct enquiries.'
                     : 'Toggle availability switch to make any item temporarily available/unavailable for customer ordering.'}
@@ -1943,17 +2004,17 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
               <button
                 onClick={() => { resetItemForm(); setEditingItem(null); setShowAddItemModal(true); }}
-                className="px-5 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md flex items-center justify-center space-x-2 uppercase tracking-wider shrink-0 transition-all hover:scale-102 cursor-pointer border border-[#C8A878]/30"
+                className="px-4 py-2 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-sm flex items-center justify-center space-x-2 uppercase tracking-wider shrink-0 transition-all hover:scale-102 cursor-pointer border border-[#C8A878]/30 self-start sm:self-auto"
               >
-                <Plus className="w-4 h-4 text-[#C8A878]" />
+                <Plus className="w-3.5 h-3.5 text-[#C8A878]" />
                 <span>{isServiceVendor(vendor) ? 'Add New Service' : 'Add New Item'}</span>
               </button>
             </div>
 
             {items.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-3xl border border-border/80 p-8 shadow-xs space-y-3">
-                <div className="w-16 h-16 rounded-full bg-[#EEE5DA] border border-[#541D26]/20 flex items-center justify-center text-[#541D26] mx-auto shadow-2xs">
-                  {isServiceVendor(vendor) ? <Briefcase className="w-8 h-8 text-[#541D26]" /> : <Package className="w-8 h-8 text-[#541D26]" />}
+              <div className="text-center py-14 bg-white rounded-2xl border border-[#E5DAD0] p-6 shadow-xs space-y-3">
+                <div className="w-14 h-14 rounded-full bg-[#FAF6EE] border border-[#541D26]/20 flex items-center justify-center text-[#541D26] mx-auto shadow-2xs">
+                  {isServiceVendor(vendor) ? <Briefcase className="w-7 h-7 text-[#541D26]" /> : <Package className="w-7 h-7 text-[#541D26]" />}
                 </div>
                 <h3 className="text-base font-serif font-bold text-[#211A19]">
                   {isServiceVendor(vendor) ? 'No Services Listed Yet' : 'No Items in Inventory'}
@@ -1965,37 +2026,31 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 </p>
                 <button
                   onClick={() => { resetItemForm(); setEditingItem(null); setShowAddItemModal(true); }}
-                  className="mt-2 px-5 py-2.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-md inline-flex items-center gap-2 uppercase tracking-wider cursor-pointer border border-[#C8A878]/30"
+                  className="mt-2 px-4 py-2 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-sm inline-flex items-center gap-2 uppercase tracking-wider cursor-pointer border border-[#C8A878]/30"
                 >
-                  <Plus className="w-4 h-4 text-[#C8A878]" />
+                  <Plus className="w-3.5 h-3.5 text-[#C8A878]" />
                   <span>{isServiceVendor(vendor) ? 'Create First Service' : 'Add First Item'}</span>
                 </button>
               </div>
             ) : (
-              <div className={`grid gap-5 ${
-                items.length === 1 
-                  ? 'grid-cols-1 max-w-md' 
-                  : items.length === 2 
-                    ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl' 
-                    : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3'
-              }`}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {items.map((item, idx) => (
-                  <div key={`item-${item.item_id || idx}-${idx}`} className="rounded-2xl bg-card border border-border/80 p-4 flex flex-col justify-between shadow-xs hover:shadow-md transition-all duration-200">
+                  <div key={`item-${item.item_id || idx}-${idx}`} className="group rounded-2xl bg-white border border-[#E5DAD0] p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md hover:border-[#541D26]/30 transition-all duration-200">
                     <div>
-                      <div className="relative mb-3.5 h-44 sm:h-48 w-full rounded-xl overflow-hidden bg-secondary border border-border/40">
+                      <div className="relative mb-3 h-36 w-full rounded-xl overflow-hidden bg-[#FAF6EE] border border-[#E5DAD0]/60">
                         <img
                           src={getNormalizedImageUrl(item)}
                           alt={item.item_name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
                         />
-                        <div className="absolute top-2.5 right-2.5">
-                          <span className="px-2.5 py-1 text-[10px] font-black rounded-full bg-white/95 text-ink border border-border/50 shadow-xs backdrop-blur-xs">
+                        <div className="absolute top-2 right-2">
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-white/95 text-[#211A19] border border-[#E5DAD0] shadow-xs backdrop-blur-xs">
                             {item.category || (isServiceVendor(vendor) ? 'Service' : 'General')}
                           </span>
                         </div>
                         {isServiceVendor(vendor) && item.duration && (
-                          <div className="absolute bottom-2.5 left-2.5">
-                            <span className="px-2 py-0.5 text-[9.5px] font-bold rounded-full bg-black/75 text-[#C8A878] border border-white/20 shadow-xs backdrop-blur-xs flex items-center gap-1">
+                          <div className="absolute bottom-2 left-2">
+                            <span className="px-2 py-0.5 text-[9.5px] font-semibold rounded-md bg-black/70 text-[#C8A878] border border-white/10 shadow-xs backdrop-blur-xs flex items-center gap-1">
                               <Clock className="w-3 h-3 text-[#C8A878]" />
                               <span>{item.duration}</span>
                             </span>
@@ -2003,64 +2058,64 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         )}
                       </div>
 
-                      <h3 className="font-serif font-extrabold text-ink text-base line-clamp-1">{item.item_name}</h3>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 mb-3 font-medium">
+                      <h3 className="font-serif font-bold text-[#211A19] text-sm line-clamp-1 group-hover:text-[#541D26] transition-colors">{item.item_name}</h3>
+                      <p className="text-[11.5px] text-[#211A19]/60 line-clamp-2 mt-0.5 mb-2.5 font-normal leading-relaxed min-h-[34px]">
                         {item.description || (isServiceVendor(vendor) ? 'Professional service provided at flat doorstep.' : 'Fresh store product')}
                       </p>
                       
-                      <div className="flex items-center justify-between text-xs mb-3.5 pt-2 border-t border-border/40">
+                      <div className="flex items-center justify-between text-xs mb-2.5 pt-2 border-t border-[#E5DAD0]/60">
                         <div>
-                          <span className="text-base sm:text-lg font-black text-primary">
+                          <span className="text-sm sm:text-base font-black text-[#541D26]">
                             {parseFloat(item.price) > 0 ? `₹${parseFloat(item.price).toFixed(2)}` : 'Quote Base'}
                           </span>
-                          <span className="text-[11px] text-muted-foreground ml-1 font-semibold">
+                          <span className="text-[11px] text-[#211A19]/50 ml-1 font-medium">
                             / {item.unit || (isServiceVendor(vendor) ? 'Service' : 'Piece')}
                           </span>
                         </div>
                         {isServiceVendor(vendor) ? (
-                          <span className="text-[10px] font-bold text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                             💬 Enquire Only
                           </span>
                         ) : (
-                          <span className="text-xs font-bold text-muted-foreground bg-secondary px-2.5 py-1 rounded-full border border-border/60">
-                            Stock: <strong className="text-ink">{item.stock}</strong> {item.unit}
+                          <span className="text-[10px] font-semibold text-[#211A19]/70 bg-[#FAF6EE] px-2 py-0.5 rounded-full border border-[#E5DAD0]">
+                            Stock: <strong className="text-[#211A19]">{item.stock}</strong> {item.unit}
                           </span>
                         )}
                       </div>
                     </div>
 
                     {/* ITEM AVAILABILITY TOGGLE SWITCH */}
-                    <div className="pt-3 border-t border-border/80 flex items-center justify-between gap-2">
+                    <div className="pt-2.5 border-t border-[#E5DAD0]/80 flex items-center justify-between gap-2">
                       <div className="flex items-center space-x-2">
                         <button
                           type="button"
                           onClick={(e) => handleToggleAvailability(item, e)}
-                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
                             isItemAvailable(item) ? 'bg-[#2E7D32]' : 'bg-slate-300'
                           }`}
                         >
                           <span
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
-                              isItemAvailable(item) ? 'translate-x-5' : 'translate-x-0'
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                              isItemAvailable(item) ? 'translate-x-4' : 'translate-x-0'
                             }`}
                           />
                         </button>
-                        <span className={`text-xs font-bold ${isItemAvailable(item) ? 'text-[#2E7D32]' : 'text-slate-500'}`}>
+                        <span className={`text-[11px] font-semibold ${isItemAvailable(item) ? 'text-[#2E7D32]' : 'text-slate-500'}`}>
                           {isItemAvailable(item) ? (isServiceVendor(vendor) ? 'Accepting Enquiries' : 'Available') : 'Unavailable'}
                         </span>
                       </div>
 
-                      <div className="flex items-center space-x-1.5">
+                      <div className="flex items-center space-x-1">
                         <button
                           onClick={() => handleOpenEditItem(item)}
-                          className="p-2 rounded-xl bg-secondary hover:bg-border text-ink transition-colors border border-border/60 cursor-pointer"
+                          className="p-1.5 rounded-lg bg-[#FAF6EE] hover:bg-[#F0E6DD] text-[#211A19] transition-colors border border-[#E5DAD0] cursor-pointer"
                           title={isServiceVendor(vendor) ? 'Edit service' : 'Edit item'}
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-3.5 h-3.5 text-[#541D26]" />
                         </button>
                         <button
                           onClick={() => handleDeleteItem(item.item_id)}
-                          className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors border border-rose-200 cursor-pointer"
+                          className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors border border-rose-200 cursor-pointer"
                           title={isServiceVendor(vendor) ? 'Delete service' : 'Delete item'}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -3256,7 +3311,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       </div>
     </div>
 
-      {/* Add / Edit Product Modal (Centered, Portaled to Body, Brand Color Scheme) */}
+      {/* Add / Edit Product & Service Modal (Centered, Portaled to Body, Brand Color Scheme) */}
       {showAddItemModal && createPortal(
         <div 
           className="fixed inset-0 z-[99999999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md transition-all duration-300 ease-out"
@@ -3264,25 +3319,25 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           onClick={(e) => { if (e.target === e.currentTarget) setShowAddItemModal(false); }}
         >
           <div 
-            className="bg-white border border-[#E7DFD5] rounded-[2rem] max-w-md w-full max-h-[85vh] shadow-2xl flex flex-col overflow-hidden text-[#211A19] relative my-auto animate-in zoom-in-95 duration-200"
+            className="bg-white border border-[#E7DFD5] rounded-[2rem] max-w-md w-full max-h-[90vh] shadow-2xl flex flex-col overflow-hidden text-[#211A19] relative my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             
             {/* Sleek Header */}
-            <div className="px-5 py-3.5 border-b border-[#E7DFD5] flex items-center justify-between shrink-0 bg-[#FAF8F5]">
+            <div className="px-5 py-4 border-b border-[#E7DFD5] flex items-center justify-between shrink-0 bg-[#FAF8F5]">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-xl bg-[#541D26]/10 border border-[#541D26]/20 flex items-center justify-center text-[#541D26] shrink-0">
-                  <Sparkles className="w-4 h-4 text-[#C8A878]" />
+                <div className="w-10 h-10 rounded-2xl bg-[#F4ECE1] border border-[#C8A878]/40 flex items-center justify-center text-[#541D26] shrink-0">
+                  <Sparkles className="w-5 h-5 text-[#C8A878]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-serif font-bold text-[#211A19]">
+                  <h3 className="text-base font-serif font-bold text-[#211A19]">
                     {isServiceVendor(panelData?.vendor) 
-                      ? (editingItem ? 'Edit Service Details' : 'Add New Service Offering')
+                      ? (editingItem ? 'Edit Service' : 'Add New Service')
                       : (editingItem ? 'Edit Product Item' : 'Add New Product')}
                   </h3>
-                  <p className="text-[10px] text-[#78716C] font-medium">
+                  <p className="text-[11px] text-[#78716C] font-medium">
                     {isServiceVendor(panelData?.vendor)
-                      ? 'Enter service title, estimated pricing, duration & inclusions'
+                      ? 'Enter service details, pricing & duration'
                       : 'Enter product details, pricing & stock quantity'}
                   </p>
                 </div>
@@ -3291,68 +3346,53 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               <button 
                 type="button"
                 onClick={() => setShowAddItemModal(false)} 
-                className="w-7 h-7 rounded-full bg-white hover:bg-[#FAF8F5] border border-[#E7DFD5] text-[#211A19] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-full bg-white hover:bg-[#FAF8F5] border border-[#E7DFD5] text-[#211A19] flex items-center justify-center transition-colors cursor-pointer shrink-0"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Form Body with Strict min-h-0 and overflow-y-auto */}
             <form onSubmit={handleSaveItem} className="flex flex-col flex-1 min-h-0 overflow-hidden">
-              <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 flex-1 min-h-0 scrollbar-thin">
+              <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 min-h-0 scrollbar-thin">
 
-                {/* 1. COMPACT PHOTO UPLOAD BAR */}
-                <div>
-                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                    {isServiceVendor(panelData?.vendor) ? 'SERVICE IMAGE / COVER' : 'PRODUCT IMAGE'}
-                  </label>
-                  <div className="flex items-center gap-3 bg-[#FAF8F5] p-2.5 rounded-2xl border border-[#E7DFD5]">
-                    <div className="relative shrink-0">
+                {isServiceVendor(panelData?.vendor) ? (
+                  /* ========================================================= */
+                  /* SERVICE VENDOR FORM (EXACT MATCH TO APP SPECIFICATION)    */
+                  /* ========================================================= */
+                  <>
+                    {/* 1. SERVICE PHOTO */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#78716C] mb-1.5">
+                        SERVICE PHOTO
+                      </label>
                       {itemForm.image_url ? (
-                        <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-[#C8A878]">
+                        <div className="relative w-full h-40 rounded-2xl overflow-hidden border border-[#C8A878] bg-black/5 group">
                           <img 
                             src={getNormalizedImageUrl(itemForm.image_url)} 
-                            alt="Preview" 
+                            alt="Service preview" 
                             className="w-full h-full object-cover" 
                           />
                           <button 
                             type="button" 
                             onClick={() => setItemForm({ ...itemForm, image_url: '' })} 
-                            className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                            className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all cursor-pointer shadow-md"
+                            title="Remove photo"
                           >
-                            <Trash2 className="w-3.5 h-3.5 text-rose-300" />
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
                       ) : (
-                        <label className="w-12 h-12 rounded-xl border border-dashed border-[#C8A878]/80 bg-white flex items-center justify-center cursor-pointer hover:bg-[#EEE5DA] transition-colors">
-                          <Camera className="w-4 h-4 text-[#C8A878]" />
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => setItemForm({ ...itemForm, image_url: reader.result });
-                                reader.readAsDataURL(file);
-                              }
-                            }} 
-                          />
-                        </label>
+                        <div className="w-full rounded-2xl border-2 border-dashed border-[#E7DFD5] bg-[#FDFBF7] p-6 flex flex-col items-center justify-center text-center">
+                          <ImageIcon className="w-10 h-10 text-[#C8A878] stroke-[1.5] mb-2" />
+                          <span className="text-xs font-bold text-[#78716C]">No photo attached</span>
+                        </div>
                       )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <input
-                        type="url"
-                        placeholder="Paste image URL..."
-                        value={itemForm.image_url}
-                        onChange={(e) => setItemForm({ ...itemForm, image_url: e.target.value })}
-                        className="w-full bg-white border border-[#E7DFD5] focus:border-[#541D26] rounded-xl px-2.5 py-1.5 text-xs text-[#211A19] focus:outline-none"
-                      />
-                      <div className="flex items-center gap-3 mt-1 text-[10px]">
-                        <label className="font-bold text-[#541D26] hover:underline cursor-pointer flex items-center gap-1">
-                          <Upload className="w-3 h-3 text-[#C8A878]" /> Upload Media
+
+                      <div className="grid grid-cols-2 gap-2.5 mt-2.5">
+                        <label className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[#211A19] text-xs font-bold transition-all cursor-pointer border border-[#E7DFD5]">
+                          <Upload className="w-3.5 h-3.5 text-[#541D26]" />
+                          <span>Upload Media</span>
                           <input 
                             type="file" 
                             accept="image/*" 
@@ -3367,8 +3407,10 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             }} 
                           />
                         </label>
-                        <label className="font-bold text-[#541D26] hover:underline cursor-pointer flex items-center gap-1">
-                          <Camera className="w-3 h-3 text-[#C8A878]" /> Capture Photo
+
+                        <label className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[#211A19] text-xs font-bold transition-all cursor-pointer border border-[#E7DFD5]">
+                          <Camera className="w-3.5 h-3.5 text-[#541D26]" />
+                          <span>Camera</span>
                           <input 
                             type="file" 
                             accept="image/*" 
@@ -3386,138 +3428,59 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         </label>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Preset Service Photos */}
-                  {isServiceVendor(panelData?.vendor) && (
-                    <div className="mt-2 flex flex-wrap gap-1.5 items-center">
-                      <span className="text-[10px] font-bold text-[#78716C]">Quick Photos:</span>
-                      <button
-                        type="button"
-                        onClick={() => setItemForm({ ...itemForm, image_url: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&auto=format&fit=crop&q=80' })}
-                        className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[10px] font-bold border border-[#E7DFD5]"
-                      >
-                        ❄️ AC Service
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setItemForm({ ...itemForm, image_url: 'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=800&auto=format&fit=crop&q=80' })}
-                        className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[10px] font-bold border border-[#E7DFD5]"
-                      >
-                        🔧 Plumbing
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setItemForm({ ...itemForm, image_url: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80' })}
-                        className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[10px] font-bold border border-[#E7DFD5]"
-                      >
-                        ⚡ Electrical
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setItemForm({ ...itemForm, image_url: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&auto=format&fit=crop&q=80' })}
-                        className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[10px] font-bold border border-[#E7DFD5]"
-                      >
-                        🧹 Cleaning
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setItemForm({ ...itemForm, image_url: 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?w=800&auto=format&fit=crop&q=80' })}
-                        className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[10px] font-bold border border-[#E7DFD5]"
-                      >
-                        💇 Salon
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setItemForm({ ...itemForm, image_url: 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800&auto=format&fit=crop&q=80' })}
-                        className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EEE5DA] text-[10px] font-bold border border-[#E7DFD5]"
-                      >
-                        🧺 Laundry
-                      </button>
+                    {/* 2. SERVICE NAME */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#78716C] mb-1">
+                        SERVICE NAME
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Split AC Deep Cleaning & Servicing"
+                        value={itemForm.item_name}
+                        onChange={(e) => setItemForm({ ...itemForm, item_name: e.target.value })}
+                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#211A19] focus:outline-none transition-all"
+                      />
                     </div>
-                  )}
-                </div>
 
-                {/* 2. PRODUCT / SERVICE NAME */}
-                <div>
-                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                    {isServiceVendor(panelData?.vendor) ? 'SERVICE NAME / TITLE *' : 'PRODUCT NAME *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={isServiceVendor(panelData?.vendor) ? "e.g. Split AC Foam Jet Deep Servicing" : "e.g. Amul Gold Fresh Milk 1L"}
-                    value={itemForm.item_name}
-                    onChange={(e) => setItemForm({ ...itemForm, item_name: e.target.value })}
-                    className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl px-3 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
-                  />
-                </div>
-
-                {/* 3. CATEGORY & PRICE (2 COLUMNS) */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  {/* Category Selection */}
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                      CATEGORY *
-                    </label>
-                    <div className="relative">
+                    {/* 3. CATEGORY */}
+                    <div ref={categoryDropdownRef} className="relative">
+                      <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#78716C] mb-1">
+                        CATEGORY
+                      </label>
                       <button
                         type="button"
                         onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] hover:border-[#541D26] rounded-xl pl-7 pr-2 py-2 text-xs font-bold text-[#211A19] flex items-center justify-between cursor-pointer"
+                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] hover:border-[#541D26] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#211A19] flex items-center justify-between cursor-pointer transition-all"
                       >
-                        <Tag className="w-3 h-3 text-[#C8A878] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <span className="truncate">{itemForm.category || (isServiceVendor(panelData?.vendor) ? 'Service' : 'Category')}</span>
-                        <ChevronDown className={`w-3 h-3 text-[#541D26] shrink-0 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+                        <span className="truncate">{itemForm.category || 'Electrician & Repairs'}</span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-[#541D26] shrink-0 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
                       </button>
 
                       {showCategoryDropdown && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E7DFD5] rounded-xl shadow-2xl z-50 max-h-44 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
-                          {(isServiceVendor(panelData?.vendor) ? [
-                            'Home Maintenance',
-                            'AC & Appliances',
-                            'Plumbing & Sanitization',
-                            'Electrical & Wiring',
-                            'Deep Cleaning & Wash',
-                            'Salon, Spa & Grooming',
-                            'Laundry & Dry Cleaning',
-                            'Painting & Waterproofing',
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E7DFD5] rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                          {[
+                            'Electrician & Repairs',
+                            'Plumbing & Sanitary',
+                            'Home Cleaning & Maid',
+                            'AC & Appliance Repair',
                             'Carpentry & Furniture',
-                            'Pest Control & Disinfection',
-                            'Tiffin & Catering',
+                            'Painting & Waterproofing',
+                            'Pest Control',
+                            'Salon & Grooming',
+                            'Laundry & Dry Cleaning',
+                            'Home Maintenance',
                             'Consultation & Inspection',
                             'Custom Service'
-                          ] : [
-                            'General',
-                            'Dairy & Milk',
-                            'Fresh Fruits & Vegetables',
-                            'Bakery, Cakes & Desserts',
-                            'Flowers, Plants & Gardening',
-                            'Groceries, Oils & Staples',
-                            'Beverages & Cold Drinks',
-                            'Snacks, Namkeen & Biscuits',
-                            'Sweets & Mithai',
-                            'Organic & Health Foods',
-                            'Chemist & Medicines',
-                            'Personal Care & Hygiene',
-                            'Home, Kitchen & Cleaning Supplies',
-                            'Resin Art, Crafts & Gifts',
-                            'Stationery, Books & Office Items',
-                            'Electronics & Electrical Accessories',
-                            'Poultry, Meat & Seafood',
-                            'Baby Care & Toys',
-                            'Pet Food & Accessories',
-                            'Clothing & Tailoring',
-                            'Home Decor & Pooja Needs',
-                            'Services & Repairs'
-                          ]).map((cat) => (
+                          ].map((cat) => (
                             <div
                               key={cat}
                               onClick={() => {
                                 setItemForm({ ...itemForm, category: cat });
                                 setShowCategoryDropdown(false);
                               }}
-                              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
+                              className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
                                 itemForm.category === cat 
                                   ? 'bg-[#541D26] text-white' 
                                   : 'text-[#211A19] hover:bg-[#EEE5DA]'
@@ -3530,114 +3493,387 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         </div>
                       )}
                     </div>
-                  </div>
 
-                  {/* Price (₹) */}
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                      {isServiceVendor(panelData?.vendor) ? 'STARTING RATE (₹) *' : 'PRICE (₹) *'}
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-[#541D26]">₹</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        required
-                        placeholder={isServiceVendor(panelData?.vendor) ? "499.00" : "199.00"}
-                        value={itemForm.price}
-                        onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })}
-                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl pl-7 pr-2.5 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
-                      />
+                    {/* 4. PRICE (₹) & VISITING CHARGE (₹) (2 COLUMNS) */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#78716C] mb-1">
+                          PRICE (₹)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          required
+                          placeholder="e.g. 499"
+                          value={itemForm.price}
+                          onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })}
+                          className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#211A19] focus:outline-none transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#78716C] mb-1">
+                          VISITING CHARGE (₹)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="e.g. 99"
+                          value={itemForm.visiting_charge || ''}
+                          onChange={(e) => setItemForm({ ...itemForm, visiting_charge: e.target.value })}
+                          className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#211A19] focus:outline-none transition-all"
+                        />
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* 4. UNIT & DURATION / STOCK (2 COLUMNS) */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  {/* Unit Select Dropdown */}
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                      {isServiceVendor(panelData?.vendor) ? 'PRICING UNIT *' : 'UNIT *'}
-                    </label>
-                    <div className="relative">
+                    {/* 5. ESTIMATED DURATION */}
+                    <div ref={durationDropdownRef} className="relative">
+                      <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#78716C] mb-1">
+                        ESTIMATED DURATION
+                      </label>
                       <button
                         type="button"
-                        onClick={() => setShowUnitDropdown(!showUnitDropdown)}
-                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] hover:border-[#541D26] rounded-xl px-3 py-2 text-xs font-bold text-[#211A19] flex items-center justify-between cursor-pointer"
+                        onClick={() => setShowDurationDropdown(!showDurationDropdown)}
+                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] hover:border-[#541D26] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#211A19] flex items-center justify-between cursor-pointer transition-all"
                       >
-                        <span className="truncate">{itemForm.unit || (isServiceVendor(panelData?.vendor) ? 'Service' : 'Piece')}</span>
-                        <ChevronDown className={`w-3 h-3 text-[#541D26] shrink-0 transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
+                        <span>{itemForm.duration || '1 hour'}</span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-[#541D26] shrink-0 transition-transform ${showDurationDropdown ? 'rotate-180' : ''}`} />
                       </button>
 
-                      {showUnitDropdown && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E7DFD5] rounded-xl shadow-xl z-50 max-h-36 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
-                          {(isServiceVendor(panelData?.vendor) ? [
-                            'Service',
-                            'Visit',
-                            'Hour',
-                            'Session',
-                            'Appliance',
-                            'Bathroom',
-                            'Room',
-                            'Piece',
-                            '5 kg Bag',
-                            'Custom Quote'
-                          ] : [
-                            'Piece',
-                            'Set',
-                            'Packet',
-                            'Box',
-                            '1 kg',
-                            '500g',
-                            '250g',
-                            '1L',
-                            '500ml',
-                            'Dozen',
-                            'Bunch'
-                          ]).map((u) => (
+                      {showDurationDropdown && (
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E7DFD5] rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                          {[
+                            '15 mins',
+                            '30 mins',
+                            '45 mins',
+                            '1 hour',
+                            '1.5 hours',
+                            '2 hours',
+                            '3 hours',
+                            '4+ hours',
+                            'Same Day',
+                            'Custom / On Inspection'
+                          ].map((dur) => (
                             <div
-                              key={u}
+                              key={dur}
                               onClick={() => {
-                                setItemForm({ ...itemForm, unit: u });
-                                setShowUnitDropdown(false);
+                                setItemForm({ ...itemForm, duration: dur });
+                                setShowDurationDropdown(false);
                               }}
-                              className={`px-2.5 py-1 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
-                                itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()
+                              className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
+                                itemForm.duration === dur 
                                   ? 'bg-[#541D26] text-white' 
                                   : 'text-[#211A19] hover:bg-[#EEE5DA]'
                               }`}
                             >
-                              <span>{u}</span>
-                              {(itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()) && (
-                                <Check className="w-3 h-3 text-[#C8A878]" />
-                              )}
+                              <span>{dur}</span>
+                              {itemForm.duration === dur && <Check className="w-3 h-3 text-[#C8A878] shrink-0" />}
                             </div>
                           ))}
                         </div>
                       )}
                     </div>
-                  </div>
 
-                  {/* Stock Quantity OR Duration Input */}
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                      {isServiceVendor(panelData?.vendor) ? 'ESTIMATED DURATION' : 'STOCK QUANTITY *'}
-                    </label>
-                    <div className="relative">
-                      {isServiceVendor(panelData?.vendor) ? (
-                        <>
-                          <Clock className="w-3 h-3 text-[#C8A878] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    {/* 6. SERVICE LOCATION */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#78716C] mb-1.5">
+                        SERVICE LOCATION
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { id: "At Customer's Doorstep", label: "At Customer's Doorstep", icon: Home },
+                          { id: "At Shop / Clinic", label: "At Shop / Clinic", icon: Building2 },
+                          { id: "Online / Remote", label: "Online / Remote", icon: Globe }
+                        ].map((loc) => {
+                          const IconComp = loc.icon;
+                          const isActive = (itemForm.service_location || "At Customer's Doorstep") === loc.id;
+                          return (
+                            <button
+                              key={loc.id}
+                              type="button"
+                              onClick={() => setItemForm({ ...itemForm, service_location: loc.id })}
+                              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                isActive
+                                  ? 'bg-[#F4ECE1] border-2 border-[#C8A878] text-[#211A19] shadow-xs'
+                                  : 'bg-[#FAF8F5] border border-[#E7DFD5] text-[#78716C] hover:text-[#211A19] hover:bg-[#EEE5DA]'
+                              }`}
+                            >
+                              <IconComp className={`w-3.5 h-3.5 ${isActive ? 'text-[#541D26]' : 'text-[#78716C]'}`} />
+                              <span>{loc.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 7. SERVICE DESCRIPTION */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#78716C] mb-1">
+                        SERVICE DESCRIPTION
+                      </label>
+                      <textarea
+                        rows={3}
+                        placeholder="Service details, what's included..."
+                        value={itemForm.description}
+                        onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
+                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl p-3 text-xs font-medium text-[#211A19] focus:outline-none transition-all"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  /* ========================================================= */
+                  /* PRODUCT VENDOR FORM (RETAIL / STORE ITEMS)                */
+                  /* ========================================================= */
+                  <>
+                    {/* 1. PRODUCT IMAGE */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
+                        PRODUCT IMAGE
+                      </label>
+                      <div className="flex items-center gap-3 bg-[#FAF8F5] p-2.5 rounded-2xl border border-[#E7DFD5]">
+                        <div className="relative shrink-0">
+                          {itemForm.image_url ? (
+                            <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-[#C8A878]">
+                              <img 
+                                src={getNormalizedImageUrl(itemForm.image_url)} 
+                                alt="Preview" 
+                                className="w-full h-full object-cover" 
+                              />
+                              <button 
+                                type="button" 
+                                onClick={() => setItemForm({ ...itemForm, image_url: '' })} 
+                                className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-300" />
+                              </button>
+                            </div>
+                          ) : (
+                            <label className="w-12 h-12 rounded-xl border border-dashed border-[#C8A878]/80 bg-white flex items-center justify-center cursor-pointer hover:bg-[#EEE5DA] transition-colors">
+                              <Camera className="w-4 h-4 text-[#C8A878]" />
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                className="hidden" 
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setItemForm({ ...itemForm, image_url: reader.result });
+                                    reader.readAsDataURL(file);
+                                  }
+                                }} 
+                              />
+                            </label>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
                           <input
-                            type="text"
-                            placeholder="e.g. 45-60 mins"
-                            value={itemForm.duration || ''}
-                            onChange={(e) => setItemForm({ ...itemForm, duration: e.target.value })}
-                            className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl pl-8 pr-2.5 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
+                            type="url"
+                            placeholder="Paste image URL..."
+                            value={itemForm.image_url}
+                            onChange={(e) => setItemForm({ ...itemForm, image_url: e.target.value })}
+                            className="w-full bg-white border border-[#E7DFD5] focus:border-[#541D26] rounded-xl px-2.5 py-1.5 text-xs text-[#211A19] focus:outline-none"
                           />
-                        </>
-                      ) : (
-                        <>
+                          <div className="flex items-center gap-3 mt-1 text-[10px]">
+                            <label className="font-bold text-[#541D26] hover:underline cursor-pointer flex items-center gap-1">
+                              <Upload className="w-3 h-3 text-[#C8A878]" /> Upload Media
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                className="hidden" 
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setItemForm({ ...itemForm, image_url: reader.result });
+                                    reader.readAsDataURL(file);
+                                  }
+                                }} 
+                              />
+                            </label>
+                            <label className="font-bold text-[#541D26] hover:underline cursor-pointer flex items-center gap-1">
+                              <Camera className="w-3 h-3 text-[#C8A878]" /> Capture Photo
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                capture="environment"
+                                className="hidden" 
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setItemForm({ ...itemForm, image_url: reader.result });
+                                    reader.readAsDataURL(file);
+                                  }
+                                }} 
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. PRODUCT NAME */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
+                        PRODUCT NAME *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Amul Gold Fresh Milk 1L"
+                        value={itemForm.item_name}
+                        onChange={(e) => setItemForm({ ...itemForm, item_name: e.target.value })}
+                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl px-3 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
+                      />
+                    </div>
+
+                    {/* 3. CATEGORY & PRICE (2 COLUMNS) */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
+                          CATEGORY *
+                        </label>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                            className="w-full bg-[#FAF8F5] border border-[#E7DFD5] hover:border-[#541D26] rounded-xl pl-7 pr-2 py-2 text-xs font-bold text-[#211A19] flex items-center justify-between cursor-pointer"
+                          >
+                            <Tag className="w-3 h-3 text-[#C8A878] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <span className="truncate">{itemForm.category || 'Category'}</span>
+                            <ChevronDown className={`w-3 h-3 text-[#541D26] shrink-0 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+                          </button>
+
+                          {showCategoryDropdown && (
+                            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E7DFD5] rounded-xl shadow-2xl z-50 max-h-44 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                              {[
+                                'General',
+                                'Dairy & Milk',
+                                'Fresh Fruits & Vegetables',
+                                'Bakery, Cakes & Desserts',
+                                'Flowers, Plants & Gardening',
+                                'Groceries, Oils & Staples',
+                                'Beverages & Cold Drinks',
+                                'Snacks, Namkeen & Biscuits',
+                                'Sweets & Mithai',
+                                'Organic & Health Foods',
+                                'Chemist & Medicines',
+                                'Personal Care & Hygiene',
+                                'Home, Kitchen & Cleaning Supplies',
+                                'Resin Art, Crafts & Gifts',
+                                'Stationery, Books & Office Items',
+                                'Electronics & Electrical Accessories',
+                                'Poultry, Meat & Seafood',
+                                'Baby Care & Toys',
+                                'Pet Food & Accessories',
+                                'Clothing & Tailoring',
+                                'Home Decor & Pooja Needs',
+                                'Services & Repairs'
+                              ].map((cat) => (
+                                <div
+                                  key={cat}
+                                  onClick={() => {
+                                    setItemForm({ ...itemForm, category: cat });
+                                    setShowCategoryDropdown(false);
+                                  }}
+                                  className={`px-2.5 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
+                                    itemForm.category === cat 
+                                      ? 'bg-[#541D26] text-white' 
+                                      : 'text-[#211A19] hover:bg-[#EEE5DA]'
+                                  }`}
+                                >
+                                  <span className="truncate">{cat}</span>
+                                  {itemForm.category === cat && <Check className="w-3 h-3 text-[#C8A878] shrink-0" />}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Price (₹) */}
+                      <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
+                          PRICE (₹) *
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-[#541D26]">₹</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            required
+                            placeholder="199.00"
+                            value={itemForm.price}
+                            onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })}
+                            className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl pl-7 pr-2.5 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. UNIT & STOCK (2 COLUMNS) */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
+                          UNIT *
+                        </label>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setShowUnitDropdown(!showUnitDropdown)}
+                            className="w-full bg-[#FAF8F5] border border-[#E7DFD5] hover:border-[#541D26] rounded-xl px-3 py-2 text-xs font-bold text-[#211A19] flex items-center justify-between cursor-pointer"
+                          >
+                            <span className="truncate">{itemForm.unit || 'Piece'}</span>
+                            <ChevronDown className={`w-3 h-3 text-[#541D26] shrink-0 transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
+                          </button>
+
+                          {showUnitDropdown && (
+                            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E7DFD5] rounded-xl shadow-xl z-50 max-h-36 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                              {[
+                                'Piece',
+                                'Set',
+                                'Packet',
+                                'Box',
+                                '1 kg',
+                                '500g',
+                                '250g',
+                                '1L',
+                                '500ml',
+                                'Dozen',
+                                'Bunch'
+                              ].map((u) => (
+                                <div
+                                  key={u}
+                                  onClick={() => {
+                                    setItemForm({ ...itemForm, unit: u });
+                                    setShowUnitDropdown(false);
+                                  }}
+                                  className={`px-2.5 py-1 text-xs font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${
+                                    itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()
+                                      ? 'bg-[#541D26] text-white' 
+                                      : 'text-[#211A19] hover:bg-[#EEE5DA]'
+                                  }`}
+                                >
+                                  <span>{u}</span>
+                                  {(itemForm.unit === u || itemForm.unit?.toLowerCase() === u.toLowerCase()) && (
+                                    <Check className="w-3 h-3 text-[#C8A878]" />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
+                          STOCK QUANTITY *
+                        </label>
+                        <div className="relative">
                           <Package className="w-3 h-3 text-[#C8A878] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                           <input
                             type="number"
@@ -3648,63 +3884,62 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                             onChange={(e) => setItemForm({ ...itemForm, stock: e.target.value })}
                             className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl pl-8 pr-2.5 py-2 text-xs font-bold text-[#211A19] focus:outline-none"
                           />
-                        </>
-                      )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* 5. AVAILABILITY TOGGLE */}
-                <div className="bg-[#FAF8F5] border border-[#E7DFD5] rounded-xl px-3.5 py-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${itemForm.is_available !== false ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-[#211A19]">
-                      {itemForm.is_available !== false 
-                        ? (isServiceVendor(panelData?.vendor) ? 'Accepting Service Enquiries' : 'Item Available for Orders')
-                        : (isServiceVendor(panelData?.vendor) ? 'Temporarily Paused' : 'Item Out of Stock / Hidden')}
-                    </span>
-                  </div>
+                    {/* 5. AVAILABILITY TOGGLE */}
+                    <div className="bg-[#FAF8F5] border border-[#E7DFD5] rounded-xl px-3.5 py-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${itemForm.is_available !== false ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+                        <span className="text-xs font-extrabold uppercase tracking-wider text-[#211A19]">
+                          {itemForm.is_available !== false ? 'Item Available for Orders' : 'Item Out of Stock / Hidden'}
+                        </span>
+                      </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setItemForm({ ...itemForm, is_available: itemForm.is_available === false ? true : false })}
-                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                      itemForm.is_available !== false ? 'bg-[#541D26]' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#C8A878] shadow transition duration-200 ease-in-out ${
-                        itemForm.is_available !== false ? 'translate-x-4' : 'translate-x-0 bg-white'
-                      }`}
-                    />
-                  </button>
-                </div>
+                      <button
+                        type="button"
+                        onClick={() => setItemForm({ ...itemForm, is_available: itemForm.is_available === false ? true : false })}
+                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          itemForm.is_available !== false ? 'bg-[#541D26]' : 'bg-gray-300'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#C8A878] shadow transition duration-200 ease-in-out ${
+                            itemForm.is_available !== false ? 'translate-x-4' : 'translate-x-0 bg-white'
+                          }`}
+                        />
+                      </button>
+                    </div>
 
-                {/* 6. DESCRIPTION & INCLUSIONS */}
-                <div>
-                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
-                    {isServiceVendor(panelData?.vendor) ? 'SERVICE INCLUSIONS & DESCRIPTION' : 'DESCRIPTION (OPTIONAL)'}
-                  </label>
-                  <textarea
-                    rows={2}
-                    placeholder={isServiceVendor(panelData?.vendor) ? "What's included in this service, warranty, inspection details..." : "Short item details..."}
-                    value={itemForm.description}
-                    onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
-                    className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl px-3 py-2 text-xs font-medium text-[#211A19] focus:outline-none"
-                  />
-                </div>
+                    {/* 6. DESCRIPTION */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#211A19] mb-1">
+                        DESCRIPTION (OPTIONAL)
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Short item details..."
+                        value={itemForm.description}
+                        onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
+                        className="w-full bg-[#FAF8F5] border border-[#E7DFD5] focus:border-[#541D26] focus:bg-white rounded-xl px-3 py-2 text-xs font-medium text-[#211A19] focus:outline-none"
+                      />
+                    </div>
+                  </>
+                )}
+
               </div>
 
               {/* Fixed Footer with Brand CTA */}
               <div className="px-5 py-3.5 border-t border-[#E7DFD5] shrink-0 bg-[#FAF8F5]">
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 border border-[#C8A878]/30 cursor-pointer"
+                  className="w-full py-3 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center space-x-2 border border-[#C8A878]/30 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4 text-[#C8A878]" />
                   <span>
                     {isServiceVendor(panelData?.vendor)
-                      ? (editingItem ? 'Save Service Changes' : 'Add Service to Catalog')
+                      ? (editingItem ? 'SAVE CHANGES' : 'ADD SERVICE')
                       : (editingItem ? 'Save Changes' : 'Add Product to Store')}
                   </span>
                 </button>

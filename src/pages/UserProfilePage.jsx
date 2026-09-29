@@ -377,6 +377,19 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         }
       }
 
+      const rawUserId = userData?.user_id || userData?.id;
+      if (rawUserId) {
+        try {
+          const userOrderRes = await api.getUserOrders(rawUserId);
+          const uList = Array.isArray(userOrderRes) ? userOrderRes : (userOrderRes?.orders || userOrderRes?.data || []);
+          if (Array.isArray(uList) && uList.length > 0) {
+            liveOrders.push(...uList.filter(Boolean));
+          }
+        } catch (e) {
+          console.warn("Backend orders query by user_id note:", e);
+        }
+      }
+
       // Filter out mock dummy orders
       const isRealOrder = (o) => {
         if (!o) return false;

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 // Layout Components
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
+import FooterReveal from './components/layout/FooterReveal';
 import FloatingCartBar from './components/layout/FloatingCartBar';
 
 // Modals & Overlays
@@ -69,7 +70,7 @@ function getRouteFromPath(path = window.location.pathname) {
   if (cleanPath === '/help-support' || cleanPath === '/help' || cleanPath === '/faqs' || cleanPath === '/faq') {
     return { page: 'info', tab: 'help-support' };
   }
-  if (cleanPath === '/how-it-works' || cleanPath === '/howitworks') {
+  if (cleanPath === '/how-it-works' || cleanPath === '/howitworks' || cleanPath === '/resources' || cleanPath === '/resource') {
     return { page: 'info', tab: 'how-it-works' };
   }
   if (cleanPath === '/about-us' || cleanPath === '/about' || cleanPath === '/our-story') {
@@ -401,121 +402,125 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
-      {/* Global Maintenance Mode Banner (Workflow 5) */}
-      {platformConfig?.maintenance_mode && (
-        <div className="bg-[#8C2323] text-white py-2.5 px-4 text-center text-xs font-bold flex items-center justify-center gap-2 shadow-md">
-          <AlertTriangle className="w-4 h-4 animate-bounce" />
-          <span>DigiLocal is currently undergoing scheduled platform maintenance. Services & orders are temporarily paused.</span>
-        </div>
-      )}
+    <div className="min-h-screen bg-[#181312] text-foreground flex flex-col font-sans relative selection:bg-[#541D26] selection:text-white">
+      {route.page !== 'login' && route.page !== 'vendorRegister' && route.page !== 'register' ? (
+        <FooterReveal
+          footerContent={
+            <Footer setRoute={setRoute} onOpenSupportDesk={() => setIsSupportDeskOpen(true)} />
+          }
+        >
+          {/* Global Maintenance Mode Banner (Workflow 5) */}
+          {platformConfig?.maintenance_mode && (
+            <div className="bg-[#8C2323] text-white py-2.5 px-4 text-center text-xs font-bold flex items-center justify-center gap-2 shadow-md">
+              <AlertTriangle className="w-4 h-4 animate-bounce" />
+              <span>DigiLocal is currently undergoing scheduled platform maintenance. Services & orders are temporarily paused.</span>
+            </div>
+          )}
 
-      {route.page !== 'login' && route.page !== 'vendorRegister' && route.page !== 'register' && (
-        <Navbar
-          currentRoute={route}
-          setRoute={setRoute}
-          activeVendor={activeVendor}
-          onVendorLogout={handleVendorLogout}
-          activeUser={activeUser}
-          onUserLogout={handleUserLogout}
-          onOpenLogin={() => setRoute({ page: 'login' })}
-          onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
-        />
-      )}
-
-      <main className="flex-1">
-        {route.page === 'home' && (
-          <HomePage currentRoute={route} setRoute={setRoute} onOpenLogin={() => setRoute({ page: 'login' })} />
-        )}
-
-        {route.page === 'login' && (
-          <LoginPage currentRoute={route} setRoute={setRoute} setActiveVendor={setActiveVendor} setActiveUser={setActiveUser} />
-        )}
-
-        {route.page === 'register' && (
-          <RegisterPage currentRoute={route} setRoute={setRoute} setActiveUser={setActiveUser} setActiveVendor={setActiveVendor} />
-        )}
-
-        {route.page === 'profile' && (
-          <UserProfilePage
-            activeUser={activeUser}
-            setActiveUser={setActiveUser}
-            setRoute={setRoute}
-            onLogout={handleUserLogout}
-            onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
-          />
-        )}
-
-        {route.page === 'societyVendors' && (
-          <SocietyVendorsPage
-            societyId={route.societyId}
-            setRoute={setRoute}
-            activeUser={activeUser}
-            activeVendor={activeVendor}
-            onOpenLoginModal={() => setIsLoginModalOpen(true)}
-          />
-        )}
-
-        {route.page === 'vendorStorefront' && (
-          <VendorStorefrontPage
+          <Navbar
             currentRoute={route}
-            societyId={route.societyId}
-            vendorId={route.vendorId}
             setRoute={setRoute}
-            onOpenLoginModal={() => setIsLoginModalOpen(true)}
-            activeUser={activeUser}
             activeVendor={activeVendor}
-          />
-        )}
-
-        {route.page === 'vendorRegister' && (
-          <VendorRegisterPage currentRoute={route} setRoute={setRoute} setActiveVendor={setActiveVendor} setActiveUser={setActiveUser} />
-        )}
-
-        {route.page === 'vendorDashboard' && (
-          <VendorDashboardPage
-            vendorId={route.vendorId}
-            setRoute={setRoute}
-            setActiveVendor={setActiveVendor}
             onVendorLogout={handleVendorLogout}
-            onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
-          />
-        )}
-
-        {route.page === 'admin' && (
-          <AdminDashboardPage setRoute={setRoute} />
-        )}
-
-        {route.page === 'info' && (
-          <InfoPages
-            currentRoute={route}
-            tab={route.tab}
-            setRoute={setRoute}
-            onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
-            setActiveUser={setActiveUser}
-            setActiveVendor={setActiveVendor}
+            activeUser={activeUser}
             onUserLogout={handleUserLogout}
-            onVendorLogout={handleVendorLogout}
+            onOpenLogin={() => setRoute({ page: 'login' })}
+            onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
           />
-        )}
 
-        {route.page === 'serviceEnquiry' && (
-          <ServiceEnquiryPage
-            currentRoute={route}
-            setRoute={setRoute}
-            activeUser={activeUser}
-            activeVendor={activeVendor}
-            onOpenLoginModal={() => setIsLoginModalOpen(true)}
-          />
-        )}
+          <div className="flex-1 w-full">
+            {route.page === 'home' && (
+              <HomePage currentRoute={route} setRoute={setRoute} onOpenLogin={() => setRoute({ page: 'login' })} />
+            )}
 
-        {!['home', 'login', 'register', 'profile', 'societyVendors', 'vendorStorefront', 'serviceEnquiry', 'vendorRegister', 'vendorDashboard', 'admin', 'info'].includes(route.page) && (
-          <HomePage currentRoute={route} setRoute={setRoute} onOpenLogin={() => setRoute({ page: 'login' })} />
-        )}
-      </main>
+            {route.page === 'profile' && (
+              <UserProfilePage
+                activeUser={activeUser}
+                setActiveUser={setActiveUser}
+                setRoute={setRoute}
+                onLogout={handleUserLogout}
+                onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
+              />
+            )}
 
-      {route.page !== 'login' && route.page !== 'vendorRegister' && route.page !== 'register' && (
-        <Footer setRoute={setRoute} onOpenSupportDesk={() => setIsSupportDeskOpen(true)} />
+            {route.page === 'societyVendors' && (
+              <SocietyVendorsPage
+                societyId={route.societyId}
+                setRoute={setRoute}
+                activeUser={activeUser}
+                activeVendor={activeVendor}
+                onOpenLoginModal={() => setIsLoginModalOpen(true)}
+              />
+            )}
+
+            {route.page === 'vendorStorefront' && (
+              <VendorStorefrontPage
+                currentRoute={route}
+                societyId={route.societyId}
+                vendorId={route.vendorId}
+                setRoute={setRoute}
+                onOpenLoginModal={() => setIsLoginModalOpen(true)}
+                activeUser={activeUser}
+                activeVendor={activeVendor}
+              />
+            )}
+
+            {route.page === 'vendorDashboard' && (
+              <VendorDashboardPage
+                vendorId={route.vendorId}
+                setRoute={setRoute}
+                setActiveVendor={setActiveVendor}
+                onVendorLogout={handleVendorLogout}
+                onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
+              />
+            )}
+
+            {route.page === 'admin' && (
+              <AdminDashboardPage setRoute={setRoute} />
+            )}
+
+            {route.page === 'info' && (
+              <InfoPages
+                currentRoute={route}
+                tab={route.tab}
+                setRoute={setRoute}
+                onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
+                setActiveUser={setActiveUser}
+                setActiveVendor={setActiveVendor}
+                onUserLogout={handleUserLogout}
+                onVendorLogout={handleVendorLogout}
+              />
+            )}
+
+            {route.page === 'serviceEnquiry' && (
+              <ServiceEnquiryPage
+                currentRoute={route}
+                setRoute={setRoute}
+                activeUser={activeUser}
+                activeVendor={activeVendor}
+                onOpenLoginModal={() => setIsLoginModalOpen(true)}
+              />
+            )}
+
+            {!['home', 'login', 'register', 'profile', 'societyVendors', 'vendorStorefront', 'serviceEnquiry', 'vendorRegister', 'vendorDashboard', 'admin', 'info'].includes(route.page) && (
+              <HomePage currentRoute={route} setRoute={setRoute} onOpenLogin={() => setRoute({ page: 'login' })} />
+            )}
+          </div>
+        </FooterReveal>
+      ) : (
+        <main className="flex-1 w-full bg-[#F6F0E8]">
+          {route.page === 'login' && (
+            <LoginPage currentRoute={route} setRoute={setRoute} setActiveVendor={setActiveVendor} setActiveUser={setActiveUser} />
+          )}
+
+          {route.page === 'register' && (
+            <RegisterPage currentRoute={route} setRoute={setRoute} setActiveUser={setActiveUser} setActiveVendor={setActiveVendor} />
+          )}
+
+          {route.page === 'vendorRegister' && (
+            <VendorRegisterPage currentRoute={route} setRoute={setRoute} setActiveVendor={setActiveVendor} setActiveUser={setActiveUser} />
+          )}
+        </main>
       )}
 
       <LoginModal

@@ -1,5 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Store, ArrowLeft, LogOut, LogIn, Building2, BookOpen, HelpCircle, ArrowUpRight, User, MapPin, ChevronDown, Check, Plus, Edit3, ShoppingCart, Menu, X } from 'lucide-react';
+import { motion, useScroll, useSpring } from 'motion/react';
+import { 
+  Store, 
+  ArrowLeft, 
+  LogOut, 
+  LogIn, 
+  Building2, 
+  BookOpen, 
+  HelpCircle, 
+  ArrowUpRight, 
+  User, 
+  MapPin, 
+  ChevronDown, 
+  Check, 
+  Plus, 
+  Edit3, 
+  ShoppingCart, 
+  Menu, 
+  X,
+  Sparkles,
+  ShieldCheck,
+  Lock,
+  FileText,
+  Headphones,
+  RefreshCw,
+  ShoppingBag,
+  Wrench,
+  HeartHandshake,
+  ShieldAlert,
+  Scale,
+  Compass,
+  ExternalLink,
+  Layers
+} from 'lucide-react';
 import DeliveryAddressModal from '../modals/DeliveryAddressModal';
 import AnimatedIcon from '../common/AnimatedIcon';
 import { api } from '../../services/api';
@@ -8,6 +41,23 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
   const [isScrolled, setIsScrolled] = useState(false);
   const [isNearFooter, setIsNearFooter] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isResourcesOpen, setIsResourcesOpen] = useState(false);
+  const resourcesRef = useRef(null);
+
+  // Top Scroll Progress Bar (Mobbin Style)
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
+
+  // Close resources mega-menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (resourcesRef.current && !resourcesRef.current.contains(e.target)) {
+        setIsResourcesOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Active Cart State (Persisted Across All Pages)
   const [activeCart, setActiveCart] = useState(null);
@@ -162,7 +212,11 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
       setIsScrolled(window.scrollY > 80);
       const scrollPos = window.scrollY + window.innerHeight;
       const pageHeight = document.documentElement.scrollHeight;
-      setIsNearFooter(scrollPos >= pageHeight - 650);
+      const nearFooter = scrollPos >= pageHeight - 380;
+      setIsNearFooter(nearFooter);
+      if (nearFooter) {
+        setIsResourcesOpen(false);
+      }
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
 
@@ -427,13 +481,256 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
     );
   };
 
+  const navToInfo = (tab) => {
+    setIsResourcesOpen(false);
+    setIsMobileMenuOpen(false);
+    setRoute({ page: 'info', tab });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Resources Mega Menu (Connexon Reference Style)
+  const renderResourcesButton = (isMobile = false) => {
+    const isInfoActive = currentRoute?.page === 'info';
+
+    if (isMobile) {
+      return (
+        <div className="space-y-1">
+          <button
+            onClick={() => setIsResourcesOpen(!isResourcesOpen)}
+            className={`w-full py-2.5 px-3 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer ${
+              isInfoActive ? 'bg-[#541D26] text-white' : 'text-[#211A19] hover:bg-[#EEE5DA]'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <Sparkles className="w-4 h-4 text-[#C8A878]" />
+              <span>Resources</span>
+            </div>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isResourcesOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {isResourcesOpen && (
+            <div className="pl-3 pr-2 py-2 space-y-1.5 bg-[#FAF8F5] rounded-xl border border-[#E5DAD0]">
+              <button onClick={() => navToInfo('about-us')} className="w-full text-left py-1 text-xs font-semibold text-[#211A19] hover:text-[#541D26] flex items-center gap-2">
+                <Scale className="w-3.5 h-3.5 text-[#541D26]" />
+                <span>Why DigiLocal / Our Story</span>
+              </button>
+              <button onClick={() => navToInfo('how-it-works')} className="w-full text-left py-1 text-xs font-semibold text-[#211A19] hover:text-[#541D26] flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-[#541D26]" />
+                <span>How It Works</span>
+              </button>
+              <button onClick={() => navToInfo('help-support')} className="w-full text-left py-1 text-xs font-semibold text-[#211A19] hover:text-[#541D26] flex items-center gap-2">
+                <HelpCircle className="w-3.5 h-3.5 text-[#541D26]" />
+                <span>Help & FAQs</span>
+              </button>
+              <button onClick={() => navToInfo('safety-standards')} className="w-full text-left py-1 text-xs font-semibold text-[#211A19] hover:text-[#541D26] flex items-center gap-2">
+                <ShieldAlert className="w-3.5 h-3.5 text-[#541D26]" />
+                <span>Safety Standards</span>
+              </button>
+              <button onClick={() => navToInfo('privacy-policy')} className="w-full text-left py-1 text-xs font-semibold text-[#211A19] hover:text-[#541D26] flex items-center gap-2">
+                <Lock className="w-3.5 h-3.5 text-[#541D26]" />
+                <span>Privacy Policy</span>
+              </button>
+              <button onClick={() => navToInfo('terms-and-conditions')} className="w-full text-left py-1 text-xs font-semibold text-[#211A19] hover:text-[#541D26] flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5 text-[#541D26]" />
+                <span>Terms & Conditions</span>
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative" ref={resourcesRef}>
+        <button
+          onClick={() => setIsResourcesOpen(!isResourcesOpen)}
+          className={`px-3 sm:px-3.5 py-1.5 rounded-full transition-all duration-200 font-semibold text-xs tracking-wider uppercase cursor-pointer flex items-center space-x-1 ${
+            isInfoActive
+              ? 'bg-[#541D26] text-white font-bold shadow-xs'
+              : isResourcesOpen
+                ? 'text-[#541D26] bg-[#EEE5DA] font-semibold'
+                : 'text-[#211A19]/80 hover:text-[#541D26] hover:bg-[#EEE5DA]'
+          }`}
+        >
+          <span>Resources</span>
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isResourcesOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {/* Clean 3-Column Resources Mega Menu Dropdown */}
+        {isResourcesOpen && (
+          <div className="absolute top-full -left-28 sm:-left-44 md:-left-56 mt-3 w-[92vw] sm:w-[680px] md:w-[740px] max-w-4xl bg-[#FCFAF7] rounded-[1.75rem] p-6 sm:p-7 shadow-[0_25px_60px_-15px_rgba(33,26,25,0.25),0_10px_25px_-5px_rgba(33,26,25,0.12)] border border-[#E5DAD0] z-[99999] text-[#211A19] animate-in fade-in zoom-in-95 duration-150 font-sans">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              
+              {/* Column 1: PRODUCT & PLANS */}
+              <div className="space-y-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#541D26] block border-b border-[#E5DAD0] pb-1.5">
+                  Product & Plans
+                </span>
+                <div className="space-y-1.5">
+                  <button
+                    onClick={() => navToInfo('about-us')}
+                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Why DigiLocal</h5>
+                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Hyperlocal advantage & zero markups</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => navToInfo('how-it-works')}
+                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">How It Works</h5>
+                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">3-Step express community ordering</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => { setIsResourcesOpen(false); setRoute({ page: 'vendorRegister' }); }}
+                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
+                      <Store className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Become a Vendor</h5>
+                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Register store in under 2 mins</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Column 2: SOLUTIONS */}
+              <div className="space-y-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#541D26] block border-b border-[#E5DAD0] pb-1.5">
+                  Solutions
+                </span>
+                <div className="space-y-1.5">
+                  <button
+                    onClick={() => { setIsResourcesOpen(false); setRoute({ page: 'societyVendors', societyId: 'all' }); }}
+                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
+                      <ShoppingBag className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Explore Stores</h5>
+                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Discover neighborhood shops</p>
+                    </div>
+                  </button>
+
+                  <a
+                    href="https://zordial.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight flex items-center gap-1">
+                        <span>Zordial Engine</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </h5>
+                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Enterprise software architecture</p>
+                    </div>
+                  </a>
+                </div>
+              </div>
+
+              {/* Column 3: TRUST & LEGAL */}
+              <div className="space-y-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#541D26] block border-b border-[#E5DAD0] pb-1.5">
+                  Trust & Legal
+                </span>
+                <div className="space-y-1.5">
+                  <button
+                    onClick={() => navToInfo('help-support')}
+                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
+                      <HelpCircle className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Help & FAQs</h5>
+                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Answers to common questions</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => navToInfo('safety-standards')}
+                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
+                      <ShieldAlert className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Safety Standards</h5>
+                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Verified hygiene & audits</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => navToInfo('privacy-policy')}
+                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Privacy Policy</h5>
+                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">How we handle resident data</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => navToInfo('terms-and-conditions')}
+                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Terms & Conditions</h5>
+                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Official terms for platform use</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
+      {/* Top Floating Scroll Progress Indicator (Mobbin Style) */}
+      <motion.div
+        style={{ scaleX }}
+        className="fixed top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-[#541D26] via-[#C8A878] to-[#541D26] origin-left z-[999999] pointer-events-none"
+      />
+
       {/* Top Header Navbar */}
-      <header className={`w-full bg-[#F6F0E8] text-[#211A19] pt-3 sm:pt-4 pb-1 px-4 sm:px-6 lg:px-8 font-sans transition-all duration-300 relative z-40`}>
+      <header className={`w-full ${isHomePage ? 'sticky top-0 z-50 pointer-events-none' : 'bg-[#F6F0E8] relative z-40'} text-[#211A19] pt-3 sm:pt-4 pb-2 px-4 sm:px-6 lg:px-8 font-sans transition-all duration-300`}>
         {isHomePage ? (
           /* FLOATING HEADER BAR: Sleek thin glassmorphic warm cream pill bar */
-          <div className="w-full max-w-7xl mx-auto bg-white/80 backdrop-blur-lg rounded-[2rem] sm:rounded-full px-4 sm:px-6 py-1.5 sm:py-2 shadow-md border border-[#E5DAD0] relative transition-all">
+          <div className={`w-full max-w-7xl mx-auto bg-white/95 backdrop-blur-xl rounded-[2rem] sm:rounded-full px-4 sm:px-6 py-1.5 sm:py-2 shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-[#E5DAD0] relative transition-all duration-300 ${
+            isNearFooter
+              ? 'opacity-0 -translate-y-8 pointer-events-none scale-95'
+              : 'opacity-100 translate-y-0 pointer-events-auto scale-100'
+          }`}>
             <div className="flex items-center justify-between min-h-[38px] sm:min-h-[40px] relative">
               
               {/* LEFT: Logo (#211A19 Espresso text) */}
@@ -454,7 +751,7 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
               </div>
 
               {/* CENTER: Navigation Links (#211A19 Espresso default, #541D26 Oxblood active) */}
-              <nav className={`hidden lg:flex items-center space-x-2 sm:space-x-3 text-xs font-semibold my-auto py-0.5 transition-all duration-400 ${isScrolled ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
+              <nav className="hidden lg:flex items-center space-x-2 sm:space-x-3 text-xs font-semibold my-auto py-0.5">
                 <button
                   onClick={() => setRoute({ page: 'home' })}
                   className="px-3.5 sm:px-4 py-1.5 rounded-full bg-[#541D26] text-white font-bold shadow-xs text-xs tracking-wider uppercase cursor-pointer"
@@ -469,19 +766,8 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                   Vendors
                 </button>
 
-                <button
-                  onClick={() => setRoute({ page: 'info', tab: 'about-us' })}
-                  className="px-3 sm:px-3.5 py-1.5 rounded-full text-[#211A19]/80 hover:text-[#541D26] hover:bg-[#EEE5DA] transition-all duration-200 font-semibold text-xs tracking-wider uppercase cursor-pointer"
-                >
-                  Our Story
-                </button>
-
-                <button
-                  onClick={() => setRoute({ page: 'info', tab: 'how-it-works' })}
-                  className="px-3 sm:px-3.5 py-1.5 rounded-full text-[#211A19]/80 hover:text-[#541D26] hover:bg-[#EEE5DA] transition-all duration-200 font-semibold text-xs tracking-wider uppercase cursor-pointer"
-                >
-                  How It Works
-                </button>
+                {/* Single Combined Resources Dropdown Button (Connexon Mega-Menu Style) */}
+                {renderResourcesButton(false)}
               </nav>
 
               {/* RIGHT: Delivery Address Pill + User Profile / Store Button / Log In */}
@@ -592,25 +878,8 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                 Vendors
               </button>
 
-              <button
-                onClick={() => setRoute({ page: 'info', tab: 'about-us' })}
-                className={`px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full transition-all duration-200 ${isOurStoryActive
-                  ? 'bg-[#541D26] text-white font-bold shadow-sm'
-                  : 'text-[#211A19]/80 hover:text-[#541D26] hover:bg-[#EEE5DA] font-medium'
-                  }`}
-              >
-                Our Story
-              </button>
-
-              <button
-                onClick={() => setRoute({ page: 'info', tab: 'how-it-works' })}
-                className={`px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full transition-all duration-200 ${isHowItWorksActive
-                  ? 'bg-[#541D26] text-white font-bold shadow-sm'
-                  : 'text-[#211A19]/80 hover:text-[#541D26] hover:bg-[#EEE5DA] font-medium'
-                  }`}
-              >
-                How It Works
-              </button>
+              {/* Single Combined Resources Dropdown Button */}
+              {renderResourcesButton(false)}
             </nav>
 
             {/* Right: Delivery Address Pill + Profile / Vendor Portal / Single Logout Button */}
@@ -721,23 +990,8 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                     <span>Browse Vendors</span>
                   </button>
 
-                  <button
-                    onClick={() => { setRoute({ page: 'info', tab: 'about-us' }); setIsMobileMenuOpen(false); }}
-                    className={`w-full py-3 px-4 rounded-xl text-left text-sm font-bold flex items-center justify-between transition-all ${
-                      isOurStoryActive ? 'bg-[#541D26] text-white shadow-xs' : 'bg-white text-[#211A19] hover:bg-[#EEE5DA]'
-                    }`}
-                  >
-                    <span>Our Story</span>
-                  </button>
-
-                  <button
-                    onClick={() => { setRoute({ page: 'info', tab: 'how-it-works' }); setIsMobileMenuOpen(false); }}
-                    className={`w-full py-3 px-4 rounded-xl text-left text-sm font-bold flex items-center justify-between transition-all ${
-                      isHowItWorksActive ? 'bg-[#541D26] text-white shadow-xs' : 'bg-white text-[#211A19] hover:bg-[#EEE5DA]'
-                    }`}
-                  >
-                    <span>How It Works</span>
-                  </button>
+                  {/* Resources Mobile Accordion */}
+                  {renderResourcesButton(true)}
                 </nav>
               </div>
 

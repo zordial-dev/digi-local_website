@@ -149,7 +149,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
   };
 
   return (
-    <div className="w-full bg-[#F6F0E8] min-h-screen font-sans -mt-px overflow-x-hidden text-[#211A19] pb-16 relative">
+    <div className="w-full bg-[#F6F0E8] min-h-screen font-sans -mt-px overflow-x-clip text-[#211A19] pb-16 relative">
       
       {/* HERO SECTION */}
       <div className="w-full pt-8 sm:pt-12 lg:pt-14 pb-10 sm:pb-14 px-4 sm:px-8 lg:px-12 relative overflow-hidden flex flex-col items-center justify-center text-center bg-[#F6F0E8]">
