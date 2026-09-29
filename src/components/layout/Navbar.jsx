@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, useScroll, useSpring } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useSpring } from 'motion/react';
 import { 
   Store, 
   ArrowLeft, 
@@ -43,6 +43,24 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isResourcesOpen, setIsResourcesOpen] = useState(false);
   const resourcesRef = useRef(null);
+  const resourcesTimeoutRef = useRef(null);
+
+  const handleResourcesMouseEnter = () => {
+    if (resourcesTimeoutRef.current) {
+      clearTimeout(resourcesTimeoutRef.current);
+      resourcesTimeoutRef.current = null;
+    }
+    setIsResourcesOpen(true);
+  };
+
+  const handleResourcesMouseLeave = () => {
+    if (resourcesTimeoutRef.current) {
+      clearTimeout(resourcesTimeoutRef.current);
+    }
+    resourcesTimeoutRef.current = setTimeout(() => {
+      setIsResourcesOpen(false);
+    }, 60);
+  };
 
   // Top Scroll Progress Bar (Mobbin Style)
   const { scrollYProgress } = useScroll();
@@ -56,7 +74,10 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      if (resourcesTimeoutRef.current) clearTimeout(resourcesTimeoutRef.current);
+    };
   }, []);
 
   // Active Cart State (Persisted Across All Pages)
@@ -541,10 +562,15 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
     }
 
     return (
-      <div className="relative" ref={resourcesRef}>
+      <div 
+        className="relative" 
+        ref={resourcesRef}
+        onMouseEnter={handleResourcesMouseEnter}
+        onMouseLeave={handleResourcesMouseLeave}
+      >
         <button
           onClick={() => setIsResourcesOpen(!isResourcesOpen)}
-          className={`px-3 sm:px-3.5 py-1.5 rounded-full transition-all duration-200 font-semibold text-xs tracking-wider uppercase cursor-pointer flex items-center space-x-1 ${
+          className={`px-3 sm:px-3.5 py-1.5 rounded-full transition-colors duration-150 font-semibold text-xs tracking-wider uppercase cursor-pointer flex items-center space-x-1 ${
             isInfoActive
               ? 'bg-[#541D26] text-white font-bold shadow-xs'
               : isResourcesOpen
@@ -556,160 +582,177 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
           <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isResourcesOpen ? 'rotate-180' : ''}`} />
         </button>
 
-        {/* Clean 3-Column Resources Mega Menu Dropdown */}
-        {isResourcesOpen && (
-          <div className="absolute top-full -left-28 sm:-left-44 md:-left-56 mt-3 w-[92vw] sm:w-[680px] md:w-[740px] max-w-4xl bg-[#FCFAF7] rounded-[1.75rem] p-6 sm:p-7 shadow-[0_25px_60px_-15px_rgba(33,26,25,0.25),0_10px_25px_-5px_rgba(33,26,25,0.12)] border border-[#E5DAD0] z-[99999] text-[#211A19] animate-in fade-in zoom-in-95 duration-150 font-sans">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              
-              {/* Column 1: PRODUCT & PLANS */}
-              <div className="space-y-3">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#541D26] block border-b border-[#E5DAD0] pb-1.5">
-                  Product & Plans
-                </span>
-                <div className="space-y-1.5">
-                  <button
-                    onClick={() => navToInfo('about-us')}
-                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
-                      <Scale className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Why DigiLocal</h5>
-                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Hyperlocal advantage & zero markups</p>
-                    </div>
-                  </button>
+        {/* Clean 3-Column Resources Mega Menu Dropdown with Smooth AnimatePresence */}
+        <AnimatePresence>
+          {isResourcesOpen && (
+            <motion.div 
+              initial={{ opacity: 0, y: 8, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ 
+                opacity: 0, 
+                y: 6, 
+                scale: 0.985, 
+                transition: { duration: 0.16, ease: [0.4, 0, 0.2, 1] } 
+              }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute top-full -left-28 sm:-left-44 md:-left-56 pt-2 w-[92vw] sm:w-[680px] md:w-[740px] max-w-4xl z-[99999]"
+              onMouseEnter={handleResourcesMouseEnter}
+              onMouseLeave={handleResourcesMouseLeave}
+            >
+              <div className="bg-[#FCFAF7] rounded-[1.75rem] p-6 sm:p-7 shadow-[0_25px_60px_-15px_rgba(33,26,25,0.25),0_10px_25px_-5px_rgba(33,26,25,0.12)] border border-[#E5DAD0] text-[#211A19] font-sans">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  
+                  {/* Column 1: PRODUCT & PLANS */}
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#541D26] block border-b border-[#E5DAD0] pb-1.5">
+                      Product & Plans
+                    </span>
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={() => navToInfo('about-us')}
+                        className="w-full text-left group/item flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-[#541D26]/10 border border-[#541D26]/10 flex items-center justify-center shrink-0 text-[#541D26] group-hover/item:bg-[#541D26] group-hover/item:text-white group-hover/item:scale-105 transition-all duration-150">
+                          <Scale className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-bold text-[#211A19] group-hover/item:text-[#541D26] transition-colors leading-tight">Why DigiLocal</h5>
+                          <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Hyperlocal advantage & zero markups</p>
+                        </div>
+                      </button>
 
-                  <button
-                    onClick={() => navToInfo('how-it-works')}
-                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">How It Works</h5>
-                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">3-Step express community ordering</p>
-                    </div>
-                  </button>
+                      <button
+                        onClick={() => navToInfo('how-it-works')}
+                        className="w-full text-left group/item flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-[#541D26]/10 border border-[#541D26]/10 flex items-center justify-center shrink-0 text-[#541D26] group-hover/item:bg-[#541D26] group-hover/item:text-white group-hover/item:scale-105 transition-all duration-150">
+                          <Sparkles className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-bold text-[#211A19] group-hover/item:text-[#541D26] transition-colors leading-tight">How It Works</h5>
+                          <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">3-Step express community ordering</p>
+                        </div>
+                      </button>
 
-                  <button
-                    onClick={() => { setIsResourcesOpen(false); setRoute({ page: 'vendorRegister' }); }}
-                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
-                      <Store className="w-4 h-4" />
+                      <button
+                        onClick={() => { setIsResourcesOpen(false); setRoute({ page: 'vendorRegister' }); }}
+                        className="w-full text-left group/item flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-[#541D26]/10 border border-[#541D26]/10 flex items-center justify-center shrink-0 text-[#541D26] group-hover/item:bg-[#541D26] group-hover/item:text-white group-hover/item:scale-105 transition-all duration-150">
+                          <Store className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-bold text-[#211A19] group-hover/item:text-[#541D26] transition-colors leading-tight">Become a Vendor</h5>
+                          <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Register store in under 2 mins</p>
+                        </div>
+                      </button>
                     </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Become a Vendor</h5>
-                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Register store in under 2 mins</p>
+                  </div>
+
+                  {/* Column 2: SOLUTIONS */}
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#541D26] block border-b border-[#E5DAD0] pb-1.5">
+                      Solutions
+                    </span>
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={() => { setIsResourcesOpen(false); setRoute({ page: 'societyVendors', societyId: 'all' }); }}
+                        className="w-full text-left group/item flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-[#541D26]/10 border border-[#541D26]/10 flex items-center justify-center shrink-0 text-[#541D26] group-hover/item:bg-[#541D26] group-hover/item:text-white group-hover/item:scale-105 transition-all duration-150">
+                          <ShoppingBag className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-bold text-[#211A19] group-hover/item:text-[#541D26] transition-colors leading-tight">Explore Stores</h5>
+                          <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Discover neighborhood shops</p>
+                        </div>
+                      </button>
+
+                      <a
+                        href="https://zordial.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full text-left group/item flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-[#541D26]/10 border border-[#541D26]/10 flex items-center justify-center shrink-0 text-[#541D26] group-hover/item:bg-[#541D26] group-hover/item:text-white group-hover/item:scale-105 transition-all duration-150">
+                          <Building2 className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-bold text-[#211A19] group-hover/item:text-[#541D26] transition-colors leading-tight flex items-center gap-1">
+                            <span>Zordial Engine</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </h5>
+                          <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Enterprise software architecture</p>
+                        </div>
+                      </a>
                     </div>
-                  </button>
+                  </div>
+
+                  {/* Column 3: TRUST & LEGAL */}
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#541D26] block border-b border-[#E5DAD0] pb-1.5">
+                      Trust & Legal
+                    </span>
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={() => navToInfo('help-support')}
+                        className="w-full text-left group/item flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-[#541D26]/10 border border-[#541D26]/10 flex items-center justify-center shrink-0 text-[#541D26] group-hover/item:bg-[#541D26] group-hover/item:text-white group-hover/item:scale-105 transition-all duration-150">
+                          <HelpCircle className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-bold text-[#211A19] group-hover/item:text-[#541D26] transition-colors leading-tight">Help & FAQs</h5>
+                          <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Answers to common questions</p>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => navToInfo('safety-standards')}
+                        className="w-full text-left group/item flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-[#541D26]/10 border border-[#541D26]/10 flex items-center justify-center shrink-0 text-[#541D26] group-hover/item:bg-[#541D26] group-hover/item:text-white group-hover/item:scale-105 transition-all duration-150">
+                          <ShieldAlert className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-bold text-[#211A19] group-hover/item:text-[#541D26] transition-colors leading-tight">Safety Standards</h5>
+                          <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Verified hygiene & audits</p>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => navToInfo('privacy-policy')}
+                        className="w-full text-left group/item flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-[#541D26]/10 border border-[#541D26]/10 flex items-center justify-center shrink-0 text-[#541D26] group-hover/item:bg-[#541D26] group-hover/item:text-white group-hover/item:scale-105 transition-all duration-150">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-bold text-[#211A19] group-hover/item:text-[#541D26] transition-colors leading-tight">Privacy Policy</h5>
+                          <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">How we handle resident data</p>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => navToInfo('terms-and-conditions')}
+                        className="w-full text-left group/item flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-[#541D26]/10 border border-[#541D26]/10 flex items-center justify-center shrink-0 text-[#541D26] group-hover/item:bg-[#541D26] group-hover/item:text-white group-hover/item:scale-105 transition-all duration-150">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-bold text-[#211A19] group-hover/item:text-[#541D26] transition-colors leading-tight">Terms & Conditions</h5>
+                          <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Official terms for platform use</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
                 </div>
               </div>
-
-              {/* Column 2: SOLUTIONS */}
-              <div className="space-y-3">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#541D26] block border-b border-[#E5DAD0] pb-1.5">
-                  Solutions
-                </span>
-                <div className="space-y-1.5">
-                  <button
-                    onClick={() => { setIsResourcesOpen(false); setRoute({ page: 'societyVendors', societyId: 'all' }); }}
-                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
-                      <ShoppingBag className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Explore Stores</h5>
-                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Discover neighborhood shops</p>
-                    </div>
-                  </button>
-
-                  <a
-                    href="https://zordial.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
-                      <Building2 className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight flex items-center gap-1">
-                        <span>Zordial Engine</span>
-                        <ExternalLink className="w-2.5 h-2.5" />
-                      </h5>
-                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Enterprise software architecture</p>
-                    </div>
-                  </a>
-                </div>
-              </div>
-
-              {/* Column 3: TRUST & LEGAL */}
-              <div className="space-y-3">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#541D26] block border-b border-[#E5DAD0] pb-1.5">
-                  Trust & Legal
-                </span>
-                <div className="space-y-1.5">
-                  <button
-                    onClick={() => navToInfo('help-support')}
-                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
-                      <HelpCircle className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Help & FAQs</h5>
-                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Answers to common questions</p>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => navToInfo('safety-standards')}
-                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
-                      <ShieldAlert className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Safety Standards</h5>
-                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Verified hygiene & audits</p>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => navToInfo('privacy-policy')}
-                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
-                      <Lock className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Privacy Policy</h5>
-                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">How we handle resident data</p>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => navToInfo('terms-and-conditions')}
-                    className="w-full text-left group flex items-start space-x-3 hover:bg-[#F3ECE4] p-2 rounded-xl transition-colors cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-[#EEE5DA] flex items-center justify-center shrink-0 text-[#541D26] group-hover:bg-[#541D26] group-hover:text-white transition-colors">
-                      <FileText className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight">Terms & Conditions</h5>
-                      <p className="text-[10.5px] text-[#78716C] leading-snug mt-0.5">Official terms for platform use</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   };
@@ -827,7 +870,7 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
           </div>
         ) : (
           /* OTHER PAGES HEADER: Floating Bar Header */
-          <div className="max-w-7xl mx-auto bg-white/90 backdrop-blur-md text-[#211A19] rounded-[2rem] sm:rounded-full p-2.5 sm:p-3 shadow-md mb-6 flex items-center justify-between border border-[#E5DAD0] relative">
+          <div className="max-w-7xl mx-auto bg-white/90 backdrop-blur-md text-[#211A19] rounded-[2rem] sm:rounded-full p-2.5 sm:p-3 shadow-md mb-2 sm:mb-3 flex items-center justify-between border border-[#E5DAD0] relative">
             {/* Left: Back Button + Clean Logo Badge */}
             <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
               <button

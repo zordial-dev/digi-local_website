@@ -147,7 +147,10 @@
         }
       ],
       "password": "NewSecretPassword456!",
-      "updated_at": "2026-09-23T08:52:02.742Z"
+      "updated_at": "2026-09-23T08:52:02.742Z",
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 2,
@@ -166,7 +169,10 @@
       "min_order_value": 0,
       "society_name": "Omaxe Greenwood Residency",
       "latitude": 28.618,
-      "longitude": 77.357
+      "longitude": 77.357,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 3,
@@ -185,7 +191,10 @@
       "min_order_value": 0,
       "society_name": "Palm Meadows Residency",
       "latitude": 28.624,
-      "longitude": 77.357
+      "longitude": 77.357,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 4,
@@ -204,7 +213,10 @@
       "min_order_value": 0,
       "society_name": "Palm Meadows Residency",
       "latitude": 28.63,
-      "longitude": 77.357
+      "longitude": 77.357,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 5,
@@ -223,7 +235,10 @@
       "min_order_value": 0,
       "society_name": "DLF Phase 5 Enclave",
       "latitude": 28.636,
-      "longitude": 77.357
+      "longitude": 77.357,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 6,
@@ -242,7 +257,10 @@
       "min_order_value": 0,
       "society_name": "DLF Phase 5 Enclave",
       "latitude": 28.642,
-      "longitude": 77.357
+      "longitude": 77.357,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 7,
@@ -261,7 +279,10 @@
       "min_order_value": 0,
       "society_name": "Godrej Woods Community",
       "latitude": 28.648,
-      "longitude": 77.357
+      "longitude": 77.357,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 8,
@@ -280,7 +301,10 @@
       "min_order_value": 0,
       "society_name": "Jaypee Greens Wish Town",
       "latitude": 28.612,
-      "longitude": 77.363
+      "longitude": 77.363,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 9,
@@ -299,7 +323,10 @@
       "min_order_value": 0,
       "society_name": "ATS Village Gated Complex",
       "latitude": 28.618,
-      "longitude": 77.363
+      "longitude": 77.363,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 10,
@@ -318,7 +345,10 @@
       "min_order_value": 0,
       "society_name": "Omaxe Greenwood Residency",
       "latitude": 28.624,
-      "longitude": 77.363
+      "longitude": 77.363,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 11,
@@ -337,7 +367,10 @@
       "min_order_value": 0,
       "society_name": "Omaxe Greenwood Residency",
       "latitude": 28.63,
-      "longitude": 77.363
+      "longitude": 77.363,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 12,
@@ -356,7 +389,10 @@
       "min_order_value": 0,
       "society_name": "Palm Meadows Residency",
       "latitude": 28.636,
-      "longitude": 77.363
+      "longitude": 77.363,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 13,
@@ -375,7 +411,10 @@
       "min_order_value": 0,
       "society_name": "DLF Phase 5 Enclave",
       "latitude": 28.642,
-      "longitude": 77.363
+      "longitude": 77.363,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 14,
@@ -394,7 +433,10 @@
       "min_order_value": 0,
       "society_name": "Godrej Woods Community",
       "latitude": 28.648,
-      "longitude": 77.363
+      "longitude": 77.363,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 15,
@@ -413,7 +455,10 @@
       "min_order_value": 0,
       "society_name": "Godrej Woods Community",
       "latitude": 28.612,
-      "longitude": 77.369
+      "longitude": 77.369,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 16,
@@ -432,7 +477,10 @@
       "min_order_value": 0,
       "society_name": "Jaypee Greens Wish Town",
       "latitude": 28.618,
-      "longitude": 77.369
+      "longitude": 77.369,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 17,
@@ -451,7 +499,10 @@
       "min_order_value": 0,
       "society_name": "ATS Village Gated Complex",
       "latitude": 28.624,
-      "longitude": 77.369
+      "longitude": 77.369,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
     },
     {
       "vendor_id": 18,
@@ -484,7 +535,59 @@
       ],
       "status": "ACTIVE",
       "latitude": 28.63,
-      "longitude": 77.369
+      "longitude": 77.369,
+      "account_number": "abc",
+      "ifsc_code": "1234",
+      "bank_name": "HDFC Bank"
+    },
+    {
+      "vendor_id": 19,
+      "public_id": "vnd@2610",
+      "society_id": 1,
+      "society_name": "Gaur City 2",
+      "vendor_name": "Ramesh Kumar",
+      "owner_name": "Ramesh Kumar",
+      "store_name": "Ramesh Daily Essentials",
+      "shop_business_name": "Ramesh Daily Essentials",
+      "shop_number": "Shop No. 12, Ground Floor",
+      "shop_address": "Shop No. 12, Ground Floor",
+      "area": "Gaur City 2",
+      "area_name": "Gaur City 2",
+      "city": "Greater Noida",
+      "state": "Uttar Pradesh",
+      "pincode": "201009",
+      "whatsapp_number": "9833329522",
+      "phone_number": "9833329522",
+      "phone": "9833329522",
+      "email": "ramesh.1790686033239@example.com",
+      "password": "SecretPassword@123",
+      "account_number": "918005625999",
+      "ifsc_code": "HDFC0001234",
+      "bank_name": "HDFC Bank",
+      "account_holder_name": "Ramesh Kumar",
+      "category": "Daily Needs",
+      "business_category": "Daily Needs",
+      "vendor_type": "product",
+      "can_add_items": true,
+      "location_type": "society",
+      "gstin": "",
+      "gst_number": "",
+      "pan_number": "",
+      "upi_id": "",
+      "qr_code": "",
+      "accepted_payment_methods": "[\"UPI\",\"COD\"]",
+      "shop_images": [
+        "https://imgh.in/host/ucila6"
+      ],
+      "shop_image": "https://imgh.in/host/ucila6",
+      "logo": "https://imgh.in/host/ucila6",
+      "image_url": "https://imgh.in/host/ucila6",
+      "is_global_coverage": false,
+      "delivery_radius_km": 3,
+      "selected_zones": [],
+      "status": "pending",
+      "joined_date": "September 2026",
+      "created_at": "2026-09-29T12:47:13.263Z"
     }
   ],
   "items": [
@@ -880,6 +983,25 @@
       "is_vendor": true,
       "vendor_id": 18,
       "store_name": "Test Electrical Services"
+    },
+    {
+      "user_id": "usr_v19",
+      "name": "Ramesh Kumar",
+      "email": "ramesh.1790686033239@example.com",
+      "phone": "9833329522",
+      "password": "SecretPassword@123",
+      "society_id": "1",
+      "society_name": "Gaur City 2",
+      "flat": "Shop No. 12, Ground Floor",
+      "city": "Greater Noida",
+      "pincode": "201009",
+      "joined_date": "September 2026",
+      "status": "pending",
+      "strikes": 0,
+      "avatar": "https://imgh.in/host/ucila6",
+      "is_vendor": true,
+      "vendor_id": 19,
+      "store_name": "Ramesh Daily Essentials"
     }
   ],
   "orders": [

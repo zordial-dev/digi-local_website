@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Truck, Navigation, ChevronRight, CheckCircle2, Store, Clock, X } from 'lucide-react';
 import LiveOrderTrackerModal from '../modals/LiveOrderTrackerModal';
 
-export default function LiveOrderTrackerToast({ activeUser, setRoute }) {
+export default function LiveOrderTrackerToast({ currentRoute, activeUser, setRoute }) {
   const [activeOrder, setActiveOrder] = useState(null);
   const [isTrackerOpen, setIsTrackerOpen] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
@@ -115,7 +115,7 @@ export default function LiveOrderTrackerToast({ activeUser, setRoute }) {
     };
   }, [activeUser]);
 
-  if (!activeOrder || isDismissed) return null;
+  if (!activeOrder || isDismissed || currentRoute?.page === 'orderTracking') return null;
 
   const rawStatus = String(activeOrder.status || 'PLACED').toUpperCase();
   // Do not display if order is cancelled or completed
@@ -133,12 +133,24 @@ export default function LiveOrderTrackerToast({ activeUser, setRoute }) {
     ? 'Store preparing your items' 
     : 'Order placed • Waiting for store';
 
+  const handleOpenTracker = () => {
+    if (setRoute && activeOrder) {
+      setRoute({ 
+        page: 'orderTracking', 
+        orderId: activeOrder.order_id || activeOrder.id, 
+        order: activeOrder 
+      });
+    } else {
+      setIsTrackerOpen(true);
+    }
+  };
+
   return (
     <>
       {/* Floating Bottom Live Tracker Pill (Swiggy / Zomato style) */}
       <div className="fixed bottom-5 inset-x-4 max-w-lg mx-auto z-[99999] animate-in slide-in-from-bottom duration-300 pointer-events-auto">
         <div 
-          onClick={() => setIsTrackerOpen(true)}
+          onClick={handleOpenTracker}
           className="bg-[#211A19] text-white p-3 sm:p-3.5 rounded-[2rem] border-2 border-[#C8A878] shadow-2xl flex items-center justify-between gap-3 cursor-pointer hover:scale-[1.02] active:scale-[0.99] transition-all group"
         >
           {/* Left Pulse Icon & Store Info */}
@@ -173,7 +185,7 @@ export default function LiveOrderTrackerToast({ activeUser, setRoute }) {
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                setIsTrackerOpen(true);
+                handleOpenTracker();
               }}
               className="px-3.5 py-2 rounded-full bg-[#C8A878] hover:bg-[#d8bc90] text-[#541D26] font-black text-xs uppercase tracking-wider flex items-center space-x-1 shadow-md transition-all group-hover:translate-x-0.5 cursor-pointer"
             >
@@ -195,14 +207,6 @@ export default function LiveOrderTrackerToast({ activeUser, setRoute }) {
           </div>
         </div>
       </div>
-
-      {/* Swiggy/Zomato Fullscreen / Modal Live Tracker */}
-      <LiveOrderTrackerModal
-        isOpen={isTrackerOpen}
-        onClose={() => setIsTrackerOpen(false)}
-        order={activeOrder}
-        setRoute={setRoute}
-      />
     </>
   );
 }

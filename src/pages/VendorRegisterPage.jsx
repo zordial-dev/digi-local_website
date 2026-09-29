@@ -32,7 +32,9 @@ import {
   Check,
   Tag,
   Info,
-  Search
+  Search,
+  Landmark,
+  CreditCard
 } from 'lucide-react';
 import { api, getValidImageUrl, isValidIndianMobileNumber } from '../services/api';
 import CountryCodePicker from '../components/CountryCodePicker';
@@ -188,6 +190,69 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   const [availableZones, setAvailableZones] = useState([]);
   const [selectedZones, setSelectedZones] = useState([]);
 
+  // Bank Account & IFSC Settlement States (Mandatory)
+  const [accountNumber, setAccountNumber] = useState('');
+  const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
+  const [ifscCode, setIfscCode] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankBranch, setBankBranch] = useState('');
+  const [bankCity, setBankCity] = useState('');
+  const [bankState, setBankState] = useState('');
+  const [bankAddress, setBankAddress] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
+  const [upiId, setUpiId] = useState('');
+  const [isIfscVerified, setIsIfscVerified] = useState(false);
+  const [ifscLookupLoading, setIfscLookupLoading] = useState(false);
+  const [ifscLookupError, setIfscLookupError] = useState('');
+  const ifscDebounceTimer = useRef(null);
+
+  const handleIfscChange = (val) => {
+    const clean = val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11);
+    setIfscCode(clean);
+    setIsIfscVerified(false);
+    setIfscLookupError('');
+
+    if (ifscDebounceTimer.current) clearTimeout(ifscDebounceTimer.current);
+
+    if (clean.length === 11) {
+      ifscDebounceTimer.current = setTimeout(async () => {
+        await handleLookupIfsc(clean);
+      }, 300);
+    } else {
+      setBankName('');
+      setBankBranch('');
+      setBankCity('');
+      setBankState('');
+      setBankAddress('');
+    }
+  };
+
+  const handleLookupIfsc = async (codeToLookup = ifscCode) => {
+    const clean = String(codeToLookup || '').trim().toUpperCase();
+    if (clean.length !== 11) {
+      setIfscLookupError('IFSC code must be exactly 11 characters (e.g., HDFC0001234, SBIN0000001).');
+      return;
+    }
+    setIfscLookupLoading(true);
+    setIfscLookupError('');
+    try {
+      const data = await api.getBankDetailsByIfsc(clean);
+      if (data) {
+        setBankName(data.bank_name || `${clean.slice(0, 4)} Bank`);
+        setBankBranch(data.branch || 'MAIN BRANCH');
+        setBankCity(data.city || '');
+        setBankState(data.state || '');
+        setBankAddress(data.address || '');
+        setIsIfscVerified(true);
+      }
+    } catch (err) {
+      setIsIfscVerified(false);
+      setIfscLookupError(err.message || `No bank branch found for IFSC code "${clean}".`);
+    } finally {
+      setIfscLookupLoading(false);
+    }
+  };
+
   // Custom Photo Upload Modal States
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
   const [photoUploadTab, setPhotoUploadTab] = useState('device'); // 'device' | 'url' | 'presets'
@@ -253,7 +318,10 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     shopBusinessName && shopBusinessName.trim().length > 0 &&
     shopNumber && shopNumber.trim().length > 0 &&
     (taxIdType === 'gstin' ? (gstNumber && gstNumber.trim().length >= 5) : (panNumber && panNumber.trim().length >= 5)) &&
-    Array.isArray(shopImages) && shopImages.length > 0
+    Array.isArray(shopImages) && shopImages.length > 0 &&
+    accountNumber && accountNumber.trim().length >= 6 &&
+    confirmAccountNumber && confirmAccountNumber.trim() === accountNumber.trim() &&
+    ifscCode && ifscCode.trim().length === 11
   );
 
   // UI States
@@ -768,6 +836,22 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
       setError('Please upload at least 1 Shop Image before proceeding to Next step.');
       return;
     }
+    if (!accountNumber || !accountNumber.trim()) {
+      setError('Bank account number (account_number) is mandatory for vendor registration.');
+      return;
+    }
+    if (accountNumber.trim().length < 6) {
+      setError('Please enter a valid Bank Account Number (minimum 6 digits).');
+      return;
+    }
+    if (!confirmAccountNumber || confirmAccountNumber.trim() !== accountNumber.trim()) {
+      setError('Bank Account Numbers do not match. Please re-enter.');
+      return;
+    }
+    if (!ifscCode || ifscCode.trim().length !== 11) {
+      setError('Bank IFSC code (ifsc_code) is mandatory and must be exactly 11 characters.');
+      return;
+    }
 
     setCurrentStep(3);
   };
@@ -821,7 +905,17 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         gstin: gstNumber.trim() ? gstNumber.trim().toUpperCase() : (taxIdType.toLowerCase() === 'gstin' ? gstNumber.trim().toUpperCase() : ''),
         pan_number: panNumber.trim() ? panNumber.trim().toUpperCase() : (taxIdType.toLowerCase() === 'pan' ? panNumber.trim().toUpperCase() : ''),
         gst_number: gstNumber.trim() ? gstNumber.trim().toUpperCase() : (taxIdType.toLowerCase() === 'gstin' ? gstNumber.trim().toUpperCase() : ''),
+        account_number: accountNumber.trim(),
+        bank_account_number: accountNumber.trim(),
+        accountNumber: accountNumber.trim(),
+        ifsc_code: ifscCode.trim().toUpperCase(),
+        ifsc: ifscCode.trim().toUpperCase(),
+        ifscCode: ifscCode.trim().toUpperCase(),
+        bank_name: bankName.trim() || 'HDFC Bank',
+        account_holder_name: accountHolderName.trim() || ownerName.trim() || cleanEmail.split('@')[0],
+        upi_id: upiId.trim(),
         shop_images: shopImages,
+        shop_image: customLogo,
         logo: customLogo,
         image_url: customLogo,
         verification_type: verificationMethod,
@@ -1761,6 +1855,183 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                 </div>
               </div>
 
+              {/* 7. MANDATORY BANK ACCOUNT & IFSC VERIFICATION (NEW SPECIFICATION) */}
+              <div className="bg-[#FAF9F6] border border-border/90 rounded-3xl p-4 sm:p-5 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-[#541D26] text-white flex items-center justify-center shadow-xs">
+                      <Landmark className="w-4 h-4 text-[#C8A878]" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-[#211A19] uppercase tracking-wider">
+                        Bank Account & IFSC Details *
+                      </h4>
+                      <p className="text-[10px] text-muted-foreground font-medium">
+                        Mandatory settlement account to receive customer payments
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20">
+                    Required
+                  </span>
+                </div>
+
+                {/* 7.1 BANK IFSC CODE WITH REAL-TIME LOOKUP */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-[#211A19]">
+                      Bank IFSC Code *
+                    </label>
+                    <span className="text-[10px] text-muted-foreground font-medium">11 Characters</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        required
+                        maxLength={11}
+                        placeholder="e.g. HDFC0001234, SBIN0000001"
+                        value={ifscCode}
+                        onChange={(e) => handleIfscChange(e.target.value)}
+                        className={`w-full pl-3.5 pr-20 py-2.5 rounded-2xl bg-white border text-xs font-semibold focus:outline-none text-ink uppercase tracking-wider transition-all shadow-xs ${
+                          isIfscVerified 
+                            ? 'border-emerald-500 ring-2 ring-emerald-500/15' 
+                            : ifscLookupError 
+                            ? 'border-rose-400 bg-rose-50/30' 
+                            : 'border-border/80 focus:border-[#541D26]'
+                        }`}
+                      />
+                      {isIfscVerified && (
+                        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Verified</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleLookupIfsc(ifscCode)}
+                      disabled={ifscCode.trim().length !== 11 || ifscLookupLoading}
+                      className={`px-3.5 py-2.5 rounded-2xl text-[11px] font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer flex-shrink-0 ${
+                        ifscCode.trim().length === 11 && !ifscLookupLoading
+                          ? 'bg-[#541D26] hover:bg-[#6B2732] text-white border border-[#C8A878]/30'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      {ifscLookupLoading ? (
+                        <>
+                          <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Checking...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Search className="w-3.5 h-3.5 text-[#C8A878]" />
+                          <span>Verify</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* IFSC Lookup Success Badge */}
+                  {isIfscVerified && bankName && (
+                    <div className="p-3 bg-emerald-50/90 border border-emerald-200 rounded-2xl text-xs space-y-1 animate-in fade-in">
+                      <div className="flex items-center justify-between font-extrabold text-emerald-900">
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>{bankName}</span>
+                        </span>
+                        <span className="text-[10px] bg-emerald-100/80 text-emerald-800 px-2 py-0.5 rounded-md font-mono font-bold">
+                          {ifscCode}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-emerald-800 font-medium pl-5.5">
+                        Branch: {bankBranch || 'MAIN BRANCH'} {bankCity ? `• ${bankCity}` : ''} {bankState ? `(${bankState})` : ''}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* IFSC Lookup Error Alert */}
+                  {ifscLookupError && (
+                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-[11px] font-bold flex items-center gap-2 animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{ifscLookupError}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 7.2 BANK ACCOUNT NUMBER & CONFIRM ACCOUNT NUMBER */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#211A19] mb-1">
+                      Bank Account Number *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 918005625999"
+                      value={accountNumber}
+                      onChange={(e) => setAccountNumber(e.target.value.replace(/[^0-9A-Za-z]/g, ''))}
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-white border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink transition-all shadow-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#211A19] mb-1">
+                      Confirm Account Number *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Re-enter account number"
+                      value={confirmAccountNumber}
+                      onChange={(e) => setConfirmAccountNumber(e.target.value.replace(/[^0-9A-Za-z]/g, ''))}
+                      className={`w-full px-3.5 py-2.5 rounded-2xl bg-white border text-xs font-semibold focus:outline-none text-ink transition-all shadow-xs ${
+                        confirmAccountNumber && confirmAccountNumber !== accountNumber
+                          ? 'border-rose-400 bg-rose-50/40 text-rose-900 focus:border-rose-600'
+                          : 'border-border/80 focus:border-[#541D26]'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {confirmAccountNumber && confirmAccountNumber !== accountNumber && (
+                  <p className="text-[11px] font-bold text-rose-600 animate-in fade-in">
+                    Bank Account Numbers do not match.
+                  </p>
+                )}
+
+                {/* 7.3 OPTIONAL BANK NAME & ACCOUNT HOLDER NAME */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
+                  <div>
+                    <label className="block text-xs font-bold text-[#211A19] mb-1">
+                      Account Holder Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={ownerName || "Name as per Bank Passbook"}
+                      value={accountHolderName}
+                      onChange={(e) => setAccountHolderName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-white border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink transition-all shadow-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#211A19] mb-1">
+                      Merchant UPI ID (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. merchant@okhdfcbank"
+                      value={upiId}
+                      onChange={(e) => setUpiId(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-white border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] text-ink transition-all shadow-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* ACTION BUTTONS */}
               <div className="flex items-center space-x-2.5 pt-2">
                 <button
@@ -1950,6 +2221,48 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
                         </div>
                       )}
                     </div>
+                  </div>
+                </div>
+
+                <hr className="border-border/50" />
+
+                {/* 3. BANK & SETTLEMENT DETAILS */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold text-[#541D26] uppercase tracking-wider">
+                    3. BANK & SETTLEMENT DETAILS
+                  </h4>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-medium">Bank Name:</span>
+                      <span className="font-bold text-[#211A19]">{bankName || 'Verified Bank'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-medium">IFSC Code:</span>
+                      <span className="font-bold text-[#211A19] font-mono">{ifscCode}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-medium">Account Number:</span>
+                      <span className="font-bold text-[#211A19] font-mono">
+                        {accountNumber ? `•••• ${accountNumber.slice(-4)}` : 'N/A'}
+                      </span>
+                    </div>
+                    {bankBranch && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground font-medium">Branch / City:</span>
+                        <span className="font-bold text-[#211A19]">{bankBranch} {bankCity ? `(${bankCity})` : ''}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-medium">Account Holder:</span>
+                      <span className="font-bold text-[#211A19]">{accountHolderName || ownerName}</span>
+                    </div>
+                    {upiId && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground font-medium">Merchant UPI:</span>
+                        <span className="font-bold text-[#211A19]">{upiId}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

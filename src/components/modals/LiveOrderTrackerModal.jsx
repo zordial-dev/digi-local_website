@@ -390,6 +390,24 @@ export default function LiveOrderTrackerModal({ isOpen, onClose, order, initialO
               )}
             </div>
 
+            {/* FULL DELIVERY ADDRESS & DESTINATION ROW */}
+            <div className="pt-3 border-t border-[#E5DAD0] flex items-start gap-2.5 text-xs">
+              <div className="w-6 h-6 rounded-lg bg-[#541D26]/10 text-[#541D26] flex items-center justify-center shrink-0 mt-0.5">
+                <MapPin className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-bold text-[#211A19]">Deliver to:</span>
+                  <span className="font-bold text-[#541D26]">{activeOrder.delivery_address || activeOrder.address || 'Resident Doorstep'}</span>
+                </div>
+                {activeOrder.customer_name && (
+                  <p className="text-[11px] text-[#211A19]/60 font-medium mt-0.5">
+                    Recipient: <strong className="text-[#211A19]">{activeOrder.customer_name}</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+
           </div>
 
           {/* STATUS TIMELINE */}

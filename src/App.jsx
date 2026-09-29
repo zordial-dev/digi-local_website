@@ -26,6 +26,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import UserProfilePage from './pages/UserProfilePage';
 import ServiceEnquiryPage from './pages/ServiceEnquiryPage';
+import OrderTrackingPage from './pages/OrderTrackingPage';
 
 // API Services
 import { api } from './services/api';
@@ -85,6 +86,12 @@ function getRouteFromPath(path = window.location.pathname) {
   if (cleanPath === '/contact-support' || cleanPath === '/contact') {
     return { page: 'info', tab: 'contact-support' };
   }
+  if (cleanPath === '/track' || cleanPath === '/track-order' || cleanPath === '/live-tracking' || cleanPath === '/order-tracking') {
+    return { page: 'orderTracking' };
+  }
+  if ((parts[0] === 'track' || parts[0] === 'order-tracking' || parts[0] === 'track-order') && parts[1]) {
+    return { page: 'orderTracking', orderId: parts[1] };
+  }
   if (parts[0] === 'vendorpanel' && parts[1]) {
     return { page: 'vendorDashboard', vendorId: parts[1] };
   }
@@ -132,6 +139,8 @@ function getPathFromRoute(route) {
       return '/register';
     case 'profile':
       return '/profile';
+    case 'orderTracking':
+      return route.orderId ? `/track/${route.orderId}` : '/track';
     case 'societyVendors':
       return (!route.societyId || route.societyId === 'all') ? '/vendors' : `/${route.societyId}`;
     case 'vendorStorefront':
@@ -402,7 +411,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#181312] text-foreground flex flex-col font-sans relative selection:bg-[#541D26] selection:text-white">
+    <div className="min-h-screen bg-[#F6F0E8] text-foreground flex flex-col font-sans relative selection:bg-[#541D26] selection:text-white">
       {route.page !== 'login' && route.page !== 'vendorRegister' && route.page !== 'register' ? (
         <FooterReveal
           footerContent={
@@ -502,7 +511,18 @@ export default function App() {
               />
             )}
 
-            {!['home', 'login', 'register', 'profile', 'societyVendors', 'vendorStorefront', 'serviceEnquiry', 'vendorRegister', 'vendorDashboard', 'admin', 'info'].includes(route.page) && (
+            {route.page === 'orderTracking' && (
+              <OrderTrackingPage
+                currentRoute={route}
+                orderId={route.orderId}
+                order={route.order}
+                setRoute={setRoute}
+                activeUser={activeUser}
+                onOpenSupportDesk={() => setIsSupportDeskOpen(true)}
+              />
+            )}
+
+            {!['home', 'login', 'register', 'profile', 'orderTracking', 'societyVendors', 'vendorStorefront', 'serviceEnquiry', 'vendorRegister', 'vendorDashboard', 'admin', 'info'].includes(route.page) && (
               <HomePage currentRoute={route} setRoute={setRoute} onOpenLogin={() => setRoute({ page: 'login' })} />
             )}
           </div>
@@ -564,7 +584,7 @@ export default function App() {
       <FloatingCartBar currentRoute={route} setRoute={setRoute} />
 
       {/* Floating Swiggy / Zomato Style Live Order Tracker */}
-      <LiveOrderTrackerToast activeUser={activeUser} setRoute={setRoute} />
+      <LiveOrderTrackerToast currentRoute={route} activeUser={activeUser} setRoute={setRoute} />
     </div>
   );
 }

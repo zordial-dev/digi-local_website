@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense } from 'react';
-import { Lock, CheckCircle2, ArrowRight, ArrowLeft, ShieldCheck, Upload, Smartphone, Store, Clock, Plus, Tag } from 'lucide-react';
+import { Lock, CheckCircle2, ArrowRight, ArrowLeft, ShieldCheck, Upload, Smartphone, Store, Clock, Plus, Tag, Landmark, Search, AlertCircle } from 'lucide-react';
 import { api } from '../../../services/api';
 
 function useSearchParams() {
@@ -35,14 +35,45 @@ function VendorRegisterContent() {
   const [category, setCategory] = useState('Grocery');
   const [step1Error, setStep1Error] = useState('');
 
-  // Step 2 State: Phone OTP Authentication & KYC Document
+  // Step 2 State: Phone OTP Authentication, KYC Document & Bank Details
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [verificationId, setVerificationId] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [kycFileUploaded, setKycFileUploaded] = useState(false);
+  const [accountNumber, setAccountNumber] = useState('');
+  const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
+  const [ifscCode, setIfscCode] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankBranch, setBankBranch] = useState('');
+  const [isIfscVerified, setIsIfscVerified] = useState(false);
+  const [ifscLookupLoading, setIfscLookupLoading] = useState(false);
+  const [ifscLookupError, setIfscLookupError] = useState('');
   const [step2Error, setStep2Error] = useState('');
+
+  const handleIfscLookup = async (codeToLookup: string) => {
+    const clean = codeToLookup.trim().toUpperCase();
+    if (clean.length !== 11) {
+      setIfscLookupError('IFSC code must be exactly 11 characters.');
+      return;
+    }
+    setIfscLookupLoading(true);
+    setIfscLookupError('');
+    try {
+      const data = await api.getBankDetailsByIfsc(clean);
+      if (data) {
+        setBankName(data.bank_name || `${clean.slice(0, 4)} Bank`);
+        setBankBranch(data.branch || 'MAIN BRANCH');
+        setIsIfscVerified(true);
+      }
+    } catch (err: any) {
+      setIsIfscVerified(false);
+      setIfscLookupError(err.message || 'No bank branch found for this IFSC code.');
+    } finally {
+      setIfscLookupLoading(false);
+    }
+  };
 
   // Step 3 State: Catalog Item Setup
   const [itemName, setItemName] = useState('Fresh Whole Milk');
@@ -117,6 +148,18 @@ function VendorRegisterContent() {
     }
     if (!kycFileUploaded) {
       setStep2Error('Please upload your Aadhaar/PAN Card KYC document.');
+      return;
+    }
+    if (!accountNumber || accountNumber.trim().length < 6) {
+      setStep2Error('Bank account number (account_number) is mandatory.');
+      return;
+    }
+    if (confirmAccountNumber !== accountNumber) {
+      setStep2Error('Bank Account Numbers do not match. Please re-enter.');
+      return;
+    }
+    if (!ifscCode || ifscCode.trim().length !== 11) {
+      setStep2Error('Bank IFSC code (ifsc_code) is mandatory and must be 11 characters.');
       return;
     }
     setStep2Error('');
@@ -195,6 +238,14 @@ function VendorRegisterContent() {
               <div className="flex justify-between border-b border-[#E5DAD0]/60 pb-1.5">
                 <span className="text-[#211A19]/60">Service Category:</span>
                 <span className="font-bold text-[#211A19]">{category}</span>
+              </div>
+              <div className="flex justify-between border-b border-[#E5DAD0]/60 pb-1.5">
+                <span className="text-[#211A19]/60">Verified Bank:</span>
+                <span className="font-bold text-[#211A19]">{bankName || 'Verified Bank'} ({ifscCode})</span>
+              </div>
+              <div className="flex justify-between border-b border-[#E5DAD0]/60 pb-1.5">
+                <span className="text-[#211A19]/60">Account Number:</span>
+                <span className="font-bold text-[#211A19] font-mono">•••• {accountNumber ? accountNumber.slice(-4) : '****'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#211A19]/60">Verified Mobile:</span>
@@ -444,6 +495,85 @@ function VendorRegisterContent() {
                       >
                         {kycFileUploaded ? '✓ Document Uploaded (Aadhaar_Front.pdf)' : 'Choose File'}
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Mandatory Bank Account & IFSC Lookup Card */}
+                  <div className="border-t border-[#E5DAD0]/50 pt-4 space-y-3 bg-[#FAF8F5] p-4 rounded-2xl border border-[#E5DAD0]">
+                    <div className="flex items-center gap-2">
+                      <Landmark className="w-4 h-4 text-[#541D26]" />
+                      <h4 className="text-xs font-extrabold text-[#211A19] uppercase tracking-wider">
+                        Mandatory Bank Account & IFSC *
+                      </h4>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">
+                        Bank IFSC Code *
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          maxLength={11}
+                          placeholder="e.g. HDFC0001234"
+                          value={ifscCode}
+                          onChange={(e) => {
+                            const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                            setIfscCode(val);
+                            if (val.length === 11) handleIfscLookup(val);
+                          }}
+                          className="flex-1 px-4 py-2.5 rounded-xl border border-[#E5DAD0] text-xs font-mono uppercase bg-white focus:outline-none focus:border-[#541D26]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleIfscLookup(ifscCode)}
+                          className="px-4 py-2.5 bg-[#541D26] text-white font-bold text-xs rounded-xl flex items-center gap-1 cursor-pointer"
+                        >
+                          <Search className="w-3.5 h-3.5" />
+                          <span>{ifscLookupLoading ? 'Checking...' : 'Verify'}</span>
+                        </button>
+                      </div>
+
+                      {isIfscVerified && bankName && (
+                        <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-[11px] font-bold flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Verified: {bankName} {bankBranch ? `(${bankBranch})` : ''}</span>
+                        </div>
+                      )}
+
+                      {ifscLookupError && (
+                        <div className="mt-2 p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-[11px] font-bold flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>{ifscLookupError}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">
+                          Account Number *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 918005625999"
+                          value={accountNumber}
+                          onChange={(e) => setAccountNumber(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl border border-[#E5DAD0] text-xs bg-white focus:outline-none focus:border-[#541D26]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">
+                          Confirm Account Number *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Re-enter account number"
+                          value={confirmAccountNumber}
+                          onChange={(e) => setConfirmAccountNumber(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl border border-[#E5DAD0] text-xs bg-white focus:outline-none focus:border-[#541D26]"
+                        />
+                      </div>
                     </div>
                   </div>
 

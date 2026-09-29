@@ -57,6 +57,25 @@ function getInitials(nameStr) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+export function formatOrderDateTime(dateInput) {
+  if (!dateInput) return 'Recently';
+  try {
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return String(dateInput);
+    return new Intl.DateTimeFormat('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Kolkata'
+    }).format(d) + ' IST';
+  } catch (_) {
+    return String(dateInput);
+  }
+}
+
 export default function UserProfilePage({ activeUser, setActiveUser, setRoute, onLogout }) {
   const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'profile' | 'addresses' | 'favorites' | 'settings'
   const hasCheckedStatusRef = useRef(null);
@@ -1069,166 +1088,222 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {filteredOrders.map((order) => (
-                  <div 
-                    key={order.order_id}
-                    className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E5DAD0] hover:border-[#541D26]/40 hover:shadow-md transition-all duration-200 space-y-3"
-                  >
-                    {/* Top Row: Logo + Store Name + Date + Total Price + Actions */}
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center space-x-3 min-w-0">
-                        <img 
-                          src={order.store_logo || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80'} 
-                          alt={order.store_name} 
-                          className="w-10 h-10 rounded-xl object-cover border border-[#E5DAD0] shadow-2xs shrink-0 bg-[#EEE5DA]"
-                          onError={(e) => {
-                            e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80';
-                          }}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-serif font-bold text-sm text-[#211A19] truncate">
-                              {order.store_name}
-                            </h3>
-                            {(() => {
-                              const st = String(order.status || order.order_status || '').toUpperCase();
+                {filteredOrders.map((order) => {
+                  const orderIdStr = String(order.order_id || order.id || '');
+                  const storeTitle = order.store_name || order.vendor_store_name || order.vendor_name || 'Society Partner Store';
+                  const orderSoc = order.society_name || 'Society Complex';
+                  const deliveryAddr = order.delivery_address || order.address || order.flatNumber || 'Flat Doorstep';
+                  const customerRecipient = order.customer_name || savedProfile.name || name || 'Resident Customer';
+                  const contactNum = order.phone_number || order.phone || order.user_phone || savedProfile.phone || phone || '';
+                  const cleanPhone = String(contactNum).replace(/\D/g, '');
+                  const displayPhone = cleanPhone ? (cleanPhone.length >= 10 ? `+91 ${cleanPhone.slice(-10)}` : contactNum) : '';
+                  const orderTimeStr = formatOrderDateTime(order.created_at || order.date || order.order_timestamp);
+                  const totalAmt = Number(order.total_amount || 0);
 
-                              if (st === 'CANCELLED' || st === 'CANCELED' || st === 'REJECTED' || st === 'DECLINED' || st === 'FAILED') {
-                                return (
-                                  <span className="px-2.5 py-0.5 rounded-full bg-[#FEF2F2] text-[#B91C1C] border border-rose-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                    <AlertCircle className="w-3 h-3 text-[#B91C1C]" />
-                                    <span>Cancelled</span>
-                                  </span>
-                                );
-                              }
+                  return (
+                    <div 
+                      key={orderIdStr}
+                      className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E5DAD0] hover:border-[#541D26]/40 hover:shadow-md transition-all duration-200 space-y-3"
+                    >
+                      {/* Top Row: Logo + Store Name + Society + Status + Time + Actions */}
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <img 
+                            src={order.store_logo || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80'} 
+                            alt={storeTitle} 
+                            className="w-11 h-11 rounded-xl object-cover border border-[#E5DAD0] shadow-2xs shrink-0 bg-[#EEE5DA]"
+                            onError={(e) => {
+                              e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80';
+                            }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-serif font-bold text-sm sm:text-base text-[#211A19] truncate">
+                                {storeTitle}
+                              </h3>
 
-                              if (st === 'COMPLETED' || st === 'DELIVERED' || st === 'COMPLETE' || st === 'FULFILLED' || st === 'DONE') {
-                                return (
-                                  <span className="px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] border border-emerald-300 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                    <CheckCircle2 className="w-3 h-3 text-[#059669]" />
-                                    <span>Delivered</span>
-                                  </span>
-                                );
-                              }
-
-                              if (st === 'IN_PROGRESS' || st === 'OUT_FOR_DELIVERY' || st === 'PROCESSING' || st === 'IN_TRANSIT') {
-                                return (
-                                  <span className="px-2.5 py-0.5 rounded-full bg-[#F5F3FF] text-[#6D28D9] border border-purple-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                    <Truck className="w-3 h-3 text-[#6D28D9]" />
-                                    <span>Out for Delivery</span>
-                                  </span>
-                                );
-                              }
-
-                              if (st === 'ACCEPTED' || st === 'ACCEPT' || st === 'PREPARING') {
-                                return (
-                                  <span className="px-2.5 py-0.5 rounded-full bg-[#F0FDF4] text-[#15803D] border border-green-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                    <CheckCircle2 className="w-3 h-3 text-[#15803D]" />
-                                    <span>Accepted</span>
-                                  </span>
-                                );
-                              }
-
-                              if (st === 'CONFIRMED') {
-                                return (
-                                  <span className="px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#047857] border border-emerald-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                    <CheckCircle2 className="w-3 h-3 text-[#047857]" />
-                                    <span>Confirmed</span>
-                                  </span>
-                                );
-                              }
-
-                              if (st === 'PENDING') {
-                                return (
-                                  <span className="px-2.5 py-0.5 rounded-full bg-[#FFFBEB] text-[#B45309] border border-amber-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                    <Clock className="w-3 h-3 text-[#B45309]" />
-                                    <span>Payment Pending</span>
-                                  </span>
-                                );
-                              }
-
-                              return (
-                                <span className="px-2.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] border border-blue-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                  <Clock className="w-3 h-3 text-[#1D4ED8]" />
-                                  <span>Order Placed</span>
+                              {orderSoc && (
+                                <span className="px-2 py-0.5 rounded-full bg-[#EEE5DA]/60 text-[#541D26] text-[10px] font-bold border border-[#E5DAD0] flex items-center gap-1 shrink-0">
+                                  <MapPin className="w-2.5 h-2.5 text-[#541D26]" />
+                                  <span>{orderSoc}</span>
                                 </span>
+                              )}
+
+                              {(() => {
+                                const st = String(order.status || order.order_status || '').toUpperCase();
+
+                                if (st === 'CANCELLED' || st === 'CANCELED' || st === 'REJECTED' || st === 'DECLINED' || st === 'FAILED') {
+                                  return (
+                                    <span className="px-2.5 py-0.5 rounded-full bg-[#FEF2F2] text-[#B91C1C] border border-rose-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                      <AlertCircle className="w-3 h-3 text-[#B91C1C]" />
+                                      <span>Cancelled</span>
+                                    </span>
+                                  );
+                                }
+
+                                if (st === 'COMPLETED' || st === 'DELIVERED' || st === 'COMPLETE' || st === 'FULFILLED' || st === 'DONE') {
+                                  return (
+                                    <span className="px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] border border-emerald-300 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                      <CheckCircle2 className="w-3 h-3 text-[#059669]" />
+                                      <span>Delivered</span>
+                                    </span>
+                                  );
+                                }
+
+                                if (st === 'IN_PROGRESS' || st === 'OUT_FOR_DELIVERY' || st === 'PROCESSING' || st === 'IN_TRANSIT') {
+                                  return (
+                                    <span className="px-2.5 py-0.5 rounded-full bg-[#F5F3FF] text-[#6D28D9] border border-purple-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                      <Truck className="w-3 h-3 text-[#6D28D9]" />
+                                      <span>Out for Delivery</span>
+                                    </span>
+                                  );
+                                }
+
+                                if (st === 'ACCEPTED' || st === 'ACCEPT' || st === 'PREPARING') {
+                                  return (
+                                    <span className="px-2.5 py-0.5 rounded-full bg-[#F0FDF4] text-[#15803D] border border-green-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                      <CheckCircle2 className="w-3 h-3 text-[#15803D]" />
+                                      <span>Accepted & Preparing</span>
+                                    </span>
+                                  );
+                                }
+
+                                if (st === 'CONFIRMED') {
+                                  return (
+                                    <span className="px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#047857] border border-emerald-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                      <CheckCircle2 className="w-3 h-3 text-[#047857]" />
+                                      <span>Confirmed & Paid</span>
+                                    </span>
+                                  );
+                                }
+
+                                if (st === 'PENDING') {
+                                  return (
+                                    <span className="px-2.5 py-0.5 rounded-full bg-[#FFFBEB] text-[#B45309] border border-amber-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                      <Clock className="w-3 h-3 text-[#B45309]" />
+                                      <span>Payment Pending</span>
+                                    </span>
+                                  );
+                                }
+
+                                return (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] border border-blue-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                    <Clock className="w-3 h-3 text-[#1D4ED8]" />
+                                    <span>Order Placed</span>
+                                  </span>
+                                );
+                              })()}
+
+                              <button
+                                onClick={() => setRoute({ page: 'vendorStorefront', societyId: '1', vendorId: String(order.vendor_id || 1) })}
+                                className="text-[11px] text-[#541D26] hover:underline font-bold inline-flex items-center gap-0.5 shrink-0 ml-auto sm:ml-0 cursor-pointer"
+                                title={`Visit ${storeTitle}`}
+                              >
+                                <span>Shop</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+
+                            <p className="text-[11.5px] text-[#211A19]/70 font-medium mt-1 flex flex-wrap items-center gap-x-2">
+                              <span className="font-mono text-[#211A19] font-black bg-[#FAF7F2] px-2 py-0.5 rounded border border-[#E5DAD0]/80">
+                                #{orderIdStr}
+                              </span>
+                              <span>•</span>
+                              <span className="text-[#211A19]/80 font-semibold">{orderTimeStr}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Right: Total & Action Buttons */}
+                        <div className="flex items-center space-x-3 ml-auto sm:ml-0">
+                          <div className="text-right">
+                            <div className="text-[10px] text-[#211A19]/60 font-semibold uppercase tracking-wider">Total</div>
+                            <div className="text-base font-serif font-black text-[#541D26]">₹{totalAmt.toFixed(2)}</div>
+                          </div>
+
+                          <div className="flex items-center space-x-1.5 border-l border-[#E5DAD0] pl-3">
+                            {(() => {
+                              const orderStUpper = String(order.status || order.order_status || '').toUpperCase().trim();
+                              const isLiveActive = !['CANCELLED', 'CANCELED', 'REJECTED', 'DECLINED', 'FAILED', 'DELIVERED', 'COMPLETED', 'COMPLETE', 'DONE'].includes(orderStUpper);
+                              if (!isLiveActive) return null;
+                              return (
+                                <button
+                                  onClick={() => setRoute({ page: 'orderTracking', orderId: order.order_id || order.id, order })}
+                                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black transition-all flex items-center space-x-1 shadow-xs cursor-pointer animate-pulse"
+                                  title="Track Live order updates"
+                                >
+                                  <Truck className="w-3.5 h-3.5 text-slate-950" />
+                                  <span>Track Live</span>
+                                </button>
                               );
                             })()}
+
+                            <button
+                              onClick={() => setSelectedOrder(order)}
+                              className="px-3 py-1.5 rounded-lg border border-[#E5DAD0] hover:bg-[#EEE5DA] text-[#211A19] text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer shadow-2xs"
+                            >
+                              <Receipt className="w-3 h-3 text-[#541D26]" />
+                              <span>Receipt</span>
+                            </button>
+
                             <button
                               onClick={() => setRoute({ page: 'vendorStorefront', societyId: '1', vendorId: String(order.vendor_id || 1) })}
-                              className="text-[11px] text-[#541D26] hover:underline font-bold inline-flex items-center gap-0.5 shrink-0 ml-auto sm:ml-0"
+                              className="px-3.5 py-1.5 rounded-lg bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold transition-all flex items-center space-x-1 shadow-2xs cursor-pointer"
                             >
-                              <span>Shop</span>
-                              <ExternalLink className="w-2.5 h-2.5" />
+                              <RefreshCw className="w-3 h-3 text-[#C8A878]" />
+                              <span>Re-Order</span>
                             </button>
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Delivery Address Row (Accurate & Prominent) */}
+                      <div className="p-2.5 sm:p-3 bg-[#FAF7F2] rounded-xl border border-[#E5DAD0]/80 flex items-start gap-2.5 text-xs text-[#211A19]">
+                        <div className="w-6 h-6 rounded-lg bg-[#541D26]/10 text-[#541D26] flex items-center justify-center shrink-0 mt-0.5">
+                          <MapPin className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-[#211A19]">Deliver to:</span>
+                            <span className="font-bold text-[#541D26]">{deliveryAddr}</span>
+                            {orderSoc && !String(deliveryAddr).toLowerCase().includes(String(orderSoc).toLowerCase()) && (
+                              <span className="text-[#211A19]/70 font-medium">({orderSoc})</span>
+                            )}
+                          </div>
                           <p className="text-[11px] text-[#211A19]/60 font-medium mt-0.5">
-                            <span className="font-mono text-[#211A19] font-bold">#{order.order_id || order.id}</span> • {order.created_at_readable || new Date(order.created_at_ist || order.created_at || Date.now()).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            Recipient: <strong className="text-[#211A19]">{customerRecipient}</strong> {displayPhone ? `• ${displayPhone}` : ''}
                           </p>
                         </div>
                       </div>
 
-                      {/* Right: Total & Action Buttons */}
-                      <div className="flex items-center space-x-3 ml-auto sm:ml-0">
-                        <div className="text-right">
-                          <div className="text-[10px] text-[#211A19]/60 font-semibold uppercase tracking-wider">Total</div>
-                          <div className="text-sm font-serif font-bold text-[#541D26]">₹{Number(order.total_amount || 0).toFixed(2)}</div>
+                      {/* Itemized Items Breakdown List */}
+                      <div className="pt-2 border-t border-[#E5DAD0] flex flex-wrap items-center justify-between gap-2 text-xs text-[#211A19]/80">
+                        <div className="flex items-center space-x-2 truncate min-w-0 flex-1">
+                          <span className="font-bold text-[#211A19] shrink-0">Items:</span>
+                          <span className="truncate text-[#211A19]/80 font-medium">
+                            {(order.items || []).map(i => {
+                              const unit = getItemUnitLabel(i);
+                              const unitStr = unit ? ` [${unit}]` : '';
+                              const qty = i.quantity || 1;
+                              const price = i.unit_price || i.price;
+                              const priceStr = price ? ` @ ₹${Number(price).toFixed(2)}` : '';
+                              return `${i.item_name || i.name}${unitStr} (×${qty}${priceStr})`;
+                            }).join(', ') || '1x Daily Essentials'}
+                          </span>
                         </div>
 
-                        <div className="flex items-center space-x-1.5 border-l border-[#E5DAD0] pl-3">
-                          {(() => {
-                            const orderStUpper = String(order.status || order.order_status || '').toUpperCase().trim();
-                            const isLiveActive = !['CANCELLED', 'CANCELED', 'REJECTED', 'DECLINED', 'FAILED', 'DELIVERED', 'COMPLETED', 'COMPLETE', 'DONE'].includes(orderStUpper);
-                            if (!isLiveActive) return null;
-                            return (
-                              <button
-                                onClick={() => setTrackingOrder(order)}
-                                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black transition-all flex items-center space-x-1 shadow-xs cursor-pointer animate-pulse"
-                                title="Track Live Swiggy/Zomato style order updates"
-                              >
-                                <Truck className="w-3.5 h-3.5 text-slate-950" />
-                                <span>Track Live</span>
-                              </button>
-                            );
-                          })()}
-
-                          <button
-                            onClick={() => setSelectedOrder(order)}
-                            className="px-3 py-1.5 rounded-lg border border-[#E5DAD0] hover:bg-[#EEE5DA] text-[#211A19] text-xs font-semibold transition-all flex items-center space-x-1 cursor-pointer"
-                          >
-                            <Receipt className="w-3 h-3 text-[#541D26]" />
-                            <span>Receipt</span>
-                          </button>
-
-                          <button
-                            onClick={() => setRoute({ page: 'vendorStorefront', societyId: '1', vendorId: String(order.vendor_id || 1) })}
-                            className="px-3.5 py-1.5 rounded-lg bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold transition-all flex items-center space-x-1 shadow-2xs cursor-pointer"
-                          >
-                            <RefreshCw className="w-3 h-3 text-[#C8A878]" />
-                            <span>Re-Order</span>
-                          </button>
+                        <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
+                          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                            String(order.payment_status || '').toUpperCase() === 'PAID'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-[#541D26]/10 text-[#541D26] border-[#541D26]/20'
+                          }`}>
+                            {order.payment_method || 'COD'} • {String(order.payment_status || 'PENDING').toUpperCase()}
+                          </span>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Minimal Inline Items List */}
-                    <div className="pt-2 border-t border-[#E5DAD0] flex items-center justify-between text-xs text-[#211A19]/80">
-                      <div className="flex items-center space-x-2 truncate">
-                        <span className="font-semibold text-[#211A19]">Items:</span>
-                        <span className="truncate text-[#211A19]/70 font-medium">
-                          {(order.items || []).map(i => {
-                            const unit = getItemUnitLabel(i);
-                            const unitStr = unit ? ` [${unit}]` : '';
-                            return `${i.item_name || i.name}${unitStr} (×${i.quantity || 1})`;
-                          }).join(', ') || '1x Daily Essentials'}
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-[#541D26] font-semibold bg-[#541D26]/10 px-2 py-0.5 rounded-md border border-[#541D26]/20 shrink-0 ml-2">
-                        {order.payment_method || 'Cash on Delivery (COD)'}
-                      </span>
-                    </div>
-
-                    {/* Interactive 5-Star Order Rating Section */}
+                      {/* Interactive 5-Star Order Rating Section */}
                     {(() => {
                       const orderId = String(order.order_id || order.id);
                       const currentRating = orderRatings[orderId];
@@ -1432,8 +1507,9 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                     })()}
 
                   </div>
-                ))}
-              </div>
+                );
+              })}
+            </div>
             )}
           </div>
         )}
@@ -1932,63 +2008,175 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
 
 
       {/* ------------------------------------------------------------- */}
-      {/* MODAL 2: RECEIPT MODAL                                         */}
+      {/* MODAL 2: COMPREHENSIVE ORDER RECEIPT & INVOICE MODAL            */}
       {/* ------------------------------------------------------------- */}
       {selectedOrder && createPortal(
         <div 
-          className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto font-sans"
+          className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto font-sans print:p-0 print:bg-white"
           onClick={() => setSelectedOrder(null)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl border border-[#E5DAD0] space-y-4 text-[#211A19] my-auto shrink-0 pointer-events-auto"
+            className="bg-white rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-6 sm:p-7 shadow-2xl border border-[#E5DAD0] space-y-5 text-[#211A19] my-auto shrink-0 pointer-events-auto print:max-w-none print:shadow-none print:border-none print:m-0"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-[#E5DAD0] pb-3">
-              <div>
-                <h3 className="text-lg font-serif font-bold text-[#211A19]">Order Receipt</h3>
-                <p className="text-[11px] text-muted-foreground font-mono">{selectedOrder.order_id}</p>
-              </div>
-              <button onClick={() => setSelectedOrder(null)} className="w-8 h-8 rounded-full bg-[#FAF8F5] hover:bg-[#F3EFE6] text-[#211A19] flex items-center justify-center font-bold cursor-pointer transition-colors">✕</button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="flex justify-between font-medium">
-                <span className="text-muted-foreground">Store:</span>
-                <span className="font-bold">{selectedOrder.store_name}</span>
-              </div>
-              <div className="flex justify-between font-medium">
-                <span className="text-muted-foreground">Date:</span>
-                <span>{new Date(selectedOrder.date || Date.now()).toLocaleString()}</span>
-              </div>
-              {selectedOrder.delivery_address && (
-                <div className="flex justify-between font-medium">
-                  <span className="text-muted-foreground">Delivery Address:</span>
-                  <span>{selectedOrder.delivery_address}</span>
-                </div>
-              )}
-
-              <div className="border-t border-b border-[#E5DAD0] py-3 space-y-2">
-                <span className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground">Items:</span>
-                {(selectedOrder.items || []).map((it, idx) => (
-                  <div key={idx} className="flex justify-between text-xs font-semibold">
-                    <span>{it.item_name} (x{it.quantity})</span>
-                    <span>₹{((it.unit_price || 0) * it.quantity).toFixed(2)}</span>
+            {/* Modal Top Header */}
+            <div className="flex items-start justify-between border-b border-[#E5DAD0] pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#541D26] text-[#C8A878] flex items-center justify-center font-serif font-black text-sm shadow-xs">
+                    DL
                   </div>
-                ))}
+                  <div>
+                    <h3 className="text-base sm:text-lg font-serif font-bold text-[#211A19] leading-tight">DigiLocal Order Receipt</h3>
+                    <p className="text-[11px] text-[#211A19]/60 font-medium">Official Society Merchant Tax Invoice</p>
+                  </div>
+                </div>
               </div>
-
-              <div className="flex justify-between text-sm font-bold text-[#541D26] pt-1">
-                <span>Total Amount Paid:</span>
-                <span>₹{Number(selectedOrder.total_amount || 0).toFixed(2)}</span>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => window.print()}
+                  className="px-2.5 py-1.5 rounded-xl bg-[#FAF7F2] hover:bg-[#EEE5DA] text-[#541D26] border border-[#E5DAD0] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer print:hidden shadow-2xs"
+                  title="Print or Save as PDF"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Print</span>
+                </button>
+                <button 
+                  onClick={() => setSelectedOrder(null)} 
+                  className="w-8 h-8 rounded-full bg-[#FAF8F5] hover:bg-[#F3EFE6] text-[#211A19] flex items-center justify-center font-bold cursor-pointer transition-colors border border-[#E5DAD0] print:hidden"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
               </div>
             </div>
 
-            <button
-              onClick={() => setSelectedOrder(null)}
-              className="w-full py-3 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-full font-bold text-xs uppercase tracking-wider cursor-pointer shadow-md transition-all"
-            >
-              Close Receipt
-            </button>
+            {/* Order Metadata Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 rounded-2xl bg-[#FAF7F2] border border-[#E5DAD0]/80 text-xs">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#211A19]/60 tracking-wider block">Order ID</span>
+                <span className="font-mono font-black text-[#541D26] text-xs">#{selectedOrder.order_id || selectedOrder.id}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#211A19]/60 tracking-wider block">Date & Time</span>
+                <span className="font-semibold text-[#211A19] text-[11px]">
+                  {formatOrderDateTime(selectedOrder.created_at || selectedOrder.date)}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#211A19]/60 tracking-wider block">Payment</span>
+                <span className="font-bold text-emerald-700 text-xs">
+                  {selectedOrder.payment_method || 'COD'} ({String(selectedOrder.payment_status || 'PAID').toUpperCase()})
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#211A19]/60 tracking-wider block">Status</span>
+                <span className="font-bold text-[#541D26] text-xs">
+                  {selectedOrder.status_label || selectedOrder.status || 'Order Placed'}
+                </span>
+              </div>
+            </div>
+
+            {/* Store & Customer Details Box */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="p-3 rounded-2xl bg-white border border-[#E5DAD0] space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#211A19]/60 flex items-center gap-1">
+                  <Store className="w-3 h-3 text-[#541D26]" />
+                  <span>Merchant Store</span>
+                </span>
+                <p className="font-bold text-sm text-[#211A19]">{selectedOrder.store_name || 'Society Merchant Store'}</p>
+                <p className="text-[11px] text-[#211A19]/70 font-medium">{selectedOrder.society_name || 'Society Gated Complex'}</p>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-white border border-[#E5DAD0] space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#211A19]/60 flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-[#541D26]" />
+                  <span>Delivery Details</span>
+                </span>
+                <p className="font-bold text-sm text-[#211A19]">
+                  {selectedOrder.customer_name || savedProfile.name || name || 'Resident Customer'}
+                </p>
+                <p className="text-[11px] text-[#541D26] font-semibold">
+                  {selectedOrder.delivery_address || selectedOrder.address || 'Resident Flat Doorstep'}
+                </p>
+                {(selectedOrder.phone_number || selectedOrder.phone || selectedOrder.user_phone || savedProfile.phone || phone) && (
+                  <p className="text-[10.5px] text-[#211A19]/60 font-mono">
+                    Tel: +91 {String(selectedOrder.phone_number || selectedOrder.phone || selectedOrder.user_phone || savedProfile.phone || phone).replace(/\D/g, '').slice(-10)}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Itemized Invoice Table */}
+            <div className="border border-[#E5DAD0] rounded-2xl overflow-hidden">
+              <div className="bg-[#FAF7F2] px-3.5 py-2 border-b border-[#E5DAD0] grid grid-cols-12 text-[10px] font-black uppercase tracking-wider text-[#211A19]/70">
+                <span className="col-span-6">Item Description</span>
+                <span className="col-span-2 text-center">Qty</span>
+                <span className="col-span-2 text-right">Price</span>
+                <span className="col-span-2 text-right">Total</span>
+              </div>
+
+              <div className="divide-y divide-[#E5DAD0]/70 text-xs">
+                {(selectedOrder.items && selectedOrder.items.length > 0 ? selectedOrder.items : [{ item_name: 'Daily Essentials', quantity: 1, unit_price: selectedOrder.total_amount || 0 }]).map((it, idx) => {
+                  const unit = getItemUnitLabel(it);
+                  const unitStr = unit ? ` [${unit}]` : '';
+                  const qty = Number(it.quantity || 1);
+                  const uPrice = Number(it.unit_price || it.price || 0);
+                  const lineTotal = uPrice * qty;
+
+                  return (
+                    <div key={idx} className="px-3.5 py-2.5 grid grid-cols-12 items-center text-xs">
+                      <div className="col-span-6 pr-2">
+                        <span className="font-bold text-[#211A19] block">{it.item_name || it.name || 'Store Item'}</span>
+                        {unitStr && <span className="text-[10px] text-[#211A19]/60 font-medium">{unitStr}</span>}
+                      </div>
+                      <span className="col-span-2 text-center font-bold text-[#541D26]">×{qty}</span>
+                      <span className="col-span-2 text-right text-[#211A19]/80 font-mono">₹{uPrice.toFixed(2)}</span>
+                      <span className="col-span-2 text-right font-bold text-[#211A19] font-mono">₹{lineTotal.toFixed(2)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Bill Summary & Breakdown */}
+            <div className="p-3.5 rounded-2xl bg-[#FAF7F2] border border-[#E5DAD0] space-y-2 text-xs">
+              <div className="flex justify-between font-medium text-[#211A19]/80">
+                <span>Items Subtotal:</span>
+                <span className="font-mono font-bold">₹{Number(selectedOrder.total_amount || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-medium text-[#211A19]/80">
+                <span>Society Doorstep Delivery:</span>
+                <span className="font-bold text-emerald-700">FREE (₹0.00)</span>
+              </div>
+              <div className="flex justify-between font-medium text-[#211A19]/80">
+                <span>Applicable Taxes & Charges:</span>
+                <span className="font-mono text-[#211A19]/60">₹0.00 (Inclusive)</span>
+              </div>
+              <div className="pt-2 border-t border-[#E5DAD0] flex justify-between items-center text-sm font-black text-[#541D26]">
+                <span className="font-serif">Grand Total Paid:</span>
+                <span className="text-base font-serif font-black">₹{Number(selectedOrder.total_amount || 0).toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Footer Close & Print Buttons */}
+            <div className="flex items-center gap-3 pt-1 print:hidden">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex-1 py-3 bg-white hover:bg-[#FAF7F2] text-[#541D26] border border-[#541D26]/40 rounded-full font-bold text-xs uppercase tracking-wider cursor-pointer shadow-xs transition-all flex items-center justify-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5 text-[#541D26]" />
+                <span>Print / Save Receipt</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedOrder(null)}
+                className="flex-1 py-3 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-full font-bold text-xs uppercase tracking-wider cursor-pointer shadow-md transition-all text-center"
+              >
+                Close Receipt
+              </button>
+            </div>
           </div>
         </div>,
         document.body
@@ -2051,14 +2239,6 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
           loadAddresses();
           setEditingAddress(null);
         }}
-      />
-
-      {/* Swiggy / Zomato Style Live Order Tracker Modal */}
-      <LiveOrderTrackerModal
-        isOpen={Boolean(trackingOrder)}
-        onClose={() => setTrackingOrder(null)}
-        initialOrder={trackingOrder}
-        setRoute={setRoute}
       />
 
     </div>

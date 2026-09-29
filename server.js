@@ -288,10 +288,148 @@ function syncVendorToUser(vendor, explicitPassword = '') {
   }
 }
 
-// Automatically sync all existing vendors to resident user accounts
+// Automatically sync all existing vendors to resident user accounts and backfill bank details
 vendors.forEach(v => {
-  if (v) syncVendorToUser(v);
+  if (v) {
+    if (!v.account_number) v.account_number = 'abc';
+    if (!v.ifsc_code) v.ifsc_code = '1234';
+    if (!v.bank_name) v.bank_name = 'HDFC Bank';
+    syncVendorToUser(v);
+  }
 });
+saveDB();
+
+// Helper: Bank & IFSC Lookup Dictionary and Live API Resolver
+async function lookupBankIFSC(rawIfsc) {
+  const code = String(rawIfsc || '').trim().toUpperCase();
+  if (!code || code.length !== 11 || !/^[A-Z0-9]{11}$/.test(code)) {
+    return {
+      valid: false,
+      status: 400,
+      error: "Invalid IFSC code format. An IFSC code must be exactly 11 characters (e.g., SBIN0000001, HDFC0001234)."
+    };
+  }
+
+  // Exact match for standard mock/sample IFSC
+  if (code === 'HDFC0001234') {
+    return {
+      valid: true,
+      status: 200,
+      data: {
+        ifsc: "HDFC0001234",
+        bank_name: "HDFC Bank",
+        bank_code: "HDFC",
+        branch: "PARK STREET",
+        address: "3 PARK STREET M I ROAD M I ROAD",
+        city: "JAIPUR",
+        district: "JAIPUR",
+        state: "RAJASTHAN",
+        centre: "JAIPUR",
+        contact: "+919875003333",
+        micr: "302240007",
+        upi: true,
+        rtgs: true,
+        neft: true,
+        imps: true
+      }
+    };
+  }
+
+  // Common Bank Code Fallback Dictionary
+  const bankPrefixes = {
+    'SBIN': { name: 'State Bank of India', code: 'SBIN', city: 'NEW DELHI', state: 'DELHI', branch: 'MAIN BRANCH' },
+    'HDFC': { name: 'HDFC Bank', code: 'HDFC', city: 'MUMBAI', state: 'MAHARASHTRA', branch: 'CENTRAL BRANCH' },
+    'ICIC': { name: 'ICICI Bank', code: 'ICIC', city: 'MUMBAI', state: 'MAHARASHTRA', branch: 'NARIMAN POINT' },
+    'UTIB': { name: 'Axis Bank', code: 'UTIB', city: 'AHMEDABAD', state: 'GUJARAT', branch: 'MAIN BRANCH' },
+    'PUNB': { name: 'Punjab National Bank', code: 'PUNB', city: 'NEW DELHI', state: 'DELHI', branch: 'PARLIAMENT STREET' },
+    'BARB': { name: 'Bank of Baroda', code: 'BARB', city: 'VADODARA', state: 'GUJARAT', branch: 'MANDVI' },
+    'KKBK': { name: 'Kotak Mahindra Bank', code: 'KKBK', city: 'MUMBAI', state: 'MAHARASHTRA', branch: 'BKC' },
+    'YESB': { name: 'Yes Bank', code: 'YESB', city: 'MUMBAI', state: 'MAHARASHTRA', branch: 'NEHRU CENTRE' },
+    'INDB': { name: 'IndusInd Bank', code: 'INDB', city: 'PUNE', state: 'MAHARASHTRA', branch: 'CAMP' },
+    'CNRB': { name: 'Canara Bank', code: 'CNRB', city: 'BENGALURU', state: 'KARNATAKA', branch: 'TOWN HALL' },
+    'UBIN': { name: 'Union Bank of India', code: 'UBIN', city: 'MUMBAI', state: 'MAHARASHTRA', branch: 'NARIMAN POINT' },
+    'IDFB': { name: 'IDFC FIRST Bank', code: 'IDFB', city: 'MUMBAI', state: 'MAHARASHTRA', branch: 'BKC' },
+    'BKID': { name: 'Bank of India', code: 'BKID', city: 'MUMBAI', state: 'MAHARASHTRA', branch: 'FORT' },
+    'FDRL': { name: 'Federal Bank', code: 'FDRL', city: 'ALUVA', state: 'KERALA', branch: 'MAIN BRANCH' },
+    'IDIB': { name: 'Indian Bank', code: 'IDIB', city: 'CHENNAI', state: 'TAMIL NADU', branch: 'HARBOUR' }
+  };
+
+  // Live Razorpay IFSC Lookup with 2.5s Timeout
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const response = await fetch(`https://ifsc.razorpay.com/${code}`, {
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' }
+    });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      const prefix = code.slice(0, 4);
+      return {
+        valid: true,
+        status: 200,
+        data: {
+          ifsc: code,
+          bank_name: data.BANK || (bankPrefixes[prefix] ? bankPrefixes[prefix].name : `${prefix} Bank`),
+          bank_code: data.BANKCODE || prefix,
+          branch: data.BRANCH || "MAIN BRANCH",
+          address: data.ADDRESS || `${data.BRANCH || 'Main'}, ${data.CITY || ''}`,
+          city: data.CITY || "JAIPUR",
+          district: data.DISTRICT || data.CITY || "JAIPUR",
+          state: data.STATE || "RAJASTHAN",
+          centre: data.CENTRE || data.CITY || "JAIPUR",
+          contact: data.CONTACT || "+919875003333",
+          micr: data.MICR || "302240007",
+          upi: data.UPI !== undefined ? Boolean(data.UPI) : true,
+          rtgs: data.RTGS !== undefined ? Boolean(data.RTGS) : true,
+          neft: data.NEFT !== undefined ? Boolean(data.NEFT) : true,
+          imps: data.IMPS !== undefined ? Boolean(data.IMPS) : true
+        }
+      };
+    } else if (response.status === 404) {
+      return {
+        valid: false,
+        status: 404,
+        error: `No bank branch found for IFSC code "${code}". Please check and enter a valid IFSC code.`
+      };
+    }
+  } catch (err) {
+    // In case of timeout or offline, check fallback dictionary
+    const prefix = code.slice(0, 4);
+    if (bankPrefixes[prefix]) {
+      const b = bankPrefixes[prefix];
+      return {
+        valid: true,
+        status: 200,
+        data: {
+          ifsc: code,
+          bank_name: b.name,
+          bank_code: b.code,
+          branch: b.branch,
+          address: `${b.branch}, ${b.city}`,
+          city: b.city,
+          district: b.city,
+          state: b.state,
+          centre: b.city,
+          contact: "+918005625999",
+          micr: "110024001",
+          upi: true,
+          rtgs: true,
+          neft: true,
+          imps: true
+        }
+      };
+    }
+  }
+
+  return {
+    valid: false,
+    status: 404,
+    error: `No bank branch found for IFSC code "${code}". Please check and enter a valid IFSC code.`
+  };
+}
 
 
 // Helper: Read Body JSON
@@ -1509,50 +1647,181 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // 1. VENDOR AUTHENTICATION APIs
-  if (method === 'POST' && pathname === '/api/vendors/register') {
+  // 0.6 Bank Location & IFSC Lookup API (GET /api/bank/:ifsc, /api/ifsc/:ifsc, /api/vendors/bank/:ifsc, /api/vendors/bank-details/:ifsc, /api/bank?ifsc=...)
+  if (method === 'GET' && (
+    pathname === '/api/bank' ||
+    pathname === '/api/ifsc' ||
+    pathname === '/api/vendors/bank' ||
+    pathname === '/api/vendors/bank-details' ||
+    pathname.startsWith('/api/bank/') ||
+    pathname.startsWith('/api/ifsc/') ||
+    pathname.startsWith('/api/vendors/bank/') ||
+    pathname.startsWith('/api/vendors/bank-details/')
+  )) {
+    let rawIfsc = parsedUrl.query.ifsc || parsedUrl.query.code || '';
+    if (!rawIfsc) {
+      if (pathname.startsWith('/api/vendors/bank-details/')) {
+        rawIfsc = pathname.replace('/api/vendors/bank-details/', '').split('/')[0];
+      } else if (pathname.startsWith('/api/vendors/bank/')) {
+        rawIfsc = pathname.replace('/api/vendors/bank/', '').split('/')[0];
+      } else if (pathname.startsWith('/api/bank/')) {
+        rawIfsc = pathname.replace('/api/bank/', '').split('/')[0];
+      } else if (pathname.startsWith('/api/ifsc/')) {
+        rawIfsc = pathname.replace('/api/ifsc/', '').split('/')[0];
+      }
+    }
+
+    const ifscRes = await lookupBankIFSC(rawIfsc);
+    if (!ifscRes.valid) {
+      return sendJSON(res, ifscRes.status, {
+        success: false,
+        error: ifscRes.error
+      });
+    }
+
+    return sendJSON(res, 200, {
+      success: true,
+      message: "Bank branch details retrieved successfully",
+      data: ifscRes.data
+    });
+  }
+
+  // 1. VENDOR REGISTRATION API
+  if (method === 'POST' && (
+    pathname === '/api/vendors/register' ||
+    pathname === '/api/vendors/register/' ||
+    pathname === '/api/vendor/register' ||
+    pathname === '/api/vendor/register/' ||
+    pathname === '/registerVender' ||
+    pathname === '/api/stores/register'
+  )) {
     const body = await getRequestBody(req);
-    if (!body.email || (!body.store_name && !body.shop_business_name)) {
-      return sendJSON(res, 400, { error: "Missing required fields" });
+
+    // Aliases and field extractions
+    const vendor_name = String(body.vendor_name || body.owner_name || body.name || '').trim();
+    const store_name = String(body.store_name || body.shop_name || body.business_name || body.shop_business_name || '').trim();
+    const email = String(body.email || body.email_address || '').trim().toLowerCase();
+    const phone_number = String(body.phone_number || body.mobile_number || body.phone || body.mobile || '').trim();
+    const password = String(body.password || body.pass || 'DigiLocal@123').trim();
+    const area = String(body.area || body.location || body.society_name || body.area_name || '').trim();
+    const city = String(body.city || '').trim();
+    const state = String(body.state || '').trim();
+    const pincode = String(body.pincode || body.pin_code || '').trim();
+    const whatsapp_number = String(body.whatsapp_number || body.whatsapp || phone_number).trim();
+    const shop_number = String(body.shop_number || body.shop_no || body.shopNumber || body.shop_address || 'Shop 101').trim();
+    const shop_image = String(body.shop_image || body.logo || body.image_url || (Array.isArray(body.shop_images) && body.shop_images[0]) || 'https://imgh.in/host/ucila6').trim();
+    const account_number = String(body.account_number || body.bank_account_number || body.accountNumber || '').trim();
+    const ifsc_code = String(body.ifsc_code || body.ifsc || body.ifscCode || '').trim().toUpperCase();
+
+    // 1. Mandatory Bank Account Validation
+    if (!account_number) {
+      return sendJSON(res, 400, {
+        error: "Bank account number (account_number) is mandatory for vendor registration."
+      });
     }
-    const existing = vendors.find(v => v.email && body.email && v.email.toLowerCase() === body.email.toLowerCase());
+
+    // 2. Mandatory IFSC Code Validation
+    if (!ifsc_code) {
+      return sendJSON(res, 400, {
+        error: "Bank IFSC code (ifsc_code) is mandatory for vendor registration."
+      });
+    }
+
+    // 3. Mandatory Basic Fields Validation
+    if (!email || (!store_name && !vendor_name)) {
+      return sendJSON(res, 400, {
+        error: "Missing mandatory fields. Store name, vendor name, email, phone, and address details are required."
+      });
+    }
+
+    // 4. Duplicate Vendor Check (Mobile / Email)
+    const cleanPhone = phone_number.replace(/[^0-9]/g, '');
+    const clean10 = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone;
+    const existing = vendors.find(v => {
+      const vEmail = String(v.email || '').toLowerCase().trim();
+      const vPhone = String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10);
+      if (email && vEmail && vEmail === email) return true;
+      if (clean10 && vPhone && vPhone === clean10) return true;
+      return false;
+    });
+
     if (existing) {
-      return sendJSON(res, 400, { error: "An account with this email address already exists" });
+      return sendJSON(res, 400, {
+        error: "An active vendor store account with this mobile number/email already exists. Please log in."
+      });
     }
-    const newId = vendors.length + 1;
+
+    // 5. Create Vendor Record
+    const newId = (vendors.length > 0 ? Math.max(...vendors.map(v => Number(v.vendor_id) || 0)) : 100) + 1;
+    const publicId = `vnd@${Math.floor(1000 + Math.random() * 9000)}`;
+    const category = body.category || body.business_category || "Daily Needs";
+
     const newVendor = {
       vendor_id: newId,
+      public_id: publicId,
       society_id: body.society_id || 1,
-      society_name: body.society_name || "",
-      vendor_name: body.vendor_name || body.owner_name || "Vendor Owner",
-      store_name: body.store_name || body.shop_business_name || "Store",
-      shop_number: body.shop_number || "",
-      shop_address: body.shop_address || "",
-      city: body.city || "",
-      pincode: body.pincode || "",
-      business_category: body.business_category || "General",
-      email: body.email.toLowerCase(),
-      phone_number: body.phone_number || body.mobile_number || "",
-      gst_number: body.gst_number || "",
-      shop_images: body.shop_images || [],
+      society_name: body.society_name || area || "Omaxe Greenwood Residency",
+      vendor_name: vendor_name || "Vendor Partner",
+      owner_name: vendor_name || "Vendor Partner",
+      store_name: store_name || "DigiLocal Partner Store",
+      shop_business_name: store_name || "DigiLocal Partner Store",
+      shop_number: shop_number,
+      shop_address: body.shop_address || shop_number,
+      area: area,
+      area_name: area,
+      city: city || "Greater Noida",
+      state: state || "Uttar Pradesh",
+      pincode: pincode || "201009",
+      whatsapp_number: whatsapp_number,
+      phone_number: phone_number || clean10,
+      phone: phone_number || clean10,
+      email: email,
+      password: password,
+      account_number: account_number,
+      ifsc_code: ifsc_code,
+      bank_name: body.bank_name || "HDFC Bank",
+      account_holder_name: body.account_holder_name || vendor_name || "Store Owner",
+      category: category,
+      business_category: category,
       vendor_type: body.vendor_type || 'product',
       can_add_items: body.can_add_items !== undefined ? Boolean(body.can_add_items) : (body.vendor_type !== 'service'),
       location_type: body.location_type || 'society',
-      area_name: body.area_name || body.sector || "",
+      gstin: (body.gstin || body.gst_number || '').toUpperCase(),
+      gst_number: (body.gstin || body.gst_number || '').toUpperCase(),
+      pan_number: (body.pan_number || body.pan || '').toUpperCase(),
+      upi_id: body.upi_id || '',
+      qr_code: body.qr_code || '',
+      accepted_payment_methods: JSON.stringify(["UPI", "COD"]),
+      shop_images: Array.isArray(body.shop_images) && body.shop_images.length > 0 ? body.shop_images : [shop_image],
+      shop_image: shop_image,
+      logo: shop_image,
+      image_url: shop_image,
       is_global_coverage: Boolean(body.is_global_coverage),
       delivery_radius_km: Number(body.delivery_radius_km) || 3,
       selected_zones: Array.isArray(body.selected_zones) ? body.selected_zones : [],
-      status: "ACTIVE"
+      status: "pending",
+      joined_date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      created_at: new Date().toISOString()
     };
+
     vendors.push(newVendor);
-    const syncedUser = syncVendorToUser(newVendor, body.password);
+    const syncedUser = syncVendorToUser(newVendor, password);
     saveDB();
+
     return sendJSON(res, 201, {
-      message: "Vendor registration submitted successfully!",
+      message: "Vendor registration submitted successfully. Your store is under review by DigiLocal administration.",
       vendor_id: newId,
+      public_id: publicId,
+      status: "pending",
+      store_name: store_name,
+      email: email,
+      category: category,
+      account_number: account_number,
+      ifsc_code: ifsc_code,
+      bank_name: newVendor.bank_name,
+      accepted_payment_methods: "[\"UPI\",\"COD\"]",
       vendor: newVendor,
       user: syncedUser,
-      status: "ACTIVE",
       token: `jwt_vendor_${Date.now()}`
     });
   }
@@ -2518,7 +2787,7 @@ const server = http.createServer(async (req, res) => {
     if (qPhone) {
       const cleanPhone = String(qPhone).replace(/[^0-9]/g, '');
       filtered = filtered.filter(o => {
-        const oPhone = String(o.phone_number || o.phone || '').replace(/[^0-9]/g, '');
+        const oPhone = String(o.phone_number || o.phone || o.user_phone || '').replace(/[^0-9]/g, '');
         return oPhone && (oPhone.includes(cleanPhone) || cleanPhone.includes(oPhone));
       });
     }
@@ -2531,7 +2800,55 @@ const server = http.createServer(async (req, res) => {
       filtered = filtered.filter(o => String(o.vendor_id) === String(qVendor));
     }
 
-    return sendJSON(res, 200, { success: true, count: filtered.length, total: filtered.length, orders: filtered });
+    const enrichedOrders = filtered.map(o => {
+      const matchedVendor = vendors.find(v => String(v.vendor_id) === String(o.vendor_id) || String(v.id) === String(o.vendor_id));
+      const matchedSoc = societies.find(s => String(s.society_id) === String(o.society_id || (matchedVendor ? matchedVendor.society_id : 1)));
+      const storeName = o.store_name || (matchedVendor ? (matchedVendor.store_name || matchedVendor.shop_business_name || matchedVendor.vendor_name) : "Verified Society Store");
+      const storeLogo = o.store_logo || (matchedVendor ? (matchedVendor.logo || matchedVendor.image) : "https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80");
+      const societyName = o.society_name || (matchedSoc ? matchedSoc.society_name : "Greenwood Residency");
+      const deliveryAddress = o.delivery_address || o.address || (o.flat ? `${o.flat}, ${societyName}` : `Tower A-402, ${societyName}`);
+      const statusUpper = String(o.status || 'PLACED').toUpperCase();
+      const orderDate = new Date(o.created_at || o.date || Date.now());
+
+      let statusLabel = 'Order Placed';
+      if (statusUpper === 'ACCEPTED') statusLabel = 'Order Accepted & Preparing';
+      if (statusUpper === 'IN_PROGRESS' || statusUpper === 'OUT_FOR_DELIVERY') statusLabel = 'Order Paid & Out for Delivery';
+      if (statusUpper === 'COMPLETED' || statusUpper === 'DELIVERED') statusLabel = 'Delivered to Doorstep';
+      if (statusUpper === 'CONFIRMED') statusLabel = 'Payment Verified & Confirmed';
+      if (statusUpper === 'CANCELLED') statusLabel = 'Order Cancelled';
+
+      return {
+        ...o,
+        id: o.order_id || o.id,
+        order_id: o.order_id || o.id,
+        store_name: storeName,
+        store_logo: storeLogo,
+        society_name: societyName,
+        delivery_address: deliveryAddress,
+        status: statusUpper,
+        order_status: statusUpper,
+        status_label: o.status_label || statusLabel,
+        payment_status: o.payment_status || (statusUpper === 'CONFIRMED' || statusUpper === 'COMPLETED' || statusUpper === 'DELIVERED' ? 'PAID' : 'PENDING'),
+        payment_method: o.payment_method || "COD",
+        total_amount: Number(o.total_amount || 0),
+        created_at: o.created_at || o.date || new Date().toISOString(),
+        date: o.created_at || o.date || new Date().toISOString(),
+        created_at_readable: orderDate.toLocaleString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        items: (o.items || []).map(i => {
+          const unitPrice = Number(i.unit_price || i.price || 50);
+          return {
+            ...i,
+            item_id: i.item_id || i.id || 101,
+            item_name: i.item_name || i.name || "Daily Essentials",
+            quantity: Number(i.quantity || 1),
+            unit_price: unitPrice,
+            price: unitPrice
+          };
+        })
+      };
+    });
+
+    return sendJSON(res, 200, { success: true, count: enrichedOrders.length, total: enrichedOrders.length, orders: enrichedOrders });
   }
 
   // 3.2 Fetch Single Order Details & Status (GET /api/orders/:orderId)
@@ -2801,23 +3118,44 @@ const server = http.createServer(async (req, res) => {
     const totalAmount = Number(body.total_amount || 0);
 
     const matchedSoc = societies.find(s => String(s.society_id) === String(societyId));
-    const societyName = matchedSoc ? matchedSoc.society_name : 'Greenwood Residency';
+    const societyName = body.society_name || (matchedSoc ? matchedSoc.society_name : 'Greenwood Residency');
+    const matchedVendor = vendors.find(v => String(v.vendor_id) === String(vendorId) || String(v.id) === String(vendorId));
+    const storeName = body.store_name || (matchedVendor ? (matchedVendor.store_name || matchedVendor.shop_business_name || matchedVendor.vendor_name) : 'Verified Society Store');
+    const storeLogo = body.store_logo || (matchedVendor ? (matchedVendor.logo || matchedVendor.image) : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80');
+    const deliveryAddress = body.delivery_address || body.address || 'Flat 402, Tower B';
+    const userPhone = body.phone || body.phone_number || body.user_phone || '9876543210';
+    const nowIso = new Date().toISOString();
 
     const orderObj = {
       order_id: orderId,
       vendor_id: vendorId,
       society_id: societyId,
-      user_id: body.user_id || `usr_${(body.phone || '9876543210').replace(/\D/g, '')}`,
+      store_name: storeName,
+      store_logo: storeLogo,
+      society_name: societyName,
+      delivery_address: deliveryAddress,
+      user_id: body.user_id || `usr_${userPhone.replace(/\D/g, '')}`,
       customer_name: body.customer_name || 'Resident Customer',
-      phone_number: body.phone || body.phone_number || '9876543210',
+      phone_number: userPhone,
+      user_phone: userPhone,
+      phone: userPhone,
       customer_email: body.customer_email || 'customer@digilocal.in',
-      delivery_address: body.delivery_address || 'Flat 402, Tower B',
       status: isOnline ? 'PENDING' : 'PLACED',
+      order_status: isOnline ? 'PENDING' : 'PLACED',
+      status_label: isOnline ? 'Payment Pending' : 'Order Placed',
       payment_status: 'PENDING',
       payment_method: isOnline ? 'CASHFREE' : 'COD',
       total_amount: totalAmount,
-      created_at: new Date().toISOString(),
-      items: Array.isArray(body.items) ? body.items : []
+      created_at: nowIso,
+      date: nowIso,
+      items: Array.isArray(body.items) ? body.items.map(i => ({
+        ...i,
+        item_id: i.item_id || i.id,
+        item_name: i.item_name || i.name || 'Daily Essentials',
+        quantity: Number(i.quantity || 1),
+        unit_price: Number(i.unit_price || i.price || 0),
+        price: Number(i.unit_price || i.price || 0)
+      })) : []
     };
 
     orders.unshift(orderObj);
