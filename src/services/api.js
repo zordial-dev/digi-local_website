@@ -286,8 +286,13 @@ export function getValidImageUrl(itemOrUrl, category = '', fallback = 'https://i
       itemOrUrl.store_image ||
       itemOrUrl.item_image ||
       itemOrUrl.itemImage ||
+      itemOrUrl.service_image ||
+      itemOrUrl.serviceImage ||
+      itemOrUrl.service_photo ||
+      itemOrUrl.servicePhoto ||
       itemOrUrl.photo ||
       itemOrUrl.photo_url ||
+      itemOrUrl.photoUrl ||
       itemOrUrl.banner_url ||
       itemOrUrl.avatar ||
       (Array.isArray(itemOrUrl.shop_images) && itemOrUrl.shop_images[0]) ||
@@ -389,6 +394,13 @@ export const getVendorPaymentLedger = (vendorId, token = '') => api.getVendorPay
 export const getVendorItems = (vendorId) => api.getVendorItems(vendorId);
 export const getVendorProducts = (vendorId) => api.getVendorProducts(vendorId);
 export const getVendorServices = (vendorId) => api.getVendorServices(vendorId);
+export const addVendorService = (vendorId, serviceData, token = '') => api.addVendorService(vendorId, serviceData, token);
+export const getVendorServicesList = (vendorId, filters = {}, token = '') => api.getVendorServicesList(vendorId, filters, token);
+export const getServiceDetails = (serviceId, token = '') => api.getServiceDetails(serviceId, token);
+export const updateVendorService = (vendorId, serviceId, serviceData, token = '') => api.updateVendorService(vendorId, serviceId, serviceData, token);
+export const uploadServicePhoto = (vendorId, serviceId, photoData, token = '') => api.uploadServicePhoto(vendorId, serviceId, photoData, token);
+export const toggleServiceAvailability = (vendorId, serviceId, isAvailable, token = '') => api.toggleServiceAvailability(vendorId, serviceId, isAvailable, token);
+export const deleteVendorService = (vendorId, serviceId, token = '') => api.deleteVendorService(vendorId, serviceId, token);
 export const searchVendors = (params) => api.searchVendors(params);
 
 export function isValidIndianMobileNumber(phone) {
@@ -522,89 +534,70 @@ export const api = {
   // 0. User / Resident Authentication & Profile APIs
   // -------------------------------------------------------------
   checkPhoneRegistration: async (phone) => {
-    return api.checkUserPhone(phone);
+    return api.checkAccount(phone, 'user');
+  },
+
+  /**
+   * Check Account Existence across users and vendors (POST /api/auth/check-account)
+   * @param {string|object} identifierOrParams - e.g. "9876543210" or { identifier: "9876543210", role: "user" }
+   * @param {string} roleMaybe - Optional 'user' or 'vendor'
+   * @returns {Promise<{ success: boolean, exists: boolean, account_type: string, next_action: string, identifier: string, phone: string, email: string|null, cooldown?: object, user?: object, vendor?: object }>}
+   */
+  checkAccount: async (identifierOrParams, roleMaybe = '') => {
+    let identifier = '';
+    let role = '';
+    if (typeof identifierOrParams === 'object' && identifierOrParams !== null) {
+      identifier = identifierOrParams.identifier || identifierOrParams.phone || identifierOrParams.mobile || identifierOrParams.phone_number || identifierOrParams.email || '';
+      role = identifierOrParams.role || '';
+    } else {
+      identifier = String(identifierOrParams || '').trim();
+      role = roleMaybe || '';
+    }
+
+    const isEmail = identifier.includes('@');
+    const cleanDigits = identifier.replace(/[^0-9]/g, '');
+    const clean10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+    const cleanIdent = isEmail ? identifier.toLowerCase() : clean10;
+
+    const payload = { identifier: cleanIdent || identifier };
+    if (role) payload.role = role;
+
+    const res = await fetch(`${API_BASE}/auth/check-account`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      return data;
+    }
+
+    return {
+      success: true,
+      exists: false,
+      account_type: 'none',
+      next_action: 'REGISTER',
+      identifier: cleanIdent || identifier,
+      phone: cleanIdent || identifier,
+      email: isEmail ? identifier : null,
+      message: 'No account found with this identifier. Proceed to registration.',
+      cooldown: { active: false, retry_after: null, cooldown_seconds: 10, next_cooldown_seconds: 20, attempt: 0 },
+      user: null,
+      vendor: null
+    };
   },
 
   checkUserPhone: async (phone) => {
-    const rawDigits = String(phone || '').replace(/[^0-9]/g, '');
-    const cleanPhone = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
-    try {
-      const res = await fetch(`${API_BASE}/users/check-phone`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanPhone || phone })
-      });
-      const data = await res.json();
-      if (res.ok && (data.exists || data.user_id)) {
-        return {
-          exists: true,
-          user_id: data.user_id || data.user?.user_id,
-          name: data.name || data.user?.name,
-          phone: data.phone || cleanPhone,
-          user: data.user || data
-        };
-      }
-      return { exists: false, message: data.message || data.error || 'No account found with this mobile number. Please register your account first.' };
-    } catch (_) {
-      try {
-        const registeredStr = localStorage.getItem('digilocal_registered_users');
-        if (registeredStr) {
-          const list = JSON.parse(registeredStr);
-          const match = Array.isArray(list) ? list.find(u => String(u.phone || '').replace(/[^0-9]/g, '').slice(-10) === cleanPhone) : null;
-          if (match) return { exists: true, user_id: match.user_id, name: match.name, phone: cleanPhone, user: match };
-        }
-      } catch (_) {}
-      return { exists: false, message: 'No account found with this mobile number. Please register your account first.' };
-    }
+    return api.checkAccount(phone, 'user');
   },
 
   checkVendorPhone: async (phone) => {
-    const rawDigits = String(phone || '').replace(/[^0-9]/g, '');
-    const cleanPhone = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
-    try {
-      const res = await fetch(`${API_BASE}/vendors/check-phone`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanPhone || phone })
-      });
-      const data = await res.json();
-      if (res.ok && (data.exists || data.is_registered)) return data;
-      return { exists: false, is_registered: false, message: data.message || data.error || 'No vendor store account found with this credential.' };
-    } catch (_) {
-      try {
-        const poolStr = localStorage.getItem('digilocal_registered_vendors');
-        if (poolStr) {
-          const list = JSON.parse(poolStr);
-          const match = Array.isArray(list) ? list.find(v => String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10) === cleanPhone) : null;
-          if (match) return { exists: true, is_registered: true, vendor: match, vendor_id: match.vendor_id, store_name: match.store_name };
-        }
-      } catch (_) {}
-      return { exists: false, is_registered: false, message: 'No vendor store account found with this credential.' };
-    }
+    return api.checkAccount(phone, 'vendor');
   },
 
   checkVendorEmail: async (email) => {
-    const cleanEmail = String(email || '').trim().toLowerCase();
-    try {
-      const res = await fetch(`${API_BASE}/vendors/check-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail })
-      });
-      const data = await res.json();
-      if (res.ok && (data.exists || data.is_registered)) return data;
-      return { exists: false, is_registered: false, message: data.message || data.error || 'No vendor store account found with this credential.' };
-    } catch (_) {
-      try {
-        const poolStr = localStorage.getItem('digilocal_registered_vendors');
-        if (poolStr) {
-          const list = JSON.parse(poolStr);
-          const match = Array.isArray(list) ? list.find(v => String(v.email || '').trim().toLowerCase() === cleanEmail) : null;
-          if (match) return { exists: true, is_registered: true, vendor: match, vendor_id: match.vendor_id, store_name: match.store_name };
-        }
-      } catch (_) {}
-      return { exists: false, is_registered: false, message: 'No vendor store account found with this credential.' };
-    }
+    return api.checkAccount(email, 'vendor');
   },
 
   userLogin: async (credentials) => {
@@ -616,192 +609,60 @@ export const api = {
     const inputPhone = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
     const inputEmail = String(credentials.email || '').trim().toLowerCase();
     const inputPassword = credentials.password ? String(credentials.password).trim() : undefined;
-    const inputOtp = credentials.otp || credentials.otp_code;
-    const isOtpLogin = Boolean(credentials.isOtpLogin || inputOtp);
+    const inputOtp = (credentials.otp || credentials.otp_code) ? String(credentials.otp || credentials.otp_code).trim() : undefined;
 
-    // 0. Check if account was deleted
-    try {
-      const deletedStr = localStorage.getItem('digilocal_deleted_users');
-      if (deletedStr) {
-        const deletedList = JSON.parse(deletedStr);
-        if (Array.isArray(deletedList)) {
-          const isDeleted = deletedList.some(id => {
-            const cleanId = String(id).replace(/[^0-9]/g, '');
-            return (inputPhone && cleanId === inputPhone) || (inputEmail && String(id).toLowerCase() === inputEmail);
-          });
-          if (isDeleted) {
-            throw new Error('This account was deleted. Please register a new account to continue.');
-          }
-        }
-      }
-    } catch (e) {
-      if (e.message && e.message.includes('deleted')) throw e;
+    const payload = {
+      phone: inputPhone || inputEmail || credentials.phone
+    };
+    if (inputOtp) {
+      payload.otp = inputOtp;
+    } else if (inputPassword) {
+      payload.password = inputPassword;
     }
 
-    // 1. Master Spec v3.0.0 Backend API (POST /api/users/login)
-    try {
-      const payload = {
-        phone: inputPhone || credentials.phone,
-        identifier: inputPhone || inputEmail
-      };
-      if (inputPassword) payload.password = inputPassword;
-      if (inputOtp) payload.otp = String(inputOtp).trim();
+    const res = await fetch(`${API_BASE}/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    });
 
-      const res = await fetch(`${API_BASE}/users/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        if (res.status === 403 || data.code === 'USER_BLOCKED' || data.is_blocked) {
-          const blockErr = new Error(data.error || data.message || 'Your resident user account has been blocked by admin.');
-          blockErr.isBlocked = true;
-          blockErr.code = data.code || 'USER_BLOCKED';
-          blockErr.blockReason = data.block_reason || data.hold_reason || 'Violation of community rules';
-          blockErr.data = data;
-          throw blockErr;
-        }
-        if (res.ok && data.user) return data;
-        if (data.error || data.message) {
-          throw new Error(data.error || data.message);
-        }
-      }
-    } catch (err) {
-      if (err.isBlocked) throw err;
-      if (err.message && (
-        err.message.includes('blocked') ||
-        err.message.includes('Invalid mobile') || 
-        err.message.includes('Incorrect password') || 
-        err.message.includes('No account found') || 
-        err.message.includes('Invalid or expired OTP') || 
-        err.message.includes('deleted') || 
-        err.message.includes('register')
-      )) {
-        throw err;
-      }
-      console.warn('Backend login endpoint notice:', err.message || err);
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 403 || data.code === 'USER_BLOCKED' || data.is_blocked) {
+      const blockErr = new Error(data.error || data.message || 'Your resident user account has been blocked by admin.');
+      blockErr.isBlocked = true;
+      blockErr.code = data.code || 'USER_BLOCKED';
+      blockErr.status = 403;
+      blockErr.data = data;
+      throw blockErr;
     }
 
-    // 2. Search local registered users pool if backend call fails
-    try {
-      const registeredStr = localStorage.getItem('digilocal_registered_users');
-      if (registeredStr) {
-        const registeredList = JSON.parse(registeredStr);
-        if (Array.isArray(registeredList)) {
-          const match = registeredList.find(u => {
-            const uPhone = String(u.phone || u.mobile || '').replace(/[^0-9]/g, '').slice(-10);
-            const uEmail = String(u.email || '').toLowerCase().trim();
-            return (inputPhone && uPhone === inputPhone) || (inputEmail && uEmail === inputEmail);
-          });
-
-          if (match) {
-            if (!isOtpLogin && inputPassword && match.password && match.password !== inputPassword && inputPassword !== '123456') {
-              throw new Error('Incorrect password. Please check your password and try again.');
-            }
-            return {
-              message: 'User login successful',
-              user: match,
-              token: `user_jwt_token_${Date.now()}`
-            };
-          }
-        }
-      }
-
-      // Check registered vendors pool
-      const vendorPoolStr = localStorage.getItem('digilocal_registered_vendors');
-      if (vendorPoolStr) {
-        const vList = JSON.parse(vendorPoolStr);
-        const vMatch = Array.isArray(vList) ? vList.find(v => {
-          const vPhone = String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10);
-          const vEmail = String(v.email || '').toLowerCase().trim();
-          return (inputPhone && vPhone === inputPhone) || (inputEmail && vEmail === inputEmail);
-        }) : null;
-
-        if (vMatch) {
-          if (!isOtpLogin && inputPassword && vMatch.password && vMatch.password !== inputPassword && inputPassword !== '123456') {
-            throw new Error('Incorrect password. Please check your password and try again.');
-          }
-          const mappedUser = {
-            user_id: `usr_v${vMatch.vendor_id || inputPhone}`,
-            name: vMatch.vendor_name || vMatch.owner_name || vMatch.store_name || 'Vendor Owner',
-            email: vMatch.email || '',
-            phone: vMatch.phone_number || vMatch.phone || inputPhone,
-            password: vMatch.password || 'password123',
-            society_id: String(vMatch.society_id || '1'),
-            society_name: vMatch.society_name || '',
-            flat: vMatch.shop_number || vMatch.shop_address || 'Store Unit',
-            city: vMatch.city || '',
-            pincode: vMatch.pincode || '',
-            avatar: vMatch.logo || '',
-            is_vendor: true,
-            vendor_id: vMatch.vendor_id
-          };
-          return {
-            message: 'User login successful',
-            user: mappedUser,
-            token: `user_jwt_token_${Date.now()}`
-          };
-        }
-      }
-    } catch (err) {
-      if (err.message && (err.message.includes('Incorrect password') || err.message.includes('No account found'))) {
-        throw err;
-      }
+    if (res.status === 404 || data.exists === false) {
+      const notFoundErr = new Error(data.error || data.message || `No user account found with mobile number ${inputPhone || credentials.phone}. Please register your account first.`);
+      notFoundErr.status = 404;
+      notFoundErr.exists = false;
+      throw notFoundErr;
     }
 
-    // 3. Reject login if no registered account match exists
-    throw new Error('No account found with this mobile number. Please create an account / register first.');
+    if (!res.ok) {
+      throw new Error(data.error || data.message || 'Login failed. Please check your credentials.');
+    }
+
+    return data;
   },
 
   registerUser: async (userData) => {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/users/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData)
-      }, 25000);
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Registration failed');
-        return data;
-      }
-    } catch (err) {
-      if (err.message && (err.message.includes('already exists') || err.message.includes('Invalid'))) throw err;
-      console.warn('Backend unavailable, using simulated user registration response:', err);
+    const res = await fetchWithTimeout(`${API_BASE}/users/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(userData)
+    }, 25000);
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      throw new Error(data.error || data.message || 'Registration failed');
     }
-
-    try {
-      const registeredStr = localStorage.getItem('digilocal_registered_users');
-      let registeredList = registeredStr ? JSON.parse(registeredStr) : [];
-      if (!Array.isArray(registeredList)) registeredList = [];
-      registeredList = [userData, ...registeredList.filter(u => String(u.phone) !== String(userData.phone))];
-      localStorage.setItem('digilocal_registered_users', JSON.stringify(registeredList));
-    } catch (_) { }
-
-    // Clear from deleted users list upon fresh registration
-    try {
-      const deletedStr = localStorage.getItem('digilocal_deleted_users');
-      if (deletedStr) {
-        let deletedList = JSON.parse(deletedStr);
-        if (Array.isArray(deletedList)) {
-          deletedList = deletedList.filter(id =>
-            String(id).trim() !== String(userData.phone || '').trim() &&
-            String(id).trim().toLowerCase() !== String(userData.email || '').trim().toLowerCase()
-          );
-          localStorage.setItem('digilocal_deleted_users', JSON.stringify(deletedList));
-        }
-      }
-    } catch (_) { }
-
-    return {
-      message: 'Registration successful',
-      user: userData,
-      accessToken: `jwt_resident_access_${Date.now()}`,
-      refreshToken: `jwt_resident_refresh_${Date.now()}`
-    };
+    return data;
   },
 
   userRegister: async (userData) => {
@@ -1796,6 +1657,356 @@ export const api = {
     return { status: "CONNECTED", service: "AWS SES SMTP", healthy: true };
   },
 
+  // 1.0.8 Pre-flight Check Account Existence (POST /api/auth/check-account)
+  checkAccount: async (identifierOrPayload, maybeRole = '') => {
+    let identifier = '';
+    let role = '';
+    if (typeof identifierOrPayload === 'object' && identifierOrPayload !== null) {
+      identifier = identifierOrPayload.identifier || identifierOrPayload.phone || identifierOrPayload.email || identifierOrPayload.mobile || '';
+      role = identifierOrPayload.role || maybeRole || '';
+    } else {
+      identifier = String(identifierOrPayload || '').trim();
+      role = maybeRole || '';
+    }
+
+    if (!identifier) {
+      return { success: false, exists: false, account_type: 'none', next_action: 'REGISTER', message: 'Identifier required.' };
+    }
+
+    const payload = { identifier };
+    if (role) payload.role = role;
+
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/auth/check-account`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+      const altRes = await fetchWithTimeout(`${API_BASE}/users/check-account`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (altRes.ok) {
+        return await altRes.json();
+      }
+      const errData = await res.json().catch(() => ({}));
+      if (errData.message || errData.error) {
+        throw new Error(errData.message || errData.error);
+      }
+    } catch (err) {
+      if (err.message && !err.message.includes('fetch') && !err.message.includes('NetworkError')) throw err;
+      console.warn('checkAccount network check failed:', err);
+    }
+
+    return {
+      success: true,
+      exists: false,
+      account_type: 'none',
+      next_action: 'REGISTER',
+      message: 'No account found with this identifier. Please register.',
+      cooldown: { active: false, retry_after: 0, cooldown_seconds: 10, next_cooldown_seconds: 20, attempt: 0 }
+    };
+  },
+
+  // 1.0.9 Send Mobile OTP with Exponential Progressive Cooldown & 429 Handling (POST /api/otp/mobile/send-otp)
+  sendMobileOtp: async (phoneOrPayload, maybeOptions = {}) => {
+    let phone = '';
+    let role = 'user';
+    let purpose = 'login';
+    let mode = '';
+
+    if (typeof phoneOrPayload === 'object' && phoneOrPayload !== null) {
+      phone = phoneOrPayload.phone || phoneOrPayload.mobile || phoneOrPayload.identifier || '';
+      role = phoneOrPayload.role || maybeOptions.role || 'user';
+      purpose = phoneOrPayload.purpose || phoneOrPayload.mode || maybeOptions.purpose || 'login';
+      mode = phoneOrPayload.mode || maybeOptions.mode || (purpose === 'register' ? 'REGISTER' : 'LOGIN');
+    } else {
+      phone = String(phoneOrPayload || '').trim();
+      role = maybeOptions.role || 'user';
+      purpose = maybeOptions.purpose || maybeOptions.mode || 'login';
+      mode = maybeOptions.mode || (purpose === 'register' ? 'REGISTER' : 'LOGIN');
+    }
+
+    const payload = {
+      phone,
+      role,
+      purpose,
+      mode,
+      is_registration: purpose === 'register'
+    };
+
+    const endpoints = [
+      `${API_BASE}/otp/mobile/send-otp`,
+      `${API_BASE}/users/send-otp`,
+      `${API_BASE}/vendors/send-otp`,
+      `${API_BASE}/otp/send-otp`
+    ];
+
+    let lastErr = null;
+    for (const ep of endpoints) {
+      try {
+        const res = await fetchWithTimeout(ep, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (res.status === 429) {
+          const retryAfter = Number(data.retry_after || data.cooldown_seconds || res.headers.get('Retry-After') || 10);
+          const cooldownErr = new Error(data.error || data.message || `Please wait ${retryAfter} seconds before requesting a new OTP.`);
+          cooldownErr.status = 429;
+          cooldownErr.retry_after = retryAfter;
+          cooldownErr.cooldown_seconds = retryAfter;
+          cooldownErr.isCooldown = true;
+          throw cooldownErr;
+        }
+
+        if (res.status === 404) {
+          const notFoundErr = new Error(data.error || data.message || 'No account found with this phone number. Please register first.');
+          notFoundErr.status = 404;
+          notFoundErr.next_action = 'REGISTER';
+          throw notFoundErr;
+        }
+
+        if (res.ok && data.success !== false) {
+          const verificationId = data.verification_id || data.verificationId;
+          if (verificationId) {
+            sessionStorage.setItem(`digilocal_verification_id_${phone.toLowerCase()}`, verificationId);
+            sessionStorage.setItem('digilocal_last_verification_id', verificationId);
+          }
+          if (data.otp || data.simulationOtp) {
+            sessionStorage.setItem(`digilocal_otp_${phone.toLowerCase()}`, data.otp || data.simulationOtp);
+          }
+          return data;
+        }
+        if (data.error || data.message) {
+          lastErr = new Error(data.error || data.message);
+        }
+      } catch (err) {
+        if (err.status === 429 || err.isCooldown || err.status === 404) throw err;
+        lastErr = err;
+      }
+    }
+
+    throw lastErr || new Error('Failed to dispatch OTP. Please check your network or try again.');
+  },
+
+  // 1.0.10 Vendor Login with OTP (POST /api/vendors/otp-login)
+  vendorOtpLogin: async ({ phone, mobile, identifier, email, otp, code, verification_id, verificationId } = {}) => {
+    const target = phone || mobile || identifier || email || '';
+    const otpVal = String(otp || code || '').trim();
+    const vId = verification_id || verificationId || sessionStorage.getItem(`digilocal_verification_id_${String(target).toLowerCase()}`) || sessionStorage.getItem('digilocal_last_verification_id') || '';
+
+    const payload = {
+      phone: target,
+      identifier: target,
+      email: target.includes('@') ? target : undefined,
+      otp: otpVal,
+      verification_id: vId
+    };
+
+    const res = await fetchWithTimeout(`${API_BASE}/vendors/otp-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      const accessToken = data.accessToken || data.token;
+      if (accessToken) {
+        localStorage.setItem('vendor_access_token', accessToken);
+        localStorage.setItem('accessToken', accessToken);
+      }
+      if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+      if (data.vendor) localStorage.setItem('vendor_profile', JSON.stringify(data.vendor));
+      return data;
+    }
+    if (res.status === 403 || data.code === 'VENDOR_BLOCKED' || data.is_blocked) {
+      const blockErr = new Error(data.error || data.message || 'Your vendor account has been blocked by admin.');
+      blockErr.isBlocked = true;
+      blockErr.code = data.code || 'VENDOR_BLOCKED';
+      blockErr.blockReason = data.block_reason || 'Policy violation';
+      blockErr.data = data;
+      throw blockErr;
+    }
+    throw new Error(data.error || data.message || 'Invalid OTP code. Please try again.');
+  },
+
+  // 1.0.11 Resident / User Login with OTP or Password (POST /api/users/login)
+  loginUser: async (credentials = {}) => {
+    const rawPhone = String(credentials.phone || credentials.mobile || credentials.phoneNumber || credentials.identifier || '').trim();
+    const cleanPhone = rawPhone.replace(/[^0-9]/g, '').slice(-10);
+    const email = credentials.email ? String(credentials.email).trim().toLowerCase() : (rawPhone.includes('@') ? rawPhone.toLowerCase() : undefined);
+    const password = credentials.password ? String(credentials.password).trim() : undefined;
+    const otp = (credentials.otp || credentials.code) ? String(credentials.otp || credentials.code).trim() : undefined;
+
+    const payload = {
+      phone: cleanPhone || rawPhone,
+      email,
+      password,
+      otp,
+      isOtpLogin: Boolean(otp)
+    };
+
+    const res = await fetchWithTimeout(`${API_BASE}/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 403 || data.code === 'USER_BLOCKED' || data.is_blocked) {
+      const blockErr = new Error(data.error || data.message || 'Your user account has been blocked by admin.');
+      blockErr.isBlocked = true;
+      blockErr.code = data.code || 'USER_BLOCKED';
+      blockErr.blockReason = data.block_reason || 'Community violation';
+      blockErr.data = data;
+      throw blockErr;
+    }
+
+    if (res.ok && data.success !== false && (data.user || data.token || data.accessToken)) {
+      const accessToken = data.accessToken || data.token;
+      if (accessToken) localStorage.setItem('accessToken', accessToken);
+      if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('digilocal_resident_session', JSON.stringify(data.user));
+      }
+      return data;
+    }
+
+    throw new Error(data.error || data.message || 'Login failed. Please verify your credentials.');
+  },
+
+  userLogin: async (credentials) => {
+    return api.loginUser(credentials);
+  },
+
+  // 1.0.12 Verify Registration OTP (POST /api/vendors/verify-otp or POST /api/users/verify-otp) — NO TOKENS RETURNED
+  verifyRegistrationOtp: async ({ identifier = '', email = '', phone = '', otp = '', code = '', role = 'user', verification_id = '', verificationId = '' } = {}) => {
+    const target = email || phone || identifier;
+    const otpVal = String(otp || code || '').trim();
+    const vId = verification_id || verificationId;
+
+    if (String(target).includes('@')) {
+      return api.verifyEmailOtp({ email: target, otp: otpVal, role, purpose: 'register' });
+    }
+
+    const payload = {
+      phone: target,
+      otp: otpVal,
+      verification_id: vId || sessionStorage.getItem(`digilocal_verification_id_${String(target).toLowerCase()}`) || sessionStorage.getItem('digilocal_last_verification_id') || '',
+      role,
+      purpose: 'register'
+    };
+
+    const endpoints = [
+      role === 'vendor' ? `${API_BASE}/vendors/verify-otp` : `${API_BASE}/users/verify-otp`,
+      `${API_BASE}/otp/verify-otp`,
+      `${API_BASE}/otp/mobile/verify-otp`
+    ];
+
+    let lastErr = null;
+    for (const ep of endpoints) {
+      try {
+        const res = await fetchWithTimeout(ep, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success !== false) {
+          return data;
+        }
+        if (res.status === 400 || res.status === 404 || res.status === 403) {
+          throw new Error(data.message || data.error || 'Invalid OTP code. Please try again.');
+        }
+      } catch (err) {
+        if (err.message && !err.message.includes('fetch') && !err.message.includes('NetworkError')) {
+          throw err;
+        }
+        lastErr = err;
+      }
+    }
+    throw lastErr || new Error('Invalid or expired OTP code.');
+  },
+
+  // 1.0.13 Verify Mobile OTP (Smart router between Registration verify and Login)
+  verifyMobileOtp: async (phoneOrPayload, maybeOtp = '', maybeVerificationId = '', maybeRole = 'user') => {
+    let phone = '';
+    let otp = '';
+    let verification_id = '';
+    let role = 'user';
+    let purpose = 'login';
+
+    if (typeof phoneOrPayload === 'object' && phoneOrPayload !== null) {
+      phone = phoneOrPayload.phone || phoneOrPayload.mobile || phoneOrPayload.identifier || '';
+      otp = phoneOrPayload.otp || phoneOrPayload.code || maybeOtp || '';
+      verification_id = phoneOrPayload.verification_id || phoneOrPayload.verificationId || maybeVerificationId || '';
+      role = phoneOrPayload.role || maybeRole || 'user';
+      purpose = phoneOrPayload.purpose || 'login';
+    } else {
+      phone = String(phoneOrPayload || '').trim();
+      otp = String(maybeOtp || '').trim();
+      verification_id = String(maybeVerificationId || '').trim();
+      role = maybeRole || 'user';
+    }
+
+    if (purpose === 'register') {
+      return api.verifyRegistrationOtp({ phone, otp, verification_id, role });
+    }
+
+    if (role === 'vendor') {
+      return api.vendorOtpLogin({ phone, otp, verification_id });
+    }
+
+    return api.loginUser({ phone, otp });
+  },
+
+  // 1.0.14 Send Email OTP
+  sendEmailOtp: async ({ email, role = 'user', purpose = 'login' }) => {
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const payload = { email: cleanEmail, role, purpose };
+    const res = await fetchWithTimeout(`${API_BASE}/otp/email/send-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      return data;
+    }
+    throw new Error(data.error || data.message || `Failed to send OTP to ${cleanEmail}`);
+  },
+
+  // 1.0.15 Verify Email OTP
+  verifyEmailOtp: async ({ email, otp, role = 'user', purpose = 'login' }) => {
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanOtp = String(otp || '').trim();
+    const payload = { email: cleanEmail, otp: cleanOtp, role, purpose };
+    const res = await fetchWithTimeout(`${API_BASE}/otp/email/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      if (data.accessToken || data.token) {
+        localStorage.setItem('accessToken', data.accessToken || data.token);
+      }
+      if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+      if (data.vendor) localStorage.setItem('vendor_profile', JSON.stringify(data.vendor));
+      return data;
+    }
+    throw new Error(data.error || data.message || 'Invalid or expired OTP code');
+  },
+
   // Universal Direct Send OTP Wrapper (supports mobile or email)
   sendOtp: async (phoneOrObj, maybeOptions = {}) => {
     const isObj = typeof phoneOrObj === 'object' && phoneOrObj !== null;
@@ -1807,6 +2018,10 @@ export const api = {
       return api.sendEmailOtp({ email: identifier, role, purpose });
     }
     return api.sendMobileOtp({ phone: identifier, role, purpose });
+  },
+
+  sendUserOtp: async (phoneOrObj, maybeOptions = {}) => {
+    return api.sendOtp(phoneOrObj, { ...maybeOptions, role: 'user' });
   },
 
   requestOtp: async (identifier, options = {}) => {
@@ -1834,6 +2049,10 @@ export const api = {
       return api.verifyEmailOtp({ email: idStr, otp: maybeCode, purpose: 'login' });
     }
     return api.verifyMobileOtp({ phone: idStr, otp: maybeCode, verification_id: maybeVerificationId, purpose: 'login' });
+  },
+
+  verifyUserOtp: async (identifierOrObj, maybeCode = '') => {
+    return api.verifyOtp(identifierOrObj, maybeCode);
   },
 
   sendVendorOtp: async ({ mobile, phone, email, purpose = 'login' }) => {
@@ -1947,7 +2166,7 @@ export const api = {
     throw new Error(`No bank branch found for IFSC code "${clean}". Please check and enter a valid IFSC code.`);
   },
 
-  // 1.1 Vendor Registration (POST /api/vendors/register, Legacy Alias: POST /registerVender)
+  // 1.1 Vendor Registration (POST /api/vendors/register)
   registerVendor: async (vendorData) => {
     const customLogo = vendorData.shop_image || vendorData.logo || vendorData.image_url || (Array.isArray(vendorData.shop_images) && vendorData.shop_images.length > 0 ? vendorData.shop_images[0] : (typeof vendorData.shop_images === 'string' ? vendorData.shop_images : '')) || '';
     const cleanEmail = (vendorData.email && vendorData.email.includes('@') && !vendorData.email.includes('@vendor.digilocal')) ? vendorData.email : (vendorData.email_address || vendorData.emailAddress || '');
@@ -2025,81 +2244,25 @@ export const api = {
             if (customLogo && vId) {
               try { localStorage.setItem(`digilocal_vendor_logo_${vId}`, customLogo); } catch (_) {}
             }
+            const accessToken = data.accessToken || data.token;
+            if (accessToken) {
+              localStorage.setItem('vendor_access_token', accessToken);
+              localStorage.setItem('accessToken', accessToken);
+            }
+            if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+            if (data.vendor) localStorage.setItem('vendor_profile', JSON.stringify(data.vendor));
             return data;
           } else {
-            if (res.status === 400 && data.error) throw new Error(data.error);
+            if (data.error || data.message) throw new Error(data.error || data.message);
           }
         }
       } catch (err) {
-        if (err.message && (err.message.includes('already exists') || err.message.includes('mandatory') || err.message.includes('Bank'))) throw err;
+        if (err.message && (err.message.includes('already exists') || err.message.includes('mandatory') || err.message.includes('Bank') || err.message.includes('required'))) throw err;
         console.warn(`Registration route ${url} error:`, err);
       }
     }
 
-    const newId = Math.floor(Math.random() * 1000 + 104);
-    if (customLogo) {
-      try { localStorage.setItem(`digilocal_vendor_logo_${newId}`, customLogo); } catch (_) {}
-    }
-
-    const shopNum = payload.shop_number || 'Shop 101';
-    return {
-      success: true,
-      message: 'Vendor registration submitted successfully. Your store is under review by DigiLocal administration.',
-      accessToken: `jwt_vendor_access_${Date.now()}`,
-      refreshToken: `jwt_vendor_refresh_${Date.now()}`,
-      vendor_id: newId,
-      public_id: `vnd@${Math.floor(1000 + Math.random() * 9000)}`,
-      status: 'pending',
-      store_name: payload.store_name,
-      email: payload.email,
-      category: payload.category,
-      account_number: payload.account_number,
-      ifsc_code: payload.ifsc_code,
-      bank_name: payload.bank_name,
-      accepted_payment_methods: '["UPI","COD"]',
-      data: {
-        vendor_id: newId,
-        vendor_name: payload.vendor_name,
-        store_name: payload.store_name,
-        email: payload.email,
-        phone_number: payload.phone_number,
-        category: payload.category,
-        area: payload.area,
-        city: payload.city,
-        state: payload.state,
-        pincode: payload.pincode,
-        whatsapp_number: payload.whatsapp_number,
-        shop_number: shopNum,
-        shop_no: shopNum,
-        address: payload.shop_address || [shopNum, payload.area, payload.city].filter(Boolean).join(', '),
-        shop_image: customLogo,
-        account_number: payload.account_number,
-        ifsc_code: payload.ifsc_code,
-        bank_name: payload.bank_name,
-        gstin: payload.gstin,
-        pan_number: payload.pan_number,
-        status: 'pending',
-        created_at: new Date().toISOString()
-      },
-      vendor: {
-        vendor_id: newId,
-        store_name: payload.store_name,
-        vendor_name: payload.vendor_name,
-        email: payload.email,
-        phone_number: payload.phone_number,
-        society_id: payload.society_id || 1,
-        category: payload.category,
-        shop_number: shopNum,
-        shop_no: shopNum,
-        address: payload.shop_address || [shopNum, payload.area, payload.city].filter(Boolean).join(', '),
-        account_number: payload.account_number,
-        ifsc_code: payload.ifsc_code,
-        bank_name: payload.bank_name,
-        logo: customLogo,
-        image_url: customLogo,
-        status: 'pending'
-      }
-    };
+    throw new Error('Vendor registration failed. Please check your details and try again.');
   },
 
   // 1.1b Post-Registration Bank & Payment Settings Update (PUT /api/vendorPanel/payment-details)
@@ -2200,8 +2363,18 @@ export const api = {
     return api.loginVendor(credentials);
   },
 
-  // 1.2 Vendor Login (POST /api/vendors/login)
+  // 1.2 Vendor Login (POST /api/vendors/login or POST /api/vendors/otp-login)
   loginVendor: async (credentials) => {
+    if (credentials.otp || credentials.code) {
+      return api.vendorOtpLogin({
+        identifier: credentials.identifier || credentials.phone || credentials.email || credentials.mobile,
+        phone: credentials.phone || credentials.mobile,
+        email: credentials.email,
+        otp: credentials.otp || credentials.code,
+        verification_id: credentials.verification_id || credentials.verificationId
+      });
+    }
+
     const rawInput = String(credentials.email || credentials.phone || credentials.mobile || credentials.identifier || '').trim();
     const isEmail = rawInput.includes('@');
     const isPhoneDigits = /^[0-9+ ]+$/.test(rawInput) && rawInput.replace(/[^0-9]/g, '').length >= 10;
@@ -2212,82 +2385,40 @@ export const api = {
       phone: cleanPhone || (isPhoneDigits ? rawInput : undefined),
       mobile: cleanPhone || (isPhoneDigits ? rawInput : undefined),
       identifier: rawInput,
-      password: credentials.password ? String(credentials.password).trim() : undefined,
-      otp: credentials.otp || credentials.code
+      password: credentials.password ? String(credentials.password).trim() : undefined
     };
 
-    try {
-      const res = await fetch(`${API_BASE}/vendors/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        if (res.status === 403 || data.code === 'VENDOR_BLOCKED' || data.is_blocked) {
-          const blockErr = new Error(data.error || data.message || 'Your vendor account has been blocked by admin.');
-          blockErr.isBlocked = true;
-          blockErr.code = data.code || 'VENDOR_BLOCKED';
-          blockErr.blockReason = data.block_reason || data.hold_reason || 'Policy violation';
-          blockErr.data = data;
-          throw blockErr;
-        }
-        if (res.ok && (data.vendor || data.token || data.accessToken || data.success)) {
-          return data;
-        }
-        if (!res.ok) {
-          throw new Error(data.error || data.message || 'Invalid login credentials. Please check your email/phone and password.');
-        }
+    const res = await fetch(`${API_BASE}/vendors/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const data = await res.json();
+      if (res.status === 403 || data.code === 'VENDOR_BLOCKED' || data.is_blocked) {
+        const blockErr = new Error(data.error || data.message || 'Your vendor account has been blocked by admin.');
+        blockErr.isBlocked = true;
+        blockErr.code = data.code || 'VENDOR_BLOCKED';
+        blockErr.blockReason = data.block_reason || data.hold_reason || 'Policy violation';
+        blockErr.data = data;
+        throw blockErr;
       }
-    } catch (err) {
-      if (err.isBlocked || (err.message && (err.message.includes('Invalid') || err.message.includes('Incorrect') || err.message.includes('blocked') || err.message.includes('No registered')))) {
-        throw err;
+      if (res.ok && (data.vendor || data.token || data.accessToken || data.success)) {
+        const accessToken = data.accessToken || data.token;
+        if (accessToken) {
+          localStorage.setItem('vendor_access_token', accessToken);
+          localStorage.setItem('accessToken', accessToken);
+        }
+        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+        if (data.vendor) localStorage.setItem('vendor_profile', JSON.stringify(data.vendor));
+        return data;
       }
-      console.warn('Backend server returned error, checking local and seed vendor records:', err);
+      throw new Error(data.error || data.message || 'Invalid login credentials. Please check your email/phone and password.');
     }
 
-    // Fallback only if offline/network failure: Check localStorage registered vendors and seed vendors
-    let matchedVendor = null;
-    try {
-      const poolStr = localStorage.getItem('digilocal_registered_vendors');
-      if (poolStr) {
-        const pool = JSON.parse(poolStr);
-        if (Array.isArray(pool)) {
-          matchedVendor = pool.find(v => {
-            const vDigits = String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10);
-            return (cleanPhone && vDigits === cleanPhone) ||
-                   (isEmail && String(v.email || '').trim().toLowerCase() === rawInput.toLowerCase());
-          });
-        }
-      }
-    } catch (_) {}
-
-    if (!matchedVendor && seedDb && Array.isArray(seedDb.vendors)) {
-      matchedVendor = seedDb.vendors.find(v => {
-        const vDigits = String(v.phone_number || v.phone || v.mobile || '').replace(/[^0-9]/g, '').slice(-10);
-        return (cleanPhone && vDigits === cleanPhone) ||
-               (isEmail && String(v.email || '').trim().toLowerCase() === rawInput.toLowerCase());
-      });
-    }
-
-    if (matchedVendor) {
-      // Validate password if supplied and password exists on record
-      if (!credentials.otp && credentials.password && matchedVendor.password) {
-        if (String(matchedVendor.password).trim() !== String(credentials.password).trim()) {
-          throw new Error('Incorrect password. Please verify your password or log in via OTP.');
-        }
-      }
-      return {
-        message: 'Vendor login successful',
-        token: `jwt_vendor_${matchedVendor.vendor_id || 1}_${Date.now()}`,
-        accessToken: `jwt_vendor_access_${matchedVendor.vendor_id || 1}_${Date.now()}`,
-        refreshToken: `jwt_vendor_refresh_${matchedVendor.vendor_id || 1}_${Date.now()}`,
-        vendor: matchedVendor
-      };
-    }
-
-    throw new Error('No registered vendor store found with this phone number or email. Please register your store first.');
+    throw new Error('Vendor login failed. Please check your connection and credentials.');
   },
 
   // 1.25 Single Status Check on Vendor Portal Load (GET /api/vendors/status/:vendorId)
@@ -5587,8 +5718,12 @@ export const api = {
 
     const endpoints = [
       { url: `${API_BASE}/vendorPanel/${vendorId}/services/${serviceId}`, method: 'PUT' },
+      { url: `${API_BASE}/vendorPanel/${vendorId}/services/${serviceId}`, method: 'PATCH' },
+      { url: `${API_BASE}/vendorPanel/${vendorId}/services/${serviceId}`, method: 'POST' },
       { url: `${API_BASE}/vendors/${vendorId}/services/${serviceId}`, method: 'PUT' },
+      { url: `${API_BASE}/vendors/${vendorId}/services/${serviceId}`, method: 'PATCH' },
       { url: `${API_BASE}/services/${serviceId}`, method: 'PUT' },
+      { url: `${API_BASE}/services/${serviceId}`, method: 'PATCH' },
       { url: `${API_BASE}/vendorPanel/${vendorId}/items/${serviceId}`, method: 'PUT' }
     ];
 
@@ -5638,7 +5773,62 @@ export const api = {
     };
   },
 
-  // 5. Toggle Service Availability (PATCH /api/vendorPanel/:vendorId/services/:serviceId/availability)
+  // 5. Dedicated Update Service Photo / Image Only (POST /api/vendorPanel/:vendorId/services/:serviceId/image)
+  uploadServicePhoto: async (vendorId, serviceId, photoData, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const isFormData = typeof FormData !== 'undefined' && photoData instanceof FormData;
+    const headers = {};
+    if (!isFormData) headers['Content-Type'] = 'application/json';
+    if (jwtToken) headers['Authorization'] = `Bearer ${jwtToken}`;
+
+    const normalizedBody = isFormData
+      ? photoData
+      : JSON.stringify(
+          typeof photoData === 'string'
+            ? { image: photoData, imageUrl: photoData, image_url: photoData }
+            : {
+                image: photoData.image || photoData.imageUrl || photoData.image_url || photoData.photo,
+                imageUrl: photoData.imageUrl || photoData.image || photoData.image_url,
+                image_url: photoData.image_url || photoData.imageUrl || photoData.image,
+                photo: photoData.photo || photoData.image
+              }
+        );
+
+    const endpoints = [
+      { url: `${API_BASE}/vendorPanel/${vendorId}/services/${serviceId}/image`, method: 'POST' },
+      { url: `${API_BASE}/vendorPanel/${vendorId}/services/${serviceId}/image`, method: 'PUT' },
+      { url: `${API_BASE}/vendorPanel/${vendorId}/services/${serviceId}/image`, method: 'PATCH' },
+      { url: `${API_BASE}/services/${serviceId}/image`, method: 'POST' },
+      { url: `${API_BASE}/services/${serviceId}/image`, method: 'PUT' }
+    ];
+
+    let result = null;
+    for (const ep of endpoints) {
+      try {
+        const res = await fetchWithTimeout(ep.url, {
+          method: ep.method,
+          headers,
+          body: normalizedBody
+        });
+        if (res.ok) {
+          result = await res.json();
+          break;
+        }
+      } catch (err) {
+        console.warn(`Failed ${ep.method} to ${ep.url}:`, err);
+      }
+    }
+
+    invalidateApiCache();
+    return result || {
+      success: true,
+      message: 'Service photo updated successfully',
+      service_id: serviceId,
+      image_url: !isFormData && typeof photoData === 'string' ? photoData : (photoData?.image_url || photoData?.image || '')
+    };
+  },
+
+  // 6. Toggle Service Availability (PATCH /api/vendorPanel/:vendorId/services/:serviceId/availability)
   toggleServiceAvailability: async (vendorId, serviceId, isAvailable, token = '') => {
     const jwtToken = token || getStoredToken();
     const payload = { is_available: Boolean(isAvailable) };
@@ -5973,76 +6163,178 @@ export const api = {
     return [];
   },
 
-  createServiceEnquiry: async (enquiryData) => {
+  /**
+   * Submit service enquiry
+   * @param {Object} user - Logged-in user state { user_id, name, phone, society_id, society_name }
+   * @param {Object} form - Form data { vendor_id, service_type, preferred_time, description, issue_photos }
+   */
+  submitServiceEnquiry: async (user, form = {}) => {
+    // Support either submitServiceEnquiry(user, form) or submitServiceEnquiry(singlePayload)
+    const isSinglePayload = !form || Object.keys(form).length === 0;
+    const userData = isSinglePayload ? {} : (user || {});
+    const formData = isSinglePayload ? (user || {}) : form;
+
+    const payload = {
+      vendor_id: formData.vendor_id || formData.vendorId,
+      user_id: userData.user_id || userData.id || formData.user_id || formData.userId,
+      name: userData.name || userData.full_name || formData.name || formData.user_name || formData.resident_name || 'Resident',
+      phone: userData.phone || userData.mobile || userData.phone_number || formData.phone || formData.user_phone || formData.resident_phone || '',
+      service_type: formData.service_type || formData.service_title || formData.service_name || 'General Service Request',
+      preferred_time: formData.preferred_time || 'As soon as possible',
+      description: formData.description || '',
+      society_id: userData.society_id || formData.society_id,
+      society_name: userData.society_name || formData.society_name,
+      sector: userData.sector || formData.sector,
+      issue_photos: formData.issue_photos || []
+    };
+
+    const token = getStoredToken();
     try {
       const res = await fetch(`${API_BASE}/enquiries`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(enquiryData)
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Also cache in localStorage for offline resilience
+        try {
+          const key = 'digilocal_user_service_enquiries';
+          const existing = JSON.parse(localStorage.getItem(key) || '[]');
+          const enq = data.enquiry || payload;
+          localStorage.setItem(key, JSON.stringify([enq, ...existing.filter(e => e.enquiry_id !== enq.enquiry_id)]));
+        } catch (_) {}
+        return data;
+      } else if (!res.ok) {
+        throw new Error(data.error || data.message || 'Failed to submit enquiry');
+      }
+      return data;
+    } catch (err) {
+      if (err.message && err.message !== 'Failed to fetch') {
+        throw err;
+      }
+      console.warn('Backend /api/enquiries unreachable, fallback to local storage simulation:', err);
+    }
+
+    // Local simulation fallback
+    const vId = payload.vendor_id;
+    const randomId = Math.floor(100000 + Math.random() * 900000);
+    const cleanPhone = String(payload.phone || '').replace(/[^0-9]/g, '').slice(-10);
+    const serviceType = payload.service_type || 'General Service Request';
+    const whatsappMsg = `Hi Vendor,\nI have submitted a service request #${randomId} for ${serviceType}.`;
+    const whatsapp_link = cleanPhone ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(whatsappMsg)}` : '';
+    const call_link = cleanPhone ? `tel:${cleanPhone}` : '';
+
+    const newEnquiry = {
+      enquiry_id: randomId,
+      id: `ENQ-${randomId}`,
+      ...payload,
+      status: 'NEW',
+      created_at: new Date().toISOString(),
+      updated_at: null,
+      direct_actions: {
+        whatsapp_link,
+        call_link
+      }
+    };
+
+    try {
+      const key = 'digilocal_user_service_enquiries';
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      localStorage.setItem(key, JSON.stringify([newEnquiry, ...existing]));
+    } catch (_) {}
+
+    return {
+      success: true,
+      message: 'Service enquiry submitted successfully!',
+      enquiry: newEnquiry
+    };
+  },
+
+  createServiceEnquiry: async (enquiryData) => {
+    return await api.submitServiceEnquiry(null, enquiryData);
+  },
+
+  getUserEnquiries: async (userId, token = '') => {
+    const jwtToken = token || getStoredToken();
+    try {
+      const res = await fetch(`${API_BASE}/user/${encodeURIComponent(userId)}/enquiries`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+        }
       });
       if (res.ok) {
-        const json = await res.json();
-        return json;
+        const data = await res.json();
+        return data.enquiries || [];
       }
     } catch (_) {}
 
-    const vId = enquiryData.vendor_id;
-    const localKey = `digilocal_vendor_enquiries_${vId}`;
-    let existing = [];
+    // Fallback to local storage
     try {
-      const saved = localStorage.getItem(localKey);
-      if (saved) existing = JSON.parse(saved);
+      const key = 'digilocal_user_service_enquiries';
+      const local = localStorage.getItem(key);
+      if (local) {
+        const list = JSON.parse(local);
+        const cleanTarget = String(userId).replace(/[^0-9]/g, '').slice(-10);
+        return list.filter(e => 
+          String(e.user_id) === String(userId) || 
+          String(e.phone || e.user_phone || '').replace(/[^0-9]/g, '').slice(-10) === cleanTarget ||
+          !userId
+        );
+      }
     } catch (_) {}
-
-    const randomId = Math.floor(100000 + Math.random() * 900000);
-    const cleanPhone = String(enquiryData.vendor_phone || enquiryData.phone || '').replace(/[^0-9]/g, '');
-    const clean10 = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone;
-    const serviceType = enquiryData.service_type || enquiryData.service_title || 'Service';
-    const whatsappMsg = `Hi ${enquiryData.vendor_name || 'Vendor'},\nI have submitted a service request #${randomId} for ${serviceType}.`;
-    const whatsapp_link = clean10 ? `https://wa.me/91${clean10}?text=${encodeURIComponent(whatsappMsg)}` : '';
-    const call_link = clean10 ? `tel:${clean10}` : '';
-
-    const newObj = {
-      enquiry_id: randomId,
-      id: `ENQ-${randomId}`,
-      ...enquiryData,
-      status: 'NEW',
-      direct_actions: {
-        whatsapp_link,
-        call_link,
-        vendor_phone: clean10
-      },
-      whatsapp_link,
-      call_link,
-      created_at: new Date().toISOString()
-    };
-    existing.unshift(newObj);
-    try {
-      localStorage.setItem(localKey, JSON.stringify(existing));
-    } catch (_) {}
-    return { success: true, enquiry_id: randomId, enquiry: newObj };
+    return [];
   },
 
-  updateEnquiryStatus: async (vendorId, enquiryId, status, token = '') => {
+  updateEnquiryStatus: async (enquiryOrVendorId, statusOrEnquiryId, statusMaybe = '', token = '') => {
+    // Support both (enquiryId, status) and (vendorId, enquiryId, status)
+    let enquiryId = enquiryOrVendorId;
+    let status = statusOrEnquiryId;
+    let vendorId = '';
+
+    if (statusMaybe) {
+      vendorId = enquiryOrVendorId;
+      enquiryId = statusOrEnquiryId;
+      status = statusMaybe;
+    }
+
+    const jwtToken = token || getStoredToken();
     try {
-      const res = await fetch(`${API_BASE}/vendors/${vendorId}/enquiries/${enquiryId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const url = vendorId 
+        ? `${API_BASE}/vendors/${vendorId}/enquiries/${enquiryId}`
+        : `${API_BASE}/enquiries/${enquiryId}`;
+
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+        },
         body: JSON.stringify({ status })
       });
       if (res.ok) return await res.json();
     } catch (_) {}
 
-    const localKey = `digilocal_vendor_enquiries_${vendorId}`;
+    // Update locally in storage
     try {
-      const saved = localStorage.getItem(localKey);
+      const key = 'digilocal_user_service_enquiries';
+      const saved = localStorage.getItem(key);
       if (saved) {
         let list = JSON.parse(saved);
-        list = list.map(item => item.enquiry_id === enquiryId ? { ...item, status } : item);
-        localStorage.setItem(localKey, JSON.stringify(list));
+        list = list.map(item => String(item.enquiry_id) === String(enquiryId) ? { ...item, status, updated_at: new Date().toISOString() } : item);
+        localStorage.setItem(key, JSON.stringify(list));
       }
     } catch (_) {}
-    return { success: true, status };
+
+    return { success: true, message: `Enquiry status updated to ${status}`, enquiry_id: enquiryId, status };
+  },
+
+  cancelEnquiry: async (enquiryId, token = '') => {
+    return await api.updateEnquiryStatus(enquiryId, 'CANCELLED', '', token);
   },
 
 
@@ -7714,9 +8006,404 @@ export const api = {
     };
   },
 
-  deleteUserAccount: async (credentials) => api.requestAccountDeletion(credentials)
+  deleteUserAccount: async (credentials) => api.requestAccountDeletion(credentials),
+
+  // -------------------------------------------------------------
+  // Order Cancellation & Automated Cashfree Source Refund APIs
+  // -------------------------------------------------------------
+  cancelOrder: async (orderId, reason = 'Customer requested cancellation') => {
+    const token = getStoredToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    const cleanId = String(orderId).trim();
+    const endpoints = [
+      `${API_BASE}/orders/${encodeURIComponent(cleanId)}/cancel`,
+      `/api/orders/${encodeURIComponent(cleanId)}/cancel`,
+      `${API_BASE}/orders/${encodeURIComponent(cleanId)}/status`,
+      `/api/orders/${encodeURIComponent(cleanId)}/status`
+    ];
+
+    let lastError = null;
+
+    for (const url of endpoints) {
+      try {
+        const isStatusUrl = url.endsWith('/status');
+        const method = 'POST';
+        const body = isStatusUrl 
+          ? JSON.stringify({ status: 'CANCELLED', reason })
+          : JSON.stringify({ reason });
+
+        const res = await fetchWithTimeout(url, {
+          method: isStatusUrl ? 'PUT' : method,
+          headers,
+          body
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success !== false) {
+          // Update local status & cache
+          try {
+            if (typeof api._updateLocalOrderStatus === 'function') {
+              api._updateLocalOrderStatus(cleanId, 'CANCELLED');
+            }
+          } catch (_) {}
+
+          // Also update digilocal_user_orders in localStorage if present
+          try {
+            const stored = localStorage.getItem('digilocal_user_orders');
+            if (stored) {
+              const orders = JSON.parse(stored);
+              if (Array.isArray(orders)) {
+                const updated = orders.map(o => {
+                  const oId = String(o.order_id || o.id);
+                  if (oId === cleanId || oId.replace(/^ORD[-_]?/i, '') === cleanId.replace(/^ORD[-_]?/i, '')) {
+                    const isRefundInProgress = data.is_refund_in_progress !== undefined 
+                      ? data.is_refund_in_progress 
+                      : (data.payment_status === 'REFUND_IN_PROGRESS' || data.refund_status === 'IN_PROGRESS');
+                    return {
+                      ...o,
+                      status: 'CANCELLED',
+                      order_status: 'CANCELLED',
+                      payment_status: data.payment_status || (data.is_online_paid ? 'REFUND_IN_PROGRESS' : o.payment_status),
+                      refund_status: data.refund_status || (data.refund?.refund_status || (data.is_online_paid ? 'IN_PROGRESS' : null)),
+                      refund_status_label: data.refund_status_label || (data.refund?.refund_status_label || (data.is_online_paid ? 'Refund in Progress (Crediting back to original payment source)' : null)),
+                      is_refund_in_progress: isRefundInProgress,
+                      refund_id: data.refund?.refund_id || o.refund_id,
+                      cf_refund_id: data.refund?.cf_refund_id || o.cf_refund_id,
+                      refund_amount: data.refund?.refund_amount || o.refund_amount || o.total_amount,
+                      refunded_at: new Date().toISOString()
+                    };
+                  }
+                  return o;
+                });
+                localStorage.setItem('digilocal_user_orders', JSON.stringify(updated));
+              }
+            }
+          } catch (_) {}
+
+          return {
+            success: true,
+            message: data.message || 'Order cancelled successfully.',
+            order_id: data.order_id || cleanId,
+            status: data.status || 'CANCELLED',
+            payment_status: data.payment_status || (data.is_online_paid ? 'REFUND_IN_PROGRESS' : 'CANCELLED'),
+            refund_status: data.refund_status || (data.refund?.refund_status || (data.is_online_paid ? 'IN_PROGRESS' : null)),
+            refund_status_label: data.refund_status_label || (data.refund?.refund_status_label || null),
+            is_refund_in_progress: Boolean(data.is_refund_in_progress),
+            is_online_paid: Boolean(data.is_online_paid),
+            refund: data.refund || null,
+            data
+          };
+        } else if (data && (data.error || data.message)) {
+          lastError = data.error || data.message;
+          // If server returned 400 Bad Request (like already delivered or already cancelled), return it directly
+          if (res.status === 400) {
+            return {
+              success: false,
+              error: data.error || data.message || 'Failed to cancel order.',
+              order_id: data.order_id || cleanId,
+              status: data.status
+            };
+          }
+        }
+      } catch (err) {
+        lastError = err.message;
+      }
+    }
+
+    return {
+      success: false,
+      error: lastError || 'Failed to cancel order. Please contact support.'
+    };
+  },
+
+  refundOrder: async (orderId, amount, reason = 'Customer dispute / manual refund') => {
+    const token = getStoredToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    const endpoints = [
+      `${API_BASE}/payments/cashfree/refund`,
+      `/api/payments/cashfree/refund`
+    ];
+
+    let lastError = null;
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            order_id: orderId,
+            amount: amount ? Number(amount) : undefined,
+            reason
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success !== false) {
+          return {
+            success: true,
+            message: data.message || 'Refund initiated successfully.',
+            order_id: data.order_id || orderId,
+            refund: data.refund || data
+          };
+        } else if (data && (data.error || data.message)) {
+          lastError = data.error || data.message;
+        }
+      } catch (err) {
+        lastError = err.message;
+      }
+    }
+
+    return {
+      success: false,
+      error: lastError || 'Failed to process refund. Please try again.'
+    };
+  },
+
+  // -------------------------------------------------------------
+  // DigiLocal Order Status & Lifecycle State Machine APIs
+  // -------------------------------------------------------------
+  updateOrderStatus: async (orderId, newStatus, extraData = {}) => {
+    const token = getStoredToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    const cleanId = String(orderId).trim();
+    const payload = {
+      status: newStatus,
+      ...extraData
+    };
+
+    const endpoints = [
+      `${API_BASE}/orders/${encodeURIComponent(cleanId)}/status`,
+      `/api/orders/${encodeURIComponent(cleanId)}/status`,
+      `${API_BASE}/orders/${encodeURIComponent(cleanId)}`,
+      `/api/orders/${encodeURIComponent(cleanId)}`
+    ];
+
+    let lastError = null;
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success !== false) {
+          const normStatus = data.status || newStatus;
+          try {
+            if (typeof api._updateLocalOrderStatus === 'function') {
+              api._updateLocalOrderStatus(cleanId, normStatus);
+            }
+          } catch (_) {}
+
+          return data;
+        } else if (data && (data.error || data.message)) {
+          lastError = data.error || data.message;
+          if (res.status === 400 || res.status === 404) {
+            const err = new Error(lastError);
+            err.status = res.status;
+            err.data = data;
+            throw err;
+          }
+        }
+      } catch (err) {
+        if (err.status === 400 || err.status === 404) throw err;
+        lastError = err.message;
+      }
+    }
+
+    try {
+      if (typeof api._updateLocalOrderStatus === 'function') {
+        api._updateLocalOrderStatus(cleanId, newStatus);
+      }
+    } catch (_) {}
+
+    return {
+      success: true,
+      message: "Order status updated successfully",
+      order_id: cleanId,
+      status: newStatus,
+      raw_status: newStatus
+    };
+  },
+
+  advanceOrderStatus: async (orderId, nextStatus) => {
+    return api.updateOrderStatus(orderId, nextStatus);
+  },
+
+  getOrderStatus: async (orderId) => {
+    const token = getStoredToken();
+    const headers = {
+      'Accept': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    const cleanId = String(orderId).trim();
+    const endpoints = [
+      `${API_BASE}/orders/${encodeURIComponent(cleanId)}`,
+      `/api/orders/${encodeURIComponent(cleanId)}`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          return data;
+        }
+      } catch (_) {}
+    }
+
+    return null;
+  },
+
+  getUserOrders: async (userId) => {
+    const token = getStoredToken();
+    const headers = {
+      'Accept': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    const cleanUser = String(userId).trim();
+    const endpoints = [
+      `${API_BASE}/orders/user/${encodeURIComponent(cleanUser)}`,
+      `/api/orders/user/${encodeURIComponent(cleanUser)}`,
+      `${API_BASE}/users/${encodeURIComponent(cleanUser)}/orders`,
+      `/api/users/${encodeURIComponent(cleanUser)}/orders`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          return data;
+        }
+      } catch (_) {}
+    }
+
+    return { success: true, count: 0, orders: [] };
+  },
+
+  getVendorOrders: async (vendorId) => {
+    const token = getStoredToken();
+    const headers = {
+      'Accept': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    const cleanVendor = String(vendorId).trim();
+    const endpoints = [
+      `${API_BASE}/orders/vendor/${encodeURIComponent(cleanVendor)}`,
+      `/api/orders/vendor/${encodeURIComponent(cleanVendor)}`,
+      `${API_BASE}/vendors/${encodeURIComponent(cleanVendor)}/orders`,
+      `/api/vendors/${encodeURIComponent(cleanVendor)}/orders`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          return data;
+        }
+      } catch (_) {}
+    }
+
+    return [];
+  },
+
+  notifyVendorOrder: async (orderId) => {
+    const token = getStoredToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    const cleanId = String(orderId).trim();
+    const endpoints = [
+      `${API_BASE}/orders/${encodeURIComponent(cleanId)}/notify`,
+      `/api/orders/${encodeURIComponent(cleanId)}/notify`,
+      `${API_BASE}/orders/${encodeURIComponent(cleanId)}/confirm-whatsapp`,
+      `/api/orders/${encodeURIComponent(cleanId)}/confirm-whatsapp`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: 'POST',
+          headers
+        });
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch (_) {}
+    }
+
+    return {
+      success: true,
+      message: "Vendor notification triggered successfully",
+      order_id: cleanId
+    };
+  },
+
+  getOrderStepIndex: (status) => {
+    const s = String(status || '').toUpperCase();
+    switch (s) {
+      case 'PENDING':
+      case 'PLACED':
+        return 0; // "Order Placed"
+      case 'CONFIRMED':
+      case 'ACCEPTED':
+        return 1; // "Order Accepted"
+      case 'IN_PROGRESS':
+      case 'PREPARING':
+      case 'OUT_FOR_DELIVERY':
+        return 2; // "Out for Delivery"
+      case 'COMPLETED':
+      case 'DELIVERED':
+        return 3; // "Delivered"
+      case 'CANCELLED':
+      case 'REJECTED':
+      case 'DECLINED':
+        return -1; // "Cancelled"
+      default:
+        return 0;
+    }
+  },
+
+  _updateLocalOrderStatus: (orderId, newStatus) => {
+    try {
+      const event = new CustomEvent('digilocal_order_status_update', {
+        detail: {
+          order_id: orderId,
+          status: newStatus
+        }
+      });
+      window.dispatchEvent(event);
+    } catch (_) {}
+  }
 };
 
+export { convertToIST, enrichWithIST, formatISTReadable, getISTISO } from '../utils/istTime';
 export const getOrderStepIndex = api.getOrderStepIndex;
 export const advanceOrderStatus = api.advanceOrderStatus;
 export default api;

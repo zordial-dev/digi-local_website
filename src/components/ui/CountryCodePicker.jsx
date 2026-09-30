@@ -107,20 +107,20 @@ export default function CountryCodePicker({ value = '+91', onChange, disabled = 
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`flex items-center justify-between gap-1.5 px-3 py-3.5 bg-[#FAF9F6] border border-border/80 rounded-2xl text-xs font-bold text-[#211A19] hover:bg-[#F3EFE6] transition-all shadow-xs min-w-[95px] whitespace-nowrap cursor-pointer ${
+        className={`flex items-center justify-between gap-1.5 px-2.5 sm:px-3 py-2.5 sm:py-3 bg-[#FAF9F6] border border-border/80 rounded-xl sm:rounded-2xl text-xs font-bold text-[#211A19] hover:bg-[#F3EFE6] transition-all shadow-xs min-w-[78px] sm:min-w-[90px] min-h-[42px] sm:min-h-[44px] whitespace-nowrap cursor-pointer ${
           disabled ? 'opacity-60 cursor-not-allowed bg-secondary/40' : ''
         } ${className}`}
       >
-        <span className="flex items-center gap-1.5">
-          <span className="text-base leading-none">{selectedCountry.flag}</span>
-          <span className="font-extrabold text-[#211A19]">{selectedCountry.dialCode}</span>
+        <span className="flex items-center gap-1 sm:gap-1.5">
+          <span className="text-sm sm:text-base leading-none">{selectedCountry.flag}</span>
+          <span className="font-extrabold text-[#211A19] text-xs">{selectedCountry.dialCode}</span>
         </span>
         <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-[#541D26]' : ''}`} />
       </button>
 
       {/* Animated Dropdown Menu */}
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 w-64 sm:w-72 bg-white border border-[#E8E2D5] rounded-2xl shadow-2xl z-50 p-2 animate-in fade-in zoom-in-95 duration-150 text-ink">
+        <div className="absolute left-0 top-full mt-1.5 w-[calc(100vw-3rem)] max-w-xs sm:w-72 bg-white border border-[#E8E2D5] rounded-2xl shadow-2xl z-50 p-2 animate-in fade-in zoom-in-95 duration-150 text-ink">
           
           {/* Search Box */}
           <div className="relative mb-2">
@@ -131,12 +131,12 @@ export default function CountryCodePicker({ value = '+91', onChange, disabled = 
               placeholder="Search country or code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-[#FAF8F5] border border-[#E8E2D5] rounded-xl text-xs font-medium text-[#211A19] focus:outline-none focus:border-[#541D26] transition-colors"
+              className="w-full pl-9 pr-3 py-2 bg-[#FAF8F5] border border-[#E8E2D5] rounded-xl text-base sm:text-xs font-medium text-[#211A19] focus:outline-none focus:border-[#541D26] transition-colors"
             />
           </div>
 
           {/* Scrollable Country List */}
-          <div className="max-h-56 overflow-y-auto space-y-0.5 pr-0.5 custom-scrollbar">
+          <div className="max-h-56 overflow-y-auto space-y-0.5 pr-0.5 custom-scrollbar touch-scroll">
             {filteredCountries.length > 0 ? (
               filteredCountries.map((country) => {
                 const isSelected = selectedCountry.code === country.code && selectedCountry.dialCode === country.dialCode;
@@ -149,7 +149,7 @@ export default function CountryCodePicker({ value = '+91', onChange, disabled = 
                       setIsOpen(false);
                       setSearchQuery('');
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-left cursor-pointer ${
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-left cursor-pointer min-h-[40px] ${
                       isSelected 
                         ? 'bg-[#541D26] text-white' 
                         : 'hover:bg-[#FAF8F5] text-[#211A19]'

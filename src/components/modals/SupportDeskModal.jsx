@@ -218,22 +218,22 @@ export default function SupportDeskModal({ isOpen, onClose, userType = 'user', i
       onClick={onClose}
     >
       <div 
-        className="bg-white text-ink rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-border flex flex-col max-h-[90vh] overflow-hidden relative my-auto shrink-0 animate-in zoom-in-95 duration-200 pointer-events-auto"
+        className="bg-white text-ink rounded-[1.75rem] sm:rounded-3xl max-w-2xl w-[calc(100%-1.5rem)] sm:w-full p-4 sm:p-6 shadow-2xl border border-border flex flex-col max-h-[90dvh] overflow-hidden relative my-auto shrink-0 animate-in zoom-in-95 duration-200 pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#541D26] text-white rounded-2xl flex items-center justify-center shadow-md">
-              <LifeBuoy className="w-5 h-5" />
+        <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[#541D26] text-white rounded-2xl flex items-center justify-center shadow-md shrink-0">
+              <LifeBuoy className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <h3 className="text-lg font-serif font-bold text-[#211A19]">DigiLocal Support Desk & Help Intake</h3>
-              <p className="text-[11px] text-muted-foreground font-semibold">Log complaints, billing queries, payout disputes & track resolution</p>
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-serif font-bold text-[#211A19] truncate">DigiLocal Support Desk</h3>
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold truncate">Log complaints, billing queries & track SLA</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-[#EEE5DA] rounded-full transition-all text-muted-foreground hover:text-ink cursor-pointer">
+          <button onClick={onClose} className="p-2 hover:bg-[#EEE5DA] rounded-full transition-all text-muted-foreground hover:text-ink cursor-pointer tap-target shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>

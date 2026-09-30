@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useScrollLock } from '../hooks/useScrollLock';
+import { useOtpCooldown } from '../hooks/useOtpCooldown';
 import { 
   User, 
   Store, 
@@ -290,11 +290,11 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   const [customSocietyLoading, setCustomSocietyLoading] = useState(false);
   const [customSocietyError, setCustomSocietyError] = useState('');
 
-  // 6-Digit Vendor OTP Verification Modal States
+  // 6-Digit Vendor OTP Verification Modal States & Exponential Cooldown
   const [showVendorOtpModal, setShowVendorOtpModal] = useState(false);
   const [vendorOtpValues, setVendorOtpValues] = useState(['', '', '', '', '', '']);
   const [vendorGeneratedOtp, setVendorGeneratedOtp] = useState('');
-  const [vendorResendTimer, setVendorResendTimer] = useState(30);
+  const { cooldown: vendorResendTimer, canResend: canVendorResend, triggerCooldown: triggerVendorCooldown, resetCooldown: resetVendorCooldown } = useOtpCooldown();
   const vendorOtpInputRefs = useRef([]);
 
   // Lock background scroll when any modal is open
@@ -350,16 +350,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Vendor OTP Resend 30s Countdown Timer
-  useEffect(() => {
-    let interval = null;
-    if (showVendorOtpModal && vendorResendTimer > 0) {
-      interval = setInterval(() => {
-        setVendorResendTimer((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [showVendorOtpModal, vendorResendTimer]);
+
 
   // 6-Digit OTP Handlers
   const handleVendorOtpChange = (index, value) => {
@@ -638,29 +629,40 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
     try {
       setLoading(true);
+      let cooldownSec = 10;
 
       if (verificationMethod === 'phone') {
-        try {
-          await sendFirebasePhoneOtp(targetIdentifier, 'recaptcha-container');
-          setSuccessMsg(`6-Digit Verification SMS code sent to ${targetIdentifier}! Check your mobile phone.`);
-        } catch (fbErr) {
-          console.warn('Firebase Phone Auth unavailable, using backend SMS/OTP service:', fbErr);
-          const otpRes = await api.requestOtp(targetIdentifier);
-          const code = otpRes.simulationOtp || otpRes.otp || otpRes.otpCode;
-          if (code) setVendorGeneratedOtp(code);
-          setSuccessMsg(otpRes.message || `6-Digit Verification OTP sent to ${targetIdentifier}! Code: ${code}`);
-        }
+        const otpRes = await api.sendMobileOtp({ phone: targetIdentifier, role: 'vendor', purpose: 'register' });
+        const code = otpRes.simulationOtp || otpRes.otp;
+        if (code) setVendorGeneratedOtp(code);
+        cooldownSec = otpRes.cooldown_seconds || 10;
+        setSuccessMsg(otpRes.message || `6-Digit Verification SMS code sent to ${targetIdentifier}! Check your mobile phone.`);
       } else {
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        setVendorGeneratedOtp(code);
-        setSuccessMsg(`6-Digit Verification OTP sent to ${targetIdentifier}! Code: ${code}`);
+        const otpRes = await api.sendEmailOtp({ email: targetIdentifier, role: 'vendor', purpose: 'register' });
+        const code = otpRes.simulationOtp || otpRes.otp;
+        if (code) setVendorGeneratedOtp(code);
+        cooldownSec = 10;
+        setSuccessMsg(otpRes.message || `6-Digit Verification OTP sent to ${targetIdentifier}!`);
       }
 
       setVendorOtpValues(['', '', '', '', '', '']);
-      setVendorResendTimer(30);
+      triggerVendorCooldown(cooldownSec);
       setVerifiedContactValue(targetIdentifier);
       setShowVendorOtpModal(true);
     } catch (err) {
+      if (err?.status === 429 || err?.isCooldown) {
+        const waitSec = err.retry_after || err.cooldown_seconds || 10;
+        triggerVendorCooldown(waitSec);
+        const errMsg = err.message || `Please wait ${waitSec} seconds before requesting a new OTP.`;
+        if (verificationMethod === 'phone') {
+          setPhoneError(errMsg);
+        } else {
+          setEmailError(errMsg);
+        }
+        setShowVendorOtpModal(true);
+        return;
+      }
+
       const formatted = formatUserFacingError(err, verificationMethod);
       if (verificationMethod === 'phone') {
         setPhoneError(formatted);
@@ -674,31 +676,36 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
   // Vendor Resend 6-Digit OTP
   const handleResendVendorOtp = async () => {
-    if (vendorResendTimer > 0) return;
+    if (!canVendorResend || vendorResendTimer > 0) return;
     setError('');
     try {
       setLoading(true);
       const targetIdentifier = verifiedContactValue || (verificationMethod === 'phone' ? `${countryCode}${mobileNumber.trim()}` : emailAddress.trim());
+      let cooldownSec = 10;
 
       if (verificationMethod === 'phone') {
-        try {
-          await sendFirebasePhoneOtp(targetIdentifier, 'recaptcha-container');
-          setSuccessMsg(`6-digit verification SMS code resent to ${targetIdentifier}!`);
-        } catch (_) {
-          const otpRes = await api.requestOtp(targetIdentifier);
-          const code = otpRes.simulationOtp || otpRes.otp || otpRes.otpCode;
-          if (code) setVendorGeneratedOtp(code);
-          setSuccessMsg(otpRes.message || `6-digit verification OTP resent to ${targetIdentifier}! Code: ${code}`);
-        }
+        const otpRes = await api.sendMobileOtp({ phone: targetIdentifier, role: 'vendor', purpose: 'register' });
+        const code = otpRes.simulationOtp || otpRes.otp;
+        if (code) setVendorGeneratedOtp(code);
+        cooldownSec = otpRes.cooldown_seconds || 10;
+        setSuccessMsg(otpRes.message || `6-digit verification OTP resent to ${targetIdentifier}! Next resend in ${cooldownSec}s.`);
       } else {
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        setVendorGeneratedOtp(code);
-        setSuccessMsg(`New 6-digit verification OTP resent to ${targetIdentifier}! Code: ${code}`);
+        const otpRes = await api.sendEmailOtp({ email: targetIdentifier, role: 'vendor', purpose: 'register' });
+        const code = otpRes.simulationOtp || otpRes.otp;
+        if (code) setVendorGeneratedOtp(code);
+        cooldownSec = 10;
+        setSuccessMsg(otpRes.message || `New 6-digit verification OTP resent to ${targetIdentifier}!`);
       }
 
-      setVendorResendTimer(30);
+      triggerVendorCooldown(cooldownSec);
     } catch (err) {
-      setError(err.message || 'Failed to resend SMS verification code.');
+      if (err?.status === 429 || err?.isCooldown) {
+        const waitSec = err.retry_after || err.cooldown_seconds || 10;
+        triggerVendorCooldown(waitSec);
+        setError(err.message || `Please wait ${waitSec} seconds before resending OTP.`);
+        return;
+      }
+      setError(err.message || 'Failed to resend verification code.');
     } finally {
       setLoading(false);
     }
@@ -754,6 +761,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         throw new Error('Invalid 6-digit OTP code. Please double check and try again.');
       }
 
+      resetVendorCooldown();
       setIsVendorContactVerified(true);
       setShowVendorOtpModal(false);
       setSuccessMsg('');
@@ -1048,19 +1056,19 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center p-3 sm:p-6 lg:p-8 font-sans text-[#211A19]">
+    <div className="min-h-screen min-h-[100dvh] w-full bg-[#FAF8F5] flex flex-col justify-start md:justify-center items-center p-3.5 sm:p-6 lg:p-8 py-5 sm:py-8 font-sans text-[#211A19] overflow-y-auto">
       <div id="recaptcha-container"></div>
 
       {/* 50/50 Balanced Bento Card matching LoginPage */}
       <div 
         ref={cardRef}
-        className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/60 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[640px]"
+        className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-2xl sm:rounded-[2rem] lg:rounded-[2.5rem] shadow-2xl border border-stone-200/80 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-0 md:min-h-[560px] lg:min-h-[600px] mx-auto shrink-0"
       >
 
         {/* LEFT COLUMN: Clean Branded Panel (50% equal width, md:col-span-6) */}
         <div 
           ref={leftPanelRef}
-          className="hidden md:flex md:col-span-6 bg-[#FAF8F5] md:border-r border-border/50 p-6 sm:p-8 lg:p-10 flex-col justify-between items-center relative overflow-hidden min-h-[580px]"
+          className="hidden md:flex md:col-span-6 bg-[#FAF8F5] md:border-r border-border/50 p-6 sm:p-8 lg:p-10 flex-col justify-between items-center relative overflow-hidden min-h-[560px]"
         >
           <div className="w-full flex items-center space-x-3 z-10">
             {/* 1. Back Button */}
@@ -1091,7 +1099,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
             </div>
           </div>
 
-          <div className="my-auto relative z-10 w-full max-w-[260px] sm:max-w-[300px] lg:max-w-[330px] py-4">
+          <div className="my-auto relative z-10 w-full max-w-[240px] sm:max-w-[280px] lg:max-w-[310px] py-4">
             <img
               src="/login_hero.png"
               alt="DigiLocal Local Store & Delivery Illustration"
@@ -1115,15 +1123,40 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         {/* RIGHT COLUMN: 3-Step Registration Form (50% equal width, md:col-span-6) */}
         <div 
           ref={rightPanelRef}
-          className="md:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-between space-y-4 relative bg-white overflow-y-auto"
+          className="md:col-span-6 p-4 sm:p-6 md:p-8 lg:p-10 flex flex-col justify-center space-y-4 sm:space-y-5 relative bg-white"
         >
 
-          {/* Top Right "Already a Vendor? Login" Button */}
-          <div className="flex justify-end">
+          {/* Top Bar for Mobile + "Already a Vendor? Login" Button */}
+          <div className="flex items-center justify-between gap-2 pb-1">
+            <div className="flex md:hidden items-center space-x-2">
+              <button
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    window.history.back();
+                  } else {
+                    handleNavigateWithAnimation('login', { accountType: 'vendor' });
+                  }
+                }}
+                className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-[#211A19] cursor-pointer hover:bg-stone-200 transition-colors"
+                title="Go Back"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#541D26]" />
+              </button>
+              <div
+                onClick={() => handleNavigateWithAnimation('home')}
+                className="flex items-center space-x-1.5 cursor-pointer"
+              >
+                <div className="w-6 h-6 rounded-full bg-[#541D26]/10 flex items-center justify-center p-0.5 overflow-hidden">
+                  <img src="/logo.png" alt="DigiLocal" className="w-full h-full object-contain scale-[1.6] mix-blend-multiply" />
+                </div>
+                <span className="font-cormorant italic text-base font-bold text-[#541D26]">DigiLocal</span>
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={() => setRoute({ page: 'login', accountType: 'vendor' })}
-              className="bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold px-4 py-2 rounded-full flex items-center space-x-2 shadow-sm hover:scale-[1.02] transition-all group cursor-pointer border border-[#C8A878]/30"
+              className="bg-[#541D26] hover:bg-[#6B2732] text-white text-[11px] sm:text-xs font-bold px-3 sm:px-4 py-1.5 sm:py-2 rounded-full flex items-center space-x-1.5 shadow-sm hover:scale-[1.02] transition-all group cursor-pointer border border-[#C8A878]/30 ml-auto shrink-0 min-h-[34px] sm:min-h-[38px]"
             >
               <Store className="w-3.5 h-3.5 text-[#C8A878]" />
               <span>Vendor Login</span>
@@ -1132,7 +1165,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
 
           {/* Title Header */}
           <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#211A19]">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif font-bold text-[#211A19]">
               Vendor Registration
             </h1>
             <p className="text-xs text-muted-foreground font-medium leading-relaxed">

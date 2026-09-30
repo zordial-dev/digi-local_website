@@ -588,6 +588,55 @@
       "status": "pending",
       "joined_date": "September 2026",
       "created_at": "2026-09-29T12:47:13.263Z"
+    },
+    {
+      "vendor_id": 20,
+      "public_id": "vnd@0020",
+      "society_id": 1,
+      "society_name": "Sector 62",
+      "vendor_name": "Vikram Joshi",
+      "owner_name": "Vikram Joshi",
+      "store_name": "Joshi Sweets & Snacks",
+      "shop_business_name": "Joshi Sweets & Snacks",
+      "shop_number": "Shop 101",
+      "shop_address": "Shop 101",
+      "area": "",
+      "area_name": "",
+      "city": "Noida",
+      "state": "Uttar Pradesh",
+      "pincode": "201301",
+      "whatsapp_number": "9811223344",
+      "phone_number": "9811223344",
+      "phone": "9811223344",
+      "email": "joshi.sweets@example.com",
+      "password": "DigiLocal@123",
+      "account_number": "123456789012",
+      "ifsc_code": "HDFC0001234",
+      "bank_name": "State Bank of India",
+      "account_holder_name": "Vikram Joshi",
+      "category": "Sweets",
+      "business_category": "Sweets",
+      "vendor_type": "product",
+      "can_add_items": true,
+      "location_type": "society",
+      "gstin": "",
+      "gst_number": "",
+      "pan_number": "",
+      "upi_id": "",
+      "qr_code": "",
+      "accepted_payment_methods": "[\"UPI\",\"COD\"]",
+      "shop_images": [
+        "https://imgh.in/host/ucila6"
+      ],
+      "shop_image": "https://imgh.in/host/ucila6",
+      "logo": "https://imgh.in/host/ucila6",
+      "image_url": "https://imgh.in/host/ucila6",
+      "is_global_coverage": false,
+      "delivery_radius_km": 3,
+      "selected_zones": [],
+      "status": "PENDING",
+      "joined_date": "September 2026",
+      "created_at": "2026-09-30T10:55:45.715Z"
     }
   ],
   "items": [
@@ -1002,9 +1051,491 @@
       "is_vendor": true,
       "vendor_id": 19,
       "store_name": "Ramesh Daily Essentials"
+    },
+    {
+      "user_id": "usr_660424",
+      "name": "Rohit Sharma",
+      "email": "",
+      "phone": "9988776655",
+      "password": "Password@123",
+      "society_id": "1",
+      "society_name": "Omaxe Greenwood Residency",
+      "flat": "Tower B-204",
+      "joined_date": "September 2026",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
+    },
+    {
+      "user_id": "usr_656576",
+      "public_id": "usr@7362",
+      "name": "Aarav Gupta",
+      "email": "",
+      "phone": "9911223344",
+      "password": "Password@123",
+      "society_id": "1",
+      "society_name": "Sector 62",
+      "area": "Sector 62",
+      "flat": "Tower A, 402",
+      "city": "Noida",
+      "state": "Uttar Pradesh",
+      "pincode": "201301",
+      "address": "",
+      "status": "active",
+      "is_blocked": false,
+      "joined_date": "September 2026",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
+    },
+    {
+      "user_id": "usr_v20",
+      "name": "Vikram Joshi",
+      "email": "joshi.sweets@example.com",
+      "phone": "9811223344",
+      "password": "DigiLocal@123",
+      "society_id": "1",
+      "society_name": "Sector 62",
+      "flat": "Shop 101",
+      "city": "Noida",
+      "pincode": "201301",
+      "joined_date": "September 2026",
+      "status": "PENDING",
+      "strikes": 0,
+      "avatar": "https://imgh.in/host/ucila6",
+      "is_vendor": true,
+      "vendor_id": 20,
+      "store_name": "Joshi Sweets & Snacks"
     }
   ],
   "orders": [
+    {
+      "order_id": "ORD-3302",
+      "user_id": "usr_lifecycle_101",
+      "vendor_id": 1296,
+      "store_name": "FreshMart Grocery & Organic",
+      "society_name": "Greenwood Residency",
+      "customer_name": "Aarushi Verma",
+      "phone_number": "9876543210",
+      "delivery_address": "Tower A-402, Greenwood Residency",
+      "total_amount": 250,
+      "payment_method": "COD",
+      "payment_status": "PENDING",
+      "status": "COMPLETED",
+      "order_status": "COMPLETED",
+      "items": [
+        {
+          "item_id": 101,
+          "item_name": "Whole Wheat Brown Bread",
+          "quantity": 2,
+          "price": 50
+        },
+        {
+          "item_id": 102,
+          "item_name": "Fresh Cow Milk 1L",
+          "quantity": 3,
+          "price": 50
+        }
+      ],
+      "created_at": "2026-09-30T10:15:40.518Z",
+      "created_at_ist": "2026-09-30T15:45:40+05:30",
+      "created_at_readable": "30 Sep 2026, 03:45 pm IST",
+      "delivered_at": "2026-09-30T10:15:40.541Z"
+    },
+    {
+      "order_id": "ORD-9203",
+      "user_id": "usr_refund_flow_103",
+      "vendor_id": 14,
+      "store_name": "Society Partner Store",
+      "society_name": "Residential Complex",
+      "customer_name": "Pooja Hegde",
+      "phone_number": "9876543212",
+      "delivery_address": "Tower D-204",
+      "total_amount": 150,
+      "payment_method": "COD",
+      "payment_status": "CANCELLED",
+      "status": "CANCELLED",
+      "order_status": "CANCELLED",
+      "items": [
+        {
+          "item_name": "Milk 1L",
+          "quantity": 3,
+          "price": 50
+        }
+      ],
+      "created_at": "2026-09-30T10:15:27.600Z",
+      "created_at_ist": "2026-09-30T15:45:27+05:30",
+      "created_at_readable": "30 Sep 2026, 03:45 pm IST",
+      "refund_status": null,
+      "refund_status_label": null,
+      "is_refund_in_progress": false,
+      "is_online_paid": false,
+      "cancellation_reason": "Found cheaper elsewhere"
+    },
+    {
+      "order_id": "ORD-1570",
+      "user_id": "usr_refund_flow_102",
+      "vendor_id": 14,
+      "store_name": "Green Grocers & Dairy",
+      "society_name": "Residential Complex",
+      "customer_name": "Rahul Khanna",
+      "phone_number": "9876543211",
+      "delivery_address": "Tower C-101, Greenwood Residency",
+      "total_amount": 520,
+      "payment_method": "CASHFREE",
+      "payment_status": "REFUND_IN_PROGRESS",
+      "status": "CANCELLED",
+      "order_status": "CANCELLED",
+      "items": [
+        {
+          "item_name": "Organic Honey 500g",
+          "quantity": 1,
+          "price": 520
+        }
+      ],
+      "created_at": "2026-09-30T10:15:27.571Z",
+      "created_at_ist": "2026-09-30T15:45:27+05:30",
+      "created_at_readable": "30 Sep 2026, 03:45 pm IST",
+      "refund_status": "IN_PROGRESS",
+      "refund_status_label": "Refund in Progress (Crediting back to original payment source)",
+      "is_refund_in_progress": true,
+      "is_online_paid": true,
+      "refund_id": "REF_ORD-1570_1790763327584",
+      "cf_refund_id": "cf_ref_5715598",
+      "refund_amount": 520,
+      "refund_currency": "INR",
+      "refunded_at": "2026-09-30T10:15:27.584Z",
+      "cancellation_reason": "Item out of stock"
+    },
+    {
+      "order_id": "ORD-4787",
+      "user_id": "usr_refund_flow_101",
+      "vendor_id": 14,
+      "store_name": "Green Grocers & Dairy",
+      "society_name": "Greenwood Residency",
+      "customer_name": "Aarushi Verma",
+      "phone_number": "9876543210",
+      "delivery_address": "Tower A-402, Greenwood Residency",
+      "total_amount": 350,
+      "payment_method": "CASHFREE",
+      "payment_status": "REFUND_COMPLETED",
+      "status": "CANCELLED",
+      "order_status": "CANCELLED",
+      "items": [
+        {
+          "item_name": "Cold Coffee Large",
+          "quantity": 2,
+          "price": 175
+        }
+      ],
+      "created_at": "2026-09-30T10:15:27.487Z",
+      "created_at_ist": "2026-09-30T15:45:27+05:30",
+      "created_at_readable": "30 Sep 2026, 03:45 pm IST",
+      "refund_status": "COMPLETED",
+      "refund_status_label": "Refund Completed",
+      "is_refund_in_progress": false,
+      "is_online_paid": true,
+      "refund_id": "REF_ORD-4787_1790763327501",
+      "cf_refund_id": "cf_ref_3491119",
+      "refund_amount": 350,
+      "refund_currency": "INR",
+      "refunded_at": "2026-09-30T10:15:27.528Z",
+      "cancellation_reason": "Changed my mind"
+    },
+    {
+      "order_id": "ORD-7701",
+      "user_id": "usr_test_refund_103",
+      "vendor_id": 14,
+      "store_name": "Green Grocers",
+      "society_name": "Residential Complex",
+      "customer_name": "Vikram Singh",
+      "phone_number": "9876543217",
+      "delivery_address": "Flat Doorstep",
+      "total_amount": 280,
+      "payment_method": "COD",
+      "payment_status": "CANCELLED",
+      "status": "CANCELLED",
+      "order_status": "CANCELLED",
+      "items": [
+        {
+          "item_name": "Fresh Vegetables Basket",
+          "quantity": 1,
+          "price": 280
+        }
+      ],
+      "created_at": "2026-09-30T10:05:39.049Z",
+      "created_at_ist": "2026-09-30T15:35:39+05:30",
+      "created_at_readable": "30 Sep 2026, 03:35 pm IST",
+      "cancellation_reason": "No longer needed"
+    },
+    {
+      "order_id": "ORD-1318",
+      "user_id": "usr_test_refund_102",
+      "vendor_id": 14,
+      "store_name": "Green Grocers",
+      "society_name": "Residential Complex",
+      "customer_name": "Pooja Verma",
+      "phone_number": "9876543218",
+      "delivery_address": "Flat Doorstep",
+      "total_amount": 150,
+      "payment_method": "UPI",
+      "payment_status": "PAID",
+      "status": "DELIVERED",
+      "order_status": "DELIVERED",
+      "items": [
+        {
+          "item_name": "Snacks",
+          "quantity": 1,
+          "price": 150
+        }
+      ],
+      "created_at": "2026-09-30T10:05:39.041Z",
+      "created_at_ist": "2026-09-30T15:35:39+05:30",
+      "created_at_readable": "30 Sep 2026, 03:35 pm IST"
+    },
+    {
+      "order_id": "ORD-7109",
+      "user_id": "usr_test_refund_101",
+      "vendor_id": 14,
+      "store_name": "Green Grocers & Dairy",
+      "society_name": "Royal Residency",
+      "customer_name": "Aditya Sharma",
+      "phone_number": "9876543219",
+      "delivery_address": "Tower B - Flat 402, Royal Residency",
+      "total_amount": 450,
+      "payment_method": "CASHFREE",
+      "payment_status": "REFUNDED",
+      "status": "CANCELLED",
+      "order_status": "CANCELLED",
+      "items": [
+        {
+          "item_name": "Farm Fresh Cow Milk 1L",
+          "quantity": 2,
+          "price": 65
+        },
+        {
+          "item_name": "Organic Brown Bread",
+          "quantity": 2,
+          "price": 50
+        },
+        {
+          "item_name": "Pure Desi Ghee 500g",
+          "quantity": 1,
+          "price": 220
+        }
+      ],
+      "created_at": "2026-09-30T10:05:39.004Z",
+      "created_at_ist": "2026-09-30T15:35:39+05:30",
+      "created_at_readable": "30 Sep 2026, 03:35 pm IST",
+      "refund_id": "REF_ORD-7109_1790762739072",
+      "cf_refund_id": "cf_ref_9975033",
+      "refund_amount": 450,
+      "refund_status": "SUCCESS",
+      "refunded_at": "2026-09-30T10:05:39.072Z",
+      "cancellation_reason": "Changed delivery time preference"
+    },
+    {
+      "order_id": "ORD-6839",
+      "user_id": "usr_lifecycle_101",
+      "vendor_id": 1296,
+      "store_name": "FreshMart Grocery & Organic",
+      "society_name": "Greenwood Residency",
+      "customer_name": "Aarushi Verma",
+      "phone_number": "9876543210",
+      "delivery_address": "Tower A-402, Greenwood Residency",
+      "total_amount": 250,
+      "payment_method": "COD",
+      "payment_status": "PENDING",
+      "status": "COMPLETED",
+      "order_status": "COMPLETED",
+      "items": [
+        {
+          "item_id": 101,
+          "item_name": "Whole Wheat Brown Bread",
+          "quantity": 2,
+          "price": 50
+        },
+        {
+          "item_id": 102,
+          "item_name": "Fresh Cow Milk 1L",
+          "quantity": 3,
+          "price": 50
+        }
+      ],
+      "created_at": "2026-09-30T10:01:50.248Z",
+      "created_at_ist": "2026-09-30T15:31:50+05:30",
+      "created_at_readable": "30 Sep 2026, 03:31 pm IST",
+      "delivered_at": "2026-09-30T10:01:50.289Z"
+    },
+    {
+      "order_id": "ORD-7002",
+      "user_id": "usr_lifecycle_101",
+      "vendor_id": 1296,
+      "store_name": "FreshMart Grocery & Organic",
+      "society_name": "Greenwood Residency",
+      "customer_name": "Aarushi Verma",
+      "phone_number": "9876543210",
+      "delivery_address": "Tower A-402, Greenwood Residency",
+      "total_amount": 250,
+      "payment_method": "COD",
+      "payment_status": "PENDING",
+      "status": "COMPLETED",
+      "order_status": "COMPLETED",
+      "items": [
+        {
+          "item_id": 101,
+          "item_name": "Whole Wheat Brown Bread",
+          "quantity": 2,
+          "price": 50
+        },
+        {
+          "item_id": 102,
+          "item_name": "Fresh Cow Milk 1L",
+          "quantity": 3,
+          "price": 50
+        }
+      ],
+      "created_at": "2026-09-30T10:00:40.575Z",
+      "created_at_ist": "2026-09-30T15:30:40+05:30",
+      "created_at_readable": "30 Sep 2026, 03:30 pm IST",
+      "delivered_at": "2026-09-30T10:00:40.626Z"
+    },
+    {
+      "order_id": "ORD-2264",
+      "user_id": "usr_test_refund_103",
+      "vendor_id": 14,
+      "store_name": "Green Grocers",
+      "society_name": "Residential Complex",
+      "customer_name": "Vikram Singh",
+      "phone_number": "9876543217",
+      "delivery_address": "Flat Doorstep",
+      "total_amount": 280,
+      "payment_method": "COD",
+      "payment_status": "CANCELLED",
+      "status": "CANCELLED",
+      "order_status": "CANCELLED",
+      "items": [
+        {
+          "item_name": "Fresh Vegetables Basket",
+          "quantity": 1,
+          "price": 280
+        }
+      ],
+      "created_at": "2026-09-30T09:46:02.477Z",
+      "created_at_ist": "2026-09-30T15:16:02+05:30",
+      "created_at_readable": "30 Sep 2026, 03:16 pm IST",
+      "cancellation_reason": "No longer needed"
+    },
+    {
+      "order_id": "ORD-7870",
+      "user_id": "usr_test_refund_102",
+      "vendor_id": 14,
+      "store_name": "Green Grocers",
+      "society_name": "Residential Complex",
+      "customer_name": "Pooja Verma",
+      "phone_number": "9876543218",
+      "delivery_address": "Flat Doorstep",
+      "total_amount": 150,
+      "payment_method": "UPI",
+      "payment_status": "PAID",
+      "status": "DELIVERED",
+      "order_status": "DELIVERED",
+      "items": [
+        {
+          "item_name": "Snacks",
+          "quantity": 1,
+          "price": 150
+        }
+      ],
+      "created_at": "2026-09-30T09:46:02.466Z",
+      "created_at_ist": "2026-09-30T15:16:02+05:30",
+      "created_at_readable": "30 Sep 2026, 03:16 pm IST"
+    },
+    {
+      "order_id": "ORD-1091",
+      "user_id": "usr_test_refund_101",
+      "vendor_id": 14,
+      "store_name": "Green Grocers & Dairy",
+      "society_name": "Royal Residency",
+      "customer_name": "Aditya Sharma",
+      "phone_number": "9876543219",
+      "delivery_address": "Tower B - Flat 402, Royal Residency",
+      "total_amount": 450,
+      "payment_method": "CASHFREE",
+      "payment_status": "REFUNDED",
+      "status": "CANCELLED",
+      "order_status": "CANCELLED",
+      "items": [
+        {
+          "item_name": "Farm Fresh Cow Milk 1L",
+          "quantity": 2,
+          "price": 65
+        },
+        {
+          "item_name": "Organic Brown Bread",
+          "quantity": 2,
+          "price": 50
+        },
+        {
+          "item_name": "Pure Desi Ghee 500g",
+          "quantity": 1,
+          "price": 220
+        }
+      ],
+      "created_at": "2026-09-30T09:46:02.421Z",
+      "created_at_ist": "2026-09-30T15:16:02+05:30",
+      "created_at_readable": "30 Sep 2026, 03:16 pm IST",
+      "refund_id": "REF_ORD-1091_1790761562498",
+      "cf_refund_id": "cf_ref_3404132",
+      "refund_amount": 450,
+      "refund_status": "SUCCESS",
+      "refunded_at": "2026-09-30T09:46:02.498Z",
+      "cancellation_reason": "Changed delivery time preference"
+    },
+    {
+      "order_id": "ORD-2295",
+      "vendor_id": 14,
+      "society_id": 1,
+      "store_name": "Green Grocers & Dairy",
+      "store_logo": "https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?w=800&auto=format&fit=crop&q=80",
+      "society_name": "Royal Residency",
+      "delivery_address": "Tower B - Flat 402, Royal Residency",
+      "user_id": "usr_test_refund_101",
+      "customer_name": "Aditya Sharma",
+      "phone_number": "9876543219",
+      "user_phone": "9876543219",
+      "phone": "9876543219",
+      "customer_email": "customer@digilocal.in",
+      "status": "CANCELLED",
+      "order_status": "CANCELLED",
+      "status_label": "Payment Pending",
+      "payment_status": "CANCELLED",
+      "payment_method": "CASHFREE",
+      "total_amount": 450,
+      "created_at": "2026-09-30T09:44:48.358Z",
+      "date": "2026-09-30T09:44:48.358Z",
+      "items": [
+        {
+          "item_name": "Farm Fresh Cow Milk 1L",
+          "quantity": 2,
+          "price": 65,
+          "unit_price": 65
+        },
+        {
+          "item_name": "Organic Brown Bread",
+          "quantity": 2,
+          "price": 50,
+          "unit_price": 50
+        },
+        {
+          "item_name": "Pure Desi Ghee 500g",
+          "quantity": 1,
+          "price": 220,
+          "unit_price": 220
+        }
+      ],
+      "created_at_ist": "2026-09-30T15:14:48+05:30",
+      "created_at_readable": "30 Sep 2026, 03:14 pm IST",
+      "date_ist": "2026-09-30T15:14:48+05:30",
+      "date_readable": "30 Sep 2026, 03:14 pm IST",
+      "cancellation_reason": "Changed delivery time preference"
+    },
     {
       "order_id": "ORD-4167",
       "status": "COMPLETED",
@@ -1361,6 +1892,45 @@
     "working_hours": "Monday to Saturday: 9:00 AM - 8:00 PM IST"
   },
   "enquiries": [
+    {
+      "enquiry_id": 933857,
+      "id": "ENQ-933857",
+      "vendor_id": 1,
+      "vendor_name": "Rajesh Sharma",
+      "store_name": "FreshMart Grocery & Organic",
+      "user_id": "USR_9012",
+      "name": "Rajesh Kumar",
+      "phone": "9876543210",
+      "user_name": "Rajesh Kumar",
+      "user_phone": "9876543210",
+      "resident_name": "Rajesh Kumar",
+      "resident_phone": "9876543210",
+      "society_id": 3,
+      "society_name": "Sunrise Heights",
+      "sector": "Sector 62, Noida",
+      "service_type": "AC Deep Cleaning & Service",
+      "service_title": "AC Deep Cleaning & Service",
+      "service_id": null,
+      "preferred_time": "Tomorrow, 10:00 AM - 12:00 PM",
+      "description": "AC cooling is low and indoor unit vibrates. Flat 402, Tower B.",
+      "issue_photos": [
+        "https://api.domain.com/uploads/issue_photo1.jpg"
+      ],
+      "flat_number": "",
+      "building_number": "",
+      "is_urgent": false,
+      "status": "CANCELLED",
+      "created_at": "2026-09-30T08:04:22.931Z",
+      "updated_at": "2026-09-30T08:04:22.946Z",
+      "direct_actions": {
+        "whatsapp_link": "https://wa.me/919876543210?text=Hi%20FreshMart%20Grocery%20%26%20Organic%2C%0AI%20have%20submitted%20a%20service%20request%20%23933857%20for%20AC%20Deep%20Cleaning%20%26%20Service.",
+        "call_link": "tel:9876543210",
+        "vendor_phone": "9876543210",
+        "vendor_whatsapp": "9876543210"
+      },
+      "whatsapp_link": "https://wa.me/919876543210?text=Hi%20FreshMart%20Grocery%20%26%20Organic%2C%0AI%20have%20submitted%20a%20service%20request%20%23933857%20for%20AC%20Deep%20Cleaning%20%26%20Service.",
+      "call_link": "tel:9876543210"
+    },
     {
       "enquiry_id": 591361,
       "id": "ENQ-591361",

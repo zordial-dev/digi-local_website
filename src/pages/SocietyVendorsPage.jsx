@@ -800,43 +800,45 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
         {/* STREAMLINED UNIFIED CONTROL TOOLBAR */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 mb-4 bg-card border border-border rounded-2xl p-2.5 sm:p-3 shadow-2xs">
           
-          {/* Category Classification Tabs */}
-          <div className="flex items-center space-x-1 bg-[#FAF6EE] p-1 rounded-xl border border-[#E5DAD0] overflow-x-auto no-scrollbar shrink-0">
+          {/* Category Classification Tabs (Non-scrollable, perfectly fitted 3-col segmented control on mobile) */}
+          <div className="grid grid-cols-3 sm:flex items-center gap-1 bg-[#FAF6EE] p-1 rounded-xl border border-[#E5DAD0] w-full sm:w-auto">
             <button
               type="button"
               onClick={() => { setVendorTypeTab('all'); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center space-x-1.5 shrink-0 ${
+              className={`w-full sm:w-auto px-1.5 sm:px-3 py-1.5 rounded-lg text-[10.5px] sm:text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center space-x-1 sm:space-x-1.5 ${
                 vendorTypeTab === 'all'
                   ? 'bg-[#541D26] text-white shadow-2xs'
                   : 'text-[#211A19] hover:bg-[#EEE5DA]'
               }`}
             >
-              <Store className="w-3.5 h-3.5" />
-              <span>All Merchants ({sortedVendors.length})</span>
+              <Store className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+              <span className="truncate">All ({sortedVendors.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => { setVendorTypeTab('products'); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center space-x-1.5 shrink-0 ${
+              className={`w-full sm:w-auto px-1.5 sm:px-3 py-1.5 rounded-lg text-[10.5px] sm:text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center space-x-1 sm:space-x-1.5 ${
                 vendorTypeTab === 'products'
                   ? 'bg-[#541D26] text-white shadow-2xs'
                   : 'text-[#211A19] hover:bg-[#EEE5DA]'
               }`}
             >
-              <span>🛍️ Products ({productVendorsCount})</span>
+              <span className="text-xs">🛍️</span>
+              <span className="truncate">Products ({productVendorsCount})</span>
             </button>
 
             <button
               type="button"
               onClick={() => { setVendorTypeTab('services'); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center space-x-1.5 shrink-0 ${
+              className={`w-full sm:w-auto px-1.5 sm:px-3 py-1.5 rounded-lg text-[10.5px] sm:text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center space-x-1 sm:space-x-1.5 ${
                 vendorTypeTab === 'services'
                   ? 'bg-[#541D26] text-white shadow-2xs'
                   : 'text-[#211A19] hover:bg-[#EEE5DA]'
               }`}
             >
-              <span>🛠️ Services ({serviceVendorsCount})</span>
+              <span className="text-xs">🛠️</span>
+              <span className="truncate">Services ({serviceVendorsCount})</span>
             </button>
           </div>
 
@@ -918,7 +920,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
         </div>
 
         {loading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-3.5">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-2 sm:gap-3.5">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
               <VendorCardSkeleton key={i} />
             ))}
@@ -926,17 +928,17 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
         )}
 
         {!loading && filteredVendors.length === 0 && (
-          <div className="text-center py-12 bg-card border border-border rounded-3xl p-6 max-w-md mx-auto shadow-xs my-4">
-            <Store className="w-10 h-10 text-[#C4A066] mx-auto mb-3" />
-            <h3 className="text-base font-serif font-black text-ink mb-1">
+          <div className="text-center py-10 sm:py-12 bg-card border border-border rounded-2xl sm:rounded-3xl p-5 sm:p-6 max-w-md mx-auto shadow-xs my-4">
+            <Store className="w-8 h-8 sm:w-10 sm:h-10 text-[#C4A066] mx-auto mb-2.5" />
+            <h3 className="text-sm sm:text-base font-serif font-black text-ink mb-1">
               {vendorTypeTab === 'products' ? 'No Product Vendors Found' : vendorTypeTab === 'services' ? 'No Service Providers Found' : 'No Vendors Found'}
             </h3>
-            <p className="text-muted-foreground text-xs mb-5 font-medium">
+            <p className="text-muted-foreground text-[11px] sm:text-xs mb-4 font-medium">
               There are currently no {vendorTypeTab === 'products' ? 'product stores' : vendorTypeTab === 'services' ? 'service providers' : 'active vendors'} listed {society ? `in ${society.society_name}` : 'for your search'}.
             </p>
             <button
               onClick={() => setRoute({ page: 'vendorRegister', societyId: currentSocietyId, societyName: society?.society_name })}
-              className="px-5 py-2.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-md tracking-wider uppercase cursor-pointer"
+              className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-md tracking-wider uppercase cursor-pointer"
             >
               Register your Store Here
             </button>
@@ -949,7 +951,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
 
           return (
             <>
-              <div id="vendors-grid-container" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-3.5">
+              <div id="vendors-grid-container" className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-2 sm:gap-3.5">
                 {paginatedVendors.map((vendor, index) => {
                   const isService = isServiceVendor(vendor);
                   const storeImage = getCategoryCoverImage(vendor);
@@ -962,11 +964,11 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                   return (
                     <motion.div
                       key={vendor.vendor_id}
-                      initial={{ opacity: 0, y: 24 }}
+                      initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, margin: '-20px' }}
-                      transition={{ duration: 0.45, delay: Math.min(index * 0.04, 0.3), ease: [0.16, 1, 0.3, 1] }}
-                      whileHover={{ y: -4, transition: { duration: 0.18 } }}
+                      viewport={{ once: true, margin: '-10px' }}
+                      transition={{ duration: 0.4, delay: Math.min(index * 0.03, 0.25), ease: [0.16, 1, 0.3, 1] }}
+                      whileHover={{ y: -3, transition: { duration: 0.15 } }}
                       onClick={() => {
                         if (!isLoggedIn) {
                           setSelectedVendorForPrompt(vendor);
@@ -975,12 +977,12 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                         }
                         setRoute({ page: 'vendorStorefront', societyId: vendor.society_id || currentSocietyId || 1, vendorId: vendor.vendor_id });
                       }}
-                      className="group rounded-2xl bg-white border border-[#E5DAD0] hover:border-[#541D26]/40 hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden flex flex-col justify-between relative shadow-xs h-full w-full"
+                      className="group rounded-xl sm:rounded-2xl bg-white border border-[#E5DAD0] hover:border-[#541D26]/40 hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden flex flex-col justify-between relative shadow-xs h-full w-full"
                     >
                       <div className="flex flex-col h-full justify-between">
                         <div>
-                          {/* 1. Cover Image Header (Slim & Compact h-24 sm:h-28) */}
-                          <div className="h-24 sm:h-28 w-full relative bg-[#211A19] overflow-hidden shrink-0">
+                          {/* 1. Cover Image Header (Compact h-20 sm:h-28) */}
+                          <div className="h-20 sm:h-28 w-full relative bg-[#211A19] overflow-hidden shrink-0">
                             {storeImage ? (
                               <img
                                 src={storeImage}
@@ -988,89 +990,85 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
                               />
                             ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-[#211A19] via-[#3B151C] to-[#541D26] p-3 flex flex-col items-center justify-center text-center relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
-                                <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 text-[#C8A878] text-lg font-serif font-black flex items-center justify-center shadow-md mb-0.5">
+                              <div className="w-full h-full bg-gradient-to-br from-[#211A19] via-[#3B151C] to-[#541D26] p-2 sm:p-3 flex flex-col items-center justify-center text-center relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white/10 border border-white/20 text-[#C8A878] text-sm sm:text-lg font-serif font-black flex items-center justify-center shadow-md mb-0.5">
                                   {(vendor.store_name || 'V').charAt(0).toUpperCase()}
                                 </div>
-                                <span className="text-[8.5px] font-bold text-[#D6B7A5] uppercase tracking-widest">
-                                  {isService ? '🛠️ Service Provider' : '🛍️ Product Store'}
+                                <span className="text-[7.5px] sm:text-[8.5px] font-bold text-[#D6B7A5] uppercase tracking-widest">
+                                  {isService ? 'Service' : 'Store'}
                                 </span>
                               </div>
                             )}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/40" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
 
                             {/* Top Badges Overlay */}
-                            <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-1.5 z-10">
+                            <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 right-1.5 sm:right-2 flex items-center justify-between gap-1 z-10">
                               <div className="flex items-center gap-1 max-w-[65%] truncate">
                                 {isService ? (
-                                  <span className="px-2 py-0.5 rounded-full bg-purple-950/90 text-purple-200 border border-purple-400/40 text-[8.5px] font-black backdrop-blur-md shadow-xs shrink-0">
-                                    🛠️ Service
+                                  <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-950/90 text-purple-200 border border-purple-400/40 text-[7.5px] sm:text-[8.5px] font-black backdrop-blur-md shadow-xs shrink-0">
+                                    🛠️ <span className="hidden xs:inline sm:inline">Service</span>
                                   </span>
                                 ) : (
-                                  <span className="px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-200 border border-emerald-400/40 text-[8.5px] font-black backdrop-blur-md shadow-xs shrink-0">
-                                    🛍️ Product
+                                  <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-200 border border-emerald-400/40 text-[7.5px] sm:text-[8.5px] font-black backdrop-blur-md shadow-xs shrink-0">
+                                    🛍️ <span className="hidden xs:inline sm:inline">Product</span>
                                   </span>
                                 )}
-                                <span className="inline-flex items-center space-x-0.5 px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-md border border-white/20 text-[9px] font-bold text-white shadow-xs truncate">
-                                  <MapPin className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
-                                  <span className="truncate">{vendor.coverage_badge || vendor.location || vendor.society_name || 'Local Area'}</span>
-                                </span>
                               </div>
 
-                              <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-extrabold flex items-center space-x-1 backdrop-blur-md shadow-xs border uppercase shrink-0 ${!status.isOpen
+                              <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[7.5px] sm:text-[8.5px] font-extrabold flex items-center space-x-1 backdrop-blur-md shadow-xs border uppercase shrink-0 ${!status.isOpen
                                   ? 'bg-rose-950/85 text-rose-300 border-rose-500/50'
                                   : status.closingCountdown
                                     ? 'bg-amber-950/85 text-amber-300 border-amber-500/50'
                                     : 'bg-emerald-950/85 text-emerald-300 border-emerald-500/50'
                                 }`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${!status.isOpen ? 'bg-rose-400' : status.closingCountdown ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
-                                <span>{status.statusText}</span>
+                                <span className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${!status.isOpen ? 'bg-rose-400' : status.closingCountdown ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+                                <span className="truncate max-w-[55px] sm:max-w-none">{status.statusText}</span>
                               </span>
                             </div>
                           </div>
 
-                          {/* 2. Store Info Body (Clean, Proportional Typography) */}
-                          <div className="p-3 space-y-1.5">
-                            {/* Title & Verified Badge */}
+                          {/* 2. Store Info Body */}
+                          <div className="p-2 sm:p-3 space-y-1 sm:space-y-1.5">
+                            {/* Title & Verified / Rating Badge */}
                             <div>
-                              <div className="flex items-center justify-between gap-1.5">
-                                <h3 className="font-serif font-black text-sm sm:text-base text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight truncate">
+                              <div className="flex items-start justify-between gap-1">
+                                <h3 className="font-serif font-black text-xs sm:text-base text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight truncate flex-1">
                                   {vendor.store_name}
                                 </h3>
-                                <div className="flex items-center space-x-1 shrink-0">
-                                  <span className="inline-flex items-center space-x-0.5 px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[8.5px] font-extrabold">
-                                    <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500 shrink-0" />
+                                <div className="flex items-center space-x-0.5 sm:space-x-1 shrink-0 mt-0.5">
+                                  <span className="inline-flex items-center space-x-0.5 px-1 sm:px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[7.5px] sm:text-[8.5px] font-extrabold">
+                                    <Star className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-amber-500 fill-amber-500 shrink-0" />
                                     <span>{getVendorRating(vendor, liveRatingsMap) > 0 ? getVendorRating(vendor, liveRatingsMap).toFixed(1) : 'New'}</span>
                                   </span>
-                                  <span className="inline-flex items-center space-x-0.5 px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[8.5px] font-extrabold">
-                                    <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                  <span className="inline-flex items-center space-x-0.5 px-1 sm:px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[7.5px] sm:text-[8.5px] font-extrabold hidden xs:inline-flex sm:inline-flex">
+                                    <ShieldCheck className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-emerald-600 shrink-0" />
                                     <span>Verified</span>
                                   </span>
                                 </div>
                               </div>
-                              <p className="text-[11px] text-muted-foreground font-medium truncate mt-0.5">
-                                By {vendor.vendor_name || 'Vendor Merchant'} • <span className="text-[#541D26] font-semibold">{vendor.category || (isService ? 'Services' : 'Essentials')}</span>
+                              <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium truncate mt-0.5">
+                                <span className="text-[#541D26] font-semibold">{vendor.category || (isService ? 'Services' : 'Essentials')}</span>
                               </p>
                             </div>
 
                             {/* Location & Time Info Bar */}
-                            <div className="flex items-center justify-between pt-1.5 border-t border-[#F0E6DD] text-[10.5px]">
+                            <div className="flex items-center justify-between pt-1 sm:pt-1.5 border-t border-[#F0E6DD] text-[9px] sm:text-[10.5px]">
                               {isLoggedIn ? (
-                                <span className="flex items-center space-x-1 font-bold text-[#211A19]">
-                                  <Phone className="w-2.5 h-2.5 text-[#541D26] shrink-0" />
-                                  <span className="truncate">{vendor.phone_number || 'Contact Available'}</span>
+                                <span className="flex items-center space-x-0.5 sm:space-x-1 font-bold text-[#211A19] truncate max-w-[48%]">
+                                  <Phone className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-[#541D26] shrink-0" />
+                                  <span className="truncate">{vendor.phone_number || 'Contact'}</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center space-x-1 text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-md text-[9.5px] font-bold">
-                                  <Lock className="w-2.5 h-2.5 text-amber-600 shrink-0" />
-                                  <span>Login for contact</span>
+                                <span className="inline-flex items-center space-x-0.5 text-amber-800 bg-amber-50 px-1 py-0.5 rounded text-[8.5px] sm:text-[9.5px] font-bold truncate">
+                                  <Lock className="w-2 h-2 text-amber-600 shrink-0" />
+                                  <span className="truncate">Login</span>
                                 </span>
                               )}
 
                               {(vendor.opening_time || vendor.opening_timing) && (
-                                <span className="flex items-center space-x-1 text-[10px] text-muted-foreground font-semibold shrink-0">
-                                  <Clock className="w-2.5 h-2.5 text-[#541D26] shrink-0" />
-                                  <span>{vendor.opening_time || vendor.opening_timing} - {vendor.closing_time || vendor.closing_timing}</span>
+                                <span className="flex items-center space-x-0.5 text-[8.5px] sm:text-[10px] text-muted-foreground font-semibold shrink-0">
+                                  <Clock className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-[#541D26] shrink-0" />
+                                  <span className="truncate">{vendor.opening_time || vendor.opening_timing}</span>
                                 </span>
                               )}
                             </div>
@@ -1078,31 +1076,31 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                         </div>
 
                         {/* 3. Action CTA Button */}
-                        <div className="p-3 pt-0">
+                        <div className="p-2 sm:p-3 pt-0">
                           {!status.isOpen && status.nextOpenText ? (
-                            <div className="w-full py-1.5 bg-rose-50 border border-rose-200/80 rounded-xl text-rose-800 text-[10.5px] font-bold flex items-center justify-center space-x-1">
-                              <Clock className="w-3 h-3 text-rose-600 shrink-0" />
-                              <span>CLOSED • OPENS {vendor.opening_time || '08:00 AM'}</span>
+                            <div className="w-full py-1 sm:py-1.5 bg-rose-50 border border-rose-200/80 rounded-lg sm:rounded-xl text-rose-800 text-[8.5px] sm:text-[10.5px] font-bold flex items-center justify-center space-x-1">
+                              <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-600 shrink-0" />
+                              <span className="truncate">CLOSED • {vendor.opening_time || '08:00 AM'}</span>
                             </div>
                           ) : (
                             <button
                               type="button"
-                              className="w-full py-2 px-3 rounded-xl transition-all duration-200 flex items-center justify-between font-extrabold text-[11px] shadow-2xs group-hover:shadow-xs uppercase tracking-wider cursor-pointer bg-[#541D26] text-white hover:bg-[#6B2732]"
+                              className="w-full py-1.5 sm:py-2.5 px-2 sm:px-3 min-h-[36px] sm:min-h-[44px] rounded-lg sm:rounded-xl transition-all duration-200 flex items-center justify-between font-extrabold text-[9px] sm:text-[11px] shadow-2xs group-hover:shadow-xs uppercase tracking-wider cursor-pointer bg-[#541D26] text-white hover:bg-[#6B2732] tap-target"
                             >
-                              <div className="flex items-center space-x-1.5">
+                              <div className="flex items-center space-x-1 sm:space-x-1.5 truncate">
                                 {isService ? (
                                   <>
-                                    <MessageSquare className="w-3.5 h-3.5 text-[#C8A878] group-hover:text-white transition-colors" />
-                                    <span>View Services & Enquire</span>
+                                    <MessageSquare className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#C8A878] group-hover:text-white transition-colors shrink-0" />
+                                    <span className="truncate">Enquire</span>
                                   </>
                                 ) : (
                                   <>
-                                    <ShoppingCart className="w-3.5 h-3.5 text-[#C8A878] group-hover:text-white transition-colors" />
-                                    <span>Explore Storefront</span>
+                                    <ShoppingCart className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#C8A878] group-hover:text-white transition-colors shrink-0" />
+                                    <span className="truncate">Explore</span>
                                   </>
                                 )}
                               </div>
-                              <ChevronRight className="w-3.5 h-3.5 text-[#C8A878] group-hover:translate-x-0.5 transition-transform" />
+                              <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#C8A878] group-hover:translate-x-0.5 transition-transform shrink-0 ml-0.5" />
                             </button>
                           )}
                         </div>

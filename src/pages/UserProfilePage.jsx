@@ -42,9 +42,13 @@ import {
   AlertTriangle,
   Flame,
   MessageSquare,
-  Send
+  Send,
+  Briefcase,
+  Calendar,
+  Zap,
+  XCircle
 } from 'lucide-react';
-import { api, getItemUnitLabel, formatItemQuantityBadge } from '../services/api';
+import { api, getItemUnitLabel, formatItemQuantityBadge, formatISTReadable } from '../services/api';
 import CountryCodePicker from '../components/CountryCodePicker';
 
 function getInitials(nameStr) {
@@ -59,25 +63,11 @@ function getInitials(nameStr) {
 
 export function formatOrderDateTime(dateInput) {
   if (!dateInput) return 'Recently';
-  try {
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return String(dateInput);
-    return new Intl.DateTimeFormat('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: 'Asia/Kolkata'
-    }).format(d) + ' IST';
-  } catch (_) {
-    return String(dateInput);
-  }
+  return formatISTReadable(dateInput);
 }
 
-export default function UserProfilePage({ activeUser, setActiveUser, setRoute, onLogout }) {
-  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'profile' | 'addresses' | 'favorites' | 'settings'
+export default function UserProfilePage({ activeUser, setActiveUser, setRoute, onLogout, currentRoute }) {
+  const [activeTab, setActiveTab] = useState(currentRoute?.tab || 'orders'); // 'orders' | 'enquiries' | 'profile' | 'addresses' | 'favorites' | 'settings'
   const hasCheckedStatusRef = useRef(null);
 
   // User Profile Form State
@@ -90,6 +80,14 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
     flat: '',
     avatar: ''
   });
+
+  // Service Enquiries State
+  const [enquiries, setEnquiries] = useState([]);
+  const [loadingEnquiries, setLoadingEnquiries] = useState(false);
+  const [enquirySearch, setEnquirySearch] = useState('');
+  const [enquiryFilter, setEnquiryFilter] = useState('ALL');
+  const [cancellingEnquiryId, setCancellingEnquiryId] = useState(null);
+  const [enquiryFeedbackMsg, setEnquiryFeedbackMsg] = useState('');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -154,9 +152,77 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
-  // Lock background page scroll when Receipt or Delete Account modal is open
+  // Order Cancellation State & Handler (v3.5.0)
+  const [cancellingOrder, setCancellingOrder] = useState(null);
+  const [orderCancelReason, setOrderCancelReason] = useState('Changed delivery time preference');
+  const [orderCustomReason, setOrderCustomReason] = useState('');
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false);
+  const [cancelOrderFeedback, setCancelOrderFeedback] = useState(null);
+
+  const handleUserCancelOrder = async () => {
+    if (!cancellingOrder) return;
+    const orderId = cancellingOrder.order_id || cancellingOrder.id;
+    const finalReason = orderCancelReason === 'Other reason' ? (orderCustomReason || 'Customer requested cancel') : orderCancelReason;
+
+    try {
+      setIsCancellingOrder(true);
+      setCancelOrderFeedback(null);
+      const res = await api.cancelOrder(orderId, finalReason);
+
+      if (res.success) {
+        setCancelOrderFeedback({
+          type: 'success',
+          message: res.message || 'Order cancelled successfully.'
+        });
+
+        setOrders(prev => prev.map(o => {
+          const oId = String(o.order_id || o.id);
+          if (oId === String(orderId) || oId.replace(/^ORD[-_]?/i, '') === String(orderId).replace(/^ORD[-_]?/i, '')) {
+            const isRefundInProgress = res.is_refund_in_progress !== undefined 
+              ? res.is_refund_in_progress 
+              : (res.payment_status === 'REFUND_IN_PROGRESS' || res.refund_status === 'IN_PROGRESS');
+            return {
+              ...o,
+              status: 'CANCELLED',
+              order_status: 'CANCELLED',
+              status_label: isRefundInProgress ? 'Order Cancelled (Refund In Progress)' : 'Order Cancelled',
+              payment_status: res.payment_status || (res.is_online_paid ? 'REFUND_IN_PROGRESS' : 'CANCELLED'),
+              refund_status: res.refund_status || (res.refund?.refund_status || (res.is_online_paid ? 'IN_PROGRESS' : null)),
+              refund_status_label: res.refund_status_label || (res.refund?.refund_status_label || null),
+              is_refund_in_progress: isRefundInProgress,
+              is_online_paid: Boolean(res.is_online_paid),
+              refund_id: res.refund?.refund_id || o.refund_id,
+              cf_refund_id: res.refund?.cf_refund_id || o.cf_refund_id,
+              refund_amount: res.refund?.refund_amount || o.refund_amount || o.total_amount,
+              refunded_at: new Date().toISOString()
+            };
+          }
+          return o;
+        }));
+
+        setTimeout(() => {
+          setCancellingOrder(null);
+          setCancelOrderFeedback(null);
+        }, 1800);
+      } else {
+        setCancelOrderFeedback({
+          type: 'error',
+          message: res.error || 'Failed to cancel order.'
+        });
+      }
+    } catch (err) {
+      setCancelOrderFeedback({
+        type: 'error',
+        message: err.message || 'Network error while cancelling order.'
+      });
+    } finally {
+      setIsCancellingOrder(false);
+    }
+  };
+
+  // Lock background page scroll when Receipt, Cancel or Delete Account modal is open
   useEffect(() => {
-    if (selectedOrder || showDeleteAccountModal) {
+    if (selectedOrder || showDeleteAccountModal || cancellingOrder) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -164,7 +230,7 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
     return () => {
       document.body.style.overflow = '';
     };
-  }, [selectedOrder, showDeleteAccountModal]);
+  }, [selectedOrder, showDeleteAccountModal, cancellingOrder]);
 
   const handleDeleteUserAccount = async () => {
     try {
@@ -548,6 +614,70 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
     } catch (_) {}
   };
 
+  // Sync activeTab if passed via route props
+  useEffect(() => {
+    if (currentRoute?.tab) {
+      setActiveTab(currentRoute.tab);
+    }
+  }, [currentRoute?.tab]);
+
+  // Load User Service Enquiries via GET /api/user/:userId/enquiries
+  const loadEnquiries = async () => {
+    const rawUserId = activeUser?.user_id || activeUser?.id || savedProfile.user_id || '';
+    const userPhone = activeUser?.phone || activeUser?.mobile || savedProfile.phone || phone || '';
+    const targetId = rawUserId || userPhone;
+    if (!targetId) return;
+
+    try {
+      setLoadingEnquiries(true);
+      const data = await api.getUserEnquiries(targetId);
+      const list = Array.isArray(data) ? data : (data?.enquiries || []);
+      setEnquiries(list);
+    } catch (err) {
+      console.warn("Could not fetch user service enquiries:", err);
+    } finally {
+      setLoadingEnquiries(false);
+    }
+  };
+
+  useEffect(() => {
+    loadEnquiries();
+  }, [activeUser?.user_id, activeUser?.id, activeUser?.phone, savedProfile.phone, phone]);
+
+  // Cancel Enquiry Handler via PATCH /api/enquiries/:enquiryId
+  const handleCancelEnquiry = async (enquiryId) => {
+    if (!window.confirm("Are you sure you want to cancel this service enquiry?")) {
+      return;
+    }
+    try {
+      setCancellingEnquiryId(enquiryId);
+      await api.cancelEnquiry(enquiryId);
+      setEnquiries(prev => prev.map(e => String(e.enquiry_id || e.id) === String(enquiryId) ? { ...e, status: 'CANCELLED', updated_at: new Date().toISOString() } : e));
+      setEnquiryFeedbackMsg(`Enquiry #${enquiryId} cancelled successfully.`);
+      setTimeout(() => setEnquiryFeedbackMsg(''), 4000);
+    } catch (err) {
+      setEnquiryFeedbackMsg(`Failed to cancel enquiry: ${err.message || 'Please try again'}`);
+    } finally {
+      setCancellingEnquiryId(null);
+    }
+  };
+
+  const filteredEnquiries = useMemo(() => {
+    return enquiries.filter(enq => {
+      const q = enquirySearch.toLowerCase().trim();
+      const matchSearch = !q || 
+        String(enq.enquiry_id || enq.id || '').toLowerCase().includes(q) ||
+        String(enq.service_type || enq.service_title || '').toLowerCase().includes(q) ||
+        String(enq.vendor_name || enq.store_name || '').toLowerCase().includes(q) ||
+        String(enq.description || '').toLowerCase().includes(q);
+
+      const status = (enq.status || 'NEW').toUpperCase();
+      const matchStatus = enquiryFilter === 'ALL' || status === enquiryFilter;
+
+      return matchSearch && matchStatus;
+    });
+  }, [enquiries, enquirySearch, enquiryFilter]);
+
   // Handle Cancel Edit
   const handleCancelEdit = () => {
     setName(savedProfile.name);
@@ -806,47 +936,47 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         {/* ------------------------------------------------------------- */}
         {/* TOP HERO PROFILE HEADER CARD (Luxury Bento Grid #211A19)       */}
         {/* ------------------------------------------------------------- */}
-        <div className="bg-[#211A19] text-white rounded-[2.5rem] p-6 sm:p-8 lg:p-10 shadow-2xl relative overflow-hidden border border-white/10">
+        <div className="bg-[#211A19] text-white rounded-2xl sm:rounded-[2.5rem] p-3.5 sm:p-7 lg:p-10 shadow-xl relative overflow-hidden border border-white/10">
           
           {/* Subtle Decorative Nude & Gold Lighting */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-[#C8A878]/15 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
           <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-[#541D26]/30 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-6 lg:gap-8 items-center">
             
             {/* Left Column: Avatar + Identity Info (lg:col-span-7) */}
-            <div className="lg:col-span-7 flex flex-col sm:flex-row items-center sm:items-center text-center sm:text-left gap-5 sm:gap-6">
+            <div className="lg:col-span-7 flex flex-col sm:flex-row items-center sm:items-center text-center sm:text-left gap-2.5 sm:gap-6">
               
               {/* Profile Avatar Frame */}
               <div className="relative group shrink-0">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-3 border-[#C8A878] p-1 shadow-xl bg-gradient-to-br from-[#541D26] to-[#391218] flex items-center justify-center text-[#C8A878] font-serif text-2xl sm:text-3xl font-bold tracking-wider select-none">
+                <div className="w-12 h-12 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full border-2 sm:border-3 border-[#C8A878] p-0.5 sm:p-1 shadow-lg bg-gradient-to-br from-[#541D26] to-[#391218] flex items-center justify-center text-[#C8A878] font-serif text-base sm:text-2xl lg:text-3xl font-bold tracking-wider select-none">
                   {getInitials(savedProfile.name || name)}
                 </div>
-                <div className="absolute bottom-0 right-0 bg-[#C8A878] text-[#211A19] p-1.5 rounded-full shadow-md border border-[#211A19]">
-                  <Sparkles className="w-3 h-3" />
+                <div className="absolute bottom-0 right-0 bg-[#C8A878] text-[#211A19] p-0.5 sm:p-1.5 rounded-full shadow-md border border-[#211A19]">
+                  <Sparkles className="w-2 h-2 sm:w-3 sm:h-3" />
                 </div>
               </div>
 
               {/* Text Meta Details */}
-              <div className="space-y-2 min-w-0">
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                  <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
+              <div className="space-y-1 sm:space-y-1.5 min-w-0">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:gap-2">
+                  <h1 className="text-base sm:text-2xl lg:text-3xl font-serif font-bold text-white tracking-tight">
                     {savedProfile.name || name}
                   </h1>
-                  <span className="px-2.5 py-0.5 bg-[#541D26] border border-[#C8A878]/30 text-[#C8A878] text-[10px] font-black uppercase tracking-wider rounded-full flex items-center gap-1 shadow-xs">
-                    <ShieldCheck className="w-3 h-3 text-[#C8A878]" /> Verified Resident
+                  <span className="px-1.5 sm:px-2.5 py-0.5 bg-[#541D26] border border-[#C8A878]/30 text-[#C8A878] text-[8.5px] sm:text-[10px] font-black uppercase tracking-wider rounded-full flex items-center gap-1 shadow-xs">
+                    <ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#C8A878]" /> Verified Resident
                   </span>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1.5 text-xs text-[#D6B7A5] font-medium">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:gap-x-4 sm:gap-y-1.5 text-xs text-[#D6B7A5] font-medium">
                   {savedProfile.email && !savedProfile.email.includes('@digilocal.internal') && !savedProfile.email.includes('@test.com') ? (
-                    <span className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1 rounded-full text-[11px]">
-                      <Mail className="w-3.5 h-3.5 text-[#C8A878]" /> {savedProfile.email}
+                    <span className="flex items-center gap-1 bg-white/5 border border-white/10 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[9.5px] sm:text-[11px] truncate max-w-[200px] sm:max-w-none">
+                      <Mail className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#C8A878] shrink-0" /> <span className="truncate">{savedProfile.email}</span>
                     </span>
                   ) : null}
                   {savedProfile.phone ? (
-                    <span className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1 rounded-full text-[11px] font-mono text-white">
-                      <Phone className="w-3.5 h-3.5 text-[#C8A878]" /> 
+                    <span className="flex items-center gap-1 bg-white/5 border border-white/10 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[9.5px] sm:text-[11px] font-mono text-white">
+                      <Phone className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#C8A878] shrink-0" /> 
                       {savedProfile.phone.startsWith('+91') ? savedProfile.phone : `+91 ${savedProfile.phone.replace(/[^0-9]/g, '').slice(-10)}`}
                     </span>
                   ) : null}
@@ -855,21 +985,21 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
             </div>
 
             {/* Right Column: 2 Luxury Bento Stat Cards (lg:col-span-5) */}
-            <div className="lg:col-span-5 grid grid-cols-2 gap-3">
+            <div className="lg:col-span-5 grid grid-cols-2 gap-2 sm:gap-3">
               
               {/* Stat 1: Orders */}
               <button
                 onClick={() => setActiveTab('orders')}
-                className="bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 hover:border-[#C8A878]/60 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-3 transition-all cursor-pointer group shadow-sm text-center sm:text-left"
+                className="bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 hover:border-[#C8A878]/60 p-2 sm:p-4 rounded-xl sm:rounded-2xl flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 transition-all cursor-pointer group shadow-sm text-center sm:text-left"
               >
-                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-[#541D26] border border-[#C8A878]/30 flex items-center justify-center text-[#C8A878] shrink-0 group-hover:scale-105 transition-transform shadow-inner">
-                  <ShoppingBag className="w-5 h-5" />
+                <div className="w-7 h-7 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-[#541D26] border border-[#C8A878]/30 flex items-center justify-center text-[#C8A878] shrink-0 group-hover:scale-105 transition-transform shadow-inner">
+                  <ShoppingBag className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-lg sm:text-2xl font-extrabold font-sans text-white group-hover:text-[#C8A878] transition-colors leading-tight">
+                  <div className="text-sm sm:text-2xl font-extrabold font-sans text-white group-hover:text-[#C8A878] transition-colors leading-tight">
                     {orders.length}
                   </div>
-                  <div className="text-[10px] sm:text-xs text-[#D6B7A5] font-black uppercase tracking-wider truncate">
+                  <div className="text-[8.5px] sm:text-xs text-[#D6B7A5] font-black uppercase tracking-wider truncate">
                     Total Orders
                   </div>
                 </div>
@@ -878,16 +1008,16 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
               {/* Stat 2: Saved Flats */}
               <button
                 onClick={() => setActiveTab('addresses')}
-                className="bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 hover:border-[#C8A878]/60 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-3 transition-all cursor-pointer group shadow-sm text-center sm:text-left"
+                className="bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 hover:border-[#C8A878]/60 p-2 sm:p-4 rounded-xl sm:rounded-2xl flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 transition-all cursor-pointer group shadow-sm text-center sm:text-left"
               >
-                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-[#541D26] border border-[#C8A878]/30 flex items-center justify-center text-[#C8A878] shrink-0 group-hover:scale-105 transition-transform shadow-inner">
-                  <Building2 className="w-5 h-5 text-[#C8A878]" />
+                <div className="w-7 h-7 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-[#541D26] border border-[#C8A878]/30 flex items-center justify-center text-[#C8A878] shrink-0 group-hover:scale-105 transition-transform shadow-inner">
+                  <Building2 className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#C8A878]" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-lg sm:text-2xl font-extrabold font-sans text-white group-hover:text-[#C8A878] transition-colors leading-tight">
+                  <div className="text-sm sm:text-2xl font-extrabold font-sans text-white group-hover:text-[#C8A878] transition-colors leading-tight">
                     {addresses.length}
                   </div>
-                  <div className="text-[10px] sm:text-xs text-[#D6B7A5] font-black uppercase tracking-wider truncate">
+                  <div className="text-[8.5px] sm:text-xs text-[#D6B7A5] font-black uppercase tracking-wider truncate">
                     Saved Flats
                   </div>
                 </div>
@@ -903,38 +1033,38 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         {/* MODERATION & 2ND STRIKE WARNING BANNER (v4.0.0 Specification) */}
         {/* ------------------------------------------------------------- */}
         {strikeStatus && (strikeStatus.strikes > 0 || strikeStatus.show_second_strike_warning) && (
-          <div className={`rounded-3xl p-5 sm:p-6 shadow-xl border animate-fadeIn transition-all ${
+          <div className={`rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border animate-fadeIn transition-all ${
             strikeStatus.strikes >= 2 || strikeStatus.show_second_strike_warning
               ? 'bg-gradient-to-r from-[#211A19] via-[#3B151C] to-[#211A19] border-amber-500/50 text-white'
               : 'bg-amber-50 border-amber-300 text-amber-950'
           }`}>
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
               <div className="flex items-start gap-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-md ${
                   strikeStatus.strikes >= 2 || strikeStatus.show_second_strike_warning
                     ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
                     : 'bg-amber-100 text-amber-800 border border-amber-300'
                 }`}>
-                  <AlertTriangle className="w-6 h-6 animate-pulse" />
+                  <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 animate-pulse" />
                 </div>
                 <div className="space-y-1.5 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1 ${
+                    <span className={`px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider border flex items-center gap-1 ${
                       strikeStatus.strikes >= 2 || strikeStatus.show_second_strike_warning
                         ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                         : 'bg-amber-200 text-amber-900 border-amber-300'
                     }`}>
-                      <Flame className="w-3 h-3 text-amber-400" />
+                      <Flame className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400" />
                       <span>{strikeStatus.strikes >= 2 ? 'Strike 2 of 3 (Final Warning)' : 'Strike 1 of 3 (First Warning)'}</span>
                     </span>
-                    <h3 className={`text-base sm:text-lg font-serif font-black ${
+                    <h3 className={`text-sm sm:text-lg font-serif font-black ${
                       strikeStatus.strikes >= 2 || strikeStatus.show_second_strike_warning ? 'text-white' : 'text-amber-950'
                     }`}>
                       {strikeStatus.warning_title || (strikeStatus.strikes >= 2 ? '⚡ Account Warning: 2 Strikes Received' : '⚠️ Account Strike Notice')}
                     </h3>
                   </div>
 
-                  <p className={`text-xs font-medium leading-relaxed ${
+                  <p className={`text-[11px] sm:text-xs font-medium leading-relaxed ${
                     strikeStatus.strikes >= 2 || strikeStatus.show_second_strike_warning ? 'text-amber-100/90' : 'text-amber-900/90'
                   }`}>
                     {strikeStatus.warning_message || (
@@ -961,19 +1091,19 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                           return (
                             <div 
                               key={idx}
-                              className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-3 ${
+                              className={`p-2 sm:p-2.5 rounded-xl border text-xs flex items-center justify-between gap-3 ${
                                 strikeStatus.strikes >= 2 || strikeStatus.show_second_strike_warning
                                   ? (isFinal ? 'bg-rose-950/40 border-rose-500/40 text-rose-100' : 'bg-white/5 border-white/10 text-white/90')
                                   : 'bg-white border-amber-200 text-amber-950'
                               }`}
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className={`px-2 py-0.5 rounded-md text-[9.5px] font-black uppercase tracking-wider shrink-0 ${
+                                <span className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[8.5px] sm:text-[9.5px] font-black uppercase tracking-wider shrink-0 ${
                                   isFinal ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                 }`}>
                                   Strike #{strikeNum}
                                 </span>
-                                <span className="font-semibold truncate text-[11.5px]">{reasonStr}</span>
+                                <span className="font-semibold truncate text-[10.5px] sm:text-[11.5px]">{reasonStr}</span>
                               </div>
                             </div>
                           );
@@ -983,8 +1113,8 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                   )}
 
                   {strikeStatus.strikes >= 2 && (
-                    <div className="pt-1 text-[11px] text-rose-300 font-bold flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    <div className="pt-1 text-[10.5px] sm:text-[11px] text-rose-300 font-bold flex items-center gap-1.5">
+                      <AlertCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-400 shrink-0" />
                       <span>1 strike remaining before automatic permanent account lockout.</span>
                     </div>
                   )}
@@ -997,52 +1127,64 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         {/* ------------------------------------------------------------- */}
         {/* NAVIGATION TABS BAR (Oxblood #541D26 Active Pill)             */}
         {/* ------------------------------------------------------------- */}
-        <div className="bg-white rounded-2xl sm:rounded-full p-1.5 shadow-md border border-[#E5DAD0] flex flex-wrap sm:flex-nowrap items-center gap-1 overflow-x-auto">
+        <div className="bg-white rounded-xl sm:rounded-full p-1 sm:p-1.5 shadow-md border border-[#E5DAD0] flex items-center gap-1 sm:gap-1.5 overflow-x-auto touch-scroll scrollbar-none">
           <button
             onClick={() => setActiveTab('orders')}
-            className={`flex-1 min-w-[120px] py-3 px-4 rounded-xl sm:rounded-full text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`shrink-0 py-2 sm:py-3 px-2.5 sm:px-4 rounded-lg sm:rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap min-h-[34px] sm:min-h-[40px] ${
               activeTab === 'orders'
                 ? 'bg-[#541D26] text-white shadow-md'
                 : 'text-[#211A19]/70 hover:text-[#541D26] hover:bg-[#EEE5DA]'
             }`}
           >
-            <ShoppingBag className={`w-4 h-4 ${activeTab === 'orders' ? 'text-[#C8A878]' : ''}`} />
+            <ShoppingBag className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${activeTab === 'orders' ? 'text-[#C8A878]' : ''}`} />
             <span>My Orders ({orders.length})</span>
           </button>
 
           <button
+            onClick={() => setActiveTab('enquiries')}
+            className={`shrink-0 py-2 sm:py-3 px-2.5 sm:px-4 rounded-lg sm:rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap min-h-[34px] sm:min-h-[40px] ${
+              activeTab === 'enquiries'
+                ? 'bg-[#541D26] text-white shadow-md'
+                : 'text-[#211A19]/70 hover:text-[#541D26] hover:bg-[#EEE5DA]'
+            }`}
+          >
+            <Briefcase className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${activeTab === 'enquiries' ? 'text-[#C8A878]' : ''}`} />
+            <span>Service Enquiries ({enquiries.length})</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('profile')}
-            className={`flex-1 min-w-[120px] py-3 px-4 rounded-xl sm:rounded-full text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`shrink-0 py-2 sm:py-3 px-2.5 sm:px-4 rounded-lg sm:rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap min-h-[34px] sm:min-h-[40px] ${
               activeTab === 'profile'
                 ? 'bg-[#541D26] text-white shadow-md'
                 : 'text-[#211A19]/70 hover:text-[#541D26] hover:bg-[#EEE5DA]'
             }`}
           >
-            <User className={`w-4 h-4 ${activeTab === 'profile' ? 'text-[#C8A878]' : ''}`} />
+            <User className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${activeTab === 'profile' ? 'text-[#C8A878]' : ''}`} />
             <span>Profile Details</span>
           </button>
 
           <button
             onClick={() => setActiveTab('addresses')}
-            className={`flex-1 min-w-[120px] py-3 px-4 rounded-xl sm:rounded-full text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`shrink-0 py-2 sm:py-3 px-2.5 sm:px-4 rounded-lg sm:rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap min-h-[34px] sm:min-h-[40px] ${
               activeTab === 'addresses'
                 ? 'bg-[#541D26] text-white shadow-md'
                 : 'text-[#211A19]/70 hover:text-[#541D26] hover:bg-[#EEE5DA]'
             }`}
           >
-            <MapPin className={`w-4 h-4 ${activeTab === 'addresses' ? 'text-[#C8A878]' : ''}`} />
+            <MapPin className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${activeTab === 'addresses' ? 'text-[#C8A878]' : ''}`} />
             <span>Saved Addresses</span>
           </button>
 
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex-1 min-w-[120px] py-3 px-4 rounded-xl sm:rounded-full text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`shrink-0 py-2 sm:py-3 px-2.5 sm:px-4 rounded-lg sm:rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap min-h-[34px] sm:min-h-[40px] ${
               activeTab === 'settings'
                 ? 'bg-[#541D26] text-white shadow-md'
                 : 'text-[#211A19]/70 hover:text-[#541D26] hover:bg-[#EEE5DA]'
             }`}
           >
-            <Key className={`w-4 h-4 ${activeTab === 'settings' ? 'text-[#C8A878]' : ''}`} />
+            <Key className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${activeTab === 'settings' ? 'text-[#C8A878]' : ''}`} />
             <span>Security & Settings</span>
           </button>
         </div>
@@ -1052,42 +1194,42 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         {/* TAB CONTENT 1: MY ORDERS HISTORY                              */}
         {/* ------------------------------------------------------------- */}
         {activeTab === 'orders' && (
-          <div className="space-y-6 animate-fadeIn">
+          <div className="space-y-4 sm:space-y-6 animate-fadeIn">
             
             {/* Search & Filter Header */}
-            <div className="bg-white p-5 rounded-3xl shadow-xs border border-[#E5DAD0] flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="bg-white p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xs border border-[#E5DAD0] flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4">
               <div className="relative w-full md:w-80">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#541D26]" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#541D26]" />
                 <input
                   type="text"
                   placeholder="Search order ID, store, or item..."
                   value={orderSearch}
                   onChange={(e) => setOrderSearch(e.target.value)}
-                  className="w-full pl-11 pr-4 py-2.5 bg-white border border-[#E5DAD0] rounded-full text-xs font-semibold text-[#211A19] focus:outline-none focus:border-[#541D26]"
+                  className="w-full pl-10 pr-4 py-2 bg-[#FAF7F2] border border-[#E5DAD0] rounded-xl text-xs font-semibold text-[#211A19] focus:outline-none focus:border-[#541D26] focus:bg-white"
                 />
               </div>
             </div>
 
             {/* Orders Cards Grid */}
             {filteredOrders.length === 0 ? (
-              <div className="bg-white rounded-3xl p-12 text-center border border-[#E5DAD0] space-y-4 shadow-xs">
-                <div className="w-16 h-16 rounded-full bg-[#EEE5DA] text-[#541D26] flex items-center justify-center mx-auto border border-[#E5DAD0]">
-                  <ShoppingBag className="w-8 h-8 text-[#541D26]" />
+              <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-[#E5DAD0] space-y-4 shadow-xs">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#EEE5DA] text-[#541D26] flex items-center justify-center mx-auto border border-[#E5DAD0]">
+                  <ShoppingBag className="w-7 h-7 sm:w-8 sm:h-8 text-[#541D26]" />
                 </div>
-                <h3 className="text-lg font-serif font-bold text-[#211A19]">No Orders Found</h3>
+                <h3 className="text-base sm:text-lg font-serif font-bold text-[#211A19]">No Orders Found</h3>
                 <p className="text-xs text-[#211A19]/70 max-w-md mx-auto font-medium">
                   You haven't placed any orders yet. Visit local stores in your society to place your first order!
                 </p>
                 <button
                   onClick={() => setRoute({ page: 'societyVendors', societyId: societyId || 'all' })}
-                  className="px-6 py-3 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-full text-xs font-extrabold shadow-md transition-all inline-flex items-center gap-2 cursor-pointer"
+                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-full text-xs font-extrabold shadow-md transition-all inline-flex items-center gap-2 cursor-pointer"
                 >
                   <Store className="w-4 h-4 text-[#C8A878]" />
                   <span>Browse Stores & Place First Order</span>
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
                 {filteredOrders.map((order) => {
                   const orderIdStr = String(order.order_id || order.id || '');
                   const storeTitle = order.store_name || order.vendor_store_name || order.vendor_name || 'Society Partner Store';
@@ -1103,29 +1245,29 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                   return (
                     <div 
                       key={orderIdStr}
-                      className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E5DAD0] hover:border-[#541D26]/40 hover:shadow-md transition-all duration-200 space-y-3"
+                      className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-[#E5DAD0] hover:border-[#541D26]/40 hover:shadow-md transition-all duration-200 space-y-2.5 sm:space-y-3"
                     >
-                      {/* Top Row: Logo + Store Name + Society + Status + Time + Actions */}
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-center space-x-3 min-w-0">
+                      {/* Top Row: Logo + Store Name + Society + Status */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
                           <img 
                             src={order.store_logo || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80'} 
                             alt={storeTitle} 
-                            className="w-11 h-11 rounded-xl object-cover border border-[#E5DAD0] shadow-2xs shrink-0 bg-[#EEE5DA]"
+                            className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl object-cover border border-[#E5DAD0] shadow-2xs shrink-0 bg-[#EEE5DA]"
                             onError={(e) => {
                               e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120&auto=format&fit=crop&q=80';
                             }}
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="font-serif font-bold text-sm sm:text-base text-[#211A19] truncate">
+                            <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
+                              <h3 className="font-serif font-bold text-xs sm:text-base text-[#211A19] truncate">
                                 {storeTitle}
                               </h3>
 
                               {orderSoc && (
-                                <span className="px-2 py-0.5 rounded-full bg-[#EEE5DA]/60 text-[#541D26] text-[10px] font-bold border border-[#E5DAD0] flex items-center gap-1 shrink-0">
+                                <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-[#EEE5DA]/60 text-[#541D26] text-[8.5px] sm:text-[10px] font-bold border border-[#E5DAD0] flex items-center gap-0.5 shrink-0">
                                   <MapPin className="w-2.5 h-2.5 text-[#541D26]" />
-                                  <span>{orderSoc}</span>
+                                  <span className="truncate max-w-[80px] sm:max-w-none">{orderSoc}</span>
                                 </span>
                               )}
 
@@ -1133,18 +1275,36 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                                 const st = String(order.status || order.order_status || '').toUpperCase();
 
                                 if (st === 'CANCELLED' || st === 'CANCELED' || st === 'REJECTED' || st === 'DECLINED' || st === 'FAILED') {
+                                  const isRefundInProgress = Boolean(order.is_refund_in_progress || order.payment_status === 'REFUND_IN_PROGRESS' || order.refund_status === 'IN_PROGRESS');
+                                  const isRefundCompleted = Boolean(order.payment_status === 'REFUND_COMPLETED' || order.refund_status === 'COMPLETED' || order.payment_status === 'REFUNDED');
+                                  const refundAmt = Number(order.refund_amount || order.total_amount || 0).toFixed(2);
+
                                   return (
-                                    <span className="px-2.5 py-0.5 rounded-full bg-[#FEF2F2] text-[#B91C1C] border border-rose-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                      <AlertCircle className="w-3 h-3 text-[#B91C1C]" />
-                                      <span>Cancelled</span>
-                                    </span>
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                      <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-[#FEF2F2] text-[#B91C1C] border border-rose-200 text-[8.5px] sm:text-[10px] font-extrabold flex items-center gap-0.5 shrink-0">
+                                        <AlertCircle className="w-2.5 h-2.5 text-[#B91C1C]" />
+                                        <span>Cancelled</span>
+                                      </span>
+                                      {isRefundInProgress && (
+                                        <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-orange-50 text-orange-800 border border-orange-300 text-[8.5px] sm:text-[10px] font-extrabold flex items-center gap-0.5 shrink-0 animate-pulse">
+                                          <RefreshCw className="w-2 h-2 text-orange-600 animate-spin" />
+                                          <span>Refund: ₹{refundAmt}</span>
+                                        </span>
+                                      )}
+                                      {!isRefundInProgress && isRefundCompleted && (
+                                        <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#047857] border border-emerald-300 text-[8.5px] sm:text-[10px] font-extrabold flex items-center gap-0.5 shrink-0">
+                                          <CheckCircle2 className="w-2.5 h-2.5 text-[#047857]" />
+                                          <span>Refunded: ₹{refundAmt}</span>
+                                        </span>
+                                      )}
+                                    </div>
                                   );
                                 }
 
                                 if (st === 'COMPLETED' || st === 'DELIVERED' || st === 'COMPLETE' || st === 'FULFILLED' || st === 'DONE') {
                                   return (
-                                    <span className="px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] border border-emerald-300 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                      <CheckCircle2 className="w-3 h-3 text-[#059669]" />
+                                    <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] border border-emerald-300 text-[8.5px] sm:text-[10px] font-extrabold flex items-center gap-0.5 shrink-0">
+                                      <CheckCircle2 className="w-2.5 h-2.5 text-[#059669]" />
                                       <span>Delivered</span>
                                     </span>
                                   );
@@ -1152,8 +1312,8 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
 
                                 if (st === 'IN_PROGRESS' || st === 'OUT_FOR_DELIVERY' || st === 'PROCESSING' || st === 'IN_TRANSIT') {
                                   return (
-                                    <span className="px-2.5 py-0.5 rounded-full bg-[#F5F3FF] text-[#6D28D9] border border-purple-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                      <Truck className="w-3 h-3 text-[#6D28D9]" />
+                                    <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-[#F5F3FF] text-[#6D28D9] border border-purple-200 text-[8.5px] sm:text-[10px] font-extrabold flex items-center gap-0.5 shrink-0">
+                                      <Truck className="w-2.5 h-2.5 text-[#6D28D9]" />
                                       <span>Out for Delivery</span>
                                     </span>
                                   );
@@ -1161,124 +1321,82 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
 
                                 if (st === 'ACCEPTED' || st === 'ACCEPT' || st === 'PREPARING') {
                                   return (
-                                    <span className="px-2.5 py-0.5 rounded-full bg-[#F0FDF4] text-[#15803D] border border-green-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                      <CheckCircle2 className="w-3 h-3 text-[#15803D]" />
-                                      <span>Accepted & Preparing</span>
+                                    <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-[#F0FDF4] text-[#15803D] border border-green-200 text-[8.5px] sm:text-[10px] font-extrabold flex items-center gap-0.5 shrink-0">
+                                      <CheckCircle2 className="w-2.5 h-2.5 text-[#15803D]" />
+                                      <span>Preparing</span>
                                     </span>
                                   );
                                 }
 
                                 if (st === 'CONFIRMED') {
                                   return (
-                                    <span className="px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#047857] border border-emerald-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                      <CheckCircle2 className="w-3 h-3 text-[#047857]" />
-                                      <span>Confirmed & Paid</span>
+                                    <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#047857] border border-emerald-200 text-[8.5px] sm:text-[10px] font-extrabold flex items-center gap-0.5 shrink-0">
+                                      <CheckCircle2 className="w-2.5 h-2.5 text-[#047857]" />
+                                      <span>Confirmed</span>
                                     </span>
                                   );
                                 }
 
                                 if (st === 'PENDING') {
                                   return (
-                                    <span className="px-2.5 py-0.5 rounded-full bg-[#FFFBEB] text-[#B45309] border border-amber-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                      <Clock className="w-3 h-3 text-[#B45309]" />
-                                      <span>Payment Pending</span>
+                                    <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-[#FFFBEB] text-[#B45309] border border-amber-200 text-[8.5px] sm:text-[10px] font-extrabold flex items-center gap-0.5 shrink-0">
+                                      <Clock className="w-2.5 h-2.5 text-[#B45309]" />
+                                      <span>Pending</span>
                                     </span>
                                   );
                                 }
 
                                 return (
-                                  <span className="px-2.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] border border-blue-200 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                    <Clock className="w-3 h-3 text-[#1D4ED8]" />
+                                  <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] border border-blue-200 text-[8.5px] sm:text-[10px] font-extrabold flex items-center gap-0.5 shrink-0">
+                                    <Clock className="w-2.5 h-2.5 text-[#1D4ED8]" />
                                     <span>Order Placed</span>
                                   </span>
                                 );
                               })()}
-
-                              <button
-                                onClick={() => setRoute({ page: 'vendorStorefront', societyId: '1', vendorId: String(order.vendor_id || 1) })}
-                                className="text-[11px] text-[#541D26] hover:underline font-bold inline-flex items-center gap-0.5 shrink-0 ml-auto sm:ml-0 cursor-pointer"
-                                title={`Visit ${storeTitle}`}
-                              >
-                                <span>Shop</span>
-                                <ExternalLink className="w-2.5 h-2.5" />
-                              </button>
                             </div>
 
-                            <p className="text-[11.5px] text-[#211A19]/70 font-medium mt-1 flex flex-wrap items-center gap-x-2">
-                              <span className="font-mono text-[#211A19] font-black bg-[#FAF7F2] px-2 py-0.5 rounded border border-[#E5DAD0]/80">
+                            <p className="text-[9.5px] sm:text-[11.5px] text-[#211A19]/70 font-medium mt-0.5 flex flex-wrap items-center gap-x-1.5">
+                              <span className="font-mono text-[#211A19] font-bold bg-[#FAF7F2] px-1.5 py-0.2 rounded border border-[#E5DAD0]/80">
                                 #{orderIdStr}
                               </span>
                               <span>•</span>
-                              <span className="text-[#211A19]/80 font-semibold">{orderTimeStr}</span>
+                              <span className="text-[#211A19]/80">{orderTimeStr}</span>
                             </p>
                           </div>
                         </div>
 
-                        {/* Right: Total & Action Buttons */}
-                        <div className="flex items-center space-x-3 ml-auto sm:ml-0">
-                          <div className="text-right">
-                            <div className="text-[10px] text-[#211A19]/60 font-semibold uppercase tracking-wider">Total</div>
-                            <div className="text-base font-serif font-black text-[#541D26]">₹{totalAmt.toFixed(2)}</div>
-                          </div>
-
-                          <div className="flex items-center space-x-1.5 border-l border-[#E5DAD0] pl-3">
-                            {(() => {
-                              const orderStUpper = String(order.status || order.order_status || '').toUpperCase().trim();
-                              const isLiveActive = !['CANCELLED', 'CANCELED', 'REJECTED', 'DECLINED', 'FAILED', 'DELIVERED', 'COMPLETED', 'COMPLETE', 'DONE'].includes(orderStUpper);
-                              if (!isLiveActive) return null;
-                              return (
-                                <button
-                                  onClick={() => setRoute({ page: 'orderTracking', orderId: order.order_id || order.id, order })}
-                                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black transition-all flex items-center space-x-1 shadow-xs cursor-pointer animate-pulse"
-                                  title="Track Live order updates"
-                                >
-                                  <Truck className="w-3.5 h-3.5 text-slate-950" />
-                                  <span>Track Live</span>
-                                </button>
-                              );
-                            })()}
-
-                            <button
-                              onClick={() => setSelectedOrder(order)}
-                              className="px-3 py-1.5 rounded-lg border border-[#E5DAD0] hover:bg-[#EEE5DA] text-[#211A19] text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer shadow-2xs"
-                            >
-                              <Receipt className="w-3 h-3 text-[#541D26]" />
-                              <span>Receipt</span>
-                            </button>
-
-                            <button
-                              onClick={() => setRoute({ page: 'vendorStorefront', societyId: '1', vendorId: String(order.vendor_id || 1) })}
-                              className="px-3.5 py-1.5 rounded-lg bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold transition-all flex items-center space-x-1 shadow-2xs cursor-pointer"
-                            >
-                              <RefreshCw className="w-3 h-3 text-[#C8A878]" />
-                              <span>Re-Order</span>
-                            </button>
-                          </div>
-                        </div>
+                        <button
+                          onClick={() => setRoute({ page: 'vendorStorefront', societyId: '1', vendorId: String(order.vendor_id || 1) })}
+                          className="text-[10px] sm:text-[11px] text-[#541D26] hover:underline font-bold inline-flex items-center gap-0.5 shrink-0 cursor-pointer"
+                          title={`Visit ${storeTitle}`}
+                        >
+                          <span>Shop</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </button>
                       </div>
 
-                      {/* Delivery Address Row (Accurate & Prominent) */}
-                      <div className="p-2.5 sm:p-3 bg-[#FAF7F2] rounded-xl border border-[#E5DAD0]/80 flex items-start gap-2.5 text-xs text-[#211A19]">
-                        <div className="w-6 h-6 rounded-lg bg-[#541D26]/10 text-[#541D26] flex items-center justify-center shrink-0 mt-0.5">
-                          <MapPin className="w-3.5 h-3.5" />
+                      {/* Delivery Address Box */}
+                      <div className="p-2 sm:p-2.5 bg-[#FAF7F2] rounded-lg sm:rounded-xl border border-[#E5DAD0]/80 flex items-start gap-2 text-[10.5px] sm:text-xs text-[#211A19]">
+                        <div className="w-5 h-5 rounded bg-[#541D26]/10 text-[#541D26] flex items-center justify-center shrink-0 mt-0.5">
+                          <MapPin className="w-3 h-3" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
+                          <div className="flex items-center gap-1 flex-wrap">
                             <span className="font-bold text-[#211A19]">Deliver to:</span>
-                            <span className="font-bold text-[#541D26]">{deliveryAddr}</span>
+                            <span className="font-bold text-[#541D26] truncate">{deliveryAddr}</span>
                             {orderSoc && !String(deliveryAddr).toLowerCase().includes(String(orderSoc).toLowerCase()) && (
-                              <span className="text-[#211A19]/70 font-medium">({orderSoc})</span>
+                              <span className="text-[#211A19]/70 font-medium truncate">({orderSoc})</span>
                             )}
                           </div>
-                          <p className="text-[11px] text-[#211A19]/60 font-medium mt-0.5">
+                          <p className="text-[9.5px] sm:text-[11px] text-[#211A19]/60 font-medium mt-0.5 truncate">
                             Recipient: <strong className="text-[#211A19]">{customerRecipient}</strong> {displayPhone ? `• ${displayPhone}` : ''}
                           </p>
                         </div>
                       </div>
 
                       {/* Itemized Items Breakdown List */}
-                      <div className="pt-2 border-t border-[#E5DAD0] flex flex-wrap items-center justify-between gap-2 text-xs text-[#211A19]/80">
-                        <div className="flex items-center space-x-2 truncate min-w-0 flex-1">
+                      <div className="pt-1.5 sm:pt-2 border-t border-[#E5DAD0] flex flex-wrap items-center justify-between gap-1.5 text-[10.5px] sm:text-xs text-[#211A19]/80">
+                        <div className="flex items-center space-x-1.5 truncate min-w-0 flex-1">
                           <span className="font-bold text-[#211A19] shrink-0">Items:</span>
                           <span className="truncate text-[#211A19]/80 font-medium">
                             {(order.items || []).map(i => {
@@ -1292,14 +1410,72 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
-                          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                        <div className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
+                          <span className={`text-[9.5px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full border ${
                             String(order.payment_status || '').toUpperCase() === 'PAID'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : 'bg-[#541D26]/10 text-[#541D26] border-[#541D26]/20'
                           }`}>
                             {order.payment_method || 'COD'} • {String(order.payment_status || 'PENDING').toUpperCase()}
                           </span>
+                        </div>
+                      </div>
+
+                      {/* Price & Action Buttons (Responsive Grid on Mobile to prevent clipping) */}
+                      <div className="pt-2 border-t border-[#E5DAD0] space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9.5px] text-[#211A19]/60 font-semibold uppercase tracking-wider">Total:</span>
+                            <span className="text-sm sm:text-base font-serif font-black text-[#541D26]">₹{totalAmt.toFixed(2)}</span>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons Grid (2 cols on mobile, flex row on desktop) */}
+                        <div className="grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-1.5 sm:gap-2">
+                          {(() => {
+                            const orderStUpper = String(order.status || order.order_status || '').toUpperCase().trim();
+                            const isLiveActive = !['CANCELLED', 'CANCELED', 'REJECTED', 'DECLINED', 'FAILED', 'DELIVERED', 'COMPLETED', 'COMPLETE', 'DONE'].includes(orderStUpper);
+                            const canUserCancel = ['PLACED', 'PENDING', 'ACCEPTED', 'CONFIRMED'].includes(orderStUpper);
+                            if (!isLiveActive) return null;
+                            return (
+                              <>
+                                <button
+                                  onClick={() => setRoute({ page: 'orderTracking', orderId: order.order_id || order.id, order })}
+                                  className="py-1.5 px-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10.5px] sm:text-xs font-black transition-all flex items-center justify-center gap-1 shadow-2xs cursor-pointer animate-pulse"
+                                  title="Track Live order updates"
+                                >
+                                  <Truck className="w-3 h-3 text-slate-950 shrink-0" />
+                                  <span>Track Live</span>
+                                </button>
+                                {canUserCancel && (
+                                  <button
+                                    onClick={() => setCancellingOrder(order)}
+                                    className="py-1.5 px-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10.5px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                    title="Cancel this order"
+                                  >
+                                    <XCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                                    <span>Cancel</span>
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
+
+                          <button
+                            onClick={() => setSelectedOrder(order)}
+                            className="py-1.5 px-2.5 rounded-lg border border-[#E5DAD0] hover:bg-[#EEE5DA] text-[#211A19] text-[10.5px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                          >
+                            <Receipt className="w-3 h-3 text-[#541D26] shrink-0" />
+                            <span>Receipt</span>
+                          </button>
+
+                          <button
+                            onClick={() => setRoute({ page: 'vendorStorefront', societyId: '1', vendorId: String(order.vendor_id || 1) })}
+                            className="py-1.5 px-2.5 rounded-lg bg-[#541D26] hover:bg-[#6B2732] text-white text-[10.5px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
+                          >
+                            <RefreshCw className="w-3 h-3 text-[#C8A878] shrink-0" />
+                            <span>Re-Order</span>
+                          </button>
                         </div>
                       </div>
 
@@ -1514,9 +1690,250 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
           </div>
         )}
 
+        {/* ------------------------------------------------------------- */}
+        {/* TAB CONTENT: SERVICE ENQUIRIES HISTORY                         */}
+        {/* ------------------------------------------------------------- */}
+        {activeTab === 'enquiries' && (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Feedback Alert if cancellation occurred */}
+            {enquiryFeedbackMsg && (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{enquiryFeedbackMsg}</span>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setEnquiryFeedbackMsg('')} 
+                  className="text-emerald-700 hover:text-emerald-900 text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
+            {/* Search & Filter Header */}
+            <div className="bg-white p-5 rounded-3xl shadow-xs border border-[#E5DAD0] flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="relative w-full md:w-80">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#541D26]" />
+                <input
+                  type="text"
+                  placeholder="Search service, vendor, #id..."
+                  value={enquirySearch}
+                  onChange={(e) => setEnquirySearch(e.target.value)}
+                  className="w-full pl-11 pr-4 py-2.5 bg-[#FAF9F6] border border-[#E5DAD0] rounded-full text-xs text-[#211A19] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#541D26]/20 transition-all font-medium"
+                />
+              </div>
 
+              {/* Status Filter Badges */}
+              <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
+                {['ALL', 'NEW', 'CONTACTED', 'SCHEDULED', 'COMPLETED', 'CANCELLED'].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setEnquiryFilter(st)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                      enquiryFilter === st
+                        ? 'bg-[#541D26] text-white shadow-xs'
+                        : 'bg-[#FAF9F6] text-[#211A19]/70 hover:bg-[#EEE5DA] border border-[#E5DAD0]'
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            </div>
 
+            {/* Loading / Empty State / List */}
+            {loadingEnquiries ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-[#E5DAD0] space-y-3">
+                <RefreshCw className="w-8 h-8 text-[#541D26] animate-spin mx-auto" />
+                <p className="text-xs text-[#211A19]/70 font-bold">Loading your service enquiries...</p>
+              </div>
+            ) : filteredEnquiries.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-[#E5DAD0] space-y-4">
+                <div className="w-16 h-16 rounded-full bg-[#FAF6EE] text-[#541D26] flex items-center justify-center mx-auto border border-[#E5DAD0]">
+                  <Briefcase className="w-8 h-8 text-[#541D26]" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-serif font-bold text-[#211A19]">No Service Enquiries Found</h3>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                    {enquirySearch || enquiryFilter !== 'ALL'
+                      ? 'No requests match your current filters. Try changing search keywords or status filter.'
+                      : 'You have not submitted any service consultation requests yet. Browse verified local specialists in your society!'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRoute({ page: 'societyVendors', societyId: activeUser?.society_id || 'all' })}
+                  className="px-6 py-2.5 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-full text-xs font-extrabold uppercase tracking-wider shadow-sm transition-all cursor-pointer inline-flex items-center gap-2"
+                >
+                  <Briefcase className="w-3.5 h-3.5 text-[#C8A878]" />
+                  <span>Find Service Specialists</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5">
+                {filteredEnquiries.map((enq) => {
+                  const enqId = enq.enquiry_id || enq.id;
+                  const status = (enq.status || 'NEW').toUpperCase();
+                  const isCancelling = cancellingEnquiryId === enqId;
+                  const canCancel = status === 'NEW' || status === 'CONTACTED';
+
+                  const whatsappLink = enq.direct_actions?.whatsapp_link || enq.whatsapp_link;
+                  const callLink = enq.direct_actions?.call_link || enq.call_link;
+
+                  const statusConfig = {
+                    NEW: { bg: 'bg-amber-50 text-amber-800 border-amber-200', label: 'New Request' },
+                    CONTACTED: { bg: 'bg-blue-50 text-blue-800 border-blue-200', label: 'Vendor Contacted' },
+                    SCHEDULED: { bg: 'bg-purple-50 text-purple-800 border-purple-200', label: 'Slot Scheduled' },
+                    COMPLETED: { bg: 'bg-emerald-50 text-emerald-800 border-emerald-200', label: 'Completed' },
+                    CANCELLED: { bg: 'bg-rose-50 text-rose-800 border-rose-200', label: 'Cancelled' }
+                  }[status] || { bg: 'bg-gray-50 text-gray-800 border-gray-200', label: status };
+
+                  return (
+                    <div
+                      key={enqId || Math.random()}
+                      className="bg-white rounded-3xl border border-[#E5DAD0] p-5 sm:p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+                    >
+                      {/* Card Header */}
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <span className="font-mono text-[11px] font-black text-[#541D26] block">
+                              #{enqId}
+                            </span>
+                            <h3 className="text-base font-serif font-black text-[#211A19] mt-0.5 leading-snug">
+                              {enq.service_type || enq.service_title || 'General Service Request'}
+                            </h3>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shrink-0 ${statusConfig.bg}`}>
+                            {statusConfig.label}
+                          </span>
+                        </div>
+
+                        {/* Store / Vendor Name */}
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-[#541D26]">
+                          <Store className="w-3.5 h-3.5 text-[#C8A878] shrink-0" />
+                          <span>{enq.store_name || enq.vendor_name || 'Verified Vendor'}</span>
+                        </div>
+                      </div>
+
+                      {/* Details Box */}
+                      <div className="bg-[#FAF9F6] rounded-2xl border border-[#E5DAD0] p-3.5 text-xs space-y-2 text-[#211A19]">
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-[#541D26]" /> Preferred Slot:
+                          </span>
+                          <span className="font-bold text-[#211A19] text-right">
+                            {enq.preferred_time || 'As soon as possible'}
+                          </span>
+                        </div>
+
+                        {enq.description && (
+                          <div className="pt-1.5 border-t border-[#E5DAD0]/80">
+                            <p className="text-[11.5px] text-[#211A19]/80 font-medium line-clamp-2">
+                              {enq.description}
+                            </p>
+                          </div>
+                        )}
+
+                        {(enq.society_name || enq.sector) && (
+                          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-[#E5DAD0]/80">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-[#541D26]" /> Location:
+                            </span>
+                            <span className="font-semibold text-[#211A19] text-right truncate max-w-[180px]">
+                              {enq.society_name || enq.sector}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-[10.5px] text-muted-foreground pt-1">
+                          <span>Submitted on:</span>
+                          <span className="font-medium">{formatOrderDateTime(enq.created_at)}</span>
+                        </div>
+                      </div>
+
+                      {/* Issue Photos Preview if present */}
+                      {Array.isArray(enq.issue_photos) && enq.issue_photos.length > 0 && (
+                        <div className="flex items-center gap-2 overflow-x-auto py-1">
+                          {enq.issue_photos.map((imgUrl, i) => (
+                            <a
+                              key={i}
+                              href={imgUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="w-12 h-12 rounded-xl overflow-hidden border border-[#E5DAD0] shrink-0 block bg-[#FAF6EE] hover:opacity-80 transition-opacity"
+                            >
+                              <img src={imgUrl} alt="Issue photo" className="w-full h-full object-cover" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Direct Actions: WhatsApp & Call Buttons + Cancel */}
+                      <div className="space-y-2 pt-1 border-t border-[#E5DAD0]">
+                        <div className="grid grid-cols-2 gap-2">
+                          {whatsappLink ? (
+                            <a
+                              href={whatsappLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs text-center"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 fill-white text-emerald-600 shrink-0" />
+                              <span>WhatsApp</span>
+                            </a>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setRoute({ page: 'vendorStorefront', societyId: enq.society_id || 'all', vendorId: enq.vendor_id })}
+                              className="py-2.5 px-3 rounded-xl bg-[#FAF9F6] text-[#211A19] font-bold text-[11px] uppercase tracking-wider border border-[#E5DAD0] transition-all cursor-pointer"
+                            >
+                              Storefront
+                            </button>
+                          )}
+
+                          {callLink ? (
+                            <a
+                              href={callLink}
+                              className="py-2.5 px-3 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs text-center"
+                            >
+                              <Phone className="w-3.5 h-3.5 text-[#C8A878] shrink-0" />
+                              <span>Call Vendor</span>
+                            </a>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setRoute({ page: 'vendorStorefront', societyId: enq.society_id || 'all', vendorId: enq.vendor_id })}
+                              className="py-2.5 px-3 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer"
+                            >
+                              View Vendor
+                            </button>
+                          )}
+                        </div>
+
+                        {canCancel && (
+                          <div className="text-right">
+                            <button
+                              type="button"
+                              disabled={isCancelling}
+                              onClick={() => handleCancelEnquiry(enqId)}
+                              className="text-[11px] font-bold text-rose-600 hover:text-rose-800 transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1"
+                            >
+                              <XCircle className="w-3 h-3" />
+                              <span>{isCancelling ? 'Cancelling...' : 'Cancel Enquiry'}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ------------------------------------------------------------- */}
         {/* TAB CONTENT 2: PROFILE DETAILS EDIT FORM                      */}
@@ -2077,6 +2494,66 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
               </div>
             </div>
 
+            {/* Dynamic Refund Lifecycle Banner in Modal */}
+            {(() => {
+              const st = String(selectedOrder.status || selectedOrder.order_status || '').toUpperCase();
+              if (st !== 'CANCELLED' && st !== 'CANCELED' && st !== 'REJECTED' && st !== 'DECLINED') return null;
+
+              const isRefundInProgress = Boolean(selectedOrder.is_refund_in_progress || selectedOrder.payment_status === 'REFUND_IN_PROGRESS' || selectedOrder.refund_status === 'IN_PROGRESS');
+              const isRefundCompleted = Boolean(selectedOrder.payment_status === 'REFUND_COMPLETED' || selectedOrder.refund_status === 'COMPLETED' || selectedOrder.payment_status === 'REFUNDED');
+              const refundAmt = Number(selectedOrder.refund_amount || selectedOrder.total_amount || selectedOrder.total || 0).toFixed(2);
+
+              if (isRefundInProgress) {
+                return (
+                  <div className="p-4 bg-orange-50/95 border border-orange-300 rounded-2xl text-orange-950 space-y-1.5 text-xs shadow-2xs">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <RefreshCw className="w-4 h-4 text-orange-600 shrink-0 animate-spin" />
+                        <span className="font-bold text-sm text-orange-950">Refund in Progress</span>
+                      </div>
+                      <span className="text-xs bg-orange-200 text-orange-900 border border-orange-300 px-2.5 py-0.5 rounded-full font-bold">
+                        ₹{refundAmt}
+                      </span>
+                    </div>
+                    <p className="text-[11.5px] text-orange-900 leading-relaxed">
+                      Your refund has been initiated and is being credited back to your original payment account. Most UPI refunds reflect within <strong>15 minutes to 2 hours</strong>.
+                    </p>
+                    {selectedOrder.refund_id && (
+                      <div className="pt-0.5 text-[10.5px] font-mono text-orange-800">
+                        Refund ID: {selectedOrder.refund_id}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              if (isRefundCompleted) {
+                return (
+                  <div className="p-4 bg-emerald-50/95 border border-emerald-300 rounded-2xl text-emerald-950 space-y-1.5 text-xs shadow-2xs">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="font-bold text-sm text-emerald-950">Refund Completed</span>
+                      </div>
+                      <span className="text-xs bg-emerald-200 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 rounded-full font-bold">
+                        ₹{refundAmt}
+                      </span>
+                    </div>
+                    <p className="text-[11.5px] text-emerald-900 leading-relaxed">
+                      Full refund of <strong>₹{refundAmt}</strong> has been successfully credited to your original payment source.
+                    </p>
+                    {selectedOrder.refund_id && (
+                      <div className="pt-0.5 text-[10.5px] font-mono text-emerald-800">
+                        Refund ID: {selectedOrder.refund_id}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              return null;
+            })()}
+
             {/* Store & Customer Details Box */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="p-3 rounded-2xl bg-white border border-[#E5DAD0] space-y-1">
@@ -2220,6 +2697,147 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                 className="w-full sm:w-1/2 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {isDeletingAccount ? 'Deleting Account...' : 'Yes, Delete Account'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 4: USER ORDER CANCELLATION & SOURCE REFUND MODAL        */}
+      {/* ------------------------------------------------------------- */}
+      {cancellingOrder && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto font-sans"
+          onClick={() => !isCancellingOrder && setCancellingOrder(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 sm:p-7 shadow-2xl border border-rose-200 text-[#211A19] space-y-5 my-auto shrink-0 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#E5DAD0]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-[#211A19]">
+                    Cancel Order #{String(cancellingOrder.order_id || cancellingOrder.id).replace(/^ORD[-_]?/i, '')}
+                  </h3>
+                  <p className="text-xs text-[#78716C]">Store: {cancellingOrder.store_name || 'Society Merchant Store'}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => !isCancellingOrder && setCancellingOrder(null)}
+                disabled={isCancellingOrder}
+                className="w-8 h-8 rounded-full hover:bg-[#FAF7F2] text-[#78716C] flex items-center justify-center text-lg font-bold cursor-pointer transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Online payment automated refund notice */}
+            {(String(cancellingOrder.payment_status || '').toUpperCase() === 'PAID' || (cancellingOrder.payment_method && !['COD', 'CASH_ON_DELIVERY'].includes(String(cancellingOrder.payment_method).toUpperCase()))) ? (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="text-xs font-bold">Automated Original Payment Source Refund</span>
+                </div>
+                <p className="text-xs text-emerald-900/90 leading-relaxed">
+                  Since this order was paid online, the full amount of <strong className="font-mono font-bold text-emerald-950">₹{Number(cancellingOrder.total_amount || 0).toFixed(2)}</strong> will be automatically credited back to your original bank account / UPI / card via Cashfree Payment Gateway. No manual bank details required.
+                </p>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs">
+                <p className="font-medium">
+                  This order was placed with Cash on Delivery (COD). It will be cancelled immediately with zero charges.
+                </p>
+              </div>
+            )}
+
+            {/* Reason selector */}
+            <div className="space-y-2.5">
+              <label className="text-xs font-bold text-[#211A19] block">
+                Select reason for cancelling:
+              </label>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                {[
+                  'Changed delivery time preference',
+                  'Ordered incorrect items by mistake',
+                  'Store taking too long to prepare',
+                  'Found alternative store in society',
+                  'Other reason'
+                ].map((r, i) => (
+                  <label 
+                    key={i} 
+                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                      orderCancelReason === r 
+                        ? 'bg-[#541D26]/5 border-[#541D26] text-[#541D26] font-bold' 
+                        : 'bg-[#FAF7F2] border-[#E5DAD0] text-[#211A19] hover:bg-white'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="orderCancelReason"
+                      checked={orderCancelReason === r}
+                      onChange={() => setOrderCancelReason(r)}
+                      className="accent-[#541D26]"
+                    />
+                    <span>{r}</span>
+                  </label>
+                ))}
+              </div>
+
+              {orderCancelReason === 'Other reason' && (
+                <input
+                  type="text"
+                  placeholder="Please specify your reason..."
+                  value={orderCustomReason}
+                  onChange={(e) => setOrderCustomReason(e.target.value)}
+                  className="w-full mt-2 p-2.5 bg-[#FAF7F2] border border-[#E5DAD0] rounded-xl text-xs text-[#211A19] focus:outline-none focus:border-[#541D26]"
+                />
+              )}
+            </div>
+
+            {/* Feedback messages */}
+            {cancelOrderFeedback && (
+              <div className={`p-3 rounded-xl text-xs font-bold border ${
+                cancelOrderFeedback.type === 'success' 
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
+                  : 'bg-rose-50 border-rose-300 text-rose-800'
+              }`}>
+                {cancelOrderFeedback.message}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setCancellingOrder(null)}
+                disabled={isCancellingOrder}
+                className="px-4 py-2.5 rounded-full border border-[#E5DAD0] text-xs font-bold text-[#78716C] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+              >
+                Nevermind, Keep Order
+              </button>
+              <button
+                type="button"
+                onClick={handleUserCancelOrder}
+                disabled={isCancellingOrder}
+                className="px-5 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isCancellingOrder ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Processing Cancellation...</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Confirm & Cancel Order</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

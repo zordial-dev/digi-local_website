@@ -118,7 +118,7 @@ export default function VendorOnboardingStepper({ societyId, societyName, onComp
         </div>
 
         {/* Stepper Progress Bar */}
-        <div className="grid grid-cols-4 gap-2 relative">
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2 relative">
           {[
             { num: 1, title: 'Society & OTP' },
             { num: 2, title: 'Store Details' },
@@ -126,16 +126,16 @@ export default function VendorOnboardingStepper({ societyId, societyName, onComp
             { num: 4, title: 'Catalog Launch' },
           ].map((s) => (
             <div key={s.num} className="flex flex-col items-center">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-all ${
+              <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-black text-[11px] sm:text-xs transition-all ${
                 step === s.num
                   ? 'bg-gold text-ink ring-4 ring-gold/30 scale-105'
                   : step > s.num
                   ? 'bg-primary-foreground text-primary font-black'
                   : 'bg-primary-foreground/15 text-primary-foreground/60'
               }`}>
-                {step > s.num ? <CheckCircle2 className="w-4 h-4" /> : s.num}
+                {step > s.num ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : s.num}
               </div>
-              <span className={`text-[10px] font-semibold mt-1 text-center hidden sm:block ${
+              <span className={`text-[9px] sm:text-[10px] font-semibold mt-1 text-center hidden sm:block ${
                 step === s.num ? 'text-gold font-black' : 'text-primary-foreground/70'
               }`}>
                 {s.title}
@@ -145,7 +145,7 @@ export default function VendorOnboardingStepper({ societyId, societyName, onComp
         </div>
       </div>
 
-      <div className="p-6 sm:p-8 space-y-6">
+      <div className="p-4 sm:p-8 space-y-6">
         {/* STEP 1: Pre-Selected Society & Mobile OTP */}
         {step === 1 && (
           <div className="space-y-6">
@@ -156,7 +156,7 @@ export default function VendorOnboardingStepper({ societyId, societyName, onComp
                 <p className="text-xs text-muted-foreground mt-0.5 font-medium">
                   You are registering your vendor profile specifically for residential society:
                 </p>
-                <div className="mt-2 text-sm font-bold text-ink bg-card px-3.5 py-1.5 rounded-xl border border-border inline-block">
+                <div className="mt-2 text-xs sm:text-sm font-bold text-ink bg-card px-3.5 py-1.5 rounded-xl border border-border inline-block break-words max-w-full">
                   🏛️ {societyName} (ID: #{societyId})
                 </div>
               </div>
@@ -172,7 +172,7 @@ export default function VendorOnboardingStepper({ societyId, societyName, onComp
                 readOnly
                 disabled
                 value={societyName}
-                className="w-full px-4 py-3.5 rounded-2xl bg-secondary border border-border text-ink font-extrabold text-sm cursor-not-allowed"
+                className="w-full px-4 py-3.5 rounded-2xl bg-secondary border border-border text-ink font-extrabold text-base sm:text-sm cursor-not-allowed"
               />
             </div>
 
@@ -190,18 +190,18 @@ export default function VendorOnboardingStepper({ societyId, societyName, onComp
               )}
 
               {!otpSent ? (
-                <div className="flex space-x-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="tel"
                     maxLength={10}
                     placeholder="Enter 10-digit mobile number"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="flex-1 px-4 py-3.5 rounded-2xl bg-background border border-border text-sm font-semibold focus:outline-none focus:border-[#541D26] text-ink"
+                    className="flex-1 px-4 py-3.5 rounded-2xl bg-background border border-border text-base sm:text-sm font-semibold focus:outline-none focus:border-[#541D26] text-ink min-h-[44px]"
                   />
                   <button
                     onClick={handleSendOTP}
-                    className="px-6 py-3.5 bg-[#541D26] hover:bg-[#6B2732] text-white font-black text-xs rounded-full transition-all uppercase tracking-wider shadow-md cursor-pointer"
+                    className="px-6 py-3.5 bg-[#541D26] hover:bg-[#6B2732] text-white font-black text-xs rounded-full transition-all uppercase tracking-wider shadow-md cursor-pointer min-h-[44px]"
                   >
                     Send OTP
                   </button>
@@ -211,19 +211,19 @@ export default function VendorOnboardingStepper({ societyId, societyName, onComp
                   <p className="text-xs text-muted-foreground font-semibold">
                     6-digit verification code sent to +91 {phone}. Please check your phone.
                   </p>
-                  <div className="flex space-x-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="text"
                       maxLength={6}
                       placeholder="123456"
                       value={otp}
                       onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-                      className="w-44 px-4 py-3 rounded-2xl bg-background border border-border text-center font-mono font-black text-lg text-ink focus:outline-none focus:border-[#541D26] tracking-widest"
+                      className="w-full sm:w-44 px-4 py-3 rounded-2xl bg-background border border-border text-center font-mono font-black text-lg text-ink focus:outline-none focus:border-[#541D26] tracking-widest min-h-[44px]"
                     />
                     <button
                       onClick={handleVerifyOTP}
                       disabled={loading}
-                      className="px-6 py-3 bg-[#541D26] hover:bg-[#6B2732] text-white font-black text-xs rounded-full transition-all uppercase tracking-wider shadow-md cursor-pointer disabled:opacity-50"
+                      className="px-6 py-3 bg-[#541D26] hover:bg-[#6B2732] text-white font-black text-xs rounded-full transition-all uppercase tracking-wider shadow-md cursor-pointer disabled:opacity-50 min-h-[44px]"
                     >
                       {loading ? 'Verifying...' : 'Verify OTP'}
                     </button>
@@ -240,7 +240,7 @@ export default function VendorOnboardingStepper({ societyId, societyName, onComp
             <button
               disabled={!isPhoneVerified}
               onClick={() => setStep(2)}
-              className={`w-full py-4 rounded-full font-black text-xs uppercase tracking-wider flex items-center justify-center space-x-2 transition-all ${
+              className={`w-full py-4 rounded-full font-black text-xs uppercase tracking-wider flex items-center justify-center space-x-2 transition-all min-h-[48px] ${
                 isPhoneVerified
                   ? 'bg-[#541D26] hover:bg-[#6B2732] text-white shadow-lg cursor-pointer group'
                   : 'bg-secondary text-muted-foreground border border-border cursor-not-allowed'

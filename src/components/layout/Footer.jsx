@@ -26,7 +26,7 @@ export default function Footer({ setRoute, onOpenSupportDesk }) {
   };
 
   return (
-    <footer className="w-full bg-[#181312] text-white font-sans overflow-hidden px-8 md:px-14 py-12 select-none relative">
+    <footer className="w-full bg-[#181312] text-white font-sans overflow-hidden px-4 sm:px-8 md:px-14 py-8 sm:py-12 select-none relative pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
       
       {/* Background Decorative Ambient Radial Glows */}
       <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#C8A878]/10 rounded-full blur-[130px] pointer-events-none" />

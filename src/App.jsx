@@ -442,8 +442,9 @@ export default function App() {
               <HomePage currentRoute={route} setRoute={setRoute} onOpenLogin={() => setRoute({ page: 'login' })} />
             )}
 
-            {route.page === 'profile' && (
+            {(route.page === 'profile' || route.page === 'userProfile') && (
               <UserProfilePage
+                currentRoute={route}
                 activeUser={activeUser}
                 setActiveUser={setActiveUser}
                 setRoute={setRoute}

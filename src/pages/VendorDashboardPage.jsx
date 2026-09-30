@@ -748,18 +748,21 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       ? (item.is_available !== false && item.is_available !== 0 && item.is_available !== '0' && item.is_available !== 'false')
       : (stockNum > 0 && item.is_available !== false && item.is_available !== 0 && item.is_available !== '0' && item.is_available !== 'false');
 
+    const serviceName = item.service_name || item.item_name || item.name || item.title || '';
+    const imgUrl = item.image_url || item.imageUrl || item.image || item.photo_url || item.photoUrl || item.photo || (Array.isArray(item.images) ? item.images[0] : '');
+
     setItemForm({
-      item_name: item.item_name || '',
-      description: item.description || '',
-      price: item.price !== undefined ? String(item.price) : '',
-      visiting_charge: item.visiting_charge !== undefined && item.visiting_charge !== null ? String(item.visiting_charge) : '',
-      duration: item.duration || (isService ? '1 hour' : ''),
-      service_location: item.service_location || "At Customer's Doorstep",
+      item_name: serviceName,
+      description: item.description || item.service_description || '',
+      price: item.price !== undefined && item.price !== null ? String(item.price) : (item.service_price !== undefined ? String(item.service_price) : ''),
+      visiting_charge: item.visiting_charge !== undefined && item.visiting_charge !== null ? String(item.visiting_charge) : (item.visitingCharge !== undefined ? String(item.visitingCharge) : ''),
+      duration: item.estimated_duration || item.duration || (isService ? '1 hour' : ''),
+      service_location: item.service_location || item.location || "At Customer's Doorstep",
       stock: stockVal,
       category: item.category || (isService ? 'Electrician & Repairs' : 'General'),
       unit: item.unit || (isService ? 'Service' : 'Piece'),
       is_available: availVal,
-      image_url: item.image_url || ''
+      image_url: imgUrl
     });
     setShowAddItemModal(true);
   };
@@ -801,7 +804,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     });
 
     try {
-      await api.updateOrderStatus(orderId, normalizedUpper);
+      const res = await api.updateOrderStatus(orderId, normalizedUpper);
       await loadPanelData(false);
 
       if (normalizedUpper === 'COMPLETED' || normalizedUpper === 'DELIVERED') {
@@ -825,11 +828,15 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
           message: `Order #${orderId} is now marked out for doorstep delivery.`,
           type: 'success'
         });
-      } else if (normalizedUpper === 'CANCELLED') {
+      } else if (normalizedUpper === 'CANCELLED' || normalizedUpper === 'REJECTED' || normalizedUpper === 'DECLINED') {
+        const refundAmt = res?.refund?.refund_amount || res?.data?.refund?.refund_amount;
+        const refundMsg = refundAmt 
+          ? ` A full refund of ₹${Number(refundAmt).toFixed(2)} was automatically processed back to the customer's original payment account.`
+          : '';
         setModalConfig({
           isOpen: true,
-          title: '🚫 Order Cancelled',
-          message: `Order #${orderId} has been cancelled.`,
+          title: '🚫 Order Cancelled / Rejected',
+          message: `Order #${orderId} has been cancelled.${refundMsg}`,
           type: 'info'
         });
       }
@@ -1105,17 +1112,19 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   }
 
   const { vendor, orders, subscription, payments } = panelData;
-  const rawItems = panelData?.items || [];
+  const rawItems = (panelData?.items && panelData.items.length > 0)
+    ? panelData.items
+    : (panelData?.services && panelData.services.length > 0 ? panelData.services : (panelData?.items || []));
 
-  // Deduplicate items safely by item_id and name
+  // Deduplicate items safely by item_id/service_id and name/service_name
   const deduplicateVendorItems = (itemList) => {
     const seenIds = new Set();
     const seenNames = new Set();
     const cleanList = [];
     for (const item of itemList) {
       if (!item) continue;
-      const idKey = String(item.item_id || item.id || '');
-      const nameKey = (item.item_name || '').trim().toLowerCase();
+      const idKey = String(item.service_id || item.item_id || item.id || '');
+      const nameKey = (item.service_name || item.item_name || item.name || item.title || '').trim().toLowerCase();
       if (idKey && seenIds.has(idKey)) continue;
       if (nameKey && seenNames.has(nameKey)) continue;
       if (idKey) seenIds.add(idKey);
@@ -1178,13 +1187,13 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       )}
 
       {/* Main Container */}
-      <div className="w-full max-w-7xl mx-auto pt-4 pb-20 space-y-6">
+      <div className="w-full max-w-7xl mx-auto pt-3 sm:pt-4 pb-20 px-3 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
         
         {/* Top Banner */}
-        <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center space-x-5 min-w-0 flex-1">
-              <div className="w-20 h-20 rounded-2xl border-2 border-border bg-secondary flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm relative">
+        <div className="bg-card border border-border rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6">
+            <div className="flex items-center space-x-3 sm:space-x-5 min-w-0 flex-1">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl border-2 border-border bg-secondary flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm relative">
                 {getNormalizedImageUrl(vendor.logo || vendor.image_url || localStorage.getItem(`digilocal_vendor_logo_${vendor.vendor_id}`)) ? (
                   <img
                     src={getNormalizedImageUrl(vendor.logo || vendor.image_url || localStorage.getItem(`digilocal_vendor_logo_${vendor.vendor_id}`))}
@@ -1192,17 +1201,17 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <Store className="w-8 h-8 text-[#541D26]" />
+                  <Store className="w-6 h-6 sm:w-8 sm:h-8 text-[#541D26]" />
                 )}
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center space-x-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center space-x-1.5 sm:space-x-2">
                   {(vendor.category || vendor.business_category) && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-secondary text-ink border border-border">
+                    <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-secondary text-ink border border-border">
                       {vendor.category || vendor.business_category}
                     </span>
                   )}
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border ${
+                  <span className={`px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border ${
                     (vendor.status === 'APPROVED' || vendor.status === 'ACTIVE')
                       ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                       : vendor.status === 'REJECTED'
@@ -1219,10 +1228,10 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     {vendor.status || 'PENDING'}
                   </span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-serif font-black text-ink mt-1 truncate">
+                <h1 className="text-lg sm:text-2xl md:text-3xl font-serif font-black text-ink mt-0.5 sm:mt-1 truncate">
                   {vendor.store_name || vendor.vendor_name || 'Vendor Store'}
                 </h1>
-                <p className="text-xs text-muted-foreground mt-1 font-medium truncate">
+                <p className="text-[10.5px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 font-medium truncate">
                   Vendor: {vendor.vendor_name || vendor.owner_name || vendor.email || vendor.phone_number || ''}
                   {vendor.email && vendor.email.includes('@') && !vendor.email.includes('@vendor.digilocal') 
                     ? ` (${vendor.email})` 
@@ -1231,12 +1240,12 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               </div>
             </div>
 
-            <div className="flex items-center space-x-2.5 self-start md:self-auto shrink-0">
+            <div className="flex items-center space-x-2 sm:space-x-2.5 self-start sm:self-auto shrink-0">
               <button
                 onClick={loadPanelData}
-                className="px-4 py-2.5 rounded-full bg-secondary hover:bg-border text-ink text-xs font-bold flex items-center space-x-2 border border-border shadow-sm uppercase tracking-wider cursor-pointer transition-all whitespace-nowrap"
+                className="px-3 sm:px-4 py-1.5 sm:py-2.5 rounded-full bg-secondary hover:bg-border text-ink text-[10.5px] sm:text-xs font-bold flex items-center space-x-1.5 sm:space-x-2 border border-border shadow-xs uppercase tracking-wider cursor-pointer transition-all whitespace-nowrap"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-gold" />
+                <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gold" />
                 <span>Refresh Panel</span>
               </button>
             </div>
@@ -1253,11 +1262,11 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
         {/* Pending Admin Approval Banner */}
         {(vendor.status === 'PENDING' || vendor.status === 'PENDING APPROVAL' || (vendor.status !== 'APPROVED' && vendor.status !== 'ACTIVE')) && (
-          <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-300/80 text-amber-900 text-xs flex items-start space-x-3 shadow-sm font-medium">
-            <ShieldCheck className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+          <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-amber-50/80 border border-amber-300/80 text-amber-900 text-xs flex items-start space-x-2.5 sm:space-x-3 shadow-xs font-medium">
+            <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-amber-700 flex-shrink-0 mt-0.5" />
             <div>
-              <h4 className="font-extrabold text-amber-950 text-sm mb-0.5">Store Setup Active (Awaiting Admin / Secretary Approval)</h4>
-              <p className="text-amber-800/90 leading-relaxed">
+              <h4 className="font-extrabold text-amber-950 text-xs sm:text-sm mb-0.5">Store Setup Active (Awaiting Admin / Secretary Approval)</h4>
+              <p className="text-amber-800/90 text-[11px] sm:text-xs leading-relaxed">
                 Your vendor registration is complete! You can add products, set prices, and configure store settings now. Your store will automatically become live to community residents in <strong>{vendor.society_name || 'your society'}</strong> once your Housing Society Admin or DigiLocal Admin approves your request.
               </p>
             </div>
@@ -1265,7 +1274,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
         )}
 
         {/* Navigation Tabs */}
-        <div className="flex items-center space-x-2 border-b border-border overflow-x-auto">
+        <div className="flex items-center space-x-1 sm:space-x-2 border-b border-border overflow-x-auto touch-scroll scrollbar-none pb-0.5">
           {[
             { id: 'orders', label: `Store Sales (${orders.length})`, icon: ShoppingBag },
             { id: 'purchases', label: `My Purchases (${purchases.length})`, icon: ShoppingBag },
@@ -1287,13 +1296,13 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-5 py-3 rounded-t-2xl text-xs font-bold flex items-center space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider ${
+                className={`px-3 sm:px-5 py-2 sm:py-3 rounded-t-xl sm:rounded-t-2xl text-[11px] sm:text-xs font-bold flex items-center space-x-1.5 sm:space-x-2 transition-all border-b-2 whitespace-nowrap uppercase tracking-wider cursor-pointer ${
                   activeTab === tab.id
-                    ? 'bg-secondary text-ink border-primary font-black'
-                    : 'text-muted-foreground hover:text-ink border-transparent'
+                    ? 'bg-secondary text-ink border-primary font-black shadow-xs'
+                    : 'text-muted-foreground hover:text-ink border-transparent hover:bg-secondary/40'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-gold' : ''}`} />
+                <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${activeTab === tab.id ? 'text-gold' : ''}`} />
                 <span>{tab.label}</span>
               </button>
             );
@@ -1989,13 +1998,13 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
         {/* 2. ITEMS / SERVICES CATALOG TAB */}
         {activeTab === 'items' && (
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 bg-white border border-[#E5DAD0] rounded-2xl p-4 sm:px-5 sm:py-4 shadow-xs">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-[#E5DAD0] rounded-xl sm:rounded-2xl p-3.5 sm:px-5 sm:py-4 shadow-xs">
               <div>
-                <h2 className="text-base sm:text-lg font-serif font-black text-[#211A19] uppercase tracking-wider">
+                <h2 className="text-sm sm:text-lg font-serif font-black text-[#211A19] uppercase tracking-wider">
                   {isServiceVendor(vendor) ? 'Services Catalog & Offerings' : 'Store Inventory & Availability'}
                 </h2>
-                <p className="text-xs text-[#211A19]/60 font-medium mt-0.5 max-w-2xl">
+                <p className="text-[11px] sm:text-xs text-[#211A19]/60 font-medium mt-0.5 max-w-2xl">
                   {isServiceVendor(vendor) 
                     ? 'Add, edit, and list all services provided by your business. Community residents can view your full catalog and submit direct enquiries.'
                     : 'Toggle availability switch to make any item temporarily available/unavailable for customer ordering.'}
@@ -2004,7 +2013,7 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
 
               <button
                 onClick={() => { resetItemForm(); setEditingItem(null); setShowAddItemModal(true); }}
-                className="px-4 py-2 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-sm flex items-center justify-center space-x-2 uppercase tracking-wider shrink-0 transition-all hover:scale-102 cursor-pointer border border-[#C8A878]/30 self-start sm:self-auto"
+                className="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-sm flex items-center justify-center space-x-1.5 sm:space-x-2 uppercase tracking-wider shrink-0 transition-all hover:scale-102 cursor-pointer border border-[#C8A878]/30 self-start sm:self-auto"
               >
                 <Plus className="w-3.5 h-3.5 text-[#C8A878]" />
                 <span>{isServiceVendor(vendor) ? 'Add New Service' : 'Add New Item'}</span>
@@ -2012,11 +2021,11 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
             </div>
 
             {items.length === 0 ? (
-              <div className="text-center py-14 bg-white rounded-2xl border border-[#E5DAD0] p-6 shadow-xs space-y-3">
-                <div className="w-14 h-14 rounded-full bg-[#FAF6EE] border border-[#541D26]/20 flex items-center justify-center text-[#541D26] mx-auto shadow-2xs">
-                  {isServiceVendor(vendor) ? <Briefcase className="w-7 h-7 text-[#541D26]" /> : <Package className="w-7 h-7 text-[#541D26]" />}
+              <div className="text-center py-10 sm:py-14 bg-white rounded-xl sm:rounded-2xl border border-[#E5DAD0] p-5 sm:p-6 shadow-xs space-y-2.5 sm:space-y-3">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#FAF6EE] border border-[#541D26]/20 flex items-center justify-center text-[#541D26] mx-auto shadow-2xs">
+                  {isServiceVendor(vendor) ? <Briefcase className="w-6 h-6 sm:w-7 sm:h-7 text-[#541D26]" /> : <Package className="w-6 h-6 sm:w-7 sm:h-7 text-[#541D26]" />}
                 </div>
-                <h3 className="text-base font-serif font-bold text-[#211A19]">
+                <h3 className="text-sm sm:text-base font-serif font-bold text-[#211A19]">
                   {isServiceVendor(vendor) ? 'No Services Listed Yet' : 'No Items in Inventory'}
                 </h3>
                 <p className="text-muted-foreground text-xs font-medium max-w-sm mx-auto">
@@ -2026,99 +2035,104 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                 </p>
                 <button
                   onClick={() => { resetItemForm(); setEditingItem(null); setShowAddItemModal(true); }}
-                  className="mt-2 px-4 py-2 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-sm inline-flex items-center gap-2 uppercase tracking-wider cursor-pointer border border-[#C8A878]/30"
+                  className="mt-2 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs shadow-sm inline-flex items-center gap-1.5 sm:gap-2 uppercase tracking-wider cursor-pointer border border-[#C8A878]/30"
                 >
                   <Plus className="w-3.5 h-3.5 text-[#C8A878]" />
                   <span>{isServiceVendor(vendor) ? 'Create First Service' : 'Add First Item'}</span>
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
                 {items.map((item, idx) => (
-                  <div key={`item-${item.item_id || idx}-${idx}`} className="group rounded-2xl bg-white border border-[#E5DAD0] p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md hover:border-[#541D26]/30 transition-all duration-200">
+                  <div key={`item-${item.service_id || item.item_id || idx}-${idx}`} className="group rounded-xl sm:rounded-2xl bg-white border border-[#E5DAD0] p-2.5 sm:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md hover:border-[#541D26]/30 transition-all duration-200">
                     <div>
-                      <div className="relative mb-3 h-36 w-full rounded-xl overflow-hidden bg-[#FAF6EE] border border-[#E5DAD0]/60">
+                      <div className="relative mb-2 sm:mb-3 h-24 sm:h-36 w-full rounded-lg sm:rounded-xl overflow-hidden bg-[#FAF6EE] border border-[#E5DAD0]/60">
                         <img
                           src={getNormalizedImageUrl(item)}
-                          alt={item.item_name}
+                          alt={item.service_name || item.item_name || 'Item'}
                           className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
                         />
-                        <div className="absolute top-2 right-2">
-                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-white/95 text-[#211A19] border border-[#E5DAD0] shadow-xs backdrop-blur-xs">
+                        <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2">
+                          <span className="px-1.5 sm:px-2 py-0.5 text-[8.5px] sm:text-[10px] font-bold rounded-md bg-white/95 text-[#211A19] border border-[#E5DAD0] shadow-xs backdrop-blur-xs">
                             {item.category || (isServiceVendor(vendor) ? 'Service' : 'General')}
                           </span>
                         </div>
-                        {isServiceVendor(vendor) && item.duration && (
-                          <div className="absolute bottom-2 left-2">
-                            <span className="px-2 py-0.5 text-[9.5px] font-semibold rounded-md bg-black/70 text-[#C8A878] border border-white/10 shadow-xs backdrop-blur-xs flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-[#C8A878]" />
-                              <span>{item.duration}</span>
+                        {isServiceVendor(vendor) && (item.estimated_duration || item.duration) && (
+                          <div className="absolute bottom-1.5 sm:bottom-2 left-1.5 sm:left-2">
+                            <span className="px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9.5px] font-semibold rounded-md bg-black/70 text-[#C8A878] border border-white/10 shadow-xs backdrop-blur-xs flex items-center gap-0.5 sm:gap-1">
+                              <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#C8A878]" />
+                              <span>{item.estimated_duration || item.duration}</span>
                             </span>
                           </div>
                         )}
                       </div>
 
-                      <h3 className="font-serif font-bold text-[#211A19] text-sm line-clamp-1 group-hover:text-[#541D26] transition-colors">{item.item_name}</h3>
-                      <p className="text-[11.5px] text-[#211A19]/60 line-clamp-2 mt-0.5 mb-2.5 font-normal leading-relaxed min-h-[34px]">
-                        {item.description || (isServiceVendor(vendor) ? 'Professional service provided at flat doorstep.' : 'Fresh store product')}
+                      <h3 className="font-serif font-bold text-[#211A19] text-xs sm:text-sm line-clamp-1 group-hover:text-[#541D26] transition-colors">{item.service_name || item.item_name}</h3>
+                      <p className="text-[10px] sm:text-[11.5px] text-[#211A19]/60 line-clamp-1 sm:line-clamp-2 mt-0.5 mb-1.5 sm:mb-2.5 font-normal leading-relaxed min-h-0 sm:min-h-[34px]">
+                        {item.description || item.service_description || (isServiceVendor(vendor) ? 'Professional service provided at flat doorstep.' : 'Fresh store product')}
                       </p>
                       
-                      <div className="flex items-center justify-between text-xs mb-2.5 pt-2 border-t border-[#E5DAD0]/60">
-                        <div>
-                          <span className="text-sm sm:text-base font-black text-[#541D26]">
-                            {parseFloat(item.price) > 0 ? `₹${parseFloat(item.price).toFixed(2)}` : 'Quote Base'}
+                      <div className="flex flex-wrap items-center justify-between gap-1 text-xs mb-2 pt-1.5 sm:pt-2 border-t border-[#E5DAD0]/60">
+                        <div className="min-w-0">
+                          <span className="text-xs sm:text-base font-black text-[#541D26]">
+                            {parseFloat(item.price || item.service_price || 0) > 0 ? `₹${parseFloat(item.price || item.service_price).toFixed(2)}` : 'Quote'}
                           </span>
-                          <span className="text-[11px] text-[#211A19]/50 ml-1 font-medium">
-                            / {item.unit || (isServiceVendor(vendor) ? 'Service' : 'Piece')}
+                          <span className="text-[9.5px] sm:text-[11px] text-[#211A19]/50 ml-0.5 sm:ml-1 font-medium truncate">
+                            /{item.unit || (isServiceVendor(vendor) ? 'Service' : 'Item')}
                           </span>
+                          {isServiceVendor(vendor) && item.visiting_charge && parseFloat(item.visiting_charge) > 0 && (
+                            <span className="block text-[8.5px] sm:text-[9.5px] font-semibold text-amber-900 mt-0.5">
+                              Visit: ₹{parseFloat(item.visiting_charge).toFixed(0)}
+                            </span>
+                          )}
                         </div>
                         {isServiceVendor(vendor) ? (
-                          <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                            💬 Enquire Only
+                          <span className="text-[8.5px] sm:text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 sm:px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                            💬 Enquire
                           </span>
                         ) : (
-                          <span className="text-[10px] font-semibold text-[#211A19]/70 bg-[#FAF6EE] px-2 py-0.5 rounded-full border border-[#E5DAD0]">
-                            Stock: <strong className="text-[#211A19]">{item.stock}</strong> {item.unit}
+                          <span className="text-[8.5px] sm:text-[10px] font-semibold text-[#211A19]/70 bg-[#FAF6EE] px-1.5 sm:px-2 py-0.5 rounded-full border border-[#E5DAD0] shrink-0">
+                            Stock: <strong className="text-[#211A19]">{item.stock}</strong>
                           </span>
                         )}
                       </div>
                     </div>
 
                     {/* ITEM AVAILABILITY TOGGLE SWITCH */}
-                    <div className="pt-2.5 border-t border-[#E5DAD0]/80 flex items-center justify-between gap-2">
-                      <div className="flex items-center space-x-2">
+                    <div className="pt-2 border-t border-[#E5DAD0]/80 flex items-center justify-between gap-1.5">
+                      <div className="flex items-center space-x-1 sm:space-x-2 min-w-0">
                         <button
                           type="button"
                           onClick={(e) => handleToggleAvailability(item, e)}
-                          className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          className={`relative inline-flex h-4 sm:h-5 w-7 sm:w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
                             isItemAvailable(item) ? 'bg-[#2E7D32]' : 'bg-slate-300'
                           }`}
                         >
                           <span
-                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
-                              isItemAvailable(item) ? 'translate-x-4' : 'translate-x-0'
+                            className={`pointer-events-none inline-block h-3 w-3 sm:h-4 sm:w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                              isItemAvailable(item) ? 'translate-x-3 sm:translate-x-4' : 'translate-x-0'
                             }`}
                           />
                         </button>
-                        <span className={`text-[11px] font-semibold ${isItemAvailable(item) ? 'text-[#2E7D32]' : 'text-slate-500'}`}>
-                          {isItemAvailable(item) ? (isServiceVendor(vendor) ? 'Accepting Enquiries' : 'Available') : 'Unavailable'}
+                        <span className={`text-[9.5px] sm:text-[11px] font-semibold truncate ${isItemAvailable(item) ? 'text-[#2E7D32]' : 'text-slate-500'}`}>
+                          {isItemAvailable(item) ? (isServiceVendor(vendor) ? 'Active' : 'In Stock') : 'Off'}
                         </span>
                       </div>
 
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center space-x-1 shrink-0">
                         <button
                           onClick={() => handleOpenEditItem(item)}
-                          className="p-1.5 rounded-lg bg-[#FAF6EE] hover:bg-[#F0E6DD] text-[#211A19] transition-colors border border-[#E5DAD0] cursor-pointer"
+                          className="p-1 sm:p-1.5 rounded-md sm:rounded-lg bg-[#FAF6EE] hover:bg-[#F0E6DD] text-[#211A19] transition-colors border border-[#E5DAD0] cursor-pointer"
                           title={isServiceVendor(vendor) ? 'Edit service' : 'Edit item'}
                         >
-                          <Edit2 className="w-3.5 h-3.5 text-[#541D26]" />
+                          <Edit2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#541D26]" />
                         </button>
                         <button
-                          onClick={() => handleDeleteItem(item.item_id)}
-                          className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors border border-rose-200 cursor-pointer"
+                          onClick={() => handleDeleteItem(item.service_id || item.item_id)}
+                          className="p-1 sm:p-1.5 rounded-md sm:rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors border border-rose-200 cursor-pointer"
                           title={isServiceVendor(vendor) ? 'Delete service' : 'Delete item'}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         </button>
                       </div>
                     </div>

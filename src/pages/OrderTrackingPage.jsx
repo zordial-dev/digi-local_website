@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
 import { 
   Truck, MapPin, Store, CheckCircle2, Clock, Phone, 
   ShieldCheck, ShoppingBag, ArrowLeft, HelpCircle, 
-  Receipt, Check, RefreshCw, ChefHat, AlertCircle
+  Receipt, Check, RefreshCw, ChefHat, AlertCircle,
+  XCircle, AlertTriangle, ArrowRight
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -10,6 +10,13 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
   const [activeOrder, setActiveOrder] = useState(propOrder || null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+
+  // Cancellation Modal & Processing State
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('Changed delivery time preference');
+  const [customReason, setCustomReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelFeedback, setCancelFeedback] = useState(null);
 
   const activeOrderRef = useRef(activeOrder);
   const isFetchingRef = useRef(false);
@@ -170,11 +177,11 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
   else if (isDelivered) stepIndex = 3;
   else if (isCancelled) stepIndex = -1;
 
-  // Status Presentation Details
+  // Status Presentation Details (Aligned with Canonical Palette)
   let statusBadge = {
     badge: 'Order Placed',
-    badgeColor: 'bg-amber-50 text-amber-800 border-amber-200',
-    dotColor: 'bg-amber-500 animate-pulse',
+    badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+    dotColor: 'bg-blue-500 animate-pulse',
     title: 'Order Placed with Store',
     description: `Order details received. Waiting for ${activeOrder?.store_name || 'the merchant'} to review and begin packing.`,
     eta: '~15–20 Mins'
@@ -183,7 +190,7 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
   if (isPendingPayment) {
     statusBadge = {
       badge: 'Payment Pending',
-      badgeColor: 'bg-amber-50 text-amber-800 border-amber-200',
+      badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
       dotColor: 'bg-amber-500 animate-pulse',
       title: 'Awaiting Online Payment',
       description: 'Please complete your transaction to confirm this order.',
@@ -192,7 +199,7 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
   } else if (rawStatus === 'CONFIRMED') {
     statusBadge = {
       badge: 'Confirmed',
-      badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       dotColor: 'bg-emerald-500',
       title: 'Payment Confirmed',
       description: `Payment verified. ${activeOrder?.store_name || 'The store'} is reviewing items to start preparation.`,
@@ -201,8 +208,8 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
   } else if (isAccepted) {
     statusBadge = {
       badge: 'Preparing Items',
-      badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-      dotColor: 'bg-emerald-500 animate-pulse',
+      badgeColor: 'bg-green-50 text-green-700 border-green-200',
+      dotColor: 'bg-green-500 animate-pulse',
       title: 'Store is Preparing Your Order',
       description: `${activeOrder?.store_name || 'The store'} accepted your order and is packing your fresh products.`,
       eta: '~10–14 Mins'
@@ -210,7 +217,7 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
   } else if (isOutForDelivery) {
     statusBadge = {
       badge: 'Out for Delivery',
-      badgeColor: 'bg-purple-50 text-purple-800 border-purple-200',
+      badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
       dotColor: 'bg-purple-500 animate-ping',
       title: 'Runner is on the Way',
       description: 'Your package is picked up and currently on the way to your flat doorstep.',
@@ -219,7 +226,7 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
   } else if (isDelivered) {
     statusBadge = {
       badge: 'Delivered',
-      badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-300',
       dotColor: 'bg-emerald-600',
       title: 'Order Delivered Successfully',
       description: `Your package has been delivered to ${activeOrder?.delivery_address || activeOrder?.address || 'your flat'}.`,
@@ -228,7 +235,7 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
   } else if (isCancelled) {
     statusBadge = {
       badge: 'Cancelled',
-      badgeColor: 'bg-rose-50 text-rose-800 border-rose-200',
+      badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',
       dotColor: 'bg-rose-600',
       title: 'Order Cancelled',
       description: 'This order was cancelled. If you made an online payment, a full refund is processed.',
@@ -236,13 +243,78 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
     };
   }
 
-  const orderTimeStr = activeOrder?.order_timestamp || activeOrder?.created_at || activeOrder?.date;
-  const formattedTime = orderTimeStr 
-    ? new Date(orderTimeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-    : 'Just now';
-  const formattedDate = orderTimeStr 
-    ? new Date(orderTimeStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) 
-    : 'Today';
+  const canCancel = !isDelivered && !isCancelled && !isOutForDelivery;
+  const isOnlinePaid = String(activeOrder?.payment_status || '').toUpperCase() === 'PAID' || 
+    (activeOrder?.payment_method && !['COD', 'CASH_ON_DELIVERY'].includes(String(activeOrder?.payment_method).toUpperCase()));
+
+  const isRefundInProgress = Boolean(activeOrder?.is_refund_in_progress || activeOrder?.payment_status === 'REFUND_IN_PROGRESS' || activeOrder?.refund_status === 'IN_PROGRESS');
+  const isRefundCompleted = Boolean(activeOrder?.payment_status === 'REFUND_COMPLETED' || activeOrder?.refund_status === 'COMPLETED' || activeOrder?.payment_status === 'REFUNDED');
+  const hasRefund = isRefundInProgress || isRefundCompleted || Boolean(activeOrder?.refund_id) || (Number(activeOrder?.refund_amount || 0) > 0);
+  const refundAmountVal = Number(activeOrder?.refund_amount || subtotal || 0).toFixed(2);
+
+  const handleCancelSubmit = async (e) => {
+    if (e) e.preventDefault();
+    const currentId = targetOrderId || activeOrderRef.current?.order_id || activeOrderRef.current?.id;
+    if (!currentId) return;
+
+    const finalReason = cancelReason === 'Other reason' ? (customReason || 'Customer requested cancel') : cancelReason;
+
+    try {
+      setIsCancelling(true);
+      setCancelFeedback(null);
+      const res = await api.cancelOrder(currentId, finalReason);
+
+      if (res.success) {
+        setCancelFeedback({
+          type: 'success',
+          message: res.message || 'Order cancelled successfully.',
+          refund: res.refund,
+          isOnlinePaid: res.is_online_paid
+        });
+
+        // Update active order locally immediately with real API response fields
+        setActiveOrder(prev => ({
+          ...prev,
+          status: 'CANCELLED',
+          order_status: 'CANCELLED',
+          payment_status: res.payment_status || (res.is_online_paid ? 'REFUND_IN_PROGRESS' : 'CANCELLED'),
+          refund_status: res.refund_status || (res.refund?.refund_status || (res.is_online_paid ? 'IN_PROGRESS' : null)),
+          refund_status_label: res.refund_status_label || (res.refund?.refund_status_label || null),
+          is_refund_in_progress: Boolean(res.is_refund_in_progress || res.payment_status === 'REFUND_IN_PROGRESS'),
+          is_online_paid: Boolean(res.is_online_paid),
+          refund_id: res.refund?.refund_id || prev?.refund_id,
+          cf_refund_id: res.refund?.cf_refund_id || prev?.cf_refund_id,
+          refund_amount: res.refund?.refund_amount || prev?.refund_amount || prev?.total_amount,
+          refunded_at: new Date().toISOString()
+        }));
+        setLastUpdated(new Date());
+
+        setTimeout(() => {
+          setShowCancelModal(false);
+          setCancelFeedback(null);
+        }, 1800);
+      } else {
+        setCancelFeedback({
+          type: 'error',
+          message: res.error || 'Failed to cancel order.'
+        });
+      }
+    } catch (err) {
+      setCancelFeedback({
+        type: 'error',
+        message: err.message || 'Network error while cancelling order.'
+      });
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const formattedTime = activeOrder?.created_at_readable 
+    ? activeOrder.created_at_readable.split(', ')[1] || activeOrder.created_at_readable
+    : (activeOrder?.order_timestamp || activeOrder?.created_at ? new Date(activeOrder.order_timestamp || activeOrder.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now');
+  const formattedDate = activeOrder?.created_at_readable
+    ? activeOrder.created_at_readable.split(', ')[0]
+    : (activeOrder?.order_timestamp || activeOrder?.created_at ? new Date(activeOrder.order_timestamp || activeOrder.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today');
 
   const timelineSteps = [
     {
@@ -304,13 +376,13 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F0E8] py-4 sm:py-6 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-[100dvh] bg-[#F6F0E8] py-4 sm:py-6 px-3 sm:px-6 lg:px-8 pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))] font-sans">
+      <div className="max-w-7xl mx-auto space-y-5 sm:space-y-6">
         
         {/* HEADER BAR */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5DAD0]">
           <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold text-[#211A19] leading-tight">
                 Order #{cleanOrderId}
               </h1>
@@ -318,30 +390,52 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
                 <span className={`w-2 h-2 rounded-full ${statusBadge.dotColor}`} />
                 {statusBadge.badge}
               </span>
+              {isRefundInProgress && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-800 border border-orange-300 animate-pulse" title="Crediting back to original payment account">
+                  <RefreshCw className="w-3 h-3 text-orange-600 animate-spin" />
+                  <span>Refund in Progress: ₹{refundAmountVal}</span>
+                </span>
+              )}
+              {!isRefundInProgress && isRefundCompleted && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300" title="Successfully credited to original payment source">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  <span>Refund Completed: ₹{refundAmountVal}</span>
+                </span>
+              )}
             </div>
             <p className="text-xs sm:text-sm text-[#78716C] mt-1">
               Placed on {formattedDate} at {formattedTime}
             </p>
           </div>
 
-          {onOpenSupportDesk && (
-            <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+            {canCancel && (
+              <button
+                onClick={() => setShowCancelModal(true)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 text-xs sm:text-sm font-bold shadow-2xs transition-colors cursor-pointer min-h-[40px]"
+              >
+                <XCircle className="w-4 h-4 text-rose-600" />
+                <span>Cancel Order</span>
+              </button>
+            )}
+
+            {onOpenSupportDesk && (
               <button
                 onClick={onOpenSupportDesk}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white text-xs sm:text-sm font-bold shadow-2xs transition-colors cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white text-xs sm:text-sm font-bold shadow-2xs transition-colors cursor-pointer min-h-[40px]"
               >
                 <HelpCircle className="w-4 h-4 text-[#C8A878]" />
                 <span>Help & Support</span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* MAIN 2-COLUMN UNIFIED CONTENT */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start">
           
           {/* LEFT COLUMN: LIVE STATUS & CONNECTED TIMELINE */}
-          <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-3xl p-6 sm:p-8 lg:p-10 border border-[#E5DAD0] shadow-xs space-y-8">
+          <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 lg:p-10 border border-[#E5DAD0] shadow-xs space-y-6">
             
             {/* Status Headline Banner */}
             <div className="flex items-start justify-between gap-4 pb-5 border-b border-[#E5DAD0]">
@@ -361,6 +455,99 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
                 </div>
               )}
             </div>
+
+            {/* Dynamic Order Refund Lifecycle Banners */}
+            {isCancelled && (
+              <>
+                {/* Stage 1: Refund In Progress Banner */}
+                {isRefundInProgress && (
+                  <div className="p-5 bg-orange-50/95 border border-orange-300 rounded-2xl text-orange-950 space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <RefreshCw className="w-5 h-5 text-orange-600 shrink-0 animate-spin" />
+                        <h4 className="font-bold text-sm text-orange-950">
+                          Refund in Progress
+                        </h4>
+                      </div>
+                      <span className="text-xs bg-orange-200 text-orange-900 border border-orange-300 px-2.5 py-0.5 rounded-full font-extrabold">
+                        ₹{refundAmountVal}
+                      </span>
+                    </div>
+                    <p className="text-xs text-orange-900 leading-relaxed">
+                      Your refund has been initiated via Cashfree and is currently crediting back to your original payment account. Most UPI refunds (GPay / PhonePe / Paytm) reflect within <strong>15 minutes to 2 hours</strong>. (Debit/Credit Cards & Net Banking: 2 to 5 business days).
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                      {activeOrder?.refund_id && (
+                        <span className="font-mono bg-white/90 px-2.5 py-1 rounded-lg border border-orange-200 font-bold text-orange-800">
+                          Refund ID: {activeOrder.refund_id}
+                        </span>
+                      )}
+                      {activeOrder?.cf_refund_id && (
+                        <span className="font-mono bg-white/90 px-2.5 py-1 rounded-lg border border-orange-200 text-orange-800">
+                          Gateway ID: {activeOrder.cf_refund_id}
+                        </span>
+                      )}
+                      <span className="bg-orange-200/70 text-orange-950 px-2 py-1 rounded-lg font-semibold text-[10.5px]">
+                        Destination: Original Payment Source
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Stage 2: Refund Completed Banner */}
+                {!isRefundInProgress && isRefundCompleted && (
+                  <div className="p-5 bg-emerald-50/95 border border-emerald-300 rounded-2xl text-emerald-950 space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <h4 className="font-bold text-sm text-emerald-950">
+                          Refund Completed
+                        </h4>
+                      </div>
+                      <span className="text-xs bg-emerald-200 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 rounded-full font-extrabold">
+                        ₹{refundAmountVal}
+                      </span>
+                    </div>
+                    <p className="text-xs text-emerald-900 leading-relaxed">
+                      Full refund of <strong>₹{refundAmountVal}</strong> has been successfully credited to your original payment source (Bank Account / UPI / Card).
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                      {activeOrder?.refund_id && (
+                        <span className="font-mono bg-white/90 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold text-emerald-800">
+                          Refund ID: {activeOrder.refund_id}
+                        </span>
+                      )}
+                      {activeOrder?.cf_refund_id && (
+                        <span className="font-mono bg-white/90 px-2.5 py-1 rounded-lg border border-emerald-200 text-emerald-800">
+                          Gateway ID: {activeOrder.cf_refund_id}
+                        </span>
+                      )}
+                      <span className="bg-emerald-200/70 text-emerald-950 px-2 py-1 rounded-lg font-semibold text-[10.5px]">
+                        Destination: Original Source
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cash on Delivery / Unpaid Cancelled Banner */}
+                {!hasRefund && !isOnlinePaid && (
+                  <div className="p-5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-950 space-y-1.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                        <h4 className="font-bold text-sm">Order Cancelled</h4>
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300">
+                        CANCELLED
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#211A19]/80 leading-relaxed">
+                      This order was placed with Cash on Delivery (COD) or unpaid. No payment deduction took place.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Connected Vertical Stepper */}
             <div className="space-y-6 pt-1">
@@ -538,6 +725,138 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
           </div>
 
         </div>
+
+        {/* CANCELLATION & AUTOMATED SOURCE REFUND MODAL */}
+        {showCancelModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-[#E5DAD0] space-y-5 animate-scaleUp">
+              
+              <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#E5DAD0]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-[#211A19]">Cancel Order #{cleanOrderId}</h3>
+                    <p className="text-xs text-[#78716C]">Please tell us the reason for cancelling</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => !isCancelling && setShowCancelModal(false)}
+                  disabled={isCancelling}
+                  className="w-8 h-8 rounded-full hover:bg-[#FAF7F2] text-[#78716C] flex items-center justify-center text-lg font-bold cursor-pointer transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Online Payment Auto Refund Alert Box */}
+              {isOnlinePaid ? (
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="text-xs font-bold">Automated 100% Source Refund</span>
+                  </div>
+                  <p className="text-xs text-emerald-900/90 leading-relaxed">
+                    Since this order was paid online, the full amount of <strong className="font-mono font-bold text-emerald-950">₹{subtotal.toFixed(2)}</strong> will be automatically credited back to your original bank account / UPI / card via Cashfree.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs">
+                  <p className="font-medium">
+                    This order was placed with Cash on Delivery (COD). It will be cancelled immediately with zero charges.
+                  </p>
+                </div>
+              )}
+
+              {/* Reason Selector */}
+              <div className="space-y-2.5">
+                <label className="text-xs font-bold text-[#211A19] block">
+                  Select cancellation reason:
+                </label>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {[
+                    'Changed delivery time preference',
+                    'Ordered incorrect items by mistake',
+                    'Store taking too long to prepare',
+                    'Found alternative store in society',
+                    'Other reason'
+                  ].map((r, i) => (
+                    <label 
+                      key={i} 
+                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                        cancelReason === r 
+                          ? 'bg-[#541D26]/5 border-[#541D26] text-[#541D26] font-bold' 
+                          : 'bg-[#FAF7F2] border-[#E5DAD0] text-[#211A19] hover:bg-white'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="cancelReason"
+                        checked={cancelReason === r}
+                        onChange={() => setCancelReason(r)}
+                        className="accent-[#541D26]"
+                      />
+                      <span>{r}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {cancelReason === 'Other reason' && (
+                  <input
+                    type="text"
+                    placeholder="Please specify reason..."
+                    value={customReason}
+                    onChange={(e) => setCustomReason(e.target.value)}
+                    className="w-full mt-2 p-2.5 bg-[#FAF7F2] border border-[#E5DAD0] rounded-xl text-xs text-[#211A19] focus:outline-none focus:border-[#541D26]"
+                  />
+                )}
+              </div>
+
+              {/* Feedback messages */}
+              {cancelFeedback && (
+                <div className={`p-3 rounded-xl text-xs font-bold border ${
+                  cancelFeedback.type === 'success' 
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
+                    : 'bg-rose-50 border-rose-300 text-rose-800'
+                }`}>
+                  {cancelFeedback.message}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelModal(false)}
+                  disabled={isCancelling}
+                  className="px-4 py-2.5 rounded-full border border-[#E5DAD0] text-xs font-bold text-[#78716C] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+                >
+                  Nevermind, Keep Order
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelSubmit}
+                  disabled={isCancelling}
+                  className="px-5 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isCancelling ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Cancelling...</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>{isOnlinePaid ? 'Cancel & Initiate Refund' : 'Confirm Cancellation'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

@@ -80,6 +80,22 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
     };
   }, []);
 
+  // Body scroll lock & Escape listener for mobile drawer
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') setIsMobileMenuOpen(false);
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isMobileMenuOpen]);
+
   // Active Cart State (Persisted Across All Pages)
   const [activeCart, setActiveCart] = useState(null);
 
@@ -404,11 +420,11 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
-          className="bg-[#EEE5DA] hover:bg-[#D6B7A5]/60 text-[#211A19] px-3 sm:px-3.5 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all border border-[#E5DAD0] shadow-xs shrink-0 cursor-pointer"
+          className="bg-[#EEE5DA] hover:bg-[#D6B7A5]/60 text-[#211A19] px-2.5 sm:px-3.5 py-1.5 rounded-full flex items-center space-x-1 sm:space-x-1.5 text-xs font-bold transition-all border border-[#E5DAD0] shadow-xs shrink-0 cursor-pointer"
           title="Delivery Address"
         >
           <MapPin className="w-3.5 h-3.5 text-[#541D26] shrink-0" />
-          <span className="truncate max-w-[110px] sm:max-w-[150px]">
+          <span className="truncate max-w-[90px] xs:max-w-[110px] sm:max-w-[150px]">
             {label}
           </span>
           <ChevronDown className={`w-3.5 h-3.5 text-[#541D26] transition-transform duration-200 shrink-0 ${isLocationDropdownOpen ? 'rotate-180' : ''}`} />
@@ -813,57 +829,61 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
                 {renderResourcesButton(false)}
               </nav>
 
-              {/* RIGHT: Delivery Address Pill + User Profile / Store Button / Log In */}
+              {/* RIGHT: Delivery Address Pill + Desktop Actions + Mobile Hamburger */}
               <div className="flex items-center space-x-1.5 sm:space-x-2 my-auto py-0.5 z-10 shrink-0">
                 
                 {/* Header Delivery Address Pill */}
                 {renderLocationPill()}
 
-                {currentVendor ? (
-                  <button
-                    onClick={() => setRoute({ page: 'vendorDashboard', vendorId: currentVendor.vendor_id })}
-                    className="bg-[#541D26] hover:bg-[#6B2732] text-white px-3.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
-                  >
-                    <AnimatedIcon icon={Store} animation="pulse" size={13} className="text-white" />
-                    <span className="truncate max-w-[90px] sm:max-w-[110px]">{currentVendor.store_name || 'My Store'}</span>
-                  </button>
-                ) : currentUser ? (
-                  <div className="flex items-center space-x-1.5">
+                {/* DESKTOP ONLY ACTIONS (>= lg) */}
+                <div className="hidden lg:flex items-center space-x-1.5 sm:space-x-2">
+                  {currentVendor ? (
                     <button
-                      onClick={() => setRoute({ page: 'profile' })}
-                      className="bg-[#541D26] hover:bg-[#6B2732] text-white px-3.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-black transition-all shadow-xs hover:scale-105 shrink-0"
-                    >
-                      <AnimatedIcon icon={User} animation="scale" size={14} className="text-white" />
-                      <span className="truncate max-w-[90px] sm:max-w-[110px]">{currentUser.name || currentUser.userName || 'My Profile'}</span>
-                    </button>
-
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-1.5">
-                    <button
-                      onClick={() => setRoute({ page: 'login', accountType: 'resident' })}
-                      className="bg-transparent hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26] px-3.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
-                    >
-                      <AnimatedIcon icon={LogIn} animation="scale" size={14} />
-                      <span>Log In</span>
-                    </button>
-
-                    <button
-                      onClick={handleVendorButtonClick}
-                      className="bg-[#541D26] hover:bg-[#6B2732] text-white px-3.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1 text-xs font-bold transition-all shadow-xs group shrink-0 cursor-pointer"
+                      onClick={() => setRoute({ page: 'vendorDashboard', vendorId: currentVendor.vendor_id })}
+                      className="bg-[#541D26] hover:bg-[#6B2732] text-white px-3.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
                     >
                       <AnimatedIcon icon={Store} animation="pulse" size={13} className="text-white" />
-                      <span className="whitespace-nowrap">Vendor Portal</span>
+                      <span className="truncate max-w-[90px] sm:max-w-[110px]">{currentVendor.store_name || 'My Store'}</span>
                     </button>
-                  </div>
-                )}
+                  ) : currentUser ? (
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => setRoute({ page: 'profile' })}
+                        className="bg-[#541D26] hover:bg-[#6B2732] text-white px-3.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-black transition-all shadow-xs hover:scale-105 shrink-0"
+                      >
+                        <AnimatedIcon icon={User} animation="scale" size={14} className="text-white" />
+                        <span className="truncate max-w-[90px] sm:max-w-[110px]">{currentUser.name || currentUser.userName || 'My Profile'}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => setRoute({ page: 'login', accountType: 'resident' })}
+                        className="bg-transparent hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26] px-3.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+                      >
+                        <AnimatedIcon icon={LogIn} animation="scale" size={14} />
+                        <span>Log In</span>
+                      </button>
+
+                      <button
+                        onClick={handleVendorButtonClick}
+                        className="bg-[#541D26] hover:bg-[#6B2732] text-white px-3.5 sm:px-4 py-1.5 rounded-full flex items-center space-x-1 text-xs font-bold transition-all shadow-xs group shrink-0 cursor-pointer"
+                      >
+                        <AnimatedIcon icon={Store} animation="pulse" size={13} className="text-white" />
+                        <span className="whitespace-nowrap">Vendor Portal</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {/* Mobile Menu Hamburger Toggle Button (Shown on < lg screens) */}
                 <button
                   onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                  className="lg:hidden p-1.5 rounded-full bg-[#EEE5DA] text-[#541D26] hover:bg-[#D6B7A5] transition-colors border border-[#E5DAD0] cursor-pointer shrink-0 ml-1"
+                  className="lg:hidden p-2 min-w-[38px] min-h-[38px] rounded-full bg-[#EEE5DA] text-[#541D26] hover:bg-[#D6B7A5] transition-colors border border-[#E5DAD0] cursor-pointer shrink-0 ml-0.5 flex items-center justify-center tap-target"
                   aria-label="Toggle Mobile Menu"
+                  aria-expanded={isMobileMenuOpen}
                 >
-                  {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                  {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
                 </button>
               </div>
             </div>
@@ -875,7 +895,7 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
             <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
               <button
                 onClick={handleGoBack}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#EEE5DA] hover:bg-[#D6B7A5] text-[#211A19] flex items-center justify-center transition-all border border-[#E5DAD0] shadow-sm group shrink-0"
+                className="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] rounded-full bg-[#EEE5DA] hover:bg-[#D6B7A5] text-[#211A19] flex items-center justify-center transition-all border border-[#E5DAD0] shadow-sm group shrink-0"
                 title="Go Back"
                 aria-label="Go Back"
               >
@@ -925,169 +945,252 @@ export default function Navbar({ currentRoute, setRoute, activeVendor, onVendorL
               {renderResourcesButton(false)}
             </nav>
 
-            {/* Right: Delivery Address Pill + Profile / Vendor Portal / Single Logout Button */}
+            {/* Right: Delivery Address Pill + Desktop Actions + Mobile Hamburger */}
             <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
               
               {/* Header Delivery Address Pill */}
               {renderLocationPill()}
 
-              {currentVendor ? (
-                <button
-                  onClick={() => setRoute({ page: 'vendorDashboard', vendorId: currentVendor.vendor_id })}
-                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-[#E5DAD0] flex items-center space-x-1.5 text-xs sm:text-sm font-bold transition-all shadow-md shrink-0 ${isDashboardOrAdmin
-                    ? 'bg-[#541D26] text-white'
-                    : 'bg-[#EEE5DA] text-[#211A19] hover:bg-[#541D26] hover:text-white'
-                    }`}
-                >
-                  <Store className={`w-3.5 h-3.5 shrink-0 ${isDashboardOrAdmin ? 'text-white' : 'text-[#541D26]'}`} />
-                  <span className="truncate max-w-[110px]">{currentVendor.store_name || 'My Store'}</span>
-                </button>
-              ) : currentUser ? (
-                <button
-                  onClick={() => setRoute({ page: 'profile' })}
-                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-[#E5DAD0] flex items-center space-x-1.5 text-xs sm:text-sm font-bold transition-all shadow-md shrink-0 ${isProfilePage
-                    ? 'bg-[#541D26] text-white'
-                    : 'bg-[#541D26] text-white hover:bg-[#6B2732]'
-                    }`}
-                >
-                  <User className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate max-w-[110px]">{currentUser.name || currentUser.userName || 'Profile'}</span>
-                </button>
-              ) : (
-                <div className="flex items-center space-x-1.5">
+              {/* DESKTOP ONLY ACTIONS (>= lg) */}
+              <div className="hidden lg:flex items-center space-x-1.5 sm:space-x-2">
+                {currentVendor ? (
                   <button
-                    onClick={() => setRoute({ page: 'login', accountType: 'resident' })}
-                    className="bg-transparent hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26] px-3 sm:px-3.5 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
-                  >
-                    <AnimatedIcon icon={LogIn} animation="scale" size={13} />
-                    <span>Log In</span>
-                  </button>
-
-                  <button
-                    onClick={handleVendorButtonClick}
-                    className={`px-3 sm:px-3.5 py-1.5 rounded-full border border-[#E5DAD0] flex items-center space-x-1.5 text-xs font-semibold transition-all shadow-md group shrink-0 cursor-pointer ${isVendorPortalActive
-                      ? 'bg-[#541D26] text-white font-bold'
-                      : 'bg-[#541D26] hover:bg-[#6B2732] text-white'
+                    onClick={() => setRoute({ page: 'vendorDashboard', vendorId: currentVendor.vendor_id })}
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-[#E5DAD0] flex items-center space-x-1.5 text-xs sm:text-sm font-bold transition-all shadow-md shrink-0 ${isDashboardOrAdmin
+                      ? 'bg-[#541D26] text-white'
+                      : 'bg-[#EEE5DA] text-[#211A19] hover:bg-[#541D26] hover:text-white'
                       }`}
                   >
-                    <Store className="w-3.5 h-3.5 shrink-0 text-white" />
-                    <span className="whitespace-nowrap hidden sm:inline">Vendor Portal</span>
-                    <span className="font-bold text-xs group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform ml-0.5 text-white">
-                      ↗
-                    </span>
+                    <Store className={`w-3.5 h-3.5 shrink-0 ${isDashboardOrAdmin ? 'text-white' : 'text-[#541D26]'}`} />
+                    <span className="truncate max-w-[110px]">{currentVendor.store_name || 'My Store'}</span>
                   </button>
-                </div>
-              )}
+                ) : currentUser ? (
+                  <button
+                    onClick={() => setRoute({ page: 'profile' })}
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-[#E5DAD0] flex items-center space-x-1.5 text-xs sm:text-sm font-bold transition-all shadow-md shrink-0 ${isProfilePage
+                      ? 'bg-[#541D26] text-white'
+                      : 'bg-[#541D26] text-white hover:bg-[#6B2732]'
+                      }`}
+                  >
+                    <User className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate max-w-[110px]">{currentUser.name || currentUser.userName || 'Profile'}</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      onClick={() => setRoute({ page: 'login', accountType: 'resident' })}
+                      className="bg-transparent hover:bg-[#541D26] text-[#541D26] hover:text-white border border-[#541D26] px-3 sm:px-3.5 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+                    >
+                      <AnimatedIcon icon={LogIn} animation="scale" size={13} />
+                      <span>Log In</span>
+                    </button>
+
+                    <button
+                      onClick={handleVendorButtonClick}
+                      className={`px-3 sm:px-3.5 py-1.5 rounded-full border border-[#E5DAD0] flex items-center space-x-1.5 text-xs font-semibold transition-all shadow-md group shrink-0 cursor-pointer ${isVendorPortalActive
+                        ? 'bg-[#541D26] text-white font-bold'
+                        : 'bg-[#541D26] hover:bg-[#6B2732] text-white'
+                        }`}
+                    >
+                      <Store className="w-3.5 h-3.5 shrink-0 text-white" />
+                      <span className="whitespace-nowrap hidden sm:inline">Vendor Portal</span>
+                      <span className="font-bold text-xs group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform ml-0.5 text-white">
+                        ↗
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Mobile Hamburger Toggle for Non-Home Header */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden p-1.5 rounded-full bg-[#EEE5DA] text-[#541D26] hover:bg-[#D6B7A5] transition-colors border border-[#E5DAD0] cursor-pointer shrink-0 ml-1"
+                className="lg:hidden p-2 min-w-[38px] min-h-[38px] rounded-full bg-[#EEE5DA] text-[#541D26] hover:bg-[#D6B7A5] transition-colors border border-[#E5DAD0] cursor-pointer shrink-0 ml-0.5 flex items-center justify-center tap-target"
                 aria-label="Toggle Mobile Menu"
+                aria-expanded={isMobileMenuOpen}
               >
-                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
               </button>
             </div>
           </div>
         )}
 
-        {/* MOBILE NAVIGATION DRAWER OVERLAY (lg:hidden) */}
+        {/* SIMPLE MINIMALIST MOBILE MENU DRAWER */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 z-[99999] bg-black/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
-            <div className="w-full max-w-xs bg-[#F6F0E8] h-full shadow-2xl border-l border-[#E5DAD0] p-6 flex flex-col justify-between overflow-y-auto">
-              
-              <div className="space-y-6">
-                {/* Drawer Header */}
-                <div className="flex items-center justify-between pb-4 border-b border-[#E5DAD0]">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-7 h-7 flex items-center justify-center bg-white rounded-lg p-0.5 shadow-xs border border-[#E5DAD0]">
-                      <img src="/logo.png" alt="DigiLocal" className="w-full h-full object-contain scale-[1.8]" />
+          <div 
+            className="lg:hidden fixed inset-0 z-[99999] bg-black/40 backdrop-blur-xs flex justify-end animate-in fade-in duration-150"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <div 
+              className="w-full max-w-[280px] sm:max-w-xs bg-white h-full shadow-2xl border-l border-[#E5DAD0] p-5 flex flex-col justify-between overflow-y-auto pointer-events-auto animate-in slide-in-from-right duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="space-y-4">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-[#E5DAD0]">
+                  <div 
+                    className="flex items-center space-x-2 cursor-pointer"
+                    onClick={() => { setRoute({ page: 'home' }); setIsMobileMenuOpen(false); }}
+                  >
+                    <div className="w-7 h-7 flex items-center justify-center bg-[#FAF8F5] rounded-md border border-[#E5DAD0] p-0.5">
+                      <img src="/logo.png" alt="DigiLocal" className="w-full h-full object-contain scale-[1.7]" />
                     </div>
-                    <span className="font-serif italic text-xl font-bold text-[#211A19]">DigiLocal</span>
+                    <span className="font-serif italic text-lg font-bold text-[#211A19]">DigiLocal</span>
                   </div>
                   <button
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="p-1.5 rounded-full bg-white text-[#211A19] hover:text-[#541D26] border border-[#E5DAD0]"
+                    className="w-8 h-8 flex items-center justify-center rounded-full text-[#211A19]/70 hover:text-[#211A19] hover:bg-[#EEE5DA] cursor-pointer transition-colors"
+                    aria-label="Close menu"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                {/* Mobile Navigation Links */}
-                <nav className="flex flex-col space-y-2">
+                {/* Primary Navigation Text Links */}
+                <nav className="flex flex-col space-y-1 text-sm font-semibold text-[#211A19]">
                   <button
                     onClick={() => { setRoute({ page: 'home' }); setIsMobileMenuOpen(false); }}
-                    className={`w-full py-3 px-4 rounded-xl text-left text-sm font-bold flex items-center justify-between transition-all ${
-                      isHomePage ? 'bg-[#541D26] text-white shadow-xs' : 'bg-white text-[#211A19] hover:bg-[#EEE5DA]'
-                    }`}
+                    className={`w-full text-left py-2 px-3 rounded-lg hover:bg-[#EEE5DA]/60 transition-colors ${currentRoute?.page === 'home' ? 'text-[#541D26] font-bold bg-[#EEE5DA]/40' : ''}`}
                   >
                     <span>Home</span>
                   </button>
 
                   <button
                     onClick={() => { setRoute({ page: 'societyVendors', societyId: 'all' }); setIsMobileMenuOpen(false); }}
-                    className={`w-full py-3 px-4 rounded-xl text-left text-sm font-bold flex items-center justify-between transition-all ${
-                      isVendorsActive ? 'bg-[#541D26] text-white shadow-xs' : 'bg-white text-[#211A19] hover:bg-[#EEE5DA]'
-                    }`}
+                    className={`w-full text-left py-2 px-3 rounded-lg hover:bg-[#EEE5DA]/60 transition-colors ${isVendorsActive ? 'text-[#541D26] font-bold bg-[#EEE5DA]/40' : ''}`}
                   >
-                    <span>Browse Vendors</span>
+                    <span>Browse All Vendors</span>
                   </button>
 
-                  {/* Resources Mobile Accordion */}
-                  {renderResourcesButton(true)}
+                  <div className="my-1.5 border-t border-[#E5DAD0]" />
+
+                  {/* Auth / Profile Links */}
+                  {currentVendor ? (
+                    <>
+                      <button
+                        onClick={() => { setRoute({ page: 'vendorDashboard', vendorId: currentVendor.vendor_id }); setIsMobileMenuOpen(false); }}
+                        className="w-full text-left py-2 px-3 rounded-lg hover:bg-[#EEE5DA]/60 transition-colors text-[#541D26] font-bold"
+                      >
+                        <span>Vendor Dashboard ({currentVendor.store_name || 'My Store'})</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleHeaderVendorLogout();
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full text-left py-2 px-3 rounded-lg hover:bg-rose-50 text-rose-600 transition-colors"
+                      >
+                        <span>Sign Out</span>
+                      </button>
+                    </>
+                  ) : currentUser ? (
+                    <>
+                      <button
+                        onClick={() => { setRoute({ page: 'profile' }); setIsMobileMenuOpen(false); }}
+                        className="w-full text-left py-2 px-3 rounded-lg hover:bg-[#EEE5DA]/60 transition-colors text-[#541D26] font-bold"
+                      >
+                        <span>My Profile & Orders</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleHeaderUserLogout();
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full text-left py-2 px-3 rounded-lg hover:bg-rose-50 text-rose-600 transition-colors"
+                      >
+                        <span>Sign Out</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => { setRoute({ page: 'login', accountType: 'resident' }); setIsMobileMenuOpen(false); }}
+                        className="w-full text-left py-2 px-3 rounded-lg hover:bg-[#EEE5DA]/60 transition-colors"
+                      >
+                        <span>Log In</span>
+                      </button>
+                      <button
+                        onClick={() => { setRoute({ page: 'register' }); setIsMobileMenuOpen(false); }}
+                        className="w-full text-left py-2 px-3 rounded-lg hover:bg-[#EEE5DA]/60 transition-colors"
+                      >
+                        <span>Create Account</span>
+                      </button>
+                      <button
+                        onClick={() => { setRoute({ page: 'vendorRegister' }); setIsMobileMenuOpen(false); }}
+                        className="w-full text-left py-2 px-3 rounded-lg hover:bg-[#EEE5DA]/60 transition-colors text-[#541D26] font-bold"
+                      >
+                        <span>Register as Vendor</span>
+                      </button>
+                      <button
+                        onClick={() => { setRoute({ page: 'login', accountType: 'vendor' }); setIsMobileMenuOpen(false); }}
+                        className="w-full text-left py-2 px-3 rounded-lg hover:bg-[#EEE5DA]/60 transition-colors text-[#211A19]/70"
+                      >
+                        <span>Vendor Portal Login</span>
+                      </button>
+                    </>
+                  )}
+
+                  <div className="my-1.5 border-t border-[#E5DAD0]" />
+
+                  {/* Informational Pages Links */}
+                  <button
+                    onClick={() => navToInfo('how-it-works')}
+                    className="w-full text-left py-1.5 px-3 rounded-lg hover:bg-[#EEE5DA]/60 text-xs text-[#211A19]/80 font-medium transition-colors"
+                  >
+                    <span>How It Works</span>
+                  </button>
+
+                  <button
+                    onClick={() => navToInfo('about-us')}
+                    className="w-full text-left py-1.5 px-3 rounded-lg hover:bg-[#EEE5DA]/60 text-xs text-[#211A19]/80 font-medium transition-colors"
+                  >
+                    <span>About DigiLocal</span>
+                  </button>
+
+                  <button
+                    onClick={() => navToInfo('help-support')}
+                    className="w-full text-left py-1.5 px-3 rounded-lg hover:bg-[#EEE5DA]/60 text-xs text-[#211A19]/80 font-medium transition-colors"
+                  >
+                    <span>Help & FAQs</span>
+                  </button>
+
+                  <button
+                    onClick={() => navToInfo('safety-standards')}
+                    className="w-full text-left py-1.5 px-3 rounded-lg hover:bg-[#EEE5DA]/60 text-xs text-[#211A19]/80 font-medium transition-colors"
+                  >
+                    <span>Safety Standards</span>
+                  </button>
+
+                  <button
+                    onClick={() => navToInfo('privacy-policy')}
+                    className="w-full text-left py-1.5 px-3 rounded-lg hover:bg-[#EEE5DA]/60 text-xs text-[#211A19]/80 font-medium transition-colors"
+                  >
+                    <span>Privacy Policy</span>
+                  </button>
+
+                  <button
+                    onClick={() => navToInfo('terms-and-conditions')}
+                    className="w-full text-left py-1.5 px-3 rounded-lg hover:bg-[#EEE5DA]/60 text-xs text-[#211A19]/80 font-medium transition-colors"
+                  >
+                    <span>Terms & Conditions</span>
+                  </button>
                 </nav>
               </div>
 
-              {/* Drawer Footer Actions */}
-              <div className="pt-6 border-t border-[#E5DAD0] space-y-3">
-                {currentVendor ? (
+              {/* Bottom Support Link */}
+              {typeof onOpenSupportDesk === 'function' && (
+                <div className="pt-3 border-t border-[#E5DAD0]">
                   <button
-                    onClick={() => { setRoute({ page: 'vendorDashboard', vendorId: currentVendor.vendor_id }); setIsMobileMenuOpen(false); }}
-                    className="w-full py-3 px-4 rounded-xl bg-[#541D26] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs"
+                    onClick={() => {
+                      onOpenSupportDesk();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left py-1.5 px-3 rounded-lg text-xs font-semibold text-[#541D26] hover:bg-[#EEE5DA]/60 transition-colors"
                   >
-                    <Store className="w-4 h-4 text-[#C8A878]" />
-                    <span>Vendor Dashboard</span>
+                    <span>Need Help? Contact Support</span>
                   </button>
-                ) : currentUser ? (
-                  <>
-                    <button
-                      onClick={() => { setRoute({ page: 'profile' }); setIsMobileMenuOpen(false); }}
-                      className="w-full py-3 px-4 rounded-xl bg-[#541D26] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs"
-                    >
-                      <User className="w-4 h-4 text-[#C8A878]" />
-                      <span>My Profile & Orders</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (typeof onUserLogout === 'function') onUserLogout();
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className="w-full py-2.5 px-4 rounded-xl bg-white border border-[#E5DAD0] text-rose-700 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Sign Out</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => { setRoute({ page: 'login', accountType: 'resident' }); setIsMobileMenuOpen(false); }}
-                      className="w-full py-3 px-4 rounded-xl bg-[#541D26] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs"
-                    >
-                      <LogIn className="w-4 h-4 text-[#C8A878]" />
-                      <span>Log In</span>
-                    </button>
-                    <button
-                      onClick={() => { handleVendorButtonClick(); setIsMobileMenuOpen(false); }}
-                      className="w-full py-3 px-4 rounded-xl bg-white border border-[#541D26] text-[#541D26] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"
-                    >
-                      <Store className="w-4 h-4" />
-                      <span>Register As Merchant</span>
-                    </button>
-                  </>
-                )}
-              </div>
-
+                </div>
+              )}
             </div>
           </div>
         )}

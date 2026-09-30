@@ -76,14 +76,14 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
       onClick={onClose}
     >
       <div 
-        className="bg-card border border-border rounded-[2.5rem] max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden relative text-foreground animate-in zoom-in-95 duration-200 pointer-events-auto"
+        className="bg-card border border-border rounded-[1.75rem] sm:rounded-[2.5rem] max-w-lg w-[calc(100%-1.5rem)] sm:w-full max-h-[90dvh] flex flex-col shadow-2xl overflow-hidden relative text-foreground animate-in zoom-in-95 duration-200 pointer-events-auto my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
         {/* Header */}
-        <div className="bg-[#541D26] text-[#F7F4EE] px-6 py-5 flex items-center justify-between border-b border-[#C8A878]/30">
+        <div className="bg-[#541D26] text-[#F7F4EE] px-5 sm:px-6 py-4 sm:py-5 flex items-center justify-between border-b border-[#C8A878]/30 shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/10 p-2 flex items-center justify-center border border-white/15">
+            <div className="w-10 h-10 rounded-2xl bg-white/10 p-2 flex items-center justify-center border border-white/15 shrink-0">
               <MapPin className="w-5 h-5 text-[#C8A878]" />
             </div>
             <div>
@@ -95,24 +95,24 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
           </div>
           <button 
             onClick={onClose} 
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer tap-target shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Content */}
-        <div className="p-6 space-y-5 overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto touch-scroll">
 
           {/* Location Search Bar */}
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
             <input
               type="text"
-              placeholder="Search society, city or pincode (e.g. Greenwood, Noida, 201310)..."
+              placeholder="Search society, city or pincode..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-2xl bg-background border border-border text-xs font-semibold focus:outline-none focus:border-primary text-ink placeholder:text-muted-foreground"
+              className="w-full pl-11 pr-4 py-3 rounded-2xl bg-background border border-border text-base sm:text-xs font-semibold focus:outline-none focus:border-primary text-ink placeholder:text-muted-foreground min-h-[44px]"
             />
           </div>
 
@@ -125,14 +125,14 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
               <span>10-15 Min Delivery</span>
             </div>
 
-            <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+            <div className="max-h-52 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin touch-scroll">
               {filteredLocations.map((loc) => {
                 const isSelected = selectedLocation?.name === loc.name;
                 return (
                   <div
                     key={loc.society_id}
                     onClick={() => handleSelect(loc)}
-                    className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${
+                    className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group min-h-[44px] ${
                       isSelected
                         ? 'bg-primary/10 border-primary text-primary'
                         : 'bg-secondary/40 hover:bg-secondary border-border/60 text-ink'
@@ -153,11 +153,11 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
                     </div>
 
                     {isSelected ? (
-                      <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                      <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0">
                         <Check className="w-3.5 h-3.5" />
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-[10px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         Select →
                       </span>
                     )}
@@ -173,27 +173,27 @@ export default function DeliveryLocationModal({ isOpen, onClose, selectedLocatio
               Or Enter Flat & Building Address
             </span>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <input
                 type="text"
                 placeholder="Flat No (e.g. 402)"
                 value={flatNumber}
                 onChange={(e) => setFlatNumber(e.target.value)}
-                className="col-span-1 px-3 py-2.5 rounded-xl bg-background border border-border text-xs font-medium focus:outline-none focus:border-primary text-ink"
+                className="col-span-1 px-3 py-2.5 rounded-xl bg-background border border-border text-base sm:text-xs font-medium focus:outline-none focus:border-primary text-ink min-h-[42px]"
               />
               <input
                 type="text"
                 placeholder="Building / Tower / Society Name"
                 value={customAddress}
                 onChange={(e) => setCustomAddress(e.target.value)}
-                className="col-span-2 px-3 py-2.5 rounded-xl bg-background border border-border text-xs font-medium focus:outline-none focus:border-primary text-ink"
+                className="col-span-1 sm:col-span-2 px-3 py-2.5 rounded-xl bg-background border border-border text-base sm:text-xs font-medium focus:outline-none focus:border-primary text-ink min-h-[42px]"
               />
             </div>
 
             <button
               type="submit"
               disabled={!customAddress.trim()}
-              className="w-full py-3 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white disabled:opacity-50 font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
+              className="w-full py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white disabled:opacity-50 font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer min-h-[44px]"
             >
               Set Custom Delivery Location
             </button>

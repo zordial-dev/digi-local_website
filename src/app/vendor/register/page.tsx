@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
-import { Lock, CheckCircle2, ArrowRight, ArrowLeft, ShieldCheck, Upload, Smartphone, Store, Clock, Plus, Tag, Landmark, Search, AlertCircle } from 'lucide-react';
+import { Lock, CheckCircle2, ArrowRight, ArrowLeft, ShieldCheck, Upload, Smartphone, Store, Clock, Plus, Tag, Landmark, Search, AlertCircle, RotateCcw } from 'lucide-react';
 import { api } from '../../../services/api';
+import { useOtpCooldown } from '../../../hooks/useOtpCooldown';
 
 function useSearchParams() {
   const [searchParams, setSearchParams] = useState(() =>
@@ -41,6 +42,7 @@ function VendorRegisterContent() {
   const [verificationId, setVerificationId] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const { cooldown: otpCooldown, canResend: canResendOtp, triggerCooldown, resetCooldown } = useOtpCooldown();
   const [kycFileUploaded, setKycFileUploaded] = useState(false);
   const [accountNumber, setAccountNumber] = useState('');
   const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
@@ -92,27 +94,33 @@ function VendorRegisterContent() {
     setStep(2);
   };
 
-  // OTP Handlers
+  // OTP Handlers with Exponential Progressive Cooldown & 429 Handling
   const handleSendOTP = async () => {
     const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
     if (cleanPhone.length < 10) {
       setStep2Error('Please enter a valid 10-digit mobile phone number.');
       return;
     }
+    if (otpSent && (!canResendOtp || otpCooldown > 0)) {
+      return;
+    }
     setStep2Error('');
     try {
-      const checkRes = await api.checkVendorPhone(cleanPhone);
-      if (checkRes.exists) {
-        setStep2Error('A vendor account with this mobile number already exists. Please log in instead.');
-        return;
-      }
-
-      const res = await api.sendRegistrationOtp({ phone: cleanPhone, role: 'vendor' });
+      const res = await api.sendMobileOtp({ phone: cleanPhone, role: 'vendor', purpose: 'register' });
       if (res?.verification_id || res?.verificationId) {
         setVerificationId(res.verification_id || res.verificationId);
       }
+      const cooldownSec = res.cooldown_seconds || 10;
+      triggerCooldown(cooldownSec);
       setOtpSent(true);
     } catch (err: any) {
+      if (err?.status === 429 || err?.isCooldown) {
+        const waitSec = err.retry_after || err.cooldown_seconds || 10;
+        triggerCooldown(waitSec);
+        setStep2Error(err.message || `Please wait ${waitSec} seconds before requesting a new OTP.`);
+        setOtpSent(true);
+        return;
+      }
       setStep2Error(err.message || 'Failed to send OTP.');
     }
   };
@@ -131,9 +139,11 @@ function VendorRegisterContent() {
         role: 'vendor',
         verification_id: verificationId
       });
+      resetCooldown();
       setIsPhoneVerified(true);
     } catch (err: any) {
       if (cleanOtp === STATIC_OTP || cleanOtp === '123456' || cleanOtp === '482910' || cleanOtp === '849201') {
+        resetCooldown();
         setIsPhoneVerified(true);
       } else {
         setStep2Error(err.message || 'Invalid verification code. Please try again.');
@@ -202,22 +212,22 @@ function VendorRegisterContent() {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10 flex-1 w-full">
+      <main className="max-w-3xl mx-auto px-3.5 sm:px-6 py-6 sm:py-10 flex-1 w-full">
         {isRegistrationSubmitted ? (
           /* Success Screen with Pending Admin Approval Badge */
-          <div className="bg-white rounded-3xl p-8 sm:p-12 shadow-xl border border-[#E5DAD0] text-center space-y-6 animate-in fade-in duration-300">
-            <div className="w-20 h-20 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 text-[#541D26] flex items-center justify-center mx-auto shadow-md">
-              <Clock className="w-10 h-10" />
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-10 shadow-xl border border-[#E5DAD0] text-center space-y-6 animate-in fade-in duration-300">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#541D26]/10 border border-[#541D26]/20 text-[#541D26] flex items-center justify-center mx-auto shadow-md">
+              <Clock className="w-8 h-8 sm:w-10 sm:h-10" />
             </div>
 
             <div>
               {/* Pending Admin Approval Badge */}
-              <span className="inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 font-extrabold text-xs uppercase tracking-wider mb-3">
-                <Clock className="w-4 h-4 text-[#541D26]" />
+              <span className="inline-flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-full bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 font-extrabold text-[11px] sm:text-xs uppercase tracking-wider mb-3">
+                <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#541D26]" />
                 <span>Pending Admin Approval</span>
               </span>
 
-              <h2 className="text-2xl font-serif font-extrabold text-[#211A19] uppercase tracking-wide mt-2">
+              <h2 className="text-xl sm:text-2xl font-serif font-extrabold text-[#211A19] uppercase tracking-wide mt-2">
                 Registration Submitted!
               </h2>
               <p className="text-xs text-[#211A19]/60 max-w-md mx-auto mt-2 leading-relaxed">
@@ -226,7 +236,7 @@ function VendorRegisterContent() {
             </div>
 
             {/* Registration Summary Card */}
-            <div className="p-5 bg-[#FAF8F5] rounded-2xl border border-[#E5DAD0] max-w-md mx-auto text-left text-xs space-y-2.5">
+            <div className="p-4 sm:p-5 bg-[#FAF8F5] rounded-xl sm:rounded-2xl border border-[#E5DAD0] max-w-md mx-auto text-left text-xs space-y-2.5">
               <div className="flex justify-between border-b border-[#E5DAD0]/60 pb-1.5">
                 <span className="text-[#211A19]/60">Assigned Society:</span>
                 <span className="font-bold text-[#211A19]">{societyName}</span>
@@ -264,13 +274,13 @@ function VendorRegisterContent() {
           </div>
         ) : (
           /* 3-Step Stepper Wizard Form */
-          <div className="bg-white rounded-3xl shadow-xl border border-[#E5DAD0] overflow-hidden">
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl border border-[#E5DAD0] overflow-hidden">
             
             {/* Stepper Header */}
-            <div className="bg-[#541D26] text-white p-6 sm:p-8">
-              <div className="flex items-center justify-between mb-6">
+            <div className="bg-[#541D26] text-white p-4 sm:p-6 md:p-8">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <div>
-                  <span className="px-3 py-1 bg-white/15 text-[#C8A878] border border-[#C8A878]/30 text-[10px] font-extrabold rounded-full uppercase tracking-wider">
+                  <span className="px-2.5 sm:px-3 py-1 bg-white/15 text-[#C8A878] border border-[#C8A878]/30 text-[10px] font-extrabold rounded-full uppercase tracking-wider">
                     Vendor Registration Portal
                   </span>
                   <h2 className="text-xl sm:text-2xl font-serif font-extrabold mt-1">
@@ -461,6 +471,19 @@ function VendorRegisterContent() {
                           className="px-6 py-3 bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs rounded-xl transition-colors uppercase tracking-wider cursor-pointer"
                         >
                           Verify OTP
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canResendOtp || otpCooldown > 0}
+                          onClick={handleSendOTP}
+                          className={`px-4 py-3 rounded-xl border border-[#E5DAD0] text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                            otpCooldown > 0 
+                              ? 'text-gray-400 bg-gray-50 cursor-not-allowed' 
+                              : 'text-[#541D26] hover:bg-[#EEE5DA]/50 cursor-pointer'
+                          }`}
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>{otpCooldown > 0 ? `Resend in ${otpCooldown}s` : 'Resend OTP'}</span>
                         </button>
                       </div>
 

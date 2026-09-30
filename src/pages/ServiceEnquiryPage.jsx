@@ -138,44 +138,34 @@ export default function ServiceEnquiryPage({
 
     try {
       setSubmitting(true);
-      const resName = residentName.trim() || `Flat ${flatNumber || 'Resident'}`;
+      const resName = (residentName || activeUser?.name || activeUser?.full_name || `Flat ${flatNumber || 'Resident'}`).trim();
       const payload = {
         vendor_id: vendorId,
         vendor_name: vendorData?.store_name || vendorData?.vendor_name || 'Service Vendor',
+        user_id: activeUser?.user_id || activeUser?.id || undefined,
+        name: resName,
+        phone: cleanPhone.slice(-10),
+        user_name: resName,
+        user_phone: cleanPhone.slice(-10),
         service_id: selectedService?.item_id || selectedService?.id || null,
+        service_type: titleToSubmit,
         service_title: titleToSubmit,
-        description: (selectedTag ? `[${selectedTag}] ` : '') + serviceDescription.trim(),
+        description: (selectedTag ? `[${selectedTag}] ` : '') + (serviceDescription ? serviceDescription.trim() : '') + (flatNumber ? ` (Flat: ${flatNumber}${buildingNumber ? `, ${buildingNumber}` : ''})` : ''),
         preferred_time: preferredTime || 'Today (ASAP)',
-        resident_name: resName,
-        resident_phone: cleanPhone.slice(-10),
         flat_number: flatNumber.trim(),
         building_number: buildingNumber.trim(),
-        society_id: societyId !== 'all' ? societyId : (vendorData?.society_id || 1),
-        society_name: societyName || vendorData?.society_name || 'Resident Society',
+        society_id: societyId !== 'all' ? societyId : (activeUser?.society_id || vendorData?.society_id || 1),
+        society_name: societyName || activeUser?.society_name || vendorData?.society_name || 'Resident Society',
+        sector: activeUser?.sector || vendorData?.locality || vendorData?.sector || '',
+        issue_photos: [],
         is_urgent: isUrgent,
         status: 'NEW'
       };
 
-      const res = await api.createServiceEnquiry(payload);
+      const res = await api.submitServiceEnquiry(activeUser, payload);
+      const returnedEnquiry = res?.enquiry || res;
 
-      // Save locally to resident enquiries history
-      try {
-        const key = 'digilocal_user_service_enquiries';
-        const saved = JSON.parse(localStorage.getItem(key) || '[]');
-        const entry = {
-          ...payload,
-          enquiry_id: res?.enquiry?.enquiry_id || res?.enquiry_id || `ENQ-${Math.floor(100000 + Math.random() * 900000)}`,
-          created_at: new Date().toISOString()
-        };
-        localStorage.setItem(key, JSON.stringify([entry, ...saved]));
-      } catch (_) {}
-
-      setSubmittedEnquiry(res?.enquiry || {
-        ...payload,
-        enquiry_id: res?.enquiry_id || `ENQ-${Math.floor(100000 + Math.random() * 900000)}`,
-        created_at: new Date().toISOString()
-      });
-
+      setSubmittedEnquiry(returnedEnquiry);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setFormError(err.message || 'Failed to submit service enquiry. Please try again or contact the vendor directly.');
@@ -333,11 +323,19 @@ export default function ServiceEnquiryPage({
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRoute({ page: 'profile', tab: 'enquiries' })}
+                  className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Briefcase className="w-3.5 h-3.5 text-[#C8A878]" />
+                  <span>My Enquiries</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setRoute({ page: 'vendorStorefront', societyId: societyId || 'all', vendorId: vendorId })}
-                  className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer"
+                  className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-[#FAF6EE] hover:bg-[#EEE5DA] text-[#211A19] font-bold text-xs uppercase tracking-wider border border-[#E5DAD0] transition-all cursor-pointer"
                 >
                   Return to Storefront
                 </button>
@@ -346,7 +344,7 @@ export default function ServiceEnquiryPage({
                   onClick={() => setRoute({ page: 'societyVendors', societyId: societyId || 'all' })}
                   className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-[#FAF6EE] hover:bg-[#EEE5DA] text-[#211A19] font-bold text-xs uppercase tracking-wider border border-[#E5DAD0] transition-all cursor-pointer"
                 >
-                  Browse Other Vendors
+                  Browse Vendors
                 </button>
               </div>
             </div>

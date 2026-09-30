@@ -72,18 +72,20 @@ export default function FloatingCartBar({ currentRoute, setRoute }) {
   };
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[99999] pointer-events-auto animate-in slide-in-from-bottom duration-300">
+    <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 left-1/2 -translate-x-1/2 z-[99999] pointer-events-auto animate-in slide-in-from-bottom duration-300 w-[calc(100%-2rem)] max-w-md sm:max-w-fit flex justify-center">
       <button
         onClick={handleClick}
-        className="bg-[#541D26] hover:bg-[#6B2732] text-white px-7 py-3.5 rounded-full shadow-2xl border-2 border-[#C8A878]/60 flex items-center space-x-3 text-xs font-black tracking-wider uppercase transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group"
+        className="w-full sm:w-auto bg-[#541D26] hover:bg-[#6B2732] text-white px-4 sm:px-7 py-3 sm:py-3.5 rounded-full shadow-2xl border-2 border-[#C8A878]/60 flex items-center justify-between sm:justify-start space-x-2 sm:space-x-3 text-xs font-black tracking-wider uppercase transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group min-h-[48px] tap-target"
       >
-        <div className="w-7 h-7 rounded-full bg-[#C8A878] flex items-center justify-center text-[#541D26] font-black shrink-0 shadow-sm">
-          <ShoppingBag className="w-4 h-4 text-[#541D26]" />
+        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+          <div className="w-7 h-7 rounded-full bg-[#C8A878] flex items-center justify-center text-[#541D26] font-black shrink-0 shadow-sm">
+            <ShoppingBag className="w-4 h-4 text-[#541D26]" />
+          </div>
+          <span className="text-white font-extrabold text-xs truncate">
+            VIEW CART ({totalItemCount}) • ₹{subtotal.toFixed(2)}
+          </span>
         </div>
-        <span className="text-white font-extrabold text-xs">
-          VIEW CART ({totalItemCount}) • ₹{subtotal.toFixed(2)}
-        </span>
-        <ArrowRight className="w-4 h-4 text-[#C8A878] transition-transform group-hover:translate-x-1" />
+        <ArrowRight className="w-4 h-4 text-[#C8A878] transition-transform group-hover:translate-x-1 shrink-0 ml-2" />
       </button>
     </div>
   );

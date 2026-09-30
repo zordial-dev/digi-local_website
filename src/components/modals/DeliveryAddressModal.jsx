@@ -251,7 +251,7 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
                   key={item}
                   type="button"
                   onClick={() => setLabel(item)}
-                  className={`flex-1 py-2 px-3 rounded-xl font-extrabold text-xs transition-all border cursor-pointer ${
+                  className={`flex-1 py-2.5 px-3 rounded-xl font-extrabold text-xs transition-all border cursor-pointer min-h-[40px] ${
                     label === item
                       ? 'bg-[#541D26] text-white border-[#C8A878] shadow-sm'
                       : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
@@ -277,7 +277,7 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
                 placeholder="e.g. Anupam Apartments / Bais Godam"
                 value={society}
                 onChange={(e) => setSociety(e.target.value)}
-                className="w-full pl-10 pr-3.5 py-2.5 bg-white/10 border border-white/20 rounded-xl text-xs font-semibold text-white placeholder:text-white/40 focus:outline-none focus:border-[#C8A878]"
+                className="w-full pl-10 pr-3.5 py-2.5 bg-white/10 border border-white/20 rounded-xl text-base sm:text-xs font-semibold text-white placeholder:text-white/40 focus:outline-none focus:border-[#C8A878] min-h-[42px]"
               />
               <datalist id="delivery-societies-datalist-root">
                 {availableSocieties.map((s, idx) => (
@@ -298,7 +298,7 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
                 placeholder="e.g. Tower A"
                 value={building}
                 onChange={(e) => setBuilding(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-white/10 border border-white/20 rounded-xl text-xs font-semibold text-white placeholder:text-white/40 focus:outline-none focus:border-[#C8A878]"
+                className="w-full px-3.5 py-2.5 bg-white/10 border border-white/20 rounded-xl text-base sm:text-xs font-semibold text-white placeholder:text-white/40 focus:outline-none focus:border-[#C8A878] min-h-[42px]"
               />
             </div>
 
@@ -312,7 +312,7 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
                 placeholder="e.g. Flat 102"
                 value={flat}
                 onChange={(e) => setFlat(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-white/10 border border-white/20 rounded-xl text-xs font-semibold text-white placeholder:text-white/40 focus:outline-none focus:border-[#C8A878]"
+                className="w-full px-3.5 py-2.5 bg-white/10 border border-white/20 rounded-xl text-base sm:text-xs font-semibold text-white placeholder:text-white/40 focus:outline-none focus:border-[#C8A878] min-h-[42px]"
               />
             </div>
           </div>
@@ -327,14 +327,14 @@ export default function DeliveryAddressModal({ isOpen = true, onClose, onAddress
               placeholder="e.g. 302001"
               value={pincode}
               onChange={(e) => setPincode(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-white/10 border border-white/20 rounded-xl text-xs font-semibold text-white placeholder:text-white/40 focus:outline-none focus:border-[#C8A878]"
+              className="w-full px-3.5 py-2.5 bg-white/10 border border-white/20 rounded-xl text-base sm:text-xs font-semibold text-white placeholder:text-white/40 focus:outline-none focus:border-[#C8A878] min-h-[42px]"
             />
           </div>
 
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full py-3.5 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-full font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer mt-3 border border-[#C8A878]/30"
+            className="w-full py-3.5 bg-[#541D26] hover:bg-[#6B2732] text-white rounded-full font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer mt-3 border border-[#C8A878]/30 min-h-[44px]"
           >
             <Check className="w-4 h-4 text-[#C8A878]" />
             <span>{addressToEdit ? 'Save Updated Address' : 'Save & Set Delivery Address'}</span>

@@ -119,30 +119,28 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
   // Respect OS/Browser prefers-reduced-motion setting
   const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-  // Animation variants for calm scroll reveals
+  // Animation variants for calm scroll reveals without subpixel scale clipping
   const containerVariants = {
-    hidden: prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 48, scale: 0.96 },
+    hidden: prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 32 },
     visible: {
       opacity: 1,
       y: 0,
-      scale: 1,
       transition: {
-        duration: prefersReducedMotion ? 0.1 : 1.1,
+        duration: prefersReducedMotion ? 0.1 : 0.8,
         ease: [0.16, 1, 0.3, 1],
-        staggerChildren: 0.14,
-        delayChildren: 0.1
+        staggerChildren: 0.1,
+        delayChildren: 0.05
       }
     }
   };
 
   const itemVariants = {
-    hidden: prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 32, scale: 0.96 },
+    hidden: prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 20 },
     visible: {
       opacity: 1,
       y: 0,
-      scale: 1,
       transition: {
-        duration: prefersReducedMotion ? 0.1 : 0.9,
+        duration: prefersReducedMotion ? 0.1 : 0.6,
         ease: [0.16, 1, 0.3, 1]
       }
     }
@@ -168,13 +166,13 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
           >
 
             {/* Top Badge */}
-            <motion.div variants={itemVariants} className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-md bg-[#541D26]/10 text-[#541D26] text-[11px] font-bold tracking-widest uppercase border border-[#541D26]/20">
+            <motion.div variants={itemVariants} className="inline-flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-3.5 py-0.5 sm:py-1 rounded-full bg-[#541D26]/10 text-[#541D26] text-[10px] sm:text-[11px] font-bold tracking-widest uppercase border border-[#541D26]/20">
               <span className="w-1.5 h-1.5 rounded-full bg-[#541D26] animate-pulse" />
               <span>Hyperlocal Lifestyle Network</span>
             </motion.div>
 
             {/* Headline with Espresso text & Oxblood highlights */}
-            <motion.div variants={itemVariants} className="w-full max-w-5xl mx-auto py-1">
+            <motion.div variants={itemVariants} className="w-full max-w-5xl mx-auto py-0.5 sm:py-1">
               <StrokeText
                 text="YOUR SOCIETY. YOUR VENDORS. DELIVERED."
                 strokeColor="#211A19"
@@ -190,7 +188,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                 fontWeight={900}
                 fontFamily="'Cormorant Garamond', 'Playfair Display', Georgia, serif"
                 letterSpacing={0}
-                style={{ '--stroke-text-height': 'clamp(1.8rem, 4.5vw, 3.2rem)' }}
+                style={{ '--stroke-text-height': 'clamp(1.6rem, 4.2vw, 3.2rem)' }}
                 className="w-full"
               />
             </motion.div>
@@ -200,26 +198,26 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
               as="p"
               mode="word"
               delay={0.3}
-              className="text-xs sm:text-sm lg:text-base text-[#211A19]/80 font-medium leading-relaxed text-center max-w-2xl mx-auto"
+              className="text-xs sm:text-sm lg:text-base text-[#211A19]/80 font-medium leading-relaxed text-center max-w-xl sm:max-w-2xl mx-auto px-2"
             >
               DigiLocal connects residents directly with verified neighborhood stores, organic growers, artisanal bakeries, pharmacies, and daily service providers.
             </ScrollTextReveal>
 
             {/* Action Buttons (Primary Oxblood #541D26 & Secondary Transparent/Oxblood) */}
-            <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-center gap-3.5 sm:gap-4 pt-2 pb-4 z-20">
+            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-4 pt-1 sm:pt-2 pb-3 sm:pb-4 z-20 w-full sm:w-auto px-4 max-w-xs sm:max-w-none">
               <button
                 onClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
-                className="px-7 py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center space-x-2 cursor-pointer transition-all"
+                className="w-full sm:w-auto px-5 sm:px-7 py-2.5 sm:py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center justify-center space-x-2 cursor-pointer transition-all min-h-[42px] sm:min-h-[48px] tap-target"
               >
                 <span>Browse All Vendors</span>
-                <AnimatedIcon icon={ArrowUpRight} animation="scale" size={14} className="currentColor text-white" />
+                <AnimatedIcon icon={ArrowUpRight} animation="scale" size={13} className="currentColor text-white" />
               </button>
 
               <button
                 onClick={() => setRoute({ page: 'vendorRegister' })}
-                className="px-7 py-3.5 rounded-full bg-transparent border border-[#541D26] text-[#541D26] hover:bg-[#541D26] hover:text-white font-extrabold text-xs uppercase tracking-wider shadow-xs flex items-center space-x-2 cursor-pointer transition-all"
+                className="w-full sm:w-auto px-5 sm:px-7 py-2.5 sm:py-3.5 rounded-full bg-transparent border border-[#541D26] text-[#541D26] hover:bg-[#541D26] hover:text-white font-extrabold text-xs uppercase tracking-wider shadow-xs flex items-center justify-center space-x-2 cursor-pointer transition-all min-h-[42px] sm:min-h-[48px] tap-target"
               >
-                <AnimatedIcon icon={Store} animation="pulse" size={14} className="currentColor" />
+                <AnimatedIcon icon={Store} animation="pulse" size={13} className="currentColor" />
                 <span>Register As Vendor</span>
               </button>
             </motion.div>
@@ -227,19 +225,19 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
             {/* 4 TILTED POLAROID CARDS ROW WITH PURE WHITE CARDS */}
             <motion.div
               variants={itemVariants}
-              className="w-full max-w-5xl mx-auto pt-4 sm:pt-6 pb-2 flex flex-col items-center select-none"
+              className="w-full max-w-5xl mx-auto pt-4 sm:pt-6 pb-2 flex flex-col items-center select-none overflow-hidden"
               onMouseEnter={() => setIsPaused(true)}
               onMouseLeave={() => setIsPaused(false)}
             >
               {/* Tilted Polaroid Cards Grid */}
-              <div className="w-full min-h-[220px] sm:min-h-[260px] flex items-center justify-center">
-                <div className="w-full grid grid-cols-2 md:flex md:flex-row items-center justify-center gap-4 sm:gap-6 md:gap-0">
+              <div className="w-full min-h-[200px] sm:min-h-[260px] flex items-center justify-center">
+                <div className="w-full grid grid-cols-2 md:flex md:flex-row items-center justify-center gap-2.5 sm:gap-4 md:gap-0">
                   <AnimatePresence mode="wait">
                     {currentSet.items.map((item, index) => (
                       <motion.div
                         key={`${activeSetIndex}-${index}`}
                         initial={{ opacity: 0, y: 24, scale: 0.94, rotate: 0 }}
-                        animate={{ opacity: 1, y: 0, scale: 1, rotate: item.angle }}
+                        animate={{ opacity: 1, y: 0, scale: 1, rotate: typeof window !== 'undefined' && window.innerWidth < 640 ? 0 : item.angle }}
                         exit={{ opacity: 0, y: -18, scale: 0.94, rotate: 0 }}
                         transition={{
                           duration: 0.45,
@@ -247,13 +245,13 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
                           ease: [0.25, 0.1, 0.25, 1]
                         }}
                         whileHover={{ scale: 1.07, rotate: 0, zIndex: 30, transition: { duration: 0.15, ease: 'easeOut' } }}
-                        className="w-full md:w-56 lg:w-60 bg-white p-2.5 sm:p-3 pb-7 sm:pb-8 shadow-[0_10px_25px_rgba(33,26,25,0.08)] rounded-md border border-[#E5DAD0] -mx-1 sm:-mx-2 lg:-mx-3 transition-all duration-200 hover:shadow-[0_18px_40px_rgba(33,26,25,0.18)] cursor-pointer shrink-0"
+                        className="w-full md:w-56 lg:w-60 bg-white p-2 sm:p-3 pb-5 sm:pb-8 shadow-[0_10px_25px_rgba(33,26,25,0.08)] rounded-md border border-[#E5DAD0] sm:-mx-1 md:-mx-2 lg:-mx-3 transition-all duration-200 hover:shadow-[0_18px_40px_rgba(33,26,25,0.18)] cursor-pointer shrink-0"
                         onClick={() => setRoute({ page: 'societyVendors', societyId: 'all' })}
                       >
                         <div className="w-full aspect-[4/3] overflow-hidden rounded-xs bg-[#EEE5DA] relative">
                           <img src={item.image} alt={item.text} className="w-full h-full object-cover transition-transform duration-200 ease-out hover:scale-108" />
                         </div>
-                        <div className="mt-3 text-center font-serif italic text-[#211A19] font-bold text-sm sm:text-base tracking-wide">
+                        <div className="mt-2 sm:mt-3 text-center font-serif italic text-[#211A19] font-bold text-xs sm:text-base tracking-wide truncate">
                           {item.text}
                         </div>
                       </motion.div>
@@ -263,16 +261,21 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
               </div>
 
               {/* Category Dot Indicators */}
-              <div className="flex items-center justify-center space-x-2 mt-5">
+              <div className="flex items-center justify-center space-x-1.5 sm:space-x-2 mt-3 sm:mt-5 py-1">
                 {POLAROID_SETS.map((set, idx) => (
                   <button
                     key={idx}
                     onClick={() => setActiveSetIndex(idx)}
-                    className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                      activeSetIndex === idx ? 'w-7 bg-[#541D26]' : 'w-2 bg-[#541D26]/25 hover:bg-[#541D26]/50'
-                    }`}
+                    className="p-1 cursor-pointer focus:outline-none flex items-center justify-center tap-target"
                     title={set.categoryLabel}
-                  />
+                    aria-label={`Category ${set.categoryLabel}`}
+                  >
+                    <span
+                      className={`h-1.5 sm:h-2 rounded-full transition-all duration-300 block ${
+                        activeSetIndex === idx ? 'w-4 sm:w-6 bg-[#541D26]' : 'w-1.5 sm:w-2 bg-[#541D26]/25 hover:bg-[#541D26]/50'
+                      }`}
+                    />
+                  </button>
                 ))}
               </div>
             </motion.div>
@@ -289,12 +292,12 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, amount: 0.2 }}
+          viewport={{ once: true, amount: 0.15 }}
           variants={containerVariants}
-          className="w-full max-w-6xl mx-auto my-8 sm:my-10 px-4 sm:px-6 relative"
+          className="w-full max-w-6xl mx-auto my-8 sm:my-10 px-4 sm:px-6 relative overflow-hidden"
         >
           <FloatingDoodles section="bento" />
-          <div className="text-center max-w-xl mx-auto mb-6 space-y-1.5 flex flex-col items-center">
+          <div className="text-center max-w-xl mx-auto mb-6 space-y-1.5 flex flex-col items-center px-2">
             <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md bg-[#541D26]/10 text-[#541D26] text-[10px] font-bold tracking-widest uppercase border border-[#541D26]/20">
               <span className="w-1.5 h-1.5 rounded-full bg-[#541D26]" />
               <span>Why DigiLocal</span>
@@ -302,7 +305,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
             <ScrollTextReveal
               as="h2"
               mode="word"
-              className="text-xl sm:text-2xl font-serif font-black text-[#211A19] uppercase tracking-tight justify-center"
+              className="text-xl sm:text-2xl font-serif font-black text-[#211A19] uppercase tracking-tight justify-center text-center"
             >
               The Hyperlocal Advantage
             </ScrollTextReveal>
@@ -310,7 +313,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
               as="p"
               mode="word"
               delay={0.15}
-              className="text-xs text-[#211A19]/75 font-medium justify-center"
+              className="text-xs text-[#211A19]/75 font-medium justify-center text-center"
             >
               Designed for residential communities to empower local commerce with zero friction.
             </ScrollTextReveal>
@@ -318,7 +321,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
 
           <motion.div variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
             {/* Card 1: 15-Min Delivery */}
-            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-4.5 sm:p-5 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-0.5 group flex flex-col justify-between">
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-4 sm:p-5 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-0.5 group flex flex-col justify-between">
               <div>
                 <div className="w-9 h-9 rounded-xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-3 group-hover:scale-105 transition-transform">
                   <Zap className="w-4.5 h-4.5 text-[#541D26]" />
@@ -337,7 +340,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
             </motion.div>
 
             {/* Card 2: Verified Local Stores */}
-            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-4.5 sm:p-5 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-0.5 group flex flex-col justify-between">
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-4 sm:p-5 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-0.5 group flex flex-col justify-between">
               <div>
                 <div className="w-9 h-9 rounded-xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-3 group-hover:scale-105 transition-transform">
                   <ShieldCheck className="w-4.5 h-4.5 text-[#541D26]" />
@@ -356,7 +359,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
             </motion.div>
 
             {/* Card 3: Farm Fresh & Organic */}
-            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-4.5 sm:p-5 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-0.5 group flex flex-col justify-between">
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-4 sm:p-5 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-0.5 group flex flex-col justify-between">
               <div>
                 <div className="w-9 h-9 rounded-xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-3 group-hover:scale-105 transition-transform">
                   <ShoppingBag className="w-4.5 h-4.5 text-[#541D26]" />
@@ -375,7 +378,7 @@ export default function HomePage({ currentRoute, setRoute, onOpenLogin }) {
             </motion.div>
 
             {/* Card 4: Seamless Order Tracking */}
-            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-4.5 sm:p-5 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-0.5 group flex flex-col justify-between">
+            <motion.div variants={itemVariants} className="bg-white border border-[#E5DAD0] rounded-2xl p-4 sm:p-5 shadow-xs hover:border-[#541D26]/30 transition-all hover:-translate-y-0.5 group flex flex-col justify-between">
               <div>
                 <div className="w-9 h-9 rounded-xl bg-[#541D26]/10 flex items-center justify-center text-[#541D26] mb-3 group-hover:scale-110 transition-transform">
                   <Truck className="w-4.5 h-4.5 text-[#541D26]" />

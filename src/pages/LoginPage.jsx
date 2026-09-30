@@ -8,6 +8,7 @@ import BlockedAccountModal from '../components/BlockedAccountModal';
 import { sendFirebasePhoneOtp, verifyFirebasePhoneOtp } from '../firebase';
 import { formatUserFacingError } from '../utils/errorFormatter';
 import { useScrollLock } from '../hooks/useScrollLock';
+import { useOtpCooldown } from '../hooks/useOtpCooldown';
 
 export default function LoginPage({ currentRoute, setRoute, setActiveVendor, setActiveUser }) {
   const [accountType, setAccountType] = useState(
@@ -72,10 +73,10 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   const [altMsg, setAltMsg] = useState('');
   const [altMsgType, setAltMsgType] = useState('info'); // 'info' | 'success' | 'error'
 
-  // Real Dynamic OTP State & 30s Resend Timer (6 Digits for Message Central / MSG91)
+  // Real Dynamic OTP State & Exponential Progressive Resend Cooldown
   const [otpBoxes, setOtpBoxes] = useState(['', '', '', '', '', '']);
   const [verificationId, setVerificationId] = useState('');
-  const [resendCountdown, setResendCountdown] = useState(0);
+  const { cooldown: resendCountdown, canResend, triggerCooldown, resetCooldown } = useOtpCooldown();
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
 
   // Set/Change Password after OTP Login Modal State
@@ -152,17 +153,6 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
     }
   };
 
-  useEffect(() => {
-    let timer = null;
-    if (resendCountdown > 0) {
-      timer = setInterval(() => {
-        setResendCountdown((prev) => (prev > 1 ? prev - 1 : 0));
-      }, 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [resendCountdown]);
 
   const box0Ref = useRef(null);
   const box1Ref = useRef(null);
@@ -434,6 +424,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           localStorage.setItem('digilocal_resident_session', JSON.stringify(userObj));
           if (setActiveUser) setActiveUser(userObj);
 
+          resetCooldown();
           setSuccessMsg('Logged in successfully via OTP!');
           setOtpUserSessionData({ userObj, session });
           setShowOtpPasswordModal(true);
@@ -482,6 +473,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
           localStorage.setItem('digilocal_vendor_session', JSON.stringify(session));
           if (setActiveVendor) setActiveVendor(vendorObj);
 
+          resetCooldown();
           setSuccessMsg(`Logged in successfully as ${vendorObj.store_name || vendorObj.vendor_name || 'Vendor'} via OTP!`);
           setOtpUserSessionData({ vendorObj, session, accountType: 'vendor' });
           setShowOtpPasswordModal(true);
@@ -508,41 +500,45 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
     setError('');
     setLoading(true);
     try {
-      // Step 1: Pre-flight check
-      if (accountType === 'resident') {
-        const checkRes = await api.checkUserPhone(fullPhone);
-        if (!checkRes.exists) {
-          setError('No resident user account found with this mobile number. Please register your account first.');
-          setShowRegisterPrompt(true);
-          return;
-        }
-      } else {
-        const checkRes = isEmail 
-          ? await api.checkVendorEmail(rawContact)
-          : await api.checkVendorPhone(fullPhone);
-        if (!checkRes.exists) {
-          setError(isEmail ? 'No vendor store account found with this email address. Please register your account first.' : 'No vendor store account found with this mobile number. Please register your account first.');
-          setShowRegisterPrompt(true);
-          return;
-        }
+      // Step 1: Pre-flight check via /api/auth/check-account
+      const targetRole = accountType === 'vendor' ? 'vendor' : 'user';
+      const checkRes = await api.checkAccount(isEmail ? rawContact : fullPhone, targetRole);
+      
+      if (!checkRes.exists) {
+        setError(accountType === 'vendor' 
+          ? 'No vendor store account found with this credential. Please register your store first.' 
+          : 'No resident user account found with this number. Please register your account first.');
+        setShowRegisterPrompt(true);
+        return;
       }
 
       // Step 2: Send OTP
+      let cooldownSec = 10;
       if (isEmail) {
-        const res = await api.sendEmailOtp({ email: rawContact, role: accountType === 'vendor' ? 'vendor' : 'user', purpose: 'login' });
+        const res = await api.sendEmailOtp({ email: rawContact, role: targetRole, purpose: 'login' });
         setOtpSentMsg(res?.message || `Verification OTP sent to ${rawContact}.`);
+        cooldownSec = 10;
       } else {
-        const res = await api.sendMobileOtp({ phone: fullPhone, role: accountType === 'vendor' ? 'vendor' : 'user', purpose: 'login' });
+        const res = await api.sendMobileOtp({ phone: fullPhone, role: targetRole, purpose: 'login' });
         if (res?.verification_id || res?.verificationId) {
           setVerificationId(res.verification_id || res.verificationId);
         }
+        cooldownSec = res.cooldown_seconds || 10;
         setOtpSentMsg(res?.message || `Verification SMS sent to ${fullPhone}! Check your mobile phone.`);
       }
 
       setAuthMethod('otp');
       setOtpBoxes(Array(6).fill(''));
-      setResendCountdown(30);
+      triggerCooldown(cooldownSec);
     } catch (err) {
+      if (err?.status === 429 || err?.isCooldown) {
+        const waitSec = err.retry_after || err.cooldown_seconds || 10;
+        triggerCooldown(waitSec);
+        setError(err.message || `Please wait ${waitSec} seconds before requesting a new OTP.`);
+        setAuthMethod('otp');
+        return;
+      }
+
       const isSmsCreditErr = err?.status === 503 || err?.error_code === 'SMS_CREDITS_EXHAUSTED' || err?.data?.error_code === 'SMS_CREDITS_EXHAUSTED';
       const isSmsGatewayErr = err?.status === 502 || err?.error_code === 'SMS_GATEWAY_ERROR' || err?.data?.error_code === 'SMS_GATEWAY_ERROR';
 
@@ -561,24 +557,35 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
   const handleResendOtp = async () => {
     const rawContact = (accountType === 'resident' ? userPhone : vendorIdentifier).trim();
-    if (!rawContact || resendCountdown > 0) return;
+    if (!rawContact || !canResend || resendCountdown > 0) return;
     const isEmail = rawContact.includes('@');
     const fullPhone = isEmail ? rawContact : (rawContact.startsWith('+') ? rawContact : `${countryCode}${rawContact}`);
+    const targetRole = accountType === 'vendor' ? 'vendor' : 'user';
     setError('');
     setLoading(true);
     try {
+      let cooldownSec = 10;
       if (isEmail) {
-        const res = await api.sendEmailOtp({ email: rawContact, role: accountType === 'vendor' ? 'vendor' : 'user', purpose: 'login' });
+        const res = await api.sendEmailOtp({ email: rawContact, role: targetRole, purpose: 'login' });
         setOtpSentMsg(res?.message || `Verification OTP resent to ${rawContact}.`);
+        cooldownSec = 10;
       } else {
-        const res = await api.sendMobileOtp({ phone: fullPhone, role: accountType === 'vendor' ? 'vendor' : 'user', purpose: 'login' });
+        const res = await api.sendMobileOtp({ phone: fullPhone, role: targetRole, purpose: 'login' });
         if (res?.verification_id || res?.verificationId) {
           setVerificationId(res.verification_id || res.verificationId);
         }
-        setOtpSentMsg(res?.message || `Verification SMS resent to ${fullPhone}. Check your mobile phone.`);
+        cooldownSec = res.cooldown_seconds || 10;
+        setOtpSentMsg(res?.message || `Verification SMS resent to ${fullPhone}. Next resend available in ${cooldownSec}s.`);
       }
-      setResendCountdown(30);
+      triggerCooldown(cooldownSec);
     } catch (err) {
+      if (err?.status === 429 || err?.isCooldown) {
+        const waitSec = err.retry_after || err.cooldown_seconds || 10;
+        triggerCooldown(waitSec);
+        setError(err.message || `Please wait ${waitSec} seconds before resending OTP.`);
+        return;
+      }
+
       const isSmsCreditErr = err?.status === 503 || err?.error_code === 'SMS_CREDITS_EXHAUSTED' || err?.data?.error_code === 'SMS_CREDITS_EXHAUSTED';
       const isSmsGatewayErr = err?.status === 502 || err?.error_code === 'SMS_GATEWAY_ERROR' || err?.data?.error_code === 'SMS_GATEWAY_ERROR';
 
@@ -656,19 +663,19 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center p-3 sm:p-6 lg:p-8 font-sans text-[#211A19]">
+    <div className="min-h-screen min-h-[100dvh] w-full bg-[#FAF8F5] flex flex-col justify-start md:justify-center items-center p-3.5 sm:p-6 lg:p-8 py-5 sm:py-8 font-sans text-[#211A19] overflow-y-auto">
       <div id="recaptcha-container"></div>
       
       {/* 50/50 Balanced Bento Card with GSAP Hardware-Accelerated 3D Zoom-Out & Panel Crossover Swap */}
       <div 
         ref={cardRef}
-        className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-border/60 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-[580px] lg:min-h-[640px]"
+        className="max-w-4xl lg:max-w-5xl w-full bg-white rounded-2xl sm:rounded-[2rem] lg:rounded-[2.5rem] shadow-2xl border border-stone-200/80 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative my-auto min-h-0 md:min-h-[560px] lg:min-h-[600px] mx-auto shrink-0"
       >
 
         {/* LEFT COLUMN: Clean Branded Panel (50% equal width, md:col-span-6) */}
         <div 
           ref={leftPanelRef}
-          className="hidden md:flex md:col-span-6 bg-[#FAF8F5] md:border-r border-border/50 p-6 sm:p-8 lg:p-10 flex-col justify-between items-center relative overflow-hidden min-h-[580px]"
+          className="hidden md:flex md:col-span-6 bg-[#FAF8F5] md:border-r border-border/50 p-6 sm:p-8 lg:p-10 flex-col justify-between items-center relative overflow-hidden min-h-[560px]"
         >
           <div className="w-full flex items-center space-x-3 z-10">
             <button
@@ -697,7 +704,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
             </div>
           </div>
 
-          <div className="my-auto relative z-10 w-full max-w-[260px] sm:max-w-[300px] lg:max-w-[330px] py-4">
+          <div className="my-auto relative z-10 w-full max-w-[240px] sm:max-w-[280px] lg:max-w-[310px] py-4">
             <img
               src="/login_hero.png"
               alt="DigiLocal Local Store & Delivery Illustration"
@@ -721,29 +728,54 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
         {/* RIGHT COLUMN: Login Form (50% equal width, md:col-span-6) */}
         <div 
           ref={rightPanelRef}
-          className="md:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-center space-y-6 relative bg-white"
+          className="md:col-span-6 p-4 sm:p-6 md:p-8 lg:p-10 flex flex-col justify-center space-y-4 sm:space-y-5 relative bg-white"
         >
-          {/* Top Right "Become a Vendor" Button */}
-          <div className="flex justify-end mb-1">
+          {/* Top Bar for Mobile + "Register Vendor" button */}
+          <div className="flex items-center justify-between gap-2 pb-1">
+            <div className="flex md:hidden items-center space-x-2">
+              <button
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    window.history.back();
+                  } else {
+                    setRoute({ page: 'home' });
+                  }
+                }}
+                className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-[#211A19] cursor-pointer hover:bg-stone-200 transition-colors"
+                title="Go Back"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#541D26]" />
+              </button>
+              <div
+                onClick={() => setRoute({ page: 'home' })}
+                className="flex items-center space-x-1.5 cursor-pointer"
+              >
+                <div className="w-6 h-6 rounded-full bg-[#541D26]/10 flex items-center justify-center p-0.5 overflow-hidden">
+                  <img src="/logo.png" alt="DigiLocal" className="w-full h-full object-contain scale-[1.6] mix-blend-multiply" />
+                </div>
+                <span className="font-cormorant italic text-base font-bold text-[#541D26]">DigiLocal</span>
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={() => setRoute({ page: 'vendorRegister' })}
-              className="bg-[#541D26] hover:bg-[#6B2732] text-white text-xs font-bold px-4 py-2 rounded-full flex items-center space-x-2 shadow-sm hover:scale-[1.02] transition-all group cursor-pointer border border-[#C8A878]/30"
+              className="bg-[#541D26] hover:bg-[#6B2732] text-white text-[11px] sm:text-xs font-bold px-3 sm:px-4 py-1.5 sm:py-2 rounded-full flex items-center space-x-1.5 shadow-sm hover:scale-[1.02] transition-all group cursor-pointer border border-[#C8A878]/30 ml-auto shrink-0 min-h-[34px] sm:min-h-[38px]"
             >
               <Store className="w-3.5 h-3.5 text-[#C8A878]" />
               <span>Register Vendor</span>
-              <ArrowRight className="w-3.5 h-3.5 text-[#C8A878] group-hover:translate-x-0.5 transition-transform" />
+              <ArrowRight className="w-3 h-3 text-[#C8A878] group-hover:translate-x-0.5 transition-transform hidden sm:inline-block" />
             </button>
           </div>
 
-          <div className="space-y-5">
+          <div className="space-y-4 sm:space-y-5">
 
             {/* Header */}
             <div>
-              <h1 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#211A19]">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif font-extrabold text-[#211A19]">
                 {accountType === 'resident' ? 'Welcome Back!' : 'Vendor Portal Login'}
               </h1>
-              <p className="text-xs text-muted-foreground mt-1.5 font-medium leading-relaxed">
+              <p className="text-xs text-muted-foreground mt-1 font-medium leading-relaxed">
                 {accountType === 'resident' 
                   ? 'Login to view your profile, order history, and saved societies.'
                   : 'Login to manage your vendor store catalog, inventory, and incoming orders.'}
@@ -752,7 +784,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
 
             {/* Notifications */}
             {error && (
-              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+              <div className="p-3 sm:p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl sm:rounded-2xl text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
                 <div className="flex items-center space-x-2 min-w-0">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{error}</span>
@@ -781,19 +813,19 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
             )}
 
             {successMsg && (
-              <div className="p-3.5 bg-[#EEE5DA] border border-[#C8A878]/40 text-[#541D26] rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-xs">
+              <div className="p-3 sm:p-3.5 bg-[#EEE5DA] border border-[#C8A878]/40 text-[#541D26] rounded-xl sm:rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-xs">
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-[#541D26]" />
                 <span>{successMsg}</span>
               </div>
             )}
 
             {/* Login Form */}
-            <form onSubmit={handleFormSubmit} className="space-y-4 font-sans">
+            <form onSubmit={handleFormSubmit} className="space-y-3.5 sm:space-y-4 font-sans">
               
               {/* Resident User: Phone Number Field | Vendor: Email / Phone Field */}
               {accountType === 'resident' ? (
                 <div>
-                  <label className="block text-xs font-bold text-[#211A19] mb-1.5">
+                  <label className="block text-xs font-bold text-[#211A19] mb-1">
                     Phone Number *
                   </label>
                   <div className="flex items-center gap-2">
@@ -804,33 +836,33 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                         setPhonePlaceholder(countryObj?.placeholder || 'e.g. 98765 43210');
                       }}
                     />
-                    <div className="relative flex-1">
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <div className="relative flex-1 min-w-0">
+                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <input
                         type="tel"
                         required
                         placeholder={phonePlaceholder}
                         value={userPhone}
                         onChange={(e) => setUserPhone(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15 text-ink transition-all shadow-xs"
+                        className="w-full pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs sm:text-sm font-semibold focus:outline-none focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15 text-ink transition-all shadow-xs"
                       />
                     </div>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-bold text-[#211A19] mb-1.5">
+                  <label className="block text-xs font-bold text-[#211A19] mb-1">
                     Email Address or Phone Number *
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
                       required
                       placeholder="e.g. vendor@digilocal.com or 9876543210"
                       value={vendorIdentifier}
                       onChange={(e) => setVendorIdentifier(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15 text-ink transition-all shadow-xs"
+                      className="w-full pl-10 pr-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs sm:text-sm font-semibold focus:outline-none focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15 text-ink transition-all shadow-xs"
                     />
                   </div>
                 </div>
@@ -840,18 +872,18 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               {authMethod === 'password' ? (
                 /* 1. PASSWORD FIELD */
                 <div>
-                  <label className="block text-xs font-bold text-[#211A19] mb-1.5">
+                  <label className="block text-xs font-bold text-[#211A19] mb-1">
                     Password *
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-11 pr-11 py-3.5 rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs font-semibold focus:outline-none focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15 text-ink transition-all shadow-xs"
+                      className="w-full pl-10 pr-10 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-[#FAF9F6] border border-border/80 text-xs sm:text-sm font-semibold focus:outline-none focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15 text-ink transition-all shadow-xs"
                     />
                     <button
                       type="button"
@@ -865,7 +897,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                   </div>
                   
                   {/* Try another method link */}
-                  <div className="flex justify-end mt-2">
+                  <div className="flex justify-end mt-1.5">
                     <button
                       type="button"
                       onClick={handleSwitchToOtpMethod}
@@ -877,8 +909,8 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                   </div>
                 </div>
               ) : (
-                /* 2. INLINE 4-BLOCK OTP FIELD (PASSWORD IS REMOVED) */
-                <div className="space-y-3 pt-1 animate-in fade-in duration-200">
+                /* 2. INLINE 6-BLOCK OTP FIELD */
+                <div className="space-y-2.5 pt-1 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-[#211A19]">
                       6-Digit Verification Code *
@@ -895,8 +927,8 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                     </button>
                   </div>
 
-                  {/* 4 Separate Rounded Input Block Boxes (Proportional to Phone field) */}
-                  <div className="flex items-center justify-center gap-2.5 sm:gap-3 my-1.5">
+                  {/* 6 Rounded Input Block Boxes */}
+                  <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 my-1">
                     {otpBoxes.map((digit, i) => (
                       <input
                         key={i}
@@ -908,13 +940,13 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
                         onChange={(e) => handleOtpBoxChange(i, e.target.value)}
                         onKeyDown={(e) => handleOtpBoxKeyDown(i, e)}
                         onPaste={handleOtpBoxPaste}
-                        className="w-11 h-11 sm:w-12 sm:h-12 text-center text-base sm:text-lg font-bold rounded-2xl bg-[#FAF9F6] border border-border/80 focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15 text-[#211A19] shadow-xs transition-all outline-none"
+                        className="w-10 h-11 sm:w-12 sm:h-12 text-center text-base sm:text-lg font-bold rounded-xl sm:rounded-2xl bg-[#FAF9F6] border border-border/80 focus:border-[#541D26] focus:ring-2 focus:ring-[#541D26]/15 text-[#211A19] shadow-xs transition-all outline-none"
                       />
                     ))}
                   </div>
 
                   {otpSentMsg && (
-                    <div className="p-3 bg-[#EEE5DA] border border-[#C8A878]/40 text-[#541D26] rounded-2xl text-xs font-bold flex items-center justify-between shadow-xs">
+                    <div className="p-2.5 sm:p-3 bg-[#EEE5DA] border border-[#C8A878]/40 text-[#541D26] rounded-xl sm:rounded-2xl text-xs font-bold flex items-center justify-between shadow-xs">
                       <span className="flex items-center gap-1.5 min-w-0 pr-2">
                         <CheckCircle2 className="w-4 h-4 text-[#541D26] shrink-0" />
                         <span className="truncate">{otpSentMsg}</span>
@@ -937,7 +969,7 @@ export default function LoginPage({ currentRoute, setRoute, setActiveVendor, set
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 mt-4 cursor-pointer border border-[#C8A878]/30"
+                className="w-full py-3 sm:py-3.5 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 mt-3 cursor-pointer border border-[#C8A878]/30 min-h-[44px]"
               >
                 <span>
                   {loading 

@@ -17,6 +17,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { useOtpCooldown } from '../../hooks/useOtpCooldown';
 
 export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor, setActiveUser }) {
   useEffect(() => {
@@ -42,13 +43,14 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
   const [userPhone, setUserPhone] = useState('');
   const [flatAddress, setFlatAddress] = useState('');
 
-  // OTP State for Resident
+  // OTP State for Resident with Exponential Progressive Cooldown
   const [otpInput, setOtpInput] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [verificationId, setVerificationId] = useState('');
   const [otpError, setOtpError] = useState('');
   const [loading, setLoading] = useState(false);
   const [infoMsg, setInfoMsg] = useState('');
+  const { cooldown: resendCountdown, canResend, triggerCooldown, resetCooldown } = useOtpCooldown();
 
   if (!isOpen) return null;
 
@@ -102,7 +104,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
     }
   };
 
-  // 2. Step 1: Send Resident OTP
+  // 2. Step 1: Send Resident OTP (Pre-flight existence check first)
   const handleSendOtp = async (e) => {
     e.preventDefault();
     setOtpError('');
@@ -116,8 +118,8 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
 
     try {
       setLoading(true);
-      // Check if user exists before sending OTP
-      const checkRes = await api.checkUserPhone(cleanPhone);
+      // Pre-flight check via /api/auth/check-account
+      const checkRes = await api.checkAccount(cleanPhone, 'user');
       if (!checkRes.exists) {
         setOtpError('No resident account found with this mobile number. Please register your account first.');
         return;
@@ -127,10 +129,19 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
       if (res?.verification_id || res?.verificationId) {
         setVerificationId(res.verification_id || res.verificationId);
       }
+      const cooldownSec = res.cooldown_seconds || 10;
+      triggerCooldown(cooldownSec);
       setOtpInput('');
       setStep(2);
       setInfoMsg(res?.message || `Verification OTP sent to +91 ${cleanPhone}`);
     } catch (err) {
+      if (err?.status === 429 || err?.isCooldown) {
+        const waitSec = err.retry_after || err.cooldown_seconds || 10;
+        triggerCooldown(waitSec);
+        setOtpError(err.message || `Please wait ${waitSec} seconds before requesting a new OTP.`);
+        return;
+      }
+
       const isSmsCreditErr = err?.status === 503 || err?.error_code === 'SMS_CREDITS_EXHAUSTED' || err?.data?.error_code === 'SMS_CREDITS_EXHAUSTED';
       const isSmsGatewayErr = err?.status === 502 || err?.error_code === 'SMS_GATEWAY_ERROR' || err?.data?.error_code === 'SMS_GATEWAY_ERROR';
 
@@ -196,6 +207,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
       localStorage.setItem('digilocal_resident_session', JSON.stringify(userObj));
       if (setActiveUser) setActiveUser(userObj);
 
+      resetCooldown();
       handleResetModal();
       onClose();
       setRoute({ page: 'profile' });
@@ -213,6 +225,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
   };
 
   const handleResendOtp = async () => {
+    if (!canResend || resendCountdown > 0) return;
     const cleanPhone = userPhone.replace(/[^0-9]/g, '').slice(-10);
     try {
       setLoading(true);
@@ -220,9 +233,18 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
       if (res?.verification_id || res?.verificationId) {
         setVerificationId(res.verification_id || res.verificationId);
       }
+      const cooldownSec = res.cooldown_seconds || 10;
+      triggerCooldown(cooldownSec);
       setOtpInput('');
-      setInfoMsg(`Verification OTP resent to +91 ${cleanPhone}`);
+      setInfoMsg(`Verification OTP resent to +91 ${cleanPhone}. Next resend in ${cooldownSec}s.`);
     } catch (err) {
+      if (err?.status === 429 || err?.isCooldown) {
+        const waitSec = err.retry_after || err.cooldown_seconds || 10;
+        triggerCooldown(waitSec);
+        setOtpError(err.message || `Please wait ${waitSec} seconds before resending OTP.`);
+        return;
+      }
+
       const isSmsCreditErr = err?.status === 503 || err?.error_code === 'SMS_CREDITS_EXHAUSTED' || err?.data?.error_code === 'SMS_CREDITS_EXHAUSTED';
       const isSmsGatewayErr = err?.status === 502 || err?.error_code === 'SMS_GATEWAY_ERROR' || err?.data?.error_code === 'SMS_GATEWAY_ERROR';
 
@@ -487,13 +509,18 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
               <div className="flex items-center justify-between text-xs pt-1">
                 <button
                   type="button"
+                  disabled={!canResend || resendCountdown > 0 || loading}
                   onClick={handleResendOtp}
-                  className="text-[#541D26] hover:text-[#6B2732] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                  className={`font-bold flex items-center gap-1 transition-colors ${
+                    resendCountdown > 0 ? 'text-muted-foreground cursor-not-allowed' : 'text-[#541D26] hover:text-[#6B2732] cursor-pointer'
+                  }`}
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Resend OTP Code</span>
+                  <span>{resendCountdown > 0 ? `Resend in ${resendCountdown}s` : 'Resend OTP Code'}</span>
                 </button>
-                <span className="text-muted-foreground text-[11px]">Resend in 30s</span>
+                {resendCountdown > 0 && (
+                  <span className="text-muted-foreground text-[11px] font-medium">Wait {resendCountdown}s</span>
+                )}
               </div>
 
               <button

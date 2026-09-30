@@ -47,13 +47,14 @@ export default function HeroSearchComponent({ societies = [], onSelectSociety, o
             setQuery(e.target.value);
             setIsOpen(true);
           }}
-          className="w-full pl-12 pr-12 py-4 rounded-2xl bg-transparent text-[#211A19] placeholder-[#211A19]/50 text-sm font-medium focus:outline-none"
+          className="w-full pl-11 pr-11 py-3.5 sm:py-4 rounded-2xl bg-transparent text-[#211A19] placeholder-[#211A19]/50 text-base sm:text-sm font-medium focus:outline-none"
         />
 
         {query && (
           <button
             onClick={() => { setQuery(''); setIsOpen(false); }}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#211A19]/50 hover:text-[#211A19] bg-[#EEE5DA] rounded-full w-5 h-5 flex items-center justify-center cursor-pointer"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#211A19]/50 hover:text-[#211A19] bg-[#EEE5DA] rounded-full w-7 h-7 flex items-center justify-center cursor-pointer tap-target"
+            aria-label="Clear search"
           >
             ✕
           </button>
@@ -62,7 +63,7 @@ export default function HeroSearchComponent({ societies = [], onSelectSociety, o
 
       {/* Autocomplete Dropdown List */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-[#E5DAD0] z-50 overflow-hidden max-h-96 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-[#E5DAD0] z-50 overflow-hidden max-h-80 sm:max-h-96 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
           {filteredSocieties.length > 0 ? (
             <div className="py-2">
               <div className="px-4 py-1.5 text-[11px] font-extrabold text-[#211A19]/60 uppercase tracking-wider bg-[#FAF8F5]">
@@ -76,41 +77,41 @@ export default function HeroSearchComponent({ societies = [], onSelectSociety, o
                     onSelectSociety(society);
                     setIsOpen(false);
                   }}
-                  className="px-4 py-3 hover:bg-[#FAF8F5] cursor-pointer transition-colors border-b border-[#E5DAD0]/50 last:border-none flex items-center justify-between group"
+                  className="px-3.5 sm:px-4 py-3 hover:bg-[#FAF8F5] cursor-pointer transition-colors border-b border-[#E5DAD0]/50 last:border-none flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 group"
                 >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-11 h-11 rounded-xl overflow-hidden border border-[#E5DAD0] shrink-0 bg-[#FAF8F5]">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl overflow-hidden border border-[#E5DAD0] shrink-0 bg-[#FAF8F5]">
                       <img 
                         src={getSocietyImage(society)} 
                         alt={society.society_name} 
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
                       />
                     </div>
-                    <div>
-                      <div className="flex items-center space-x-1.5">
-                        <h4 className="text-sm font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center space-x-1.5 flex-wrap">
+                        <h4 className="text-sm font-bold text-[#211A19] group-hover:text-[#541D26] transition-colors truncate">
                           {society.society_name}
                         </h4>
                         {society.society_id && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-[#541D26] text-[#C8A878] rounded-md uppercase">
+                          <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-[#541D26] text-[#C8A878] rounded-md uppercase shrink-0">
                             {society.society_id}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-[#211A19]/60 flex items-center space-x-1 mt-0.5">
-                        <MapPin className="w-3 h-3 text-[#C8A878]" />
-                        <span>{society.location}</span>
-                        {society.pincode && <span className="font-semibold text-[#211A19]/50">• {society.pincode}</span>}
+                      <p className="text-xs text-[#211A19]/60 flex items-center space-x-1 mt-0.5 truncate">
+                        <MapPin className="w-3 h-3 text-[#C8A878] shrink-0" />
+                        <span className="truncate">{society.location}</span>
+                        {society.pincode && <span className="font-semibold text-[#211A19]/50 shrink-0">• {society.pincode}</span>}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 flex items-center space-x-1">
+                  <div className="flex items-center justify-between sm:justify-end space-x-2 pl-13 sm:pl-0">
+                    <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 flex items-center space-x-1 shrink-0">
                       <CheckCircle2 className="w-3 h-3" />
                       <span>{society.active_vendors_count || 12} Verified Vendors</span>
                     </span>
-                    <ChevronRight className="w-4 h-4 text-[#211A19]/40 group-hover:text-[#541D26] group-hover:translate-x-1 transition-all" />
+                    <ChevronRight className="w-4 h-4 text-[#211A19]/40 group-hover:text-[#541D26] group-hover:translate-x-1 transition-all shrink-0" />
                   </div>
                 </div>
               ))}

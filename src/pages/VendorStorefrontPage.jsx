@@ -1346,7 +1346,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             <div className="h-28 rounded-2xl bg-[#211A19]/10 animate-pulse" />
           ) : vendorData && (
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="flex items-start space-x-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:space-x-5">
                 <img
                   src={getNormalizedImageUrl(vendorData)}
                   alt={vendorData.store_name || 'Vendor Logo'}
@@ -1355,15 +1355,15 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                   }}
                   className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-[#211A19]/15 bg-[#211A19]/5 shadow-sm shrink-0"
                 />
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center space-x-2 text-xs font-extrabold text-[#211A19] mb-1.5 flex-wrap gap-2">
-                    <div className="flex items-center space-x-1.5 bg-[#211A19]/10 px-3 py-1 rounded-full border border-[#211A19]/15">
-                      <ShieldCheck className="w-4 h-4 text-[#211A19]" />
-                      <span>Verified Store • {vendorData.shop_number || vendorData.shop_no ? `${vendorData.shop_number || vendorData.shop_no}, ` : ''}{vendorData.society_name || vendorData.society || vendorData.location || vendorData.address || 'Residential Community'}</span>
+                    <div className="flex items-center space-x-1.5 bg-[#211A19]/10 px-3 py-1 rounded-full border border-[#211A19]/15 max-w-full">
+                      <ShieldCheck className="w-4 h-4 text-[#211A19] shrink-0" />
+                      <span className="truncate">Verified • {vendorData.shop_number || vendorData.shop_no ? `${vendorData.shop_number || vendorData.shop_no}, ` : ''}{vendorData.society_name || vendorData.society || vendorData.location || vendorData.address || 'Residential Community'}</span>
                     </div>
 
                     {(vendorData.category || vendorData.business_type) && (
-                      <span className="px-3 py-1 rounded-full bg-[#211A19] text-[#F6F0E8] text-[11px] font-extrabold uppercase tracking-wider">
+                      <span className="px-3 py-1 rounded-full bg-[#211A19] text-[#F6F0E8] text-[11px] font-extrabold uppercase tracking-wider shrink-0">
                         {vendorData.category || vendorData.business_type}
                       </span>
                     )}
@@ -1825,21 +1825,21 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                                 </span>
                               </div>
 
-                              {service.duration && (
+                              {(service.estimated_duration || service.duration) && (
                                 <div className="absolute bottom-2 left-2">
                                   <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-white/95 text-[#211A19] shadow-xs backdrop-blur-xs border border-border flex items-center gap-1">
                                     <Clock className="w-2.5 h-2.5 text-[#541D26]" />
-                                    <span>{service.duration}</span>
+                                    <span>{service.estimated_duration || service.duration}</span>
                                   </span>
                                 </div>
                               )}
                             </div>
 
                             <h3 className="text-xs sm:text-sm font-serif font-black text-[#211A19] mb-0.5 line-clamp-1">
-                              {service.item_name}
+                              {service.service_name || service.item_name || service.name || service.title}
                             </h3>
                             <p className="text-muted-foreground text-[11px] line-clamp-2 font-medium leading-relaxed">
-                              {service.description || 'Professional service provided at flat doorstep.'}
+                              {service.description || service.service_description || 'Professional service provided at flat doorstep.'}
                             </p>
                           </div>
                         </div>
@@ -1869,12 +1869,12 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                             </div>
 
                             <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200 flex items-center gap-1">
-                              {service.service_location?.includes('Shop') ? (
+                              {(service.service_location || service.location || '').includes('Shop') ? (
                                 <>
                                   <Building2 className="w-2.5 h-2.5 text-emerald-700" />
                                   <span>Shop / Clinic</span>
                                 </>
-                              ) : service.service_location?.includes('Online') ? (
+                              ) : (service.service_location || service.location || '').includes('Online') ? (
                                 <>
                                   <Globe className="w-2.5 h-2.5 text-emerald-700" />
                                   <span>Online</span>
@@ -2031,26 +2031,26 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.item_id, -1)}
-                          className="w-5 h-5 rounded-md bg-white hover:bg-[#FAF6EE] text-[#541D26] flex items-center justify-center font-bold text-xs cursor-pointer"
+                          className="w-6 h-6 sm:w-5 sm:h-5 rounded-md bg-white hover:bg-[#FAF6EE] text-[#541D26] flex items-center justify-center font-bold text-xs cursor-pointer tap-target"
                         >
-                          <Minus className="w-2.5 h-2.5" />
+                          <Minus className="w-3 h-3 sm:w-2.5 sm:h-2.5" />
                         </button>
                         <span className="text-xs font-extrabold text-[#541D26] px-1">{inCart.quantity}</span>
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.item_id, 1)}
-                          className="w-5 h-5 rounded-md bg-[#541D26] text-white hover:bg-[#6B2732] flex items-center justify-center font-bold text-xs cursor-pointer"
+                          className="w-6 h-6 sm:w-5 sm:h-5 rounded-md bg-[#541D26] text-white hover:bg-[#6B2732] flex items-center justify-center font-bold text-xs cursor-pointer tap-target"
                         >
-                          <Plus className="w-2.5 h-2.5" />
+                          <Plus className="w-3 h-3 sm:w-2.5 sm:h-2.5" />
                         </button>
                       </div>
                     ) : (
                       <button
                         type="button"
                         onClick={() => addToCart(item)}
-                        className="px-2.5 py-1 rounded-lg bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-[10.5px] shadow-2xs flex items-center space-x-0.5 transition-all uppercase tracking-wider cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-[11px] shadow-2xs flex items-center space-x-0.5 transition-all uppercase tracking-wider cursor-pointer min-h-[32px]"
                       >
-                        <Plus className="w-2.5 h-2.5 text-[#C8A878]" />
+                        <Plus className="w-3 h-3 text-[#C8A878]" />
                         <span>Add</span>
                       </button>
                     )}
@@ -2067,8 +2067,8 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
       {/* Floating Bottom Cart Bar */}
       {cartItemCount > 0 && !showCartDrawer && !isServiceVendor(vendorData) && (
-        <div className="fixed bottom-6 inset-x-4 max-w-lg mx-auto z-40 animate-in slide-in-from-bottom duration-300 pointer-events-auto">
-          <div className="bg-[#541D26] text-white p-3.5 sm:p-4 rounded-[2rem] border-2 border-[#C8A878]/50 shadow-2xl flex items-center justify-between gap-3">
+        <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] inset-x-4 max-w-lg mx-auto z-40 animate-in slide-in-from-bottom duration-300 pointer-events-auto">
+          <div className="bg-[#541D26] text-white p-3 sm:p-4 rounded-[2rem] border-2 border-[#C8A878]/50 shadow-2xl flex items-center justify-between gap-3">
             <div className="flex items-center space-x-3 min-w-0">
               <div className="w-9 h-9 rounded-full bg-[#C8A878] text-[#541D26] flex items-center justify-center font-black text-xs shrink-0 shadow-sm">
                 {cartItemCount}
@@ -2081,9 +2081,9 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
 
             <button
               onClick={() => setShowCartDrawer(true)}
-              className="px-5 py-3 rounded-full bg-[#C8A878] hover:bg-[#d8bc90] text-[#541D26] font-black text-xs shadow-md flex items-center space-x-2 uppercase tracking-wider transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+              className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-full bg-[#C8A878] hover:bg-[#d8bc90] text-[#541D26] font-black text-xs shadow-md flex items-center space-x-2 uppercase tracking-wider transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shrink-0 min-h-[44px]"
             >
-              <span>View Cart & Checkout</span>
+              <span>View Cart</span>
               <ShoppingBag className="w-4 h-4 text-[#541D26]" />
             </button>
           </div>
@@ -2250,12 +2250,12 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             </div>
 
             {/* Footer Order & Payment Buttons */}
-            <div className="p-5 bg-white border-t border-[#E5DAD0] space-y-2 shrink-0 shadow-lg">
+            <div className="p-4 sm:p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] bg-white border-t border-[#E5DAD0] space-y-2 shrink-0 shadow-lg">
               {selectedPaymentMethod === 'COD' ? (
                 <button
                   onClick={handleCheckoutCOD}
                   disabled={placingOrder}
-                  className="w-full py-4 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-black text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer border border-[#C8A878]/30 hover:scale-[1.01]"
+                  className="w-full py-3.5 sm:py-4 rounded-full bg-[#541D26] hover:bg-[#6B2732] text-white font-black text-xs shadow-md uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer border border-[#C8A878]/30 hover:scale-[1.01] min-h-[48px]"
                 >
                   <CheckCircle2 className="w-4 h-4 text-[#C8A878]" />
                   <span>{placingOrder ? 'Placing Order...' : `Place Order ₹${subtotal.toFixed(2)} (Cash on Delivery)`}</span>
