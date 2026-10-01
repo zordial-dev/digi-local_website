@@ -107,17 +107,50 @@ export function isServiceVendor(vendor) {
 
 function getCategoryCoverImage(vendor) {
   if (!vendor) return null;
-  const vId = vendor.vendor_id;
+  const vId = vendor.vendor_id || vendor.id;
+  const storeName = vendor.store_name || vendor.name || vendor.business_name;
+
+  // 1. Check custom logo cache by ID or Store Name
   const savedCustomLogo = (vId ? localStorage.getItem(`digilocal_vendor_logo_${vId}`) : null) ||
     (vId ? localStorage.getItem(`digilocal_vendor_logo_${String(vId)}`) : null) ||
-    (vendor.store_name ? localStorage.getItem(`digilocal_vendor_logo_${vendor.store_name}`) : null);
+    (storeName ? localStorage.getItem(`digilocal_vendor_logo_${storeName}`) : null);
 
-  const rawImg = savedCustomLogo || vendor.logo || vendor.image_url || vendor.image || (Array.isArray(vendor.shop_images) && vendor.shop_images.length > 0 ? vendor.shop_images[0] : '');
+  // 2. Check saved settings in local storage
+  let savedSettingsLogo = null;
+  try {
+    const sStr = (vId ? localStorage.getItem(`digilocal_vendor_saved_settings_${vId}`) : null) ||
+      (storeName ? localStorage.getItem(`digilocal_vendor_saved_settings_${storeName}`) : null);
+    if (sStr) {
+      const parsedS = JSON.parse(sStr);
+      if (parsedS && (parsedS.logo || parsedS.image_url || parsedS.image || parsedS.shop_image || parsedS.photo)) {
+        savedSettingsLogo = parsedS.logo || parsedS.image_url || parsedS.image || parsedS.shop_image || parsedS.photo;
+      }
+    }
+  } catch (_) {}
+
+  // 3. Comprehensive check across all vendor image properties
+  const rawImg = savedCustomLogo ||
+    savedSettingsLogo ||
+    vendor.logo ||
+    vendor.image_url ||
+    vendor.image ||
+    vendor.shop_image ||
+    vendor.profile_image ||
+    vendor.store_image ||
+    vendor.logo_url ||
+    vendor.photo ||
+    vendor.photo_url ||
+    vendor.banner_url ||
+    vendor.avatar ||
+    (Array.isArray(vendor.shop_images) && vendor.shop_images.length > 0 ? vendor.shop_images[0] : null) ||
+    (Array.isArray(vendor.images) && vendor.images.length > 0 ? vendor.images[0] : null) ||
+    (Array.isArray(vendor.photos) && vendor.photos.length > 0 ? vendor.photos[0] : null);
 
   if (rawImg && typeof rawImg === 'string' && rawImg.trim().length > 5 && !rawImg.includes('photo-1542838132-92c53300491e')) {
     return getNormalizedImageUrl(rawImg, '');
   }
 
+  // 4. Default Category fallback only if vendor has not uploaded any custom shop photo
   const nameCat = `${vendor.store_name || ''} ${vendor.category || ''} ${vendor.description || ''}`.toLowerCase();
 
   if (nameCat.includes('milk') || nameCat.includes('dairy') || nameCat.includes('doodh') || nameCat.includes('ghee') || nameCat.includes('paneer')) {
@@ -391,41 +424,33 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
     try {
       setLoading(true);
       let socList = allSocieties;
-      if (!socList || socList.length === 0) {
-        try {
-          const fetchedSocs = await api.getSocieties();
-          if (Array.isArray(fetchedSocs) && fetchedSocs.length > 0) {
-            socList = fetchedSocs;
-            setAllSocieties(fetchedSocs);
-          }
-        } catch (_) { }
+
+      const [fetchedSocs, venDataRaw] = await Promise.all([
+        (!socList || socList.length === 0) ? api.getSocieties().catch(() => []) : Promise.resolve(socList),
+        api.getSocietyVendors(currentSocietyId || 'all', '')
+      ]);
+
+      if (Array.isArray(fetchedSocs) && fetchedSocs.length > 0 && (!socList || socList.length === 0)) {
+        socList = fetchedSocs;
+        setAllSocieties(fetchedSocs);
       }
 
-      let userLoc = null;
-      try {
-        const saved = localStorage.getItem('digilocal_user_location');
-        if (saved) userLoc = JSON.parse(saved);
-      } catch (_) { }
-
-      let venData = [];
       if (currentSocietyId && currentSocietyId !== 'all') {
-        let socData = await api.getSociety(currentSocietyId);
-        if ((!socData || !socData.society_name) && Array.isArray(socList)) {
+        let socData = null;
+        if (Array.isArray(socList)) {
           const cleanTarget = String(currentSocietyId).replace('SOC-', '').toLowerCase();
-          const found = socList.find(s =>
+          socData = socList.find(s =>
             String(s.society_id).toLowerCase() === String(currentSocietyId).toLowerCase() ||
             String(s.society_id).replace('SOC-', '').toLowerCase() === cleanTarget
           );
-          if (found) socData = found;
         }
         setSociety(socData);
-        venData = await api.getSocietyVendors(currentSocietyId, '', socData);
       } else {
         setSociety(null);
-        venData = await api.getSocietyVendors('all', '');
       }
 
-      setAllMasterVendors(Array.isArray(venData) ? venData : []);
+      const venData = Array.isArray(venDataRaw) ? venDataRaw : [];
+      setAllMasterVendors(venData);
 
       // Fetch live rating summaries only if missing from vendor payload to prevent network waterfall
       if (Array.isArray(venData) && venData.length > 0) {
@@ -482,7 +507,11 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
         appStatus === 'PENDING' ||
         appStatus === 'REJECTED' ||
         v.is_active === false ||
-        v.isActive === false
+        v.isActive === false ||
+        v.subscription_expired === true ||
+        v.is_expired === true ||
+        v.shop_visible_on_portal === false ||
+        v.subscription?.status === 'EXPIRED'
       ) {
         return false;
       }
@@ -951,7 +980,7 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
 
           return (
             <>
-              <div id="vendors-grid-container" className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-2 sm:gap-3.5">
+              <div id="vendors-grid-container" className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-3.5">
                 {paginatedVendors.map((vendor, index) => {
                   const isService = isServiceVendor(vendor);
                   const storeImage = getCategoryCoverImage(vendor);
@@ -977,12 +1006,12 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                         }
                         setRoute({ page: 'vendorStorefront', societyId: vendor.society_id || currentSocietyId || 1, vendorId: vendor.vendor_id });
                       }}
-                      className="group rounded-xl sm:rounded-2xl bg-white border border-[#E5DAD0] hover:border-[#541D26]/40 hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden flex flex-col justify-between relative shadow-xs h-full w-full"
+                      className="group rounded-xl sm:rounded-2xl bg-white border border-[#E5DAD0] hover:border-[#541D26]/40 hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden flex flex-col justify-between relative shadow-xs h-full w-full"
                     >
                       <div className="flex flex-col h-full justify-between">
                         <div>
-                          {/* 1. Cover Image Header (Compact h-20 sm:h-28) */}
-                          <div className="h-20 sm:h-28 w-full relative bg-[#211A19] overflow-hidden shrink-0">
+                          {/* 1. Cover Image Header (Compact Proportional Height) */}
+                          <div className="h-20 sm:h-24 md:h-26 lg:h-28 w-full relative bg-[#211A19] overflow-hidden shrink-0">
                             {storeImage ? (
                               <img
                                 src={storeImage}
@@ -990,11 +1019,11 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
                               />
                             ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-[#211A19] via-[#3B151C] to-[#541D26] p-2 sm:p-3 flex flex-col items-center justify-center text-center relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
-                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white/10 border border-white/20 text-[#C8A878] text-sm sm:text-lg font-serif font-black flex items-center justify-center shadow-md mb-0.5">
+                              <div className="w-full h-full bg-gradient-to-br from-[#211A19] via-[#3B151C] to-[#541D26] p-2 sm:p-2.5 flex flex-col items-center justify-center text-center relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                                <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-white/10 border border-white/20 text-[#C8A878] text-xs sm:text-base font-serif font-black flex items-center justify-center shadow-md mb-0.5">
                                   {(vendor.store_name || 'V').charAt(0).toUpperCase()}
                                 </div>
-                                <span className="text-[7.5px] sm:text-[8.5px] font-bold text-[#D6B7A5] uppercase tracking-widest">
+                                <span className="text-[7px] sm:text-[8px] font-bold text-[#D6B7A5] uppercase tracking-widest">
                                   {isService ? 'Service' : 'Store'}
                                 </span>
                               </div>
@@ -1002,72 +1031,72 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
 
                             {/* Top Badges Overlay */}
-                            <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 right-1.5 sm:right-2 flex items-center justify-between gap-1 z-10">
+                            <div className="absolute top-1 sm:top-1.5 left-1 sm:left-1.5 right-1 sm:right-1.5 flex items-center justify-between gap-1 z-10">
                               <div className="flex items-center gap-1 max-w-[65%] truncate">
                                 {isService ? (
-                                  <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-950/90 text-purple-200 border border-purple-400/40 text-[7.5px] sm:text-[8.5px] font-black backdrop-blur-md shadow-xs shrink-0">
+                                  <span className="px-1.5 py-0.5 rounded-full bg-purple-950/90 text-purple-200 border border-purple-400/40 text-[7px] sm:text-[8px] font-black backdrop-blur-md shadow-xs shrink-0">
                                     🛠️ <span className="hidden xs:inline sm:inline">Service</span>
                                   </span>
                                 ) : (
-                                  <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-200 border border-emerald-400/40 text-[7.5px] sm:text-[8.5px] font-black backdrop-blur-md shadow-xs shrink-0">
+                                  <span className="px-1.5 py-0.5 rounded-full bg-emerald-950/90 text-emerald-200 border border-emerald-400/40 text-[7px] sm:text-[8px] font-black backdrop-blur-md shadow-xs shrink-0">
                                     🛍️ <span className="hidden xs:inline sm:inline">Product</span>
                                   </span>
                                 )}
                               </div>
 
-                              <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[7.5px] sm:text-[8.5px] font-extrabold flex items-center space-x-1 backdrop-blur-md shadow-xs border uppercase shrink-0 ${!status.isOpen
+                              <span className={`px-1.5 py-0.5 rounded-full text-[7px] sm:text-[8px] font-extrabold flex items-center space-x-0.5 sm:space-x-1 backdrop-blur-md shadow-xs border uppercase shrink-0 ${!status.isOpen
                                   ? 'bg-rose-950/85 text-rose-300 border-rose-500/50'
                                   : status.closingCountdown
                                     ? 'bg-amber-950/85 text-amber-300 border-amber-500/50'
                                     : 'bg-emerald-950/85 text-emerald-300 border-emerald-500/50'
                                 }`}>
                                 <span className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${!status.isOpen ? 'bg-rose-400' : status.closingCountdown ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
-                                <span className="truncate max-w-[55px] sm:max-w-none">{status.statusText}</span>
+                                <span className="truncate max-w-[50px] sm:max-w-none">{status.statusText}</span>
                               </span>
                             </div>
                           </div>
 
                           {/* 2. Store Info Body */}
-                          <div className="p-2 sm:p-3 space-y-1 sm:space-y-1.5">
+                          <div className="p-2 sm:p-2.5 space-y-1">
                             {/* Title & Verified / Rating Badge */}
                             <div>
                               <div className="flex items-start justify-between gap-1">
-                                <h3 className="font-serif font-black text-xs sm:text-base text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight truncate flex-1">
+                                <h3 className="font-serif font-black text-xs sm:text-[13px] md:text-sm text-[#211A19] group-hover:text-[#541D26] transition-colors leading-tight truncate flex-1">
                                   {vendor.store_name}
                                 </h3>
-                                <div className="flex items-center space-x-0.5 sm:space-x-1 shrink-0 mt-0.5">
-                                  <span className="inline-flex items-center space-x-0.5 px-1 sm:px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[7.5px] sm:text-[8.5px] font-extrabold">
+                                <div className="flex items-center space-x-0.5 shrink-0 mt-0.5">
+                                  <span className="inline-flex items-center space-x-0.5 px-1 sm:px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[7px] sm:text-[8px] font-extrabold">
                                     <Star className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-amber-500 fill-amber-500 shrink-0" />
                                     <span>{getVendorRating(vendor, liveRatingsMap) > 0 ? getVendorRating(vendor, liveRatingsMap).toFixed(1) : 'New'}</span>
                                   </span>
-                                  <span className="inline-flex items-center space-x-0.5 px-1 sm:px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[7.5px] sm:text-[8.5px] font-extrabold hidden xs:inline-flex sm:inline-flex">
+                                  <span className="inline-flex items-center space-x-0.5 px-1 sm:px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[7px] sm:text-[8px] font-extrabold hidden xs:inline-flex sm:inline-flex">
                                     <ShieldCheck className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-emerald-600 shrink-0" />
                                     <span>Verified</span>
                                   </span>
                                 </div>
                               </div>
-                              <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium truncate mt-0.5">
+                              <p className="text-[9.5px] sm:text-[10.5px] text-muted-foreground font-medium truncate mt-0.5">
                                 <span className="text-[#541D26] font-semibold">{vendor.category || (isService ? 'Services' : 'Essentials')}</span>
                               </p>
                             </div>
 
                             {/* Location & Time Info Bar */}
-                            <div className="flex items-center justify-between pt-1 sm:pt-1.5 border-t border-[#F0E6DD] text-[9px] sm:text-[10.5px]">
+                            <div className="flex items-center justify-between pt-1 border-t border-[#F0E6DD] text-[8.5px] sm:text-[9.5px]">
                               {isLoggedIn ? (
-                                <span className="flex items-center space-x-0.5 sm:space-x-1 font-bold text-[#211A19] truncate max-w-[48%]">
-                                  <Phone className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-[#541D26] shrink-0" />
+                                <span className="flex items-center space-x-0.5 font-bold text-[#211A19] truncate max-w-[50%]">
+                                  <Phone className="w-2 h-2 text-[#541D26] shrink-0" />
                                   <span className="truncate">{vendor.phone_number || 'Contact'}</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center space-x-0.5 text-amber-800 bg-amber-50 px-1 py-0.5 rounded text-[8.5px] sm:text-[9.5px] font-bold truncate">
+                                <span className="inline-flex items-center space-x-0.5 text-amber-800 bg-amber-50 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold truncate">
                                   <Lock className="w-2 h-2 text-amber-600 shrink-0" />
                                   <span className="truncate">Login</span>
                                 </span>
                               )}
 
                               {(vendor.opening_time || vendor.opening_timing) && (
-                                <span className="flex items-center space-x-0.5 text-[8.5px] sm:text-[10px] text-muted-foreground font-semibold shrink-0">
-                                  <Clock className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-[#541D26] shrink-0" />
+                                <span className="flex items-center space-x-0.5 text-[8px] sm:text-[9px] text-muted-foreground font-semibold shrink-0">
+                                  <Clock className="w-2 h-2 text-[#541D26] shrink-0" />
                                   <span className="truncate">{vendor.opening_time || vendor.opening_timing}</span>
                                 </span>
                               )}
@@ -1076,31 +1105,31 @@ export default function SocietyVendorsPage({ societyId: initialSocietyId, setRou
                         </div>
 
                         {/* 3. Action CTA Button */}
-                        <div className="p-2 sm:p-3 pt-0">
+                        <div className="p-2 sm:p-2.5 pt-0">
                           {!status.isOpen && status.nextOpenText ? (
-                            <div className="w-full py-1 sm:py-1.5 bg-rose-50 border border-rose-200/80 rounded-lg sm:rounded-xl text-rose-800 text-[8.5px] sm:text-[10.5px] font-bold flex items-center justify-center space-x-1">
-                              <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-600 shrink-0" />
+                            <div className="w-full py-1 sm:py-1.5 bg-rose-50 border border-rose-200/80 rounded-lg sm:rounded-xl text-rose-800 text-[8px] sm:text-[9.5px] font-bold flex items-center justify-center space-x-1">
+                              <Clock className="w-2.5 h-2.5 text-rose-600 shrink-0" />
                               <span className="truncate">CLOSED • {vendor.opening_time || '08:00 AM'}</span>
                             </div>
                           ) : (
                             <button
                               type="button"
-                              className="w-full py-1.5 sm:py-2.5 px-2 sm:px-3 min-h-[36px] sm:min-h-[44px] rounded-lg sm:rounded-xl transition-all duration-200 flex items-center justify-between font-extrabold text-[9px] sm:text-[11px] shadow-2xs group-hover:shadow-xs uppercase tracking-wider cursor-pointer bg-[#541D26] text-white hover:bg-[#6B2732] tap-target"
+                              className="w-full py-1.5 sm:py-2 px-2 sm:px-2.5 min-h-[30px] sm:min-h-[36px] rounded-lg sm:rounded-xl transition-all duration-200 flex items-center justify-between font-extrabold text-[8.5px] sm:text-[10px] shadow-2xs group-hover:shadow-xs uppercase tracking-wider cursor-pointer bg-[#541D26] text-white hover:bg-[#6B2732] tap-target"
                             >
                               <div className="flex items-center space-x-1 sm:space-x-1.5 truncate">
                                 {isService ? (
                                   <>
-                                    <MessageSquare className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#C8A878] group-hover:text-white transition-colors shrink-0" />
+                                    <MessageSquare className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#C8A878] group-hover:text-white transition-colors shrink-0" />
                                     <span className="truncate">Enquire</span>
                                   </>
                                 ) : (
                                   <>
-                                    <ShoppingCart className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#C8A878] group-hover:text-white transition-colors shrink-0" />
+                                    <ShoppingCart className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#C8A878] group-hover:text-white transition-colors shrink-0" />
                                     <span className="truncate">Explore</span>
                                   </>
                                 )}
                               </div>
-                              <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#C8A878] group-hover:translate-x-0.5 transition-transform shrink-0 ml-0.5" />
+                              <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#C8A878] group-hover:translate-x-0.5 transition-transform shrink-0 ml-0.5" />
                             </button>
                           )}
                         </div>

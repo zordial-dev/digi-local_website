@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Truck, MapPin, Store, CheckCircle2, Clock, Phone, 
   ShieldCheck, ShoppingBag, ArrowLeft, HelpCircle, 
@@ -5,6 +6,7 @@ import {
   XCircle, AlertTriangle, ArrowRight
 } from 'lucide-react';
 import { api } from '../services/api';
+import { getSocket, joinOrderRoom, joinUserRoom } from '../services/socket';
 
 export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, order: propOrder, setRoute, activeUser, onOpenSupportDesk }) {
   const [activeOrder, setActiveOrder] = useState(propOrder || null);
@@ -91,6 +93,11 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
           ...liveOrder,
           status: liveStatus,
           order_status: liveStatus,
+          cancel_reason: liveOrder.cancel_reason || liveOrder.reason || prev?.cancel_reason,
+          payment_status: liveOrder.payment_status || prev?.payment_status,
+          refund_status: liveOrder.refund_status || prev?.refund_status,
+          refund_status_label: liveOrder.refund_status_label || prev?.refund_status_label,
+          is_refund_in_progress: liveOrder.is_refund_in_progress !== undefined ? liveOrder.is_refund_in_progress : prev?.is_refund_in_progress,
           items: Array.isArray(res.items) && res.items.length > 0 ? res.items : (prev?.items || liveOrder.items || [])
         }));
         setLastUpdated(new Date());
@@ -133,7 +140,63 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
     }
   }, [targetOrderId]);
 
-  // Real-time live status listeners & 5-second polling interval
+  // Real-time Socket.IO room subscription & event handling
+  useEffect(() => {
+    const currentId = targetOrderId || activeOrderRef.current?.order_id || activeOrderRef.current?.id;
+    if (currentId) {
+      joinOrderRoom(currentId);
+    }
+    const userId = activeUser?.user_id || activeUser?.id || activeUser?.phone;
+    if (userId) {
+      joinUserRoom(userId);
+    }
+
+    const socket = getSocket();
+    if (socket) {
+      const handleSocketCancelled = (payload) => {
+        if (payload && isMatchingOrderId(payload.order_id || payload.id, targetOrderId || activeOrderRef.current?.order_id || activeOrderRef.current?.id)) {
+          console.log('⚡ [OrderTrackingPage] Real-time ORDER_CANCELLED received:', payload);
+          setActiveOrder(prev => ({
+            ...prev,
+            status: 'CANCELLED',
+            order_status: 'CANCELLED',
+            cancel_reason: payload.cancel_reason || payload.reason || prev?.cancel_reason,
+            payment_status: payload.payment_status || prev?.payment_status,
+            refund_status: payload.refund_status || prev?.refund_status,
+            refund_status_label: payload.refund_status_label || prev?.refund_status_label,
+            is_refund_in_progress: payload.is_refund_in_progress !== undefined ? payload.is_refund_in_progress : true,
+            refund: payload.refund || prev?.refund
+          }));
+          setLastUpdated(new Date());
+        }
+      };
+
+      const handleSocketUpdated = (payload) => {
+        if (payload && isMatchingOrderId(payload.order_id || payload.id, targetOrderId || activeOrderRef.current?.order_id || activeOrderRef.current?.id)) {
+          console.log('⚡ [OrderTrackingPage] Real-time ORDER_STATUS_UPDATED received:', payload);
+          setActiveOrder(prev => ({
+            ...prev,
+            status: payload.status,
+            order_status: payload.status,
+            ...(payload.cancel_reason ? { cancel_reason: payload.cancel_reason } : {}),
+            ...(payload.payment_status ? { payment_status: payload.payment_status } : {}),
+            ...(payload.refund_status_label ? { refund_status_label: payload.refund_status_label } : {})
+          }));
+          setLastUpdated(new Date());
+        }
+      };
+
+      socket.on('ORDER_CANCELLED', handleSocketCancelled);
+      socket.on('ORDER_STATUS_UPDATED', handleSocketUpdated);
+
+      return () => {
+        socket.off('ORDER_CANCELLED', handleSocketCancelled);
+        socket.off('ORDER_STATUS_UPDATED', handleSocketUpdated);
+      };
+    }
+  }, [targetOrderId, activeUser]);
+
+  // Real-time DOM listeners & polling fallback
   useEffect(() => {
     const handleStorage = () => syncLatestStatus();
     const handleCustomStatus = (e) => {
@@ -141,7 +204,11 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
         setActiveOrder(prev => ({
           ...prev,
           status: e.detail.status,
-          order_status: e.detail.status
+          order_status: e.detail.status,
+          ...(e.detail.cancel_reason ? { cancel_reason: e.detail.cancel_reason } : {}),
+          ...(e.detail.payment_status ? { payment_status: e.detail.payment_status } : {}),
+          ...(e.detail.refund_status_label ? { refund_status_label: e.detail.refund_status_label } : {}),
+          ...(e.detail.is_refund_in_progress !== undefined ? { is_refund_in_progress: e.detail.is_refund_in_progress } : {})
         }));
         setLastUpdated(new Date());
       }
@@ -149,14 +216,20 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
 
     window.addEventListener('storage', handleStorage);
     window.addEventListener('digilocal_order_status_update', handleCustomStatus);
+    window.addEventListener('digilocal_order_cancelled', handleCustomStatus);
+    window.addEventListener('digilocal_new_order', handleStorage);
+    window.addEventListener('digilocal_order_rated', handleStorage);
 
     const interval = setInterval(() => {
       syncLatestStatus();
-    }, 5000);
+    }, 3000);
 
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('digilocal_order_status_update', handleCustomStatus);
+      window.removeEventListener('digilocal_order_cancelled', handleCustomStatus);
+      window.removeEventListener('digilocal_new_order', handleStorage);
+      window.removeEventListener('digilocal_order_rated', handleStorage);
       clearInterval(interval);
     };
   }, [targetOrderId]);
@@ -247,6 +320,7 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
   const isOnlinePaid = String(activeOrder?.payment_status || '').toUpperCase() === 'PAID' || 
     (activeOrder?.payment_method && !['COD', 'CASH_ON_DELIVERY'].includes(String(activeOrder?.payment_method).toUpperCase()));
 
+  const subtotal = Number(activeOrder?.total_amount || 0);
   const isRefundInProgress = Boolean(activeOrder?.is_refund_in_progress || activeOrder?.payment_status === 'REFUND_IN_PROGRESS' || activeOrder?.refund_status === 'IN_PROGRESS');
   const isRefundCompleted = Boolean(activeOrder?.payment_status === 'REFUND_COMPLETED' || activeOrder?.refund_status === 'COMPLETED' || activeOrder?.payment_status === 'REFUNDED');
   const hasRefund = isRefundInProgress || isRefundCompleted || Boolean(activeOrder?.refund_id) || (Number(activeOrder?.refund_amount || 0) > 0);
@@ -352,7 +426,6 @@ export default function OrderTrackingPage({ currentRoute, orderId: propOrderId, 
   ];
 
   const itemsList = Array.isArray(activeOrder?.items) ? activeOrder.items : [];
-  const subtotal = Number(activeOrder?.total_amount || 0);
   const cleanOrderId = String(activeOrder?.order_id || activeOrder?.id || targetOrderId || '').replace(/^ORD[-_]?/i, '');
 
   if (!activeOrder && !targetOrderId) {

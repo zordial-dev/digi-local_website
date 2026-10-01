@@ -82,7 +82,7 @@ export default function LoginModal({ isOpen, onClose, setRoute, setActiveVendor,
 
       const session = {
         vendor: vendorObj,
-        token: res.token || res.accessToken || `mock_jwt_${Date.now()}`,
+        token: res.token || res.accessToken || res.jwt || '',
         expiresAt: Date.now() + 86400000
       };
 

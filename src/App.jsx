@@ -164,8 +164,33 @@ function getPathFromRoute(route) {
 
 export default function App() {
   const [route, setRouteState] = useState(() => getRouteFromPath());
-  const [activeVendor, setActiveVendor] = useState(null);
-  const [activeUser, setActiveUser] = useState(null);
+  const [activeVendor, setActiveVendor] = useState(() => {
+    try {
+      const vendorSessionStr = localStorage.getItem('digilocal_vendor_session');
+      if (vendorSessionStr) {
+        const parsed = JSON.parse(vendorSessionStr);
+        if (parsed && (parsed.vendor || parsed.vendor_name || parsed.store_name) && (!parsed.expiresAt || parsed.expiresAt > Date.now())) {
+          return parsed.vendor || parsed;
+        }
+      }
+    } catch (_) {}
+    return null;
+  });
+
+  const [activeUser, setActiveUser] = useState(() => {
+    try {
+      const userSessionStr = localStorage.getItem('digilocal_user_session');
+      if (userSessionStr) {
+        const parsed = JSON.parse(userSessionStr);
+        if (parsed && (parsed.user || parsed.name) && (!parsed.expiresAt || parsed.expiresAt > Date.now())) {
+          return parsed.user || parsed;
+        }
+      }
+      const savedRes = localStorage.getItem('digilocal_resident_session');
+      if (savedRes) return JSON.parse(savedRes);
+    } catch (_) {}
+    return null;
+  });
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isSupportDeskOpen, setIsSupportDeskOpen] = useState(false);
   const [platformConfig, setPlatformConfig] = useState(null);

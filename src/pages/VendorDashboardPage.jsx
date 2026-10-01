@@ -94,6 +94,102 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
   const [ledgerData, setLedgerData] = useState(null);
   const [loadingLedger, setLoadingLedger] = useState(false);
 
+  // DigiLocal Subscription & Coupons State (Specification 2026)
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [dismissedExpiryPopup, setDismissedExpiryPopup] = useState(false);
+  const [subscriptionPlans, setSubscriptionPlans] = useState([]);
+  const [vendorCoupons, setVendorCoupons] = useState([]);
+  const [couponInputCode, setCouponInputCode] = useState('');
+  const [appliedCouponData, setAppliedCouponData] = useState(null);
+  const [couponApplying, setCouponApplying] = useState(false);
+  const [couponError, setCouponError] = useState('');
+  const [subscribingLoading, setSubscribingLoading] = useState(false);
+
+  const handleOpenSubscriptionModal = async () => {
+    setShowSubscriptionModal(true);
+    setCouponError('');
+    try {
+      const targetVendorId = vendorId || panelData?.vendor?.vendor_id;
+      const [plans, coupons] = await Promise.all([
+        api.getSubscriptionPlans(),
+        api.getVendorCoupons(targetVendorId)
+      ]);
+      if (Array.isArray(plans) && plans.length > 0) setSubscriptionPlans(plans);
+      if (Array.isArray(coupons)) setVendorCoupons(coupons);
+    } catch (err) {
+      console.warn('Failed to load plans or coupons:', err);
+    }
+  };
+
+  const handleApplyCouponCode = async (codeToApply) => {
+    const code = (codeToApply || couponInputCode || '').trim().toUpperCase();
+    if (!code) {
+      setCouponError('Please enter an 8-character promo code.');
+      return;
+    }
+    try {
+      setCouponApplying(true);
+      setCouponError('');
+      const targetVendorId = vendorId || panelData?.vendor?.vendor_id;
+      const res = await api.applySubscriptionCoupon({
+        vendor_id: targetVendorId,
+        coupon_code: code,
+        plan_id: subscriptionPlans[0]?.plan_id || 1
+      });
+      if (res && res.success && res.data) {
+        setAppliedCouponData(res.data);
+        setCouponInputCode(code);
+      } else {
+        setCouponError(res?.error || res?.message || 'Invalid or expired coupon code.');
+        setAppliedCouponData(null);
+      }
+    } catch (err) {
+      setCouponError(err.message || 'Failed to validate coupon.');
+      setAppliedCouponData(null);
+    } finally {
+      setCouponApplying(false);
+    }
+  };
+
+  const handleProceedSubscription = async () => {
+    const targetVendorId = vendorId || panelData?.vendor?.vendor_id;
+    if (!targetVendorId) return;
+
+    try {
+      setSubscribingLoading(true);
+      const res = await api.subscribeOrRenewVendor({
+        vendor_id: targetVendorId,
+        plan_id: subscriptionPlans[0]?.plan_id || 1,
+        coupon_code: appliedCouponData?.coupon_code || null,
+        payment_method: 'ONLINE',
+        transaction_id: `pay_OQ${Date.now()}`
+      });
+
+      if (res && res.success) {
+        setShowSubscriptionModal(false);
+        setModalConfig({
+          isOpen: true,
+          title: '🎉 Subscription Activated!',
+          message: res.message || 'Your DigiLocal store subscription has been activated for 1 full year! Store is now active and visible on the user portal.',
+          type: 'success'
+        });
+        loadPanelData(false);
+      } else {
+        throw new Error(res?.error || res?.message || 'Subscription activation failed.');
+      }
+    } catch (err) {
+      setModalConfig({
+        isOpen: true,
+        title: 'Payment Error',
+        message: err.message || 'Could not complete subscription. Please retry with online payment.',
+        type: 'error'
+      });
+    } finally {
+      setSubscribingLoading(false);
+    }
+  };
+
   const loadVendorPaymentLedger = async () => {
     const targetVendorId = vendorId || panelData?.vendor?.vendor_id;
     if (!targetVendorId) return;
@@ -393,6 +489,58 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
     setAutoLocationBadge(`✨ Selected: ${item.city || ''}${item.state ? ', ' + item.state : ''}${item.pincode ? ' (' + item.pincode + ')' : ''}`);
   };
 
+  // Smart GSTIN & PAN Auto-Extraction (characters 3-12)
+  const handleGstinChange = (val) => {
+    const cleanGst = String(val || '').toUpperCase().trim();
+    setSettingsForm(prev => {
+      const next = {
+        ...prev,
+        gstin: cleanGst,
+        gst_number: cleanGst
+      };
+      // When 15-char GSTIN is typed, auto-extract 10-char PAN
+      if (cleanGst.length === 15) {
+        const extractedPan = cleanGst.slice(2, 12).toUpperCase();
+        next.pan_number = extractedPan;
+        next.pan = extractedPan;
+      }
+      return next;
+    });
+  };
+
+  // Bank IFSC Verification & Auto-Fill
+  const [ifscVerifying, setIfscVerifying] = useState(false);
+  const [ifscVerifiedBadge, setIfscVerifiedBadge] = useState('');
+  const [ifscError, setIfscError] = useState('');
+
+  const handleIfscBlurOrChange = async (val) => {
+    const clean = String(val || '').trim().toUpperCase();
+    setSettingsForm(prev => ({ ...prev, ifsc_code: clean }));
+    if (clean.length === 11) {
+      setIfscVerifying(true);
+      setIfscError('');
+      try {
+        const data = await api.getBankDetailsByIfsc(clean);
+        if (data) {
+          const bName = data.bank_name || data.bank || `${clean.slice(0, 4)} Bank`;
+          setSettingsForm(prev => ({
+            ...prev,
+            bank_name: bName
+          }));
+          setIfscVerifiedBadge(`✨ ${bName}${data.branch ? ` (${data.branch})` : ''}`);
+        }
+      } catch (err) {
+        setIfscError(err.message || 'Invalid IFSC Code');
+        setIfscVerifiedBadge('');
+      } finally {
+        setIfscVerifying(false);
+      }
+    } else {
+      setIfscVerifiedBadge('');
+      setIfscError('');
+    }
+  };
+
   // New Incoming Order Alert & Audio Chime State
   const [newOrderAlert, setNewOrderAlert] = useState(null);
   const knownOrderIdsRef = useRef(new Set());
@@ -552,6 +700,18 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
       }
 
       setPanelData(data);
+
+      try {
+        const subStat = await api.getVendorSubscriptionStatus(vendorId);
+        if (subStat) {
+          setSubscriptionStatus(subStat);
+          if (subStat.show_expiry_popup && !dismissedExpiryPopup) {
+            handleOpenSubscriptionModal();
+          }
+        }
+      } catch (err) {
+        console.warn('Subscription status check failed:', err);
+      }
 
       try {
         const enqList = await api.getVendorEnquiries(vendorId);
@@ -1227,6 +1387,19 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                     }`} />
                     {vendor.status || 'PENDING'}
                   </span>
+
+                  {/* Subscription Topbar Badge */}
+                  {subscriptionStatus?.is_expired ? (
+                    <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white flex items-center gap-1 shadow-xs">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>Store Hidden (Expired)</span>
+                    </span>
+                  ) : subscriptionStatus?.is_expiring_soon ? (
+                    <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-amber-500 text-amber-950 flex items-center gap-1 shadow-xs">
+                      <Clock className="w-3 h-3" />
+                      <span>Expires in {subscriptionStatus.days_left}d</span>
+                    </span>
+                  ) : null}
                 </div>
                 <h1 className="text-lg sm:text-2xl md:text-3xl font-serif font-black text-ink mt-0.5 sm:mt-1 truncate">
                   {vendor.store_name || vendor.vendor_name || 'Vendor Store'}
@@ -1251,6 +1424,51 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
             </div>
           </div>
         </div>
+
+        {/* Subscription Expired / Expiring Warning Banner (Section 3.1 Specification) */}
+        {subscriptionStatus?.is_expired ? (
+          <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md animate-in slide-in-from-top-2">
+            <div className="flex items-start space-x-2.5 sm:space-x-3 min-w-0">
+              <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-extrabold text-rose-950 text-xs sm:text-sm mb-0.5">⚠️ Subscription Expired — Storefront Hidden</h4>
+                <p className="text-rose-800 text-[11px] sm:text-xs leading-relaxed">
+                  Your DigiLocal annual subscription has expired{subscriptionStatus.end_date ? ` on ${subscriptionStatus.end_date}` : ''}. Your store is currently hidden from resident users on the portal. Please renew now to restore shop visibility and receive customer orders.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenSubscriptionModal}
+              className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer self-start sm:self-auto"
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Renew Subscription - ₹5,999/yr</span>
+            </button>
+          </div>
+        ) : (subscriptionStatus?.is_expiring_soon || (subscriptionStatus?.days_left !== undefined && subscriptionStatus?.days_left <= 7)) ? (
+          <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm animate-in slide-in-from-top-2">
+            <div className="flex items-start space-x-2.5 sm:space-x-3 min-w-0">
+              <Clock className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-extrabold text-amber-950 text-xs sm:text-sm mb-0.5">
+                  🔔 Subscription Expiring in {subscriptionStatus.days_left} {subscriptionStatus.days_left === 1 ? 'Day' : 'Days'}
+                </h4>
+                <p className="text-amber-800 text-[11px] sm:text-xs leading-relaxed">
+                  Your DigiLocal store subscription expires on {subscriptionStatus.end_date || 'soon'}. Renew today to prevent your store from going offline.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenSubscriptionModal}
+              className="px-4 py-2.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer self-start sm:self-auto"
+            >
+              <CreditCard className="w-3.5 h-3.5 text-[#C8A878]" />
+              <span>Renew Now</span>
+            </button>
+          </div>
+        ) : null}
 
         {/* Vendor Status Banner (Hold / Rejected / Action Required) */}
         <VendorStatusBanner
@@ -2245,26 +2463,32 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">GSTIN Number</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-bold text-[#211A19] uppercase truncate">GSTIN Number</label>
+                            <span className="text-[9.5px] text-muted-foreground">15 Chars</span>
+                          </div>
                           <input
                             type="text"
                             maxLength={15}
-                            placeholder="e.g. 08ABCDE1234F1Z5"
-                            value={settingsForm.gstin || settingsForm.gst_number}
-                            onChange={(e) => setSettingsForm({ ...settingsForm, gstin: e.target.value.toUpperCase(), gst_number: e.target.value.toUpperCase() })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19] uppercase"
+                            placeholder="e.g. 07AAAAA0000A1Z5"
+                            value={settingsForm.gstin || settingsForm.gst_number || ''}
+                            onChange={(e) => handleGstinChange(e.target.value)}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19] uppercase tracking-wide"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">PAN Number</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-bold text-[#211A19] uppercase truncate">PAN Number</label>
+                            <span className="text-[9.5px] text-muted-foreground">Auto-synced</span>
+                          </div>
                           <input
                             type="text"
                             maxLength={10}
-                            placeholder="e.g. ABCDE1234F"
+                            placeholder="e.g. AAAAA0000A"
                             value={settingsForm.pan_number || settingsForm.pan || settingsForm.panNumber || ''}
                             onChange={(e) => setSettingsForm({ ...settingsForm, pan_number: e.target.value.toUpperCase(), pan: e.target.value.toUpperCase(), panNumber: e.target.value.toUpperCase() })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19] uppercase"
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] text-xs font-medium focus:outline-none focus:border-[#541D26] text-[#211A19] uppercase tracking-wide"
                           />
                         </div>
                       </div>
@@ -2575,7 +2799,14 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Bank Name</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-bold text-[#211A19] uppercase">Bank Name</label>
+                            {ifscVerifiedBadge && (
+                              <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                {ifscVerifiedBadge}
+                              </span>
+                            )}
+                          </div>
                           <input
                             type="text"
                             placeholder="e.g. HDFC Bank"
@@ -2592,20 +2823,26 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">Bank Account Number</label>
                           <input
                             type="text"
-                            placeholder="e.g. 918273645019"
+                            placeholder="e.g. 50100234567890"
                             value={settingsForm.account_number || ''}
                             onChange={(e) => setSettingsForm({ ...settingsForm, account_number: e.target.value })}
                             className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">IFSC Code</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-bold text-[#211A19] uppercase">IFSC Code</label>
+                            {ifscVerifying && <span className="text-[10px] text-amber-700 font-bold animate-pulse">Verifying...</span>}
+                            {ifscError && <span className="text-[10px] text-rose-600 font-bold">{ifscError}</span>}
+                          </div>
                           <input
                             type="text"
+                            maxLength={11}
                             placeholder="e.g. HDFC0001234"
                             value={settingsForm.ifsc_code || ''}
-                            onChange={(e) => setSettingsForm({ ...settingsForm, ifsc_code: e.target.value.toUpperCase() })}
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none uppercase"
+                            onChange={(e) => handleIfscBlurOrChange(e.target.value)}
+                            onBlur={(e) => handleIfscBlurOrChange(e.target.value)}
+                            className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none uppercase tracking-wider font-mono"
                           />
                         </div>
                       </div>
@@ -2616,19 +2853,19 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
                           <label className="block text-xs font-bold text-[#211A19] uppercase mb-1 truncate">Merchant UPI ID (VPA)</label>
                           <input
                             type="text"
-                            placeholder="e.g. freshbites@upi"
+                            placeholder="e.g. rajesh@okhdfcbank"
                             value={settingsForm.upi_id || ''}
                             onChange={(e) => setSettingsForm({ ...settingsForm, upi_id: e.target.value })}
                             className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Payment QR Image URL</label>
+                          <label className="block text-xs font-bold text-[#211A19] uppercase mb-1">Payment QR Image URL / Data</label>
                           <input
                             type="url"
-                            placeholder="https://imgh.in/host/vendor_upi_qr.png"
-                            value={settingsForm.qr_code_url || ''}
-                            onChange={(e) => setSettingsForm({ ...settingsForm, qr_code_url: e.target.value })}
+                            placeholder="https://cdn.digilocal.com/qr/1432.png"
+                            value={settingsForm.qr_code_url || settingsForm.qr_code || ''}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, qr_code_url: e.target.value, qr_code: e.target.value })}
                             className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DAD0] focus:border-[#541D26] text-xs font-medium text-[#211A19] focus:outline-none"
                           />
                         </div>
@@ -3011,34 +3248,123 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               </div>
             </div>
 
-            {/* Subscription Status */}
-            <div className="bg-white border border-[#E5DAD0] rounded-2xl p-8 shadow-sm">
-              <h2 className="text-xl font-serif font-extrabold text-[#211A19] mb-1 uppercase tracking-wider">Active Subscription Status</h2>
-              <p className="text-xs text-[#211A19]/60 mb-6 font-medium">Vendor access control & subscription validity details.</p>
+            {/* Subscription Status & Management (Section 2.5 Specification) */}
+            <div className="bg-white border border-[#E5DAD0] rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5DAD0] pb-4">
+                <div>
+                  <h2 className="text-xl font-serif font-extrabold text-[#211A19] uppercase tracking-wider flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-[#541D26]" />
+                    <span>Annual Merchant Subscription</span>
+                  </h2>
+                  <p className="text-xs text-[#211A19]/60 font-medium mt-0.5">
+                    Vendor access control, resident portal storefront visibility, and subscription validity.
+                  </p>
+                </div>
 
-              {subscription ? (
-                <div className="p-6 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] space-y-4">
-                  <div className="flex justify-between items-center border-b border-[#E5DAD0] pb-3">
-                    <span className="text-xs text-[#211A19]/70 font-medium">Subscription Status:</span>
-                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-[#541D26]/10 text-[#541D26] border border-[#541D26]/20 uppercase">
-                      {subscription.status}
-                    </span>
+                <button
+                  type="button"
+                  onClick={handleOpenSubscriptionModal}
+                  className="px-4 py-2 rounded-xl bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5 cursor-pointer self-start sm:self-auto border border-[#C8A878]/30"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#C8A878]" />
+                  <span>{subscriptionStatus?.is_expired ? 'Renew Subscription (₹5,999/yr)' : 'Manage / Renew Plan'}</span>
+                </button>
+              </div>
+
+              {/* Status Overview Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0]">
+                  <span className="text-[11px] font-bold text-[#211A19]/60 uppercase tracking-wider block mb-1">
+                    Subscription Status
+                  </span>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${
+                    subscriptionStatus?.is_expired
+                      ? 'bg-rose-100 text-rose-800 border-rose-300'
+                      : subscriptionStatus?.is_expiring_soon
+                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                      : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      subscriptionStatus?.is_expired ? 'bg-rose-600' : 'bg-emerald-600 animate-pulse'
+                    }`} />
+                    {subscriptionStatus?.status || subscription?.status || 'ACTIVE'}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0]">
+                  <span className="text-[11px] font-bold text-[#211A19]/60 uppercase tracking-wider block mb-1">
+                    Store Visibility on Portal
+                  </span>
+                  <span className={`text-xs font-bold block ${
+                    subscriptionStatus?.is_expired || subscriptionStatus?.shop_visible_on_portal === false
+                      ? 'text-rose-700'
+                      : 'text-emerald-700'
+                  }`}>
+                    {subscriptionStatus?.is_expired || subscriptionStatus?.shop_visible_on_portal === false
+                      ? '🔴 Offline / Hidden'
+                      : '🟢 Live & Visible to Residents'}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0]">
+                  <span className="text-[11px] font-bold text-[#211A19]/60 uppercase tracking-wider block mb-1">
+                    Days Remaining
+                  </span>
+                  <span className="text-xl font-serif font-black text-[#541D26] block">
+                    {subscriptionStatus?.days_left !== undefined ? `${subscriptionStatus.days_left} Days` : '365 Days'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Start & End Dates Card */}
+              <div className="p-5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-medium">
+                  <div>
+                    <span className="text-[#211A19]/60 block mb-0.5">Start Date:</span>
+                    <p className="font-bold text-[#211A19]">
+                      {subscriptionStatus?.start_date || subscription?.start_date || 'Activated on registration'}
+                    </p>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4 text-xs font-medium">
-                    <div>
-                      <span className="text-[#211A19]/60">Start Date:</span>
-                      <p className="font-bold text-[#211A19]">{subscription.start_date || 'Approved Date'}</p>
-                    </div>
-                    <div>
-                      <span className="text-[#211A19]/60">Expiry Date (1 Year):</span>
-                      <p className="font-bold text-[#541D26]">{subscription.end_date || '1 Year After Start'}</p>
-                    </div>
+                  <div>
+                    <span className="text-[#211A19]/60 block mb-0.5">Expiry Date:</span>
+                    <p className="font-bold text-[#541D26]">
+                      {subscriptionStatus?.end_date || subscription?.end_date || '1 Year Validity'}
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <p className="text-[#211A19]/60 text-xs">No subscription record found.</p>
-              )}
+              </div>
+            </div>
+
+            {/* Plan Details & Features */}
+            <div className="bg-white border border-[#E5DAD0] rounded-2xl p-6 sm:p-8 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E5DAD0] pb-3">
+                <div>
+                  <h3 className="text-base font-serif font-bold text-[#211A19] uppercase tracking-wider">
+                    {subscriptionPlans[0]?.name || 'Annual Merchant Plan'} (₹5,999 / year)
+                  </h3>
+                  <p className="text-xs text-[#78716C] font-medium">
+                    {subscriptionPlans[0]?.description || '1 Year DigiLocal Storefront Visibility & Resident Ordering'}
+                  </p>
+                </div>
+                <span className="text-xs font-black font-mono text-[#541D26] bg-[#FAF6EE] border border-[#C8A878]/40 px-3 py-1 rounded-full self-start sm:self-auto">
+                  365 Days Duration
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-medium text-[#211A19]/80">
+                {(subscriptionPlans[0]?.features || [
+                  'Storefront visible on DigiLocal user portal',
+                  'Customers can view and buy products',
+                  'Vendor panel dashboard access',
+                  'Real-time order notifications',
+                  'Priority merchant support'
+                ]).map((feat, i) => (
+                  <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-[#FAF9F6]">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{feat}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="bg-white border border-[#E5DAD0] rounded-2xl p-8 shadow-sm">
@@ -4094,6 +4420,277 @@ export default function VendorDashboardPage({ vendorId, setRoute, setActiveVendo
               >
                 <LogOut className="w-4 h-4 text-white" />
                 <span>Yes, Log Out</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* DigiLocal Merchant Subscription & Zomato-Style Coupon Renewal Modal (Section 3.2 Specification) */}
+      {showSubscriptionModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999999] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto"
+          style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', margin: 0 }}
+          onClick={() => {
+            if (!subscriptionStatus?.is_expired) {
+              setShowSubscriptionModal(false);
+              setDismissedExpiryPopup(true);
+            }
+          }}
+        >
+          <div 
+            className="relative bg-white border border-[#C8A878]/50 rounded-2xl sm:rounded-[2rem] p-5 sm:p-7 max-w-lg w-full shadow-2xl space-y-4 sm:space-y-5 my-auto shrink-0 max-h-[92vh] flex flex-col animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-[#E5DAD0] pb-3.5">
+              <div className="flex items-center space-x-3">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${
+                  subscriptionStatus?.is_expired 
+                    ? 'bg-rose-50 border-rose-200 text-rose-700'
+                    : subscriptionStatus?.is_expiring_soon
+                    ? 'bg-amber-50 border-amber-200 text-amber-700'
+                    : 'bg-[#FAF6EE] border-[#C8A878]/40 text-[#541D26]'
+                }`}>
+                  {subscriptionStatus?.is_expired ? (
+                    <AlertTriangle className="w-6 h-6" />
+                  ) : (
+                    <Sparkles className="w-6 h-6 text-[#C8A878]" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-serif font-black text-[#211A19] leading-snug">
+                    {subscriptionStatus?.popup_title || (subscriptionStatus?.is_expired ? '⚠️ Subscription Expired' : 'Annual Merchant Subscription')}
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-[#78716C] font-medium">
+                    {subscriptionStatus?.is_expired 
+                      ? 'Renew now to restore storefront visibility & accept orders' 
+                      : 'Maintain storefront visibility & unlimited orders for 1 full year'}
+                  </p>
+                </div>
+              </div>
+
+              {!subscriptionStatus?.is_expired && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSubscriptionModal(false);
+                    setDismissedExpiryPopup(true);
+                  }}
+                  className="w-8 h-8 rounded-full bg-[#FAF8F5] hover:bg-[#EEE5DA] border border-[#E7DFD5] text-[#211A19] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                  title="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Scrollable Content Body */}
+            <div className="overflow-y-auto space-y-4 pr-1 scrollbar-thin flex-1 min-h-0">
+              
+              {/* Expired / Critical Warning Message Box */}
+              {subscriptionStatus?.popup_message && (
+                <div className={`p-3.5 rounded-xl border text-xs font-medium leading-relaxed ${
+                  subscriptionStatus?.is_expired 
+                    ? 'bg-rose-50 border-rose-200 text-rose-900'
+                    : 'bg-amber-50 border-amber-200 text-amber-900'
+                }`}>
+                  {subscriptionStatus.popup_message}
+                </div>
+              )}
+
+              {/* Plan Details Card */}
+              <div className="p-4 rounded-xl sm:rounded-2xl bg-[#FAF9F6] border border-[#E5DAD0] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#C8A878] bg-[#541D26] px-2 py-0.5 rounded">
+                      Official Plan
+                    </span>
+                    <h4 className="font-serif font-black text-sm sm:text-base text-[#211A19] mt-1">
+                      {subscriptionPlans[0]?.name || 'Annual Merchant Plan'}
+                    </h4>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-lg sm:text-xl font-serif font-black text-[#541D26] block">
+                      ₹{(subscriptionPlans[0]?.price || 5999).toFixed(2)}
+                    </span>
+                    <span className="text-[10px] font-semibold text-[#78716C]">/ 365 Days</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-2 border-t border-[#E5DAD0]/70 text-[11px] font-medium text-[#211A19]/80">
+                  {(subscriptionPlans[0]?.features || [
+                    'Storefront visible on DigiLocal user portal',
+                    'Customers can view and buy products',
+                    'Vendor panel dashboard access',
+                    'Real-time order notifications',
+                    'Priority merchant support'
+                  ]).map((feat, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="truncate">{feat}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Zomato-Style Coupon Drawer & Code Input */}
+              <div className="space-y-3 border border-[#E5DAD0] rounded-xl sm:rounded-2xl p-4 bg-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Tag className="w-4 h-4 text-[#541D26]" />
+                    <h4 className="text-xs font-serif font-black uppercase tracking-wider text-[#211A19]">
+                      Apply Promo Coupon
+                    </h4>
+                  </div>
+                  {appliedCouponData && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAppliedCouponData(null);
+                        setCouponInputCode('');
+                        setCouponError('');
+                      }}
+                      className="text-[10px] font-bold text-rose-600 hover:underline cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                {/* Coupon Input Box */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    maxLength={12}
+                    placeholder="ENTER 8-DIGIT CODE"
+                    value={couponInputCode}
+                    onChange={(e) => {
+                      setCouponInputCode(e.target.value.toUpperCase());
+                      setCouponError('');
+                    }}
+                    className="flex-1 uppercase font-mono font-bold tracking-widest text-xs px-3.5 py-2.5 rounded-xl border border-[#E5DAD0] bg-[#FAF8F5] focus:bg-white focus:border-[#541D26] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCouponCode(couponInputCode)}
+                    disabled={couponApplying || !couponInputCode.trim()}
+                    className="px-4 py-2.5 rounded-xl bg-[#541D26] hover:bg-[#6B2732] disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider cursor-pointer transition-all"
+                  >
+                    {couponApplying ? 'Checking...' : 'Apply'}
+                  </button>
+                </div>
+
+                {/* Coupon Feedback Alerts */}
+                {couponError && (
+                  <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{couponError}</span>
+                  </div>
+                )}
+
+                {appliedCouponData && (
+                  <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{appliedCouponData.message || `Coupon "${appliedCouponData.coupon_code}" applied successfully!`}</span>
+                    </div>
+                    <span className="text-emerald-900 font-extrabold">-₹{Number(appliedCouponData.discount_amount || 0).toFixed(2)}</span>
+                  </div>
+                )}
+
+                {/* Available Coupons List (Zomato-Style Cards) */}
+                {vendorCoupons.length > 0 && !appliedCouponData && (
+                  <div className="space-y-2 pt-2 border-t border-[#E5DAD0]/60">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] block">
+                      Available Offers For You ({vendorCoupons.length})
+                    </span>
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1 scrollbar-thin">
+                      {vendorCoupons.map((coupon, cIdx) => (
+                        <div
+                          key={coupon.id || coupon.coupon_code || cIdx}
+                          className="border-2 border-dashed border-amber-400 bg-amber-50/40 p-3 rounded-xl flex items-center justify-between hover:bg-amber-50 transition-colors"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <span className="font-mono font-black text-xs text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded tracking-wider">
+                              {coupon.coupon_code}
+                            </span>
+                            <p className="text-[11px] font-bold text-[#211A19] mt-1 truncate">
+                              {coupon.type === 'percentage' 
+                                ? `Get ${coupon.discount}% OFF on Annual Subscription` 
+                                : `Flat ₹${Number(coupon.discount).toFixed(0)} OFF on Annual Plan`}
+                            </p>
+                            <span className="text-[10px] text-[#78716C] font-medium block">
+                              Valid till {coupon.end_date || 'Limited time'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleApplyCouponCode(coupon.coupon_code)}
+                            className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[11px] uppercase tracking-wider cursor-pointer shrink-0 shadow-2xs transition-all"
+                          >
+                            APPLY
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Price Recalculation Summary */}
+              <div className="p-3.5 rounded-xl bg-[#FAF9F6] border border-[#E5DAD0] space-y-1.5 text-xs font-medium">
+                <div className="flex justify-between text-[#78716C]">
+                  <span>Annual Subscription (1 Year)</span>
+                  <span>₹{(appliedCouponData?.original_price || subscriptionPlans[0]?.price || 5999).toFixed(2)}</span>
+                </div>
+                {appliedCouponData && (
+                  <div className="flex justify-between text-emerald-700 font-bold">
+                    <span>Coupon Discount ({appliedCouponData.coupon_code})</span>
+                    <span>-₹{Number(appliedCouponData.discount_amount || 0).toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-base font-serif font-black text-[#541D26] pt-1.5 border-t border-[#E5DAD0]">
+                  <span>Total Amount to Pay</span>
+                  <span>₹{(appliedCouponData?.final_price || subscriptionPlans[0]?.price || 5999).toFixed(2)}</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="pt-2 flex flex-col sm:flex-row gap-2">
+              {!subscriptionStatus?.is_expired && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSubscriptionModal(false);
+                    setDismissedExpiryPopup(true);
+                  }}
+                  className="py-3 px-4 rounded-xl bg-[#FAF8F5] border border-[#E7DFD5] text-[#211A19] font-bold text-xs uppercase tracking-wider hover:bg-[#EEE5DA] transition-colors cursor-pointer order-2 sm:order-1"
+                >
+                  Remind Me Later
+                </button>
+              )}
+              
+              <button
+                type="button"
+                onClick={handleProceedSubscription}
+                disabled={subscribingLoading}
+                className="flex-1 py-3.5 px-6 rounded-xl bg-[#541D26] hover:bg-[#6B2732] disabled:opacity-50 text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 border border-[#C8A878]/30 order-1 sm:order-2"
+              >
+                {subscribingLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-[#C8A878]" />
+                    <span>Processing Online Payment...</span>
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-4 h-4 text-[#C8A878]" />
+                    <span>Pay Online & Activate (₹{(appliedCouponData?.final_price || subscriptionPlans[0]?.price || 5999).toFixed(2)})</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

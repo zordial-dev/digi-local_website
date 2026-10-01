@@ -49,6 +49,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { api, getItemUnitLabel, formatItemQuantityBadge, formatISTReadable } from '../services/api';
+import { getSocket, joinUserRoom } from '../services/socket';
 import CountryCodePicker from '../components/CountryCodePicker';
 
 function getInitials(nameStr) {
@@ -104,8 +105,75 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [saveErrorMsg, setSaveErrorMsg] = useState('');
   
-  // Orders & Favorites State
-  const [orders, setOrders] = useState([]);
+  // Orders & Favorites State (Synchronous Instant Cached Initialization)
+  const [orders, setOrders] = useState(() => {
+    try {
+      let u = activeUser;
+      if (!u) {
+        const uStr = localStorage.getItem('digilocal_user_session') || localStorage.getItem('digilocal_resident_session');
+        if (uStr) {
+          const p = JSON.parse(uStr);
+          u = p.user || p;
+        }
+      }
+      const userPhone = String(u?.phone || u?.mobile || '').replace(/\D/g, '');
+      const userId = String(u?.user_id || u?.id || '');
+
+      const isRealOrder = (o) => {
+        if (!o) return false;
+        const cName = (o.customer_name || o.user_name || o.name || '').trim().toLowerCase();
+        const pNum = (o.phone_number || o.phone || o.user_phone || '').trim();
+        const oId = String(o.order_id || '');
+        if (cName.includes('rahul sharma') || cName.includes('demo customer')) return false;
+        if (pNum === '9876543210' || pNum === '9876543211' || pNum === '9876543212' || pNum === '+919876543210') return false;
+        if ((oId === '1642' || oId === 'ORD-1642' || oId === '1') && cName.includes('rahul')) return false;
+        return true;
+      };
+
+      const matchesActiveUser = (o) => {
+        if (!o || !isRealOrder(o)) return false;
+        const orderPhone = String(o.phone || o.user_phone || o.phone_number || '').replace(/\D/g, '');
+        const orderUserId = String(o.user_id || '');
+        if (userPhone && orderPhone && (orderPhone === userPhone || orderPhone.endsWith(userPhone) || userPhone.endsWith(orderPhone))) return true;
+        if (userId && orderUserId && userId === orderUserId) return true;
+        if (!userPhone && !userId) return true;
+        return false;
+      };
+
+      const keys = ['digilocal_cached_orders', 'digilocal_user_orders', 'digilocal_past_orders', 'digilocal_all_orders'];
+      const combined = [];
+      for (const k of keys) {
+        const str = localStorage.getItem(k);
+        if (str) {
+          try {
+            const list = JSON.parse(str);
+            if (Array.isArray(list)) combined.push(...list);
+          } catch (_) {}
+        }
+      }
+      const activeOrderStr = localStorage.getItem('digilocal_active_order');
+      if (activeOrderStr) {
+        try {
+          const ao = JSON.parse(activeOrderStr);
+          if (ao) combined.unshift(ao);
+        } catch (_) {}
+      }
+
+      const seen = new Set();
+      const clean = [];
+      for (const ord of combined) {
+        if (!ord) continue;
+        const id = String(ord.order_id || ord.id || '');
+        if (id && !seen.has(id) && matchesActiveUser(ord)) {
+          seen.add(id);
+          clean.push(ord);
+        }
+      }
+      return clean;
+    } catch (_) {
+      return [];
+    }
+  });
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [trackingOrder, setTrackingOrder] = useState(null);
   const [orderSearch, setOrderSearch] = useState('');
@@ -445,34 +513,43 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
     const loadRealOrders = async () => {
       let liveOrders = [];
       const activePhone = String(userData?.phone || userData?.mobile || '').replace(/[^0-9]/g, '');
+      const rawUserId = userData?.user_id || userData?.id;
+
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
+      const fetchPromises = [];
 
       if (activePhone) {
-        const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
-        try {
-          const res = await fetch(`${apiBase}/orders?phone=${encodeURIComponent(activePhone)}`);
-          if (res.ok) {
-            const data = await res.json();
-            const list = Array.isArray(data) ? data : (data.orders || data.data || []);
-            if (Array.isArray(list) && list.length > 0) {
-              liveOrders.push(...list.filter(Boolean));
-            }
-          }
-        } catch (e) {
-          console.warn("Backend orders query by phone note:", e);
-        }
+        fetchPromises.push(
+          fetch(`${apiBase}/orders?phone=${encodeURIComponent(activePhone)}`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+              const list = Array.isArray(data) ? data : (data?.orders || data?.data || []);
+              if (Array.isArray(list)) return list.filter(Boolean);
+              return [];
+            })
+            .catch(() => [])
+        );
       }
 
-      const rawUserId = userData?.user_id || userData?.id;
       if (rawUserId) {
-        try {
-          const userOrderRes = await api.getUserOrders(rawUserId);
-          const uList = Array.isArray(userOrderRes) ? userOrderRes : (userOrderRes?.orders || userOrderRes?.data || []);
-          if (Array.isArray(uList) && uList.length > 0) {
-            liveOrders.push(...uList.filter(Boolean));
+        fetchPromises.push(
+          api.getUserOrders(rawUserId)
+            .then(userOrderRes => {
+              const uList = Array.isArray(userOrderRes) ? userOrderRes : (userOrderRes?.orders || userOrderRes?.data || []);
+              if (Array.isArray(uList)) return uList.filter(Boolean);
+              return [];
+            })
+            .catch(() => [])
+        );
+      }
+
+      if (fetchPromises.length > 0) {
+        const results = await Promise.allSettled(fetchPromises);
+        results.forEach(r => {
+          if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+            liveOrders.push(...r.value);
           }
-        } catch (e) {
-          console.warn("Backend orders query by user_id note:", e);
-        }
+        });
       }
 
       // Filter out mock dummy orders
@@ -556,10 +633,68 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
         }
       }
 
+      if (cleanOrders.length > 0) {
+        try {
+          localStorage.setItem('digilocal_cached_orders', JSON.stringify(cleanOrders));
+        } catch (_) {}
+      }
+
       setOrders(cleanOrders);
     };
 
     loadRealOrders();
+
+    // Join Socket.IO user rooms for instant real-time sync across devices & tabs
+    const userId = userData?.user_id || userData?.id || userData?.phone;
+    if (userId) {
+      joinUserRoom(userId);
+    }
+    const userPhone = String(userData?.phone || userData?.mobile || '').replace(/\D/g, '');
+    if (userPhone) {
+      joinUserRoom(userPhone);
+    }
+
+    const socket = getSocket();
+    let handleSocketOrderUpdate = null;
+    if (socket) {
+      handleSocketOrderUpdate = (payload) => {
+        if (payload && (payload.order_id || payload.id)) {
+          const oId = String(payload.order_id || payload.id);
+          console.log('⚡ [UserProfilePage] Real-time socket order update:', payload);
+          setOrders(prev => prev.map(o => {
+            if (String(o.order_id || o.id) === oId) {
+              return {
+                ...o,
+                status: payload.status || 'CANCELLED',
+                order_status: payload.status || 'CANCELLED',
+                cancel_reason: payload.cancel_reason || payload.reason || o.cancel_reason,
+                payment_status: payload.payment_status || o.payment_status,
+                refund_status: payload.refund_status || o.refund_status,
+                refund_status_label: payload.refund_status_label || o.refund_status_label,
+                is_refund_in_progress: payload.is_refund_in_progress !== undefined ? payload.is_refund_in_progress : o.is_refund_in_progress,
+                refund: payload.refund || o.refund
+              };
+            }
+            return o;
+          }));
+        }
+      };
+
+      socket.on('ORDER_CANCELLED', handleSocketOrderUpdate);
+      socket.on('ORDER_STATUS_UPDATED', handleSocketOrderUpdate);
+    }
+
+    const handleOrdersAutoRefresh = () => {
+      loadRealOrders();
+    };
+
+    window.addEventListener('storage', handleOrdersAutoRefresh);
+    window.addEventListener('digilocal_order_status_update', handleOrdersAutoRefresh);
+    window.addEventListener('digilocal_order_cancelled', handleOrdersAutoRefresh);
+    window.addEventListener('digilocal_new_order', handleOrdersAutoRefresh);
+    window.addEventListener('digilocal_order_rated', handleOrdersAutoRefresh);
+
+    const ordersAutoSyncInterval = setInterval(loadRealOrders, 3500);
 
     // Load Favorite Stores
     try {
@@ -580,7 +715,17 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
 
     window.addEventListener('digilocal_saved_addresses_updated', handleAddressSync);
     return () => {
+      window.removeEventListener('storage', handleOrdersAutoRefresh);
+      window.removeEventListener('digilocal_order_status_update', handleOrdersAutoRefresh);
+      window.removeEventListener('digilocal_order_cancelled', handleOrdersAutoRefresh);
+      window.removeEventListener('digilocal_new_order', handleOrdersAutoRefresh);
+      window.removeEventListener('digilocal_order_rated', handleOrdersAutoRefresh);
       window.removeEventListener('digilocal_saved_addresses_updated', handleAddressSync);
+      clearInterval(ordersAutoSyncInterval);
+      if (socket && handleSocketOrderUpdate) {
+        socket.off('ORDER_CANCELLED', handleSocketOrderUpdate);
+        socket.off('ORDER_STATUS_UPDATED', handleSocketOrderUpdate);
+      }
     };
   }, [activeUser?.user_id || activeUser?.id || activeUser?.phone]);
 
@@ -1393,6 +1538,41 @@ export default function UserProfilePage({ activeUser, setActiveUser, setRoute, o
                           </p>
                         </div>
                       </div>
+
+                      {/* Cancellation Details & Refund Banner */}
+                      {(() => {
+                        const st = String(order.status || order.order_status || '').toUpperCase();
+                        if (st === 'CANCELLED' || st === 'CANCELED' || st === 'REJECTED' || st === 'DECLINED') {
+                          const isRefundInProgress = Boolean(order.is_refund_in_progress || order.payment_status === 'REFUND_IN_PROGRESS' || order.refund_status === 'IN_PROGRESS');
+                          const isRefundCompleted = Boolean(order.payment_status === 'REFUND_COMPLETED' || order.refund_status === 'COMPLETED' || order.payment_status === 'REFUNDED');
+                          const refundLabel = order.refund_status_label || (isRefundInProgress ? 'Refund in Progress (Crediting back to original payment source)' : (isRefundCompleted ? 'Refund Completed to original payment source' : null));
+                          const cancelReasonText = order.cancel_reason || order.reason;
+                          const isCOD = String(order.payment_method || '').toUpperCase() === 'COD';
+
+                          return (
+                            <div className="p-2.5 bg-rose-50/90 border border-rose-200 rounded-xl space-y-1.5 text-[10.5px] sm:text-xs">
+                              {cancelReasonText && (
+                                <div className="flex items-start gap-1.5 text-rose-900">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                                  <span className="font-medium"><strong>Cancelled:</strong> {cancelReasonText}</span>
+                                </div>
+                              )}
+                              {refundLabel && !isCOD && (
+                                <div className="flex items-center gap-1.5 text-emerald-800 font-semibold bg-white/90 px-2 py-1 rounded-lg border border-emerald-200">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  <span>💳 {refundLabel}</span>
+                                </div>
+                              )}
+                              {isCOD && (
+                                <div className="text-[#78716C] text-[10px] italic">
+                                  Cash on Delivery order — No payment was charged.
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
 
                       {/* Itemized Items Breakdown List */}
                       <div className="pt-1.5 sm:pt-2 border-t border-[#E5DAD0] flex flex-wrap items-center justify-between gap-1.5 text-[10.5px] sm:text-xs text-[#211A19]/80">

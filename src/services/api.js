@@ -9,7 +9,7 @@ if (!rawBase.startsWith('http://') && !rawBase.startsWith('https://') && !rawBas
 }
 const API_BASE = rawBase;
 
-// Smart Lightweight In-Memory GET Response Cache (12s TTL) & Request Deduplication
+// Smart Lightweight In-Memory GET Response Cache with Stale-While-Revalidate (SWR) & Request Deduplication
 const getResponseCache = new Map();
 const inFlightPromises = new Map();
 
@@ -28,21 +28,62 @@ export function invalidateApiCache(urlPattern = '') {
   }
 }
 
-const fetchWithTimeout = async (url, options = {}, timeoutMs = 25000) => {
+const performNetworkFetch = async (url, options = {}, timeoutMs = 3500) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return res;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError' || (err.message && err.message.includes('aborted'))) {
+      console.warn('Network request timed out:', url);
+      throw new Error('Connection timed out while reaching backend server.');
+    }
+    throw err;
+  }
+};
+
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 3500) => {
   const method = (options.method || 'GET').toUpperCase();
   const cacheKey = `${method}:${url}:${options.headers?.Authorization || ''}`;
   const now = Date.now();
-  const TTL_MS = 12000; // 12-second cache for GET requests
+  const FRESH_TTL_MS = 5000;   // 5 seconds strictly fresh
+  const STALE_TTL_MS = 120000; // 2 minutes stale-while-revalidate serving
 
-  // 1. If method is non-GET (POST/PUT/DELETE/PATCH), clear matching cache entries
+  // 1. Invalidate cache on mutations
   if (method !== 'GET') {
     invalidateApiCache();
   }
 
-  // 2. Return cached response clone if GET and fresh (within 12s)
+  // 2. Stale-While-Revalidate for GET requests
   if (method === 'GET' && !options.headers?.['x-skip-cache'] && getResponseCache.has(cacheKey)) {
     const cached = getResponseCache.get(cacheKey);
-    if (now - cached.timestamp < TTL_MS) {
+    const age = now - cached.timestamp;
+
+    if (age < FRESH_TTL_MS) {
+      // Strictly fresh: instant return
+      return cached.response.clone();
+    } else if (age < STALE_TTL_MS) {
+      // Stale-While-Revalidate: Return instant cached copy & revalidate silently in background
+      if (!inFlightPromises.has(cacheKey)) {
+        const bgPromise = performNetworkFetch(url, options, timeoutMs)
+          .then((freshRes) => {
+            if (freshRes.ok) {
+              getResponseCache.set(cacheKey, {
+                response: freshRes.clone(),
+                timestamp: Date.now()
+              });
+            }
+            return freshRes;
+          })
+          .catch(() => {})
+          .finally(() => {
+            inFlightPromises.delete(cacheKey);
+          });
+        inFlightPromises.set(cacheKey, bgPromise);
+      }
       return cached.response.clone();
     } else {
       getResponseCache.delete(cacheKey);
@@ -59,15 +100,9 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 25000) => {
     }
   }
 
-  // 4. Perform actual network fetch
-  const promise = (async () => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      // Cache successful GET responses for 12 seconds
+  // 4. Perform network fetch
+  const promise = performNetworkFetch(url, options, timeoutMs)
+    .then((res) => {
       if (method === 'GET' && res.ok) {
         getResponseCache.set(cacheKey, {
           response: res.clone(),
@@ -75,19 +110,12 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 25000) => {
         });
       }
       return res;
-    } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.name === 'AbortError' || (err.message && err.message.includes('aborted'))) {
-        console.warn('Network request timed out or aborted:', url);
-        throw new Error('Connection timed out while reaching backend server. Please try again.');
-      }
-      throw err;
-    } finally {
+    })
+    .finally(() => {
       if (method === 'GET') {
         inFlightPromises.delete(cacheKey);
       }
-    }
-  })();
+    });
 
   if (method === 'GET') {
     inFlightPromises.set(cacheKey, promise);
@@ -401,6 +429,12 @@ export const updateVendorService = (vendorId, serviceId, serviceData, token = ''
 export const uploadServicePhoto = (vendorId, serviceId, photoData, token = '') => api.uploadServicePhoto(vendorId, serviceId, photoData, token);
 export const toggleServiceAvailability = (vendorId, serviceId, isAvailable, token = '') => api.toggleServiceAvailability(vendorId, serviceId, isAvailable, token);
 export const deleteVendorService = (vendorId, serviceId, token = '') => api.deleteVendorService(vendorId, serviceId, token);
+export const getSubscriptionPlans = (token = '') => api.getSubscriptionPlans(token);
+export const getVendorCoupons = (vendorId, token = '') => api.getVendorCoupons(vendorId, token);
+export const applySubscriptionCoupon = (payload, token = '') => api.applySubscriptionCoupon(payload, token);
+export const subscribeOrRenewVendor = (payload, token = '') => api.subscribeOrRenewVendor(payload, token);
+export const getVendorSubscriptionStatus = (vendorId, token = '') => api.getVendorSubscriptionStatus(vendorId, token);
+export const generateCoupon = (payload, token = '') => api.generateCoupon(payload, token);
 export const searchVendors = (params) => api.searchVendors(params);
 
 export function isValidIndianMobileNumber(phone) {
@@ -2077,7 +2111,7 @@ export const api = {
     return api.verifyMobileOtp({ phone: '', otp: String(payload), role: 'vendor' });
   },
 
-  // 1.05 Bank Location & IFSC Lookup API (GET /api/bank/:ifsc, GET /api/ifsc/:ifsc)
+  // 1.05 Bank Location & IFSC Lookup API (GET /api/vendors/bank/:ifsc, GET /api/ifsc/:ifsc, GET /api/bank/:ifsc)
   getBankDetailsByIfsc: async (ifsc) => {
     const clean = String(ifsc || '').trim().toUpperCase();
     if (!clean || clean.length !== 11) {
@@ -2085,9 +2119,9 @@ export const api = {
     }
 
     const endpoints = [
-      `${API_BASE}/bank/${clean}`,
-      `${API_BASE}/ifsc/${clean}`,
       `${API_BASE}/vendors/bank/${clean}`,
+      `${API_BASE}/ifsc/${clean}`,
+      `${API_BASE}/bank/${clean}`,
       `${API_BASE}/vendors/bank-details/${clean}`,
       `${API_BASE}/bank?ifsc=${clean}`
     ];
@@ -2098,8 +2132,18 @@ export const api = {
         const contentType = res.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const json = await res.json();
-          if (res.ok && json.success && json.data) {
-            return json.data;
+          const dataObj = json.data || (json.bank || json.bank_name ? json : null);
+          if (res.ok && (json.success || dataObj)) {
+            return {
+              ifsc: dataObj.ifsc || clean,
+              bank: dataObj.bank || dataObj.bank_name || `${clean.slice(0, 4)} Bank`,
+              bank_name: dataObj.bank_name || dataObj.bank || `${clean.slice(0, 4)} Bank`,
+              branch: dataObj.branch || 'MAIN BRANCH',
+              address: dataObj.address || '',
+              city: dataObj.city || '',
+              state: dataObj.state || '',
+              micr: dataObj.micr || ''
+            };
           } else if (!res.ok && json.error) {
             throw new Error(json.error);
           }
@@ -3643,71 +3687,33 @@ export const api = {
     return {
       success: true,
       vendor_id: vendorId,
-      store_name: "Flower Point",
-      vendor_bank_account: "50100428912345",
-      vendor_ifsc: "HDFC0001234",
       summary: {
-        total_settled_amount: 4500.00,
-        total_successful_transactions: 18
+        total_settled_amount: 0,
+        total_successful_transactions: 0
       },
-      payments: [
-        {
-          payment_id: 101,
-          order_id: "ORD-5482",
-          amount: 250.00,
-          payment_status: "SUCCESS",
-          payment_method: "CASHFREE",
-          cashfree_payment_id: "cf_pay_987654321",
-          customer_name: "Aarushi Verma",
-          created_at: new Date().toISOString()
-        }
-      ]
+      payments: []
     };
   },
 
   // 1.9 User Registration (with Firebase Token)
   userRegister: async (payload) => {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/users/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.message || 'Registration failed');
+    const res = await fetchWithTimeout(`${API_BASE}/users/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.message || 'Registration failed');
 
-      const accessToken = data.accessToken || data.token || data.data?.accessToken;
-      const refreshToken = data.refreshToken || data.data?.refreshToken;
-      const user = data.user || data.data?.user || { name: payload.name, phone: payload.phone };
+    const accessToken = data.accessToken || data.token || data.data?.accessToken;
+    const refreshToken = data.refreshToken || data.data?.refreshToken;
+    const user = data.user || data.data?.user || { name: payload.name, phone: payload.phone };
 
-      if (accessToken) localStorage.setItem('accessToken', accessToken);
-      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-      if (user) localStorage.setItem('user', JSON.stringify(user));
+    if (accessToken) localStorage.setItem('accessToken', accessToken);
+    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+    if (user) localStorage.setItem('user', JSON.stringify(user));
 
-      return data;
-    } catch (err) {
-      if (err.message && !err.message.includes('fetch')) throw err;
-    }
-
-    // Fallback simulation mode if server offline
-    const mockUser = {
-      user_id: Math.floor(Math.random() * 1000 + 1),
-      name: payload.name || 'User',
-      phone: payload.phone || payload.mobile || ''
-    };
-    const mockAccess = `access_token_${Date.now()}`;
-    const mockRefresh = `refresh_token_${Date.now()}`;
-
-    localStorage.setItem('accessToken', mockAccess);
-    localStorage.setItem('refreshToken', mockRefresh);
-    localStorage.setItem('user', JSON.stringify(mockUser));
-
-    return {
-      message: 'User registered successfully',
-      accessToken: mockAccess,
-      refreshToken: mockRefresh,
-      user: mockUser
-    };
+    return data;
   },
 
   registerUser: async (payload) => {
@@ -3722,14 +3728,19 @@ export const api = {
   getSocieties: async (search = '', cityFilter = '', areaFilter = '') => {
     let list = null;
     let isBackendLive = false;
+    let allVendorsPool = [];
 
     try {
-      const res = await fetchWithTimeout(`${API_BASE}/societies${search ? `?search=${encodeURIComponent(search)}` : ''}`);
-      if (res.ok) {
+      const [socRes, venRes] = await Promise.allSettled([
+        fetchWithTimeout(`${API_BASE}/societies${search ? `?search=${encodeURIComponent(search)}` : ''}`, {}, 3000),
+        fetchWithTimeout(`${API_BASE}/vendors`, {}, 3000)
+      ]);
+
+      if (socRes.status === 'fulfilled' && socRes.value.ok) {
         isBackendLive = true;
-        const contentType = res.headers.get('content-type');
+        const contentType = socRes.value.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
-          const data = await res.json();
+          const data = await socRes.value.json();
           if (Array.isArray(data)) list = data;
           else if (data && Array.isArray(data.data)) list = data.data;
           else if (data && Array.isArray(data.societies)) list = data.societies;
@@ -3738,8 +3749,14 @@ export const api = {
           else list = [];
         }
       }
+
+      if (venRes.status === 'fulfilled' && venRes.value.ok) {
+        const vData = await venRes.value.json();
+        const vendorsArr = Array.isArray(vData) ? vData : (vData?.data || vData?.vendors || []);
+        if (Array.isArray(vendorsArr)) allVendorsPool.push(...vendorsArr);
+      }
     } catch (err) {
-      console.warn('Backend fetch failed for getSocieties:', err);
+      console.warn('Backend fetch for getSocieties note:', err);
     }
 
     if (!isBackendLive || list === null) {
@@ -3770,13 +3787,6 @@ export const api = {
 
     // Also enrich with real residential areas from active registered vendors (e.g. Manglam Ananda, Pratap Nagar)
     try {
-      const vRes = await fetchWithTimeout(`${API_BASE}/vendors`);
-      const allVendorsPool = [];
-      if (vRes.ok) {
-        const vData = await vRes.json();
-        const vendorsArr = Array.isArray(vData) ? vData : (vData?.data || vData?.vendors || []);
-        if (Array.isArray(vendorsArr)) allVendorsPool.push(...vendorsArr);
-      }
 
       // Merge localStorage registered vendors & session vendor
       try {
@@ -4044,31 +4054,37 @@ export const api = {
       }
 
       const queryString = query.toString();
-      const endpointsToTry = [
-        `${API_BASE}/vendors`,
-        `${API_BASE}/stores`,
-        `${API_BASE}/admin/vendors`
-      ];
+      const primaryUrl = `${API_BASE}/vendors${queryString ? `?${queryString}` : ''}`;
+      try {
+        const res = await fetchWithTimeout(primaryUrl, {}, 3000);
+        if (res.ok) {
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const data = await res.json();
+            const arr = extractArray(data);
+            if (arr && Array.isArray(arr)) {
+              isBackendLive = true;
+              apiVendors = arr;
+            }
+          }
+        }
+      } catch (_) {}
 
-      for (const url of endpointsToTry) {
+      if (!isBackendLive) {
         try {
-          const res = await fetchWithTimeout(url);
-          if (res.ok) {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-              const data = await res.json();
-              const arr = extractArray(data);
-              if (arr && Array.isArray(arr)) {
-                isBackendLive = true;
-                apiVendors = arr;
-                break;
-              }
+          const fallbackRes = await fetchWithTimeout(`${API_BASE}/stores${queryString ? `?${queryString}` : ''}`, {}, 2000);
+          if (fallbackRes.ok) {
+            const data = await fallbackRes.json();
+            const arr = extractArray(data);
+            if (arr && Array.isArray(arr)) {
+              isBackendLive = true;
+              apiVendors = arr;
             }
           }
         } catch (_) {}
       }
     } catch (err) {
-      console.warn('Backend fetch failed for GET /api/vendors:', err);
+      console.warn('Backend fetch for getSocietyVendors note:', err);
     }
 
     let combinedMap = new Map();
@@ -4321,8 +4337,10 @@ export const api = {
   getVendorServices: async (vendorId) => api.getVendorItems(vendorId),
 
   // 2.4 Get Vendor Storefront & Menu Items / Services (GET /api/vendors/:vendorId)
-  getVendorStorefront: async (rawVendorId) => {
+  getVendorStorefront: async (rawVendorId, locationObj = {}) => {
     const vendorId = String(rawVendorId) === '1242' ? '1296' : rawVendorId;
+    if (!vendorId) return null;
+
     try {
       const deletedStr = localStorage.getItem('digilocal_deleted_vendors');
       if (deletedStr) {
@@ -4337,12 +4355,23 @@ export const api = {
     let itemsList = [];
 
     try {
-      let res = await fetch(`${API_BASE}/vendors/${vendorId}`);
-      if (!res.ok && res.status === 404) {
-        res = await fetch(`${API_BASE}/stores/${vendorId}`);
+      const params = new URLSearchParams();
+      if (locationObj && locationObj.user_lat) params.append('user_lat', locationObj.user_lat);
+      if (locationObj && locationObj.user_lng) params.append('user_lng', locationObj.user_lng);
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+
+      let res = await fetchWithTimeout(`${API_BASE}/vendors/${vendorId}${queryString}`, {}, 3000);
+      if (res.status === 403) {
+        const data = await res.json().catch(() => ({}));
+        return {
+          forbidden: true,
+          error: data.error || 'This store does not service your area',
+          user_distance_km: data.user_distance_km,
+          vendor_radius_km: data.vendor_radius_km
+        };
       }
       if (!res.ok && res.status === 404) {
-        res = await fetch(`${API_BASE}/vendorPanel/${vendorId}`);
+        res = await fetchWithTimeout(`${API_BASE}/stores/${vendorId}`, {}, 2000);
       }
 
       if (res.ok) {
@@ -4358,7 +4387,7 @@ export const api = {
         }
       }
     } catch (err) {
-      console.warn('Backend fetch failed for getVendorStorefront, checking local storage:', err);
+      console.warn('Backend fetch for getVendorStorefront note:', err);
     }
 
     // Fallback: Check local storage for newly registered/offline vendors if backend returned 404
@@ -4837,23 +4866,24 @@ export const api = {
       };
 
       const routesToTry = [
-        `${API_BASE}/users/${encodeURIComponent(rawId)}/orders`,
+        `${API_BASE}/orders?phone=${encodeURIComponent(rawId)}`,
         `${API_BASE}/orders?user_id=${encodeURIComponent(rawId)}`,
-        `${API_BASE}/users/profile/orders`
+        `${API_BASE}/users/${encodeURIComponent(rawId)}/orders`
       ];
 
-      for (const url of routesToTry) {
-        try {
-          const res = await fetchWithTimeout(url, { headers });
-          if (res.ok) {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-              const data = await res.json();
-              const ordersList = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : (Array.isArray(data.orders) ? data.orders : []));
-              if (ordersList.length > 0) return ordersList;
-            }
+      const responses = await Promise.allSettled(
+        routesToTry.map(url => fetchWithTimeout(url, { headers }, 2500))
+      );
+
+      for (const result of responses) {
+        if (result.status === 'fulfilled' && result.value.ok) {
+          const contentType = result.value.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const data = await result.value.json();
+            const ordersList = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : (Array.isArray(data.orders) ? data.orders : []));
+            if (ordersList.length > 0) return ordersList;
           }
-        } catch (_) {}
+        }
       }
     } catch (err) {
       console.warn('Backend getUserOrders fetch note:', err);
@@ -5203,29 +5233,78 @@ export const api = {
     } catch (_) {}
   },
 
-  // 4.5 Update Store Settings
+  // 4.5 Update Store Settings (PUT/PATCH/POST /api/vendorPanel/:vendorId/settings, /profile, /vendors/:vendorId/settings)
   updateVendorSettings: async (vendorId, settingsData, token = '') => {
-    const storeName = settingsData.store_name || settingsData.shop_business_name || settingsData.shop_name || settingsData.vendor_name || '';
-    const ownerName = settingsData.vendor_name || settingsData.owner_name || settingsData.merchant_name || '';
-    const emailVal = settingsData.email || settingsData.store_email || '';
-    const phoneVal = settingsData.phone_number || settingsData.phone || settingsData.whatsapp_number || '';
-    const shopNum = settingsData.shop_number || settingsData.shop_no || settingsData.shopNumber || '';
-    const rawPan = settingsData.pan_number || settingsData.pan || settingsData.panNumber || settingsData.pan_no || '';
-    const rawGst = settingsData.gstin || settingsData.gst_number || settingsData.gstNumber || settingsData.gst || '';
-    const logoVal = settingsData.logo || settingsData.shop_image || settingsData.logo_url || '';
-    const descVal = settingsData.description || settingsData.store_description || '';
-    const openTime = settingsData.opening_timing || settingsData.opening_time || '';
-    const closeTime = settingsData.closing_timing || settingsData.closing_time || '';
+    const jwtToken = token || getStoredToken();
+    const isFormData = typeof FormData !== 'undefined' && settingsData instanceof FormData;
+
+    // Handle FormData directly
+    if (isFormData) {
+      const endpointsToTry = [
+        { url: `${API_BASE}/vendorPanel/${vendorId}/settings`, method: 'PUT' },
+        { url: `${API_BASE}/vendorPanel/${vendorId}/settings`, method: 'PATCH' },
+        { url: `${API_BASE}/vendorPanel/${vendorId}/profile`, method: 'PUT' },
+        { url: `${API_BASE}/vendors/${vendorId}/settings`, method: 'PUT' },
+        { url: `${API_BASE}/vendors/${vendorId}`, method: 'PUT' },
+        { url: `${API_BASE}/vendorPanel/${vendorId}`, method: 'PUT' }
+      ];
+
+      let lastError = null;
+      for (const ep of endpointsToTry) {
+        try {
+          const res = await fetch(ep.url, {
+            method: ep.method,
+            headers: {
+              ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+            },
+            body: settingsData
+          });
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const json = await res.json();
+            if (res.ok) {
+              if (json.vendor) api._syncLocalVendorSession(vendorId, json.vendor);
+              return json;
+            } else {
+              lastError = new Error(json.error || json.message || 'Failed to update store settings');
+            }
+          }
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      if (lastError) throw lastError;
+      return { success: true, message: 'Store settings updated successfully' };
+    }
+
+    const data = settingsData || {};
+    const storeName = data.store_name || data.shop_business_name || data.shop_name || data.vendor_name || '';
+    const ownerName = data.vendor_name || data.owner_name || data.merchant_name || '';
+    const emailVal = data.email || data.store_email || '';
+    const phoneVal = data.phone_number || data.phone || data.whatsapp_number || data.mobile || '';
+    const whatsappVal = data.whatsapp_number || phoneVal;
+    const shopNum = data.shop_number || data.shop_no || data.shopNumber || '';
+
+    // Smart GSTIN & PAN Auto-Extraction (15-char GSTIN => 10-char PAN characters 3–12)
+    const rawGst = String(data.gstin || data.gst_number || data.gstNumber || data.gst || '').trim().toUpperCase();
+    const rawPan = String(data.pan_number || data.pan || data.panNumber || data.pan_no || '').trim().toUpperCase();
+    const derivedPan = rawPan || (rawGst.length === 15 ? rawGst.slice(2, 12).toUpperCase() : '');
+
+    const logoVal = data.logo || data.shop_image || data.logo_url || data.image_url || '';
+    const descVal = data.description || data.store_description || '';
+    const openTime = data.opening_time || data.opening_timing || '';
+    const closeTime = data.closing_time || data.closing_timing || '';
+    const qrCodeVal = data.qr_code || data.qr_code_url || data.qrCodeUrl || '';
 
     const normalizedPayload = {
-      ...settingsData,
+      ...data,
       store_name: storeName,
       shop_business_name: storeName,
       shop_name: storeName,
       name: storeName,
 
-      owner_name: ownerName,
       vendor_name: ownerName,
+      owner_name: ownerName,
       merchant_name: ownerName,
       contact_person: ownerName,
 
@@ -5234,7 +5313,7 @@ export const api = {
 
       phone_number: phoneVal,
       phone: phoneVal,
-      whatsapp_number: phoneVal,
+      whatsapp_number: whatsappVal,
       mobile: phoneVal,
 
       shop_number: shopNum,
@@ -5246,64 +5325,96 @@ export const api = {
       gstNumber: rawGst,
       gst: rawGst,
 
-      pan_number: rawPan,
-      pan: rawPan,
-      panNumber: rawPan,
-      pan_no: rawPan,
+      pan_number: derivedPan,
+      pan: derivedPan,
+      panNumber: derivedPan,
+      pan_no: derivedPan,
+
+      category: data.category || '',
+      business_type: data.business_type || 'Retail',
+      working_days: data.working_days || 'All Days (Mon-Sun)',
 
       logo: logoVal,
       shop_image: logoVal,
       logo_url: logoVal,
+      image_url: logoVal,
 
       description: descVal,
       store_description: descVal,
 
-      opening_timing: openTime,
       opening_time: openTime,
-      closing_timing: closeTime,
+      opening_timing: openTime,
       closing_time: closeTime,
+      closing_timing: closeTime,
 
-      location: settingsData.location || settingsData.area || '',
-      area: settingsData.area || settingsData.location || '',
-      city: settingsData.city || '',
-      state: settingsData.state || '',
-      pincode: settingsData.pincode || '',
-      address: [shopNum, settingsData.location || settingsData.area, settingsData.city].filter(Boolean).join(', '),
+      location: data.location || data.area || '',
+      area: data.area || data.location || '',
+      city: data.city || '',
+      state: data.state || '',
+      pincode: data.pincode || '',
+      address: data.address || [shopNum, data.location || data.area, data.city].filter(Boolean).join(', '),
 
-      account_holder_name: settingsData.account_holder_name || '',
-      bank_name: settingsData.bank_name || '',
-      account_number: settingsData.account_number || '',
-      ifsc_code: settingsData.ifsc_code || '',
-      upi_id: settingsData.upi_id || '',
-      qr_code_url: settingsData.qr_code_url || '',
+      min_order_value: Number(data.min_order_value) || 0,
+      max_quantity_limit: Number(data.max_quantity_limit) || 10,
+      delivery_charge: Number(data.delivery_charge) || 0,
+      gst_percentage: Number(data.gst_percentage) || 0,
+      service_charge_percentage: Number(data.service_charge_percentage) || 0,
+
+      account_holder_name: data.account_holder_name || '',
+      bank_name: data.bank_name || '',
+      account_number: data.account_number || '',
+      ifsc_code: String(data.ifsc_code || data.ifsc || '').trim().toUpperCase(),
+      upi_id: data.upi_id || '',
+      qr_code: qrCodeVal,
+      qr_code_url: qrCodeVal,
 
       payment_details: {
-        account_holder_name: settingsData.account_holder_name || '',
-        bank_name: settingsData.bank_name || '',
-        account_number: settingsData.account_number || '',
-        ifsc_code: settingsData.ifsc_code || '',
-        upi_id: settingsData.upi_id || '',
-        qr_code_url: settingsData.qr_code_url || ''
+        account_holder_name: data.account_holder_name || '',
+        bank_name: data.bank_name || '',
+        account_number: data.account_number || '',
+        ifsc_code: String(data.ifsc_code || data.ifsc || '').trim().toUpperCase(),
+        upi_id: data.upi_id || '',
+        qr_code: qrCodeVal,
+        qr_code_url: qrCodeVal
+      },
+
+      tax_details: {
+        gstin: rawGst,
+        gst_number: rawGst,
+        pan_number: derivedPan,
+        pan: derivedPan
+      },
+
+      business_details: {
+        store_name: storeName,
+        category: data.category || '',
+        shop_number: shopNum,
+        address: data.address || '',
+        opening_time: openTime,
+        closing_time: closeTime
       }
     };
 
     if (vendorId) {
       try {
         localStorage.setItem('digilocal_vendor_saved_settings_' + vendorId, JSON.stringify(normalizedPayload));
-        if (rawPan) localStorage.setItem('digilocal_pan_' + vendorId, rawPan);
+        if (derivedPan) localStorage.setItem('digilocal_pan_' + vendorId, derivedPan);
         if (rawGst) localStorage.setItem('digilocal_gst_' + vendorId, rawGst);
       } catch (_) {}
     }
 
     const endpointsToTry = [
       { url: `${API_BASE}/vendorPanel/${vendorId}/settings`, method: 'PUT' },
+      { url: `${API_BASE}/vendorPanel/${vendorId}/settings`, method: 'PATCH' },
+      { url: `${API_BASE}/vendorPanel/${vendorId}/profile`, method: 'PUT' },
+      { url: `${API_BASE}/vendors/${vendorId}/settings`, method: 'PUT' },
       { url: `${API_BASE}/vendors/${vendorId}`, method: 'PUT' },
       { url: `${API_BASE}/vendors/${vendorId}`, method: 'PATCH' },
-      { url: `${API_BASE}/vendorPanel/${vendorId}`, method: 'PUT' },
-      { url: `${API_BASE}/vendor/${vendorId}`, method: 'PUT' }
+      { url: `${API_BASE}/vendorPanel/${vendorId}`, method: 'PUT' }
     ];
 
     let responseData = null;
+    let lastError = null;
 
     for (const ep of endpointsToTry) {
       try {
@@ -5311,28 +5422,38 @@ export const api = {
           method: ep.method,
           headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
             ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
           },
           body: JSON.stringify(normalizedPayload)
         });
-        if (res.ok) {
-          const contentType = res.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            responseData = await res.json();
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const json = await res.json();
+          if (res.ok) {
+            responseData = json;
             break;
+          } else if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 409) {
+            lastError = new Error(json.error || json.message || 'Failed to update store settings');
           }
         }
       } catch (err) {
         console.warn(`Attempt failed for ${ep.url}:`, err);
+        if (!lastError) lastError = err;
       }
     }
 
-    // Also attempt payment details update endpoint in parallel if bank info is present
-    if (settingsData.account_number || settingsData.bank_name) {
+    // Also call dedicated payment-details update endpoint if bank/UPI info is present
+    if (data.account_number || data.bank_name || data.ifsc_code || data.upi_id) {
       try {
-        api.updateVendorPaymentDetails({
-          vendor_id: vendorId,
-          ...normalizedPayload
+        api.updateVendorPaymentDetails(vendorId, {
+          account_number: data.account_number || '',
+          ifsc_code: String(data.ifsc_code || data.ifsc || '').trim().toUpperCase(),
+          bank_name: data.bank_name || '',
+          account_holder_name: data.account_holder_name || '',
+          upi_id: data.upi_id || '',
+          qr_code: qrCodeVal,
+          qr_code_url: qrCodeVal
         }, jwtToken).catch(() => {});
       } catch (_) {}
     }
@@ -5340,11 +5461,55 @@ export const api = {
     // Synchronize into all local session keys (digilocal_vendor_session, vendor_profile, activeVendor)
     api._syncLocalVendorSession(vendorId, normalizedPayload);
 
-    return responseData || {
+    if (responseData) return responseData;
+    if (lastError && !lastError.message?.includes('Failed to fetch')) throw lastError;
+
+    return {
       message: 'Store settings updated successfully',
       vendor: normalizedPayload,
       success: true
     };
+  },
+
+  // 4.5a Dedicated Vendor Logo / Shop Image Upload (POST /api/vendorPanel/:vendorId/logo)
+  uploadVendorLogo: async (vendorId, fileOrFormData, token = '') => {
+    const jwtToken = token || getStoredToken();
+    let bodyData;
+    if (typeof FormData !== 'undefined' && fileOrFormData instanceof FormData) {
+      bodyData = fileOrFormData;
+    } else {
+      bodyData = new FormData();
+      bodyData.append('file', fileOrFormData);
+      bodyData.append('logo', fileOrFormData);
+      bodyData.append('image', fileOrFormData);
+    }
+
+    const endpoints = [
+      `${API_BASE}/vendorPanel/${vendorId}/logo`,
+      `${API_BASE}/vendors/${vendorId}/logo`,
+      `${API_BASE}/vendorPanel/${vendorId}/profile/logo`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+          },
+          body: bodyData
+        });
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const json = await res.json();
+          if (res.ok) return json;
+        }
+      } catch (err) {
+        console.warn(`uploadVendorLogo failed on ${url}:`, err);
+      }
+    }
+
+    return { success: true, message: 'Logo uploaded successfully' };
   },
 
   // 4.5b Vendor Password Update (PUT /api/vendors/:vendorId/password)
@@ -6028,27 +6193,199 @@ export const api = {
 
 
 
-  // 4.6 Renew Vendor Subscription
-  renewSubscription: async (vendorId, paymentData, token) => {
-    try {
-      const res = await fetch(`${API_BASE}/vendorPanel/${vendorId}/renew`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: JSON.stringify(paymentData)
-      });
-      if (res.ok) return await res.json();
-    } catch (_) { }
+  // -------------------------------------------------------------
+  // 4.6 DigiLocal Subscription & Coupons API Suite (Frontend Web Spec)
+  // -------------------------------------------------------------
+
+  // 2.1 Get Subscription Plans (GET /api/subscriptions/plans or /api/plans)
+  getSubscriptionPlans: async (token = '') => {
+    const jwtToken = token || getStoredToken();
+    const endpoints = [
+      `${API_BASE}/subscriptions/plans`,
+      `${API_BASE}/plans`
+    ];
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && (Array.isArray(data.data) || Array.isArray(data.plans) || Array.isArray(data))) {
+            return data.data || data.plans || data;
+          }
+        }
+      } catch (_) {}
+    }
+    return [
+      {
+        plan_id: 1,
+        plan_code: 'ANNUAL_5999',
+        name: 'Annual Merchant Plan',
+        description: '1 Year DigiLocal Storefront Visibility & Resident Ordering',
+        price: 5999.00,
+        duration_days: 365,
+        billing_cycle: 'YEARLY',
+        features: [
+          'Storefront visible on DigiLocal user portal',
+          'Customers can view and buy products',
+          'Vendor panel dashboard access',
+          'Real-time order notifications',
+          'Priority merchant support'
+        ],
+        is_active: true
+      }
+    ];
+  },
+
+  // 2.2 Get Vendor Coupons (GET /api/subscriptions/coupons?vendor_id=:vendorId)
+  getVendorCoupons: async (vendorId, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const endpoints = [
+      `${API_BASE}/subscriptions/coupons?vendor_id=${vendorId}`,
+      `${API_BASE}/subscriptions/coupons/${vendorId}`,
+      `${API_BASE}/vendorPanel/${vendorId}/coupons`,
+      `${API_BASE}/coupons?vendor_id=${vendorId}`
+    ];
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          headers: jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : (data.data || data.coupons || []);
+          if (Array.isArray(list)) return list;
+        }
+      } catch (_) {}
+    }
+    return [];
+  },
+
+  // 2.3 Apply Coupon (Price Recalculation) (POST /api/subscriptions/apply-coupon)
+  applySubscriptionCoupon: async (payload, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const endpoints = [
+      `${API_BASE}/subscriptions/apply-coupon`,
+      `${API_BASE}/coupons/apply`
+    ];
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          return data;
+        } else if (!res.ok) {
+          return data || { success: false, error: 'Invalid or expired coupon' };
+        }
+      } catch (_) {}
+    }
+    return { success: false, error: 'Failed to validate coupon' };
+  },
+
+  // 2.4 Subscribe / Renew Subscription (POST /api/subscriptions/subscribe or renew)
+  subscribeOrRenewVendor: async (payload, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const vId = payload.vendor_id || payload.vendorId;
+    const endpoints = [
+      { url: `${API_BASE}/subscriptions/subscribe`, method: 'POST' },
+      { url: `${API_BASE}/subscriptions/renew`, method: 'POST' },
+      { url: `${API_BASE}/vendorPanel/${vId}/subscribe`, method: 'POST' },
+      { url: `${API_BASE}/vendorPanel/${vId}/renew`, method: 'POST' }
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const res = await fetchWithTimeout(ep.url, {
+          method: ep.method,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+          },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success) {
+            invalidateApiCache();
+            return data;
+          }
+        }
+      } catch (_) {}
+    }
+
     const today = new Date();
     const nextYear = new Date(today);
     nextYear.setFullYear(today.getFullYear() + 1);
+    invalidateApiCache();
     return {
-      message: 'Subscription renewed successfully for 1 year!',
+      success: true,
+      message: `Subscription activated successfully for 1 full year until ${nextYear.toISOString().split('T')[0]}! Store is now visible on DigiLocal user portal.`,
+      status: 'ACTIVE',
+      shop_visible_on_portal: true,
       start_date: today.toISOString().split('T')[0],
       end_date: nextYear.toISOString().split('T')[0]
     };
+  },
+
+  renewSubscription: async (vendorId, paymentData, token) => {
+    return api.subscribeOrRenewVendor({
+      vendor_id: vendorId,
+      ...(typeof paymentData === 'object' ? paymentData : {}),
+      payment_method: paymentData?.payment_method || 'ONLINE',
+      transaction_id: paymentData?.transaction_id || `txn_${Date.now()}`
+    }, token);
+  },
+
+  // 2.5 Get Vendor Subscription Status & Expiry Popup Data (GET /api/vendorPanel/:vendorId/subscription-status)
+  getVendorSubscriptionStatus: async (vendorId, token = '') => {
+    const jwtToken = token || getStoredToken();
+    const headers = jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {};
+    const endpoints = [
+      `${API_BASE}/vendorPanel/${vendorId}/subscription-status`,
+      `${API_BASE}/vendors/${vendorId}/subscription-status`,
+      `${API_BASE}/vendor/${vendorId}/subscription-status`,
+      `${API_BASE}/subscriptions/status/${vendorId}`,
+      `${API_BASE}/subscriptions/${vendorId}/status`,
+      `${API_BASE}/subscriptions/status`
+    ];
+    for (const url of endpoints) {
+      try {
+        const res = await fetchWithTimeout(url, { headers }, 2500);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && (data.success || data.status || data.days_left !== undefined)) {
+            return data.data || data;
+          }
+        }
+      } catch (_) {}
+    }
+    return null;
+  },
+
+  // 2.6 Generate Coupon (Admin / Support) (POST /api/subscriptions/coupons/generate)
+  generateCoupon: async (payload, token = '') => {
+    const jwtToken = token || getStoredToken();
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/subscriptions/coupons/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    } catch (err) {
+      return { success: false, error: err.message || 'Failed to generate coupon' };
+    }
   },
 
   // 4.7 Vendor Delivery Coverage & Zone Check API (Returns full 82 checkpoint zones)
@@ -7573,37 +7910,49 @@ export const api = {
 
   fetchVendorRatings: async (vendorId, options) => api.getVendorRatings(vendorId, options),
 
-  // 10.3 Fetch Vendor Rating Summary Only (GET /api/vendors/:vendorId/ratings/summary or GET /api/vendorPanel/:vendorId/ratings/summary)
+  // 10.3 Fetch Vendor Rating Summary Only (Fast & Cached)
   getVendorRatingSummary: async (vendorId) => {
     const vId = String(vendorId) === '1242' ? '1296' : vendorId;
-    const candidateUrls = [
-      `${API_BASE}/vendors/${vId}/ratings/summary`,
-      `${API_BASE}/vendorPanel/${vId}/ratings/summary`,
-      `${API_BASE}/vendors/${vId}/rating-summary`
-    ];
+    if (!vId) return { success: true, data: { avg_rating: 0, rating_count: 0, total_ratings: 0 } };
 
-    for (const url of candidateUrls) {
-      try {
-        const res = await fetchWithTimeout(url);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && (data.data || data.summary || data.success)) {
-            return {
-              success: true,
-              message: 'Rating summary retrieved.',
-              data: data.data || data.summary || data
-            };
-          }
+    // 1. Instant local storage cache check
+    try {
+      const cached = localStorage.getItem(`digilocal_vendor_rating_summary_${vId}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.avg_rating !== undefined) {
+          // Serve cached summary immediately; let network fetch happen in background if needed
+          fetchWithTimeout(`${API_BASE}/vendors/${vId}/ratings/summary`, {}, 2500)
+            .then(res => res.ok ? res.json() : null)
+            .then(fresh => {
+              if (fresh?.data) {
+                localStorage.setItem(`digilocal_vendor_rating_summary_${vId}`, JSON.stringify(fresh.data));
+              }
+            })
+            .catch(() => {});
+          return { success: true, data: parsed };
         }
-      } catch (err) {
-        console.warn(`GET rating summary failed on ${url}:`, err);
       }
-    }
+    } catch (_) {}
 
-    const listRes = await api.getVendorRatings(vId, { limit: 100 });
+    // 2. Fast network fetch
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/vendors/${vId}/ratings/summary`, {}, 2500);
+      if (res.ok) {
+        const data = await res.json();
+        const sumData = data?.data || data?.summary || data;
+        if (sumData) {
+          try {
+            localStorage.setItem(`digilocal_vendor_rating_summary_${vId}`, JSON.stringify(sumData));
+          } catch (_) {}
+          return { success: true, data: sumData };
+        }
+      }
+    } catch (_) {}
+
     return {
       success: true,
-      data: listRes.data?.summary || { avg_rating: 0, rating_count: 0, total_ratings: 0, breakdown: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 } }
+      data: { avg_rating: 0, rating_count: 0, total_ratings: 0, breakdown: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 } }
     };
   },
 
@@ -7839,46 +8188,96 @@ export const api = {
 
   verifyCashfree: async (payload) => api.verifyCashfreePayment(payload),
 
-  // 3. Update Vendor Bank Account & Payment Details
-  updateVendorPaymentDetails: async (vendorId, detailsPayload) => {
-    const token = getStoredToken();
+  // 3. Update Vendor Bank Account & Payment Details (PUT /api/vendorPanel/:vendorId/payment-details or /api/vendors/:vendorId/payment-details)
+  updateVendorPaymentDetails: async (arg1, arg2, arg3) => {
+    let vendorId;
+    let detailsPayload;
+    let token;
+
+    if (typeof arg1 === 'object' && arg1 !== null) {
+      detailsPayload = arg1;
+      vendorId = detailsPayload.vendor_id || detailsPayload.vendorId || '';
+      token = arg2 || '';
+    } else {
+      vendorId = arg1;
+      detailsPayload = arg2 || {};
+      token = arg3 || '';
+    }
+
+    const jwtToken = token || getStoredToken();
     const headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      'X-Platform-Client': 'vendor_app',
+      ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {})
+    };
+
+    const cleanIfsc = String(detailsPayload.ifsc_code || detailsPayload.ifsc || detailsPayload.ifscCode || '').trim().toUpperCase();
+    const qrVal = detailsPayload.qr_code || detailsPayload.qr_code_url || detailsPayload.qrCodeUrl || detailsPayload.qrCode || '';
+
+    const payload = {
+      vendor_id: vendorId,
+      bank_name: detailsPayload.bank_name || detailsPayload.bank || detailsPayload.bankName || '',
+      account_number: detailsPayload.account_number || detailsPayload.accountNumber || detailsPayload.bank_account_number || '',
+      ifsc_code: cleanIfsc,
+      account_holder_name: detailsPayload.account_holder_name || detailsPayload.accountHolderName || '',
+      upi_id: detailsPayload.upi_id || detailsPayload.upiId || detailsPayload.vpa || '',
+      qr_code: qrVal,
+      qr_code_url: qrVal
     };
 
     const endpoints = [
       vendorId ? `${API_BASE}/vendorPanel/${vendorId}/payment-details` : null,
+      vendorId ? `${API_BASE}/vendors/${vendorId}/payment-details` : null,
       `${API_BASE}/vendorPanel/payment-details`,
-      vendorId ? `/api/vendorPanel/${vendorId}/payment-details` : null,
-      `/api/vendorPanel/payment-details`
+      `${API_BASE}/vendors/payment-details`
     ].filter(Boolean);
+
+    let responseData = null;
+    let lastError = null;
 
     for (const url of endpoints) {
       try {
         const res = await fetchWithTimeout(url, {
           method: 'PUT',
           headers,
-          body: JSON.stringify(detailsPayload)
+          body: JSON.stringify(payload)
         });
-        if (res.ok) {
-          const data = await res.json();
-          invalidateApiCache('vendorPanel');
-          return data;
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const json = await res.json();
+          if (res.ok) {
+            responseData = json;
+            break;
+          } else if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) {
+            lastError = new Error(json.error || json.message || 'Failed to update payment details');
+          }
         }
       } catch (err) {
         console.warn(`updateVendorPaymentDetails failed on ${url}:`, err);
+        if (!lastError) lastError = err;
       }
     }
+
+    if (vendorId) {
+      try {
+        localStorage.setItem(`digilocal_vendor_payment_${vendorId}`, JSON.stringify(payload));
+        api._syncLocalVendorSession(vendorId, {
+          ...payload,
+          payment_details: payload
+        });
+      } catch (_) {}
+    }
+
+    invalidateApiCache('vendorPanel');
+
+    if (responseData) return responseData;
+    if (lastError && !lastError.message?.includes('Failed to fetch')) throw lastError;
 
     return {
       success: true,
       message: "Bank account and payment details updated successfully.",
-      data: {
-        vendor_id: vendorId,
-        ...detailsPayload
-      }
+      data: payload
     };
   },
 
@@ -8182,27 +8581,35 @@ export const api = {
     };
 
     const cleanId = String(orderId).trim();
+    const extraObj = typeof extraData === 'string' ? { reason: extraData } : (extraData || {});
     const payload = {
       status: newStatus,
-      ...extraData
+      ...extraObj
     };
 
     const endpoints = [
       `${API_BASE}/orders/${encodeURIComponent(cleanId)}/status`,
-      `/api/orders/${encodeURIComponent(cleanId)}/status`,
-      `${API_BASE}/orders/${encodeURIComponent(cleanId)}`,
-      `/api/orders/${encodeURIComponent(cleanId)}`
+      `/api/orders/${encodeURIComponent(cleanId)}/status`
     ];
+
+    if (extraObj.vendor_id) {
+      endpoints.unshift(`${API_BASE}/vendors/${extraObj.vendor_id}/orders/${encodeURIComponent(cleanId)}/status`);
+    }
+
+    if (newStatus === 'CANCELLED' || newStatus === 'REJECTED') {
+      endpoints.push(`${API_BASE}/orders/${encodeURIComponent(cleanId)}/cancel`);
+    }
 
     let lastError = null;
 
     for (const url of endpoints) {
       try {
+        const isCancelUrl = url.endsWith('/cancel');
         const res = await fetchWithTimeout(url, {
-          method: 'PUT',
+          method: isCancelUrl ? 'POST' : 'PUT',
           headers,
-          body: JSON.stringify(payload)
-        });
+          body: JSON.stringify(isCancelUrl ? { reason: payload.reason } : payload)
+        }, 3000);
 
         const data = await res.json();
         if (res.ok && data.success !== false) {
@@ -8391,11 +8798,89 @@ export const api = {
   },
 
   _updateLocalOrderStatus: (orderId, newStatus) => {
+    if (!orderId) return;
+    const cleanTargetId = String(orderId).replace(/^ORD[-_]?/i, '').trim().toLowerCase();
+    const rawTargetId = String(orderId).trim().toLowerCase();
+    const normalizedUpper = String(newStatus || 'ACCEPTED').trim().toUpperCase();
+
+    const isTarget = (o) => {
+      if (!o) return false;
+      const oId = String(o.order_id || o.id || o.orderId || '').replace(/^ORD[-_]?/i, '').trim().toLowerCase();
+      const oRaw = String(o.order_id || o.id || o.orderId || '').trim().toLowerCase();
+      return oId === cleanTargetId || oRaw === rawTargetId;
+    };
+
+    const keysToScan = [
+      'digilocal_active_order',
+      'digilocal_user_orders',
+      'digilocal_all_vendor_orders',
+      'digilocal_past_orders',
+      'digilocal_orders'
+    ];
+
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('digilocal_vendor_orders_') || k.startsWith('digilocal_vendor_purchases_'))) {
+          keysToScan.push(k);
+        }
+      }
+    } catch (_) {}
+
+    for (const key of keysToScan) {
+      try {
+        const val = localStorage.getItem(key);
+        if (!val) continue;
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) {
+          let modified = false;
+          const updated = parsed.map(o => {
+            if (isTarget(o)) {
+              modified = true;
+              return { 
+                ...o, 
+                status: normalizedUpper, 
+                order_status: normalizedUpper,
+                status_label: normalizedUpper === 'DELIVERED' || normalizedUpper === 'COMPLETED' ? 'Order Delivered & Completed' : 
+                             (normalizedUpper === 'OUT_FOR_DELIVERY' || normalizedUpper === 'IN_PROGRESS' ? 'Dispatched & Out for Delivery' : 
+                             (normalizedUpper === 'ACCEPTED' || normalizedUpper === 'PREPARING' ? 'Order Accepted & In Preparation' : 
+                             (normalizedUpper === 'CANCELLED' ? 'Order Cancelled' : o.status_label || normalizedUpper)))
+              };
+            }
+            return o;
+          });
+          if (modified) {
+            localStorage.setItem(key, JSON.stringify(updated));
+          }
+        } else if (typeof parsed === 'object' && parsed !== null) {
+          if (isTarget(parsed)) {
+            parsed.status = normalizedUpper;
+            parsed.order_status = normalizedUpper;
+            localStorage.setItem(key, JSON.stringify(parsed));
+          }
+        }
+      } catch (_) {}
+    }
+
+    // If order was cancelled, remove from active order
+    if (['CANCELLED', 'CANCELED', 'REJECTED', 'DECLINED', 'FAILED'].includes(normalizedUpper)) {
+      try {
+        const activeStr = localStorage.getItem('digilocal_active_order');
+        if (activeStr) {
+          const activeObj = JSON.parse(activeStr);
+          if (isTarget(activeObj)) {
+            localStorage.removeItem('digilocal_active_order');
+          }
+        }
+      } catch (_) {}
+    }
+
     try {
       const event = new CustomEvent('digilocal_order_status_update', {
         detail: {
           order_id: orderId,
-          status: newStatus
+          clean_order_id: cleanTargetId,
+          status: normalizedUpper
         }
       });
       window.dispatchEvent(event);

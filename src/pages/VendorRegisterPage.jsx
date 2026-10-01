@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useOtpCooldown } from '../hooks/useOtpCooldown';
@@ -911,7 +912,7 @@ export default function VendorRegisterPage({ currentRoute, setRoute, setActiveVe
         society_name: societySearch.trim(),
         society_id: selectedSocietyId || 1,
         gstin: gstNumber.trim() ? gstNumber.trim().toUpperCase() : (taxIdType.toLowerCase() === 'gstin' ? gstNumber.trim().toUpperCase() : ''),
-        pan_number: panNumber.trim() ? panNumber.trim().toUpperCase() : (taxIdType.toLowerCase() === 'pan' ? panNumber.trim().toUpperCase() : ''),
+        pan_number: panNumber.trim() ? panNumber.trim().toUpperCase() : (gstNumber.trim().length === 15 ? gstNumber.trim().slice(2, 12).toUpperCase() : (taxIdType.toLowerCase() === 'pan' ? panNumber.trim().toUpperCase() : '')),
         gst_number: gstNumber.trim() ? gstNumber.trim().toUpperCase() : (taxIdType.toLowerCase() === 'gstin' ? gstNumber.trim().toUpperCase() : ''),
         account_number: accountNumber.trim(),
         bank_account_number: accountNumber.trim(),

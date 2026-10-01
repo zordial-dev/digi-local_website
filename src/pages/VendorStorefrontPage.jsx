@@ -830,7 +830,7 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
           }
         } catch (_) {}
 
-        const realLogo = savedCustomLogo ||
+        let realLogo = savedCustomLogo ||
           savedSettingsLogo ||
           targetVendor.logo ||
           targetVendor.image_url ||
@@ -838,13 +838,39 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
           targetVendor.profile_image ||
           targetVendor.shop_image ||
           targetVendor.store_image ||
+          targetVendor.logo_url ||
           targetVendor.photo ||
           targetVendor.photo_url ||
           targetVendor.banner_url ||
           targetVendor.avatar ||
           (Array.isArray(targetVendor.shop_images) && targetVendor.shop_images.length > 0 ? targetVendor.shop_images[0] : null) ||
           (Array.isArray(targetVendor.images) && targetVendor.images.length > 0 ? targetVendor.images[0] : null) ||
-          'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80';
+          (Array.isArray(targetVendor.photos) && targetVendor.photos.length > 0 ? targetVendor.photos[0] : null);
+
+        if (!realLogo || realLogo.includes('photo-1542838132-92c53300491e')) {
+          const nameCat = `${resolvedStoreName || ''} ${targetVendor.category || ''} ${targetVendor.description || ''}`.toLowerCase();
+          if (nameCat.includes('milk') || nameCat.includes('dairy') || nameCat.includes('doodh') || nameCat.includes('ghee') || nameCat.includes('paneer')) {
+            realLogo = 'https://images.unsplash.com/photo-1528750997573-59b89d66f4f7?w=800&auto=format&fit=crop&q=80';
+          } else if (nameCat.includes('bake') || nameCat.includes('bread') || nameCat.includes('cake') || nameCat.includes('sweet') || nameCat.includes('jalebi') || nameCat.includes('mithai')) {
+            realLogo = 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&auto=format&fit=crop&q=80';
+          } else if (nameCat.includes('fruit') || nameCat.includes('veg') || nameCat.includes('sabzi') || nameCat.includes('produce') || nameCat.includes('farm')) {
+            realLogo = 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800&auto=format&fit=crop&q=80';
+          } else if (nameCat.includes('electr') || nameCat.includes('wire') || nameCat.includes('light') || nameCat.includes('appliance')) {
+            realLogo = 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&auto=format&fit=crop&q=80';
+          } else if (nameCat.includes('plumb') || nameCat.includes('pipe') || nameCat.includes('sanitary') || nameCat.includes('tap')) {
+            realLogo = 'https://images.unsplash.com/photo-1581094288338-2314dddb7ece?w=800&auto=format&fit=crop&q=80';
+          } else if (nameCat.includes('laundry') || nameCat.includes('dry clean') || nameCat.includes('wash') || nameCat.includes('press')) {
+            realLogo = 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?w=800&auto=format&fit=crop&q=80';
+          } else if (nameCat.includes('salon') || nameCat.includes('beauty') || nameCat.includes('spa') || nameCat.includes('barber') || nameCat.includes('hair')) {
+            realLogo = 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800&auto=format&fit=crop&q=80';
+          } else if (nameCat.includes('pet') || nameCat.includes('dog') || nameCat.includes('cat') || nameCat.includes('vet')) {
+            realLogo = 'https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?w=800&auto=format&fit=crop&q=80';
+          } else if (nameCat.includes('coffee') || nameCat.includes('cafe') || nameCat.includes('tea') || nameCat.includes('chai')) {
+            realLogo = 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=80';
+          } else {
+            realLogo = 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=800&auto=format&fit=crop&q=80';
+          }
+        }
 
         const normalizedVendor = {
           ...targetVendor,
@@ -1295,6 +1321,30 @@ export default function VendorStorefrontPage({ currentRoute, societyId, vendorId
             className="w-full py-3.5 px-6 bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-[0.98] cursor-pointer"
           >
             Explore Available Stores
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!loading && vendorData && (vendorData.subscription_expired === true || vendorData.is_expired === true || vendorData.shop_visible_on_portal === false || vendorData.subscription?.status === 'EXPIRED')) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4 font-sans text-foreground">
+        <div className="max-w-md w-full bg-card rounded-3xl p-6 sm:p-8 shadow-xl text-center border border-border space-y-5 animate-in fade-in">
+          <div className="w-16 h-16 bg-amber-500/10 text-amber-700 rounded-2xl flex items-center justify-center mx-auto border border-amber-500/20">
+            <Store className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-serif font-bold text-ink">Store Currently Unavailable</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              This store is currently unavailable as its annual subscription is inactive. Please browse other nearby stores.
+            </p>
+          </div>
+          <button
+            onClick={() => setRoute({ page: 'societyVendors', societyId: societyId || 'all' })}
+            className="w-full py-3.5 px-6 bg-[#541D26] hover:bg-[#6B2732] text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-[0.98] cursor-pointer"
+          >
+            Browse Other Nearby Stores
           </button>
         </div>
       </div>
